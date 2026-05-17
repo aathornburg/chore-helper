@@ -1,0 +1,10 @@
+{
+  "name": "chore-helper",
+  "private": true,
+  "workspaces": ["shared", "server", "web"],
+  "scripts": {
+    "dev": "npm run dev -w server",
+    "test": "npm run test -ws",
+    "typecheck": "npm run typecheck -ws"
+  }
+}
