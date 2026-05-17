@@ -4,9 +4,11 @@
 
 **Goal:** Build the first testable foundation for the chore assistant: React frontend, Express backend, shared types, and an app-owned agent boundary with mock recommendations.
 
-**Architecture:** The React app talks to an Express API. The Express API owns chore/household/recommendation state and calls an internal `AgentProvider` interface. The first implementation uses in-memory repositories and a mock agent provider so the product flow is testable before adding Postgres, Google Calendar OAuth, or real model APIs.
+**Architecture:** The React app talks to an Express API. The Express API owns chore/household/recommendation state and calls an internal `AgentProvider` interface. The first implementation uses in-memory repositories and a mock agent provider so the product flow is testable before adding Postgres, Google Calendar OAuth, or real model APIs. The React app is scaffolded with Vite, while the Express and shared TypeScript packages are added manually.
 
 **Tech Stack:** React, Vite, TypeScript, Express, Vitest, Supertest, Zod.
+
+**Implementation Note:** During execution, the frontend was created with `npm.cmd create vite@latest web -- --template react-ts` to keep normal React/Vite conventions visible for learning. The root npm workspace, shared package, and Express server were added around that scaffold.
 
 ---
 

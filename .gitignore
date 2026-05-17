@@ -50,3 +50,6 @@ prisma/*.db-journal
 # Temporary files
 tmp/
 temp/
+
+# Local browser verification artifacts
+.browser-use-config/
