@@ -41,9 +41,14 @@ export async function createChore(
   return response.json();
 }
 
-export async function generateRecommendations(householdId: string): Promise<Recommendation[]> {
+export async function generateRecommendations(
+  householdId: string,
+  reviewPrompt?: string
+): Promise<Recommendation[]> {
   const response = await fetch(`${API_BASE_URL}/api/households/${householdId}/recommendations`, {
-    method: "POST"
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ reviewPrompt })
   });
 
   if (!response.ok) throw new Error("Failed to generate recommendations");

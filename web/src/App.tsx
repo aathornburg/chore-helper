@@ -21,9 +21,15 @@ function parseFlooring(value: string): FlooringType[] {
   return validTypes.length > 0 ? validTypes : ["unknown"];
 }
 
+function getRecommendationType(recommendation: Recommendation) {
+  if (recommendation.title.startsWith("Add")) return "New chore";
+  if (recommendation.title.startsWith("Review")) return "Existing chore";
+  return "Maintenance";
+}
+
 function App() {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
-  const [status, setStatus] = useState("Ready to learn the lay of the land.");
+  const [status, setStatus] = useState("Ready when you are.");
   const [householdName, setHouseholdName] = useState("Home");
   const [homeType, setHomeType] = useState<HomeType>("house");
   const [rooms, setRooms] = useState("kitchen, bathroom");
@@ -35,10 +41,13 @@ function App() {
   const [choreCadence, setChoreCadence] = useState("weekly");
   const [estimatedMinutes, setEstimatedMinutes] = useState("5");
   const [choreSource, setChoreSource] = useState<"manual" | "google-calendar">("manual");
+  const [reviewPrompt, setReviewPrompt] = useState(
+    "Review my existing setup and suggest practical improvements."
+  );
 
   async function handleGenerate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setStatus("Building household baseline...");
+    setStatus("Gathering household context...");
 
     const household = await createHousehold(householdName);
 
@@ -58,77 +67,103 @@ function App() {
       source: choreSource
     });
 
-    const nextRecommendations = await generateRecommendations(household.id);
+    setStatus("Asking the assistant to review your chore plan...");
+    const nextRecommendations = await generateRecommendations(household.id, reviewPrompt);
     setRecommendations(nextRecommendations);
-    setStatus("Expert suggestions ready.");
+    setStatus("Review complete.");
   }
 
   return (
     <main className="app-shell">
-      <section className="baseline-panel">
-        <p className="eyebrow">Chore Helper</p>
-        <h1>Household Baseline</h1>
-        <p className="lede">
-          Start by giving the assistant enough context to make practical, respectful chore
-          recommendations.
-        </p>
-        <form className="baseline-form" onSubmit={handleGenerate}>
-          <label>
-            Household name
-            <input value={householdName} onChange={(event) => setHouseholdName(event.target.value)} />
-          </label>
+      <form className="dashboard" onSubmit={handleGenerate}>
+        <header className="app-header">
+          <div>
+            <p className="eyebrow">Warm household planning</p>
+            <h1>Chore Helper</h1>
+            <p className="lede">
+              Give the assistant a practical snapshot of your home, one existing chore, and the
+              kind of help you want.
+            </p>
+          </div>
+          <div className="header-action">
+            <p className="status">{status}</p>
+            <button type="submit">Review my chore plan</button>
+          </div>
+        </header>
 
-          <label>
-            Home type
-            <select value={homeType} onChange={(event) => setHomeType(event.target.value as HomeType)}>
-              <option value="house">House</option>
-              <option value="apartment">Apartment</option>
-              <option value="condo">Condo</option>
-              <option value="townhouse">Townhouse</option>
-              <option value="other">Other</option>
-            </select>
-          </label>
+        <section className="dashboard-section" aria-labelledby="household-context-heading">
+          <div className="section-heading">
+            <span>01</span>
+            <div>
+              <h2 id="household-context-heading">Household Context</h2>
+              <p>Start with the home details that shape cadence, effort, and missing chores.</p>
+            </div>
+          </div>
 
-          <label>
-            Rooms
-            <input value={rooms} onChange={(event) => setRooms(event.target.value)} />
-          </label>
+          <div className="field-grid">
+            <label>
+              Household name
+              <input value={householdName} onChange={(event) => setHouseholdName(event.target.value)} />
+            </label>
 
-          <label>
-            Flooring
-            <input value={flooring} onChange={(event) => setFlooring(event.target.value)} />
-          </label>
+            <label>
+              Home type
+              <select value={homeType} onChange={(event) => setHomeType(event.target.value as HomeType)}>
+                <option value="house">House</option>
+                <option value="apartment">Apartment</option>
+                <option value="condo">Condo</option>
+                <option value="townhouse">Townhouse</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
 
-          <label className="checkbox-field">
-            <input
-              checked={hasPets}
-              onChange={(event) => setHasPets(event.target.checked)}
-              type="checkbox"
-            />
-            Has pets
-          </label>
+            <label>
+              Rooms
+              <input value={rooms} onChange={(event) => setRooms(event.target.value)} />
+            </label>
 
-          <label className="checkbox-field">
-            <input
-              checked={hasOutdoorSpace}
-              onChange={(event) => setHasOutdoorSpace(event.target.checked)}
-              type="checkbox"
-            />
-            Has outdoor space
-          </label>
+            <label>
+              Flooring
+              <input value={flooring} onChange={(event) => setFlooring(event.target.value)} />
+            </label>
+          </div>
+
+          <div className="choice-row">
+            <label className="checkbox-field">
+              <input
+                checked={hasPets}
+                onChange={(event) => setHasPets(event.target.checked)}
+                type="checkbox"
+              />
+              Has pets
+            </label>
+
+            <label className="checkbox-field">
+              <input
+                checked={hasOutdoorSpace}
+                onChange={(event) => setHasOutdoorSpace(event.target.checked)}
+                type="checkbox"
+              />
+              Has outdoor space
+            </label>
+          </div>
 
           <label>
             Notes
             <textarea value={notes} onChange={(event) => setNotes(event.target.value)} />
           </label>
+        </section>
 
-          <section className="existing-chore-panel" aria-labelledby="existing-chore-heading">
-            <h2 id="existing-chore-heading">Existing chore</h2>
-            <p>
-              Add one chore you already track so the assistant can begin reviewing cadence,
-              duration, and scope.
-            </p>
+        <section className="dashboard-section" aria-labelledby="existing-chore-heading">
+          <div className="section-heading">
+            <span>02</span>
+            <div>
+              <h2 id="existing-chore-heading">Existing Chore</h2>
+              <p>Add one chore you already track so the assistant can review scope and timing.</p>
+            </div>
+          </div>
 
+          <div className="field-grid">
             <label>
               Chore title
               <input value={choreTitle} onChange={(event) => setChoreTitle(event.target.value)} />
@@ -161,26 +196,58 @@ function App() {
                 <option value="google-calendar">Google Calendar</option>
               </select>
             </label>
-          </section>
+          </div>
+        </section>
 
-          <p className="status">{status}</p>
-          <button type="submit">
-            Generate expert suggestions
-          </button>
-        </form>
-      </section>
-
-      <section className="recommendations" aria-label="Expert suggestions">
-        {recommendations.map((recommendation) => (
-          <article key={recommendation.id} className="recommendation">
+        <section className="dashboard-section agent-section" aria-labelledby="agent-review-heading">
+          <div className="section-heading">
+            <span>03</span>
             <div>
-              <h2>{recommendation.title}</h2>
-              <p>{recommendation.rationale}</p>
+              <h2 id="agent-review-heading">Agent Review</h2>
+              <p>Tell the assistant what kind of guidance would be most useful right now.</p>
             </div>
-            <span>Confidence: {recommendation.confidence}</span>
-          </article>
-        ))}
-      </section>
+          </div>
+
+          <label>
+            Tell the assistant what kind of help would be useful
+            <textarea
+              value={reviewPrompt}
+              onChange={(event) => setReviewPrompt(event.target.value)}
+            />
+          </label>
+        </section>
+
+        <section className="dashboard-section recommendations-section" aria-labelledby="recommendations-heading">
+          <div className="section-heading">
+            <span>04</span>
+            <div>
+              <h2 id="recommendations-heading">Recommendations</h2>
+              <p>Suggestions will appear here with rationale and confidence.</p>
+            </div>
+          </div>
+
+          {recommendations.length === 0 ? (
+            <div className="empty-state">
+              Review your chore plan to see suggested new chores and existing chore improvements.
+            </div>
+          ) : (
+            <div className="recommendation-list">
+              {recommendations.map((recommendation) => (
+                <article key={recommendation.id} className="recommendation">
+                  <div>
+                    <span className="recommendation-type">
+                      {getRecommendationType(recommendation)}
+                    </span>
+                    <h3>{recommendation.title}</h3>
+                    <p>{recommendation.rationale}</p>
+                  </div>
+                  <span className="confidence">Confidence: {recommendation.confidence}</span>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      </form>
     </main>
   );
 }

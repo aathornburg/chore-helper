@@ -10,8 +10,17 @@ describe("App", () => {
   it("renders the household baseline entry point", () => {
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: "Household Baseline" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Generate expert suggestions" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Chore Helper" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Review my chore plan" })).toBeTruthy();
+  });
+
+  it("renders the dashboard journey sections", () => {
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: "Household Context" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Existing Chore" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Agent Review" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Recommendations" })).toBeTruthy();
   });
 
   it("renders editable household context fields", () => {
@@ -29,10 +38,16 @@ describe("App", () => {
   it("renders existing chore fields for optimization context", () => {
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: "Existing chore" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Existing Chore" })).toBeTruthy();
     expect(screen.getByLabelText("Chore title")).toBeTruthy();
     expect(screen.getByLabelText("Cadence")).toBeTruthy();
     expect(screen.getByLabelText("Estimated minutes")).toBeTruthy();
     expect(screen.getByLabelText("Source")).toBeTruthy();
+  });
+
+  it("renders the agent review prompt", () => {
+    render(<App />);
+
+    expect(screen.getByLabelText("Tell the assistant what kind of help would be useful")).toBeTruthy();
   });
 });

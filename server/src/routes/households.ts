@@ -23,6 +23,10 @@ const createChoreSchema = z.object({
   source: z.enum(["manual", "google-calendar"])
 });
 
+const recommendationRequestSchema = z.object({
+  reviewPrompt: z.string().trim().optional()
+});
+
 export function createHouseholdRouter(store: InMemoryStore, agentProvider: AgentProvider) {
   const router = Router();
 
@@ -69,9 +73,13 @@ export function createHouseholdRouter(store: InMemoryStore, agentProvider: Agent
     const household = store.getHousehold(req.params.householdId);
     if (!household) return res.status(404).json({ error: "Household not found" });
 
+    const parsed = recommendationRequestSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid recommendation payload" });
+
     const recommendations = await agentProvider.recommendSetupImprovements({
       household,
-      chores: store.listChores(household.id)
+      chores: store.listChores(household.id),
+      reviewPrompt: parsed.data.reviewPrompt
     });
     return res.status(201).json(store.saveRecommendations(household.id, recommendations));
   });

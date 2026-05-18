@@ -62,6 +62,7 @@ describe("household baseline flow", () => {
 
     const recommendations = await request(app)
       .post(`/api/households/${householdId}/recommendations`)
+      .send({ reviewPrompt: "Review my existing setup and focus on under-scoped chores." })
       .expect(201);
 
     expect(recommendations.body).toEqual(
