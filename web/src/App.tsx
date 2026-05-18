@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { FlooringType, HomeType, Recommendation } from "@chore-helper/shared";
-import { createHousehold, generateRecommendations, saveBaseline } from "./api";
+import { createChore, createHousehold, generateRecommendations, saveBaseline } from "./api";
 import "./App.css";
 
 const allowedFlooringTypes: FlooringType[] = ["carpet", "hardwood", "tile", "mixed", "unknown"];
@@ -31,6 +31,10 @@ function App() {
   const [hasPets, setHasPets] = useState(true);
   const [hasOutdoorSpace, setHasOutdoorSpace] = useState(true);
   const [notes, setNotes] = useState("We already have recurring chores in Google Calendar.");
+  const [choreTitle, setChoreTitle] = useState("Clean bathrooms");
+  const [choreCadence, setChoreCadence] = useState("weekly");
+  const [estimatedMinutes, setEstimatedMinutes] = useState("5");
+  const [choreSource, setChoreSource] = useState<"manual" | "google-calendar">("manual");
 
   async function handleGenerate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -45,6 +49,13 @@ function App() {
       hasPets,
       hasOutdoorSpace,
       notes
+    });
+
+    await createChore(household.id, {
+      title: choreTitle,
+      cadence: choreCadence,
+      estimatedMinutes: Number(estimatedMinutes),
+      source: choreSource
     });
 
     const nextRecommendations = await generateRecommendations(household.id);
@@ -110,6 +121,47 @@ function App() {
             Notes
             <textarea value={notes} onChange={(event) => setNotes(event.target.value)} />
           </label>
+
+          <section className="existing-chore-panel" aria-labelledby="existing-chore-heading">
+            <h2 id="existing-chore-heading">Existing chore</h2>
+            <p>
+              Add one chore you already track so the assistant can begin reviewing cadence,
+              duration, and scope.
+            </p>
+
+            <label>
+              Chore title
+              <input value={choreTitle} onChange={(event) => setChoreTitle(event.target.value)} />
+            </label>
+
+            <label>
+              Cadence
+              <input value={choreCadence} onChange={(event) => setChoreCadence(event.target.value)} />
+            </label>
+
+            <label>
+              Estimated minutes
+              <input
+                min="1"
+                type="number"
+                value={estimatedMinutes}
+                onChange={(event) => setEstimatedMinutes(event.target.value)}
+              />
+            </label>
+
+            <label>
+              Source
+              <select
+                value={choreSource}
+                onChange={(event) =>
+                  setChoreSource(event.target.value as "manual" | "google-calendar")
+                }
+              >
+                <option value="manual">Manual</option>
+                <option value="google-calendar">Google Calendar</option>
+              </select>
+            </label>
+          </section>
 
           <p className="status">{status}</p>
           <button type="submit">

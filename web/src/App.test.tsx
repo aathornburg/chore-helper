@@ -25,4 +25,14 @@ describe("App", () => {
     expect(screen.getByLabelText("Has outdoor space")).toBeTruthy();
     expect(screen.getByLabelText("Notes")).toBeTruthy();
   });
+
+  it("renders existing chore fields for optimization context", () => {
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: "Existing chore" })).toBeTruthy();
+    expect(screen.getByLabelText("Chore title")).toBeTruthy();
+    expect(screen.getByLabelText("Cadence")).toBeTruthy();
+    expect(screen.getByLabelText("Estimated minutes")).toBeTruthy();
+    expect(screen.getByLabelText("Source")).toBeTruthy();
+  });
 });

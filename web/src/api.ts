@@ -1,4 +1,4 @@
-import type { Household, HouseholdBaseline, Recommendation } from "@chore-helper/shared";
+import type { Chore, Household, HouseholdBaseline, Recommendation } from "@chore-helper/shared";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3001";
 
@@ -24,6 +24,20 @@ export async function saveBaseline(
   });
 
   if (!response.ok) throw new Error("Failed to save baseline");
+  return response.json();
+}
+
+export async function createChore(
+  householdId: string,
+  chore: Omit<Chore, "id" | "householdId">
+): Promise<Chore> {
+  const response = await fetch(`${API_BASE_URL}/api/households/${householdId}/chores`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(chore)
+  });
+
+  if (!response.ok) throw new Error("Failed to create chore");
   return response.json();
 }
 
