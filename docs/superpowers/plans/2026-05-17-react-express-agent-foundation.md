@@ -4,11 +4,13 @@
 
 **Goal:** Build the first testable foundation for the chore assistant: React frontend, Express backend, shared types, and an app-owned agent boundary with mock recommendations.
 
-**Architecture:** The React app talks to an Express API. The Express API owns chore/household/recommendation state and calls an internal `AgentProvider` interface. The first implementation uses in-memory repositories and a mock agent provider so the product flow is testable before adding Postgres, Google Calendar OAuth, or real model APIs. The React app is scaffolded with Vite, while the Express and shared TypeScript packages are added manually.
+**Architecture:** The React app talks to an Express API. The Express API owns chore/household/recommendation state and calls an internal `AgentProvider` interface. The first implementation uses in-memory repositories and a mock agent provider so the product flow is testable before adding Postgres, Google Calendar OAuth, or the OpenAI Agents SDK. The React app is scaffolded with Vite, while the Express and shared TypeScript packages are added manually.
 
 **Tech Stack:** React, Vite, TypeScript, Express, Vitest, Supertest, Zod.
 
 **Implementation Note:** During execution, the frontend was created with `npm.cmd create vite@latest web -- --template react-ts` to keep normal React/Vite conventions visible for learning. The root npm workspace, shared package, and Express server were added around that scaffold.
+
+**Agent Integration Decision:** The real agent implementation should use the OpenAI Agents SDK for TypeScript, not a one-off raw Responses API integration. The SDK should be introduced behind the existing server-side `AgentProvider` boundary so the React app and product API do not depend directly on OpenAI-specific types.
 
 ---
 
@@ -729,6 +731,6 @@ git commit -m "docs: update chore agent foundation plan"
 
 ## Self-Review
 
-- Spec coverage: This plan covers the selected React + Express stack, app-owned agent boundary, household baseline, recommendations with rationale/confidence, and internal API ownership. It intentionally leaves Google Calendar OAuth, Postgres persistence, authentication, and real model calls for follow-up plans.
+- Spec coverage: This plan covers the selected React + Express stack, app-owned agent boundary, household baseline, recommendations with rationale/confidence, and internal API ownership. It intentionally leaves Google Calendar OAuth, Postgres persistence, authentication, and OpenAI Agents SDK integration for follow-up plans.
 - Placeholder scan: No placeholder tasks remain.
 - Type consistency: Shared types are used by both server and web. The mock provider returns the same `Recommendation` shape consumed by the API and React screen.

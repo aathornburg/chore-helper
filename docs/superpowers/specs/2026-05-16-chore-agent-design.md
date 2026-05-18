@@ -154,7 +154,7 @@ These boundaries make future public API exposure easier without requiring the fi
 
 ## Technical Direction
 
-Use app-owned agent orchestration rather than a Bedrock-hosted agent for the first version. The backend starts and controls agent runs, exposes a curated set of internal tool functions, stores all recommendation and approval state, and calls the selected model or agent SDK as a dependency.
+Use app-owned agent orchestration rather than a Bedrock-hosted agent for the first version. The backend starts and controls agent runs, exposes a curated set of internal tool functions, stores all recommendation and approval state, and calls the OpenAI Agents SDK as a dependency when the real agent integration is added.
 
 Use a React frontend with an Express backend. This keeps the full application in TypeScript while giving room to learn React incrementally. The backend should own the product API, Google Calendar integration, chore domain model, recommendation approval workflow, and agent tool surface.
 
@@ -165,7 +165,9 @@ Recommended starting stack:
 - Postgres for persistent product data.
 - Prisma or Drizzle for database access.
 - A background worker for calendar import and agent runs.
-- An agent provider adapter so the app can start with one SDK/API and switch later without rewriting product logic.
+- An OpenAI Agents SDK provider behind the backend `AgentProvider` interface.
+
+The app should keep the provider boundary even after adopting the OpenAI Agents SDK. React should call the product API, the product API should call `AgentProvider`, and the OpenAI-specific implementation should live behind that interface. This keeps the UI and chore domain code independent from SDK details.
 
 ## Agent Behavior
 
