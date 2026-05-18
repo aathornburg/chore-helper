@@ -28,27 +28,47 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Get Started" }));
 
     expect(screen.getByRole("heading", { name: "Today" })).toBeTruthy();
-    expect(screen.getByText("Plan health")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Set up household" })).toBeTruthy();
   });
 
-  it("renders the app shell navigation", () => {
+  it("renders compact top app navigation", () => {
     renderAt("/today");
 
     expect(screen.getByRole("link", { name: "Today" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Setup" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Plan" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Family" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Settings" })).toBeTruthy();
   });
 
-  it("renders the Today dashboard overview", () => {
+  it("renders a first-time Today page without the full dense dashboard", () => {
     renderAt("/today");
 
-    expect(screen.getByText("Plan health")).toBeTruthy();
-    expect(screen.getByText("Coverage gaps")).toBeTruthy();
-    expect(screen.getByText("Setup checklist")).toBeTruthy();
-    expect(screen.getByText("People")).toBeTruthy();
-    expect(screen.getByText("Current chores")).toBeTruthy();
-    expect(screen.getByText("Week view")).toBeTruthy();
+    expect(screen.getByText("Let's get your household context set up.")).toBeTruthy();
+    expect(screen.getByText("What comes next")).toBeTruthy();
+    expect(screen.getByText("Plan health preview")).toBeTruthy();
+    expect(screen.queryByText("Current chores")).toBeNull();
+    expect(screen.queryByText("Week view")).toBeNull();
+  });
+
+  it("routes the first-time setup action to household setup", () => {
+    renderAt("/today");
+
+    fireEvent.click(screen.getByRole("button", { name: "Set up household" }));
+
+    expect(screen.getByRole("heading", { name: "Household setup" })).toBeTruthy();
+    expect(screen.getByLabelText("Home type")).toBeTruthy();
+  });
+
+  it("renders household basics on the setup page", () => {
+    renderAt("/setup");
+
+    expect(screen.getByLabelText("Home type")).toBeTruthy();
+    expect(screen.getByLabelText("Rooms")).toBeTruthy();
+    expect(screen.getByLabelText("Flooring")).toBeTruthy();
+    expect(screen.getByLabelText("Has pets")).toBeTruthy();
+    expect(screen.getByLabelText("Has outdoor space")).toBeTruthy();
+    expect(screen.getByLabelText("Notes")).toBeTruthy();
   });
 
   it("keeps the Plan recommendation submit flow working", async () => {

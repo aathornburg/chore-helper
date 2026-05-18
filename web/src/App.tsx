@@ -1,16 +1,13 @@
 import { useEffect, useState } from "react";
+import type { HomeType } from "@chore-helper/shared";
 import {
-  demoChores,
   demoHousehold,
-  demoPeople,
-  demoPlanHealth,
-  demoWeek,
   setupChecklist
 } from "./demoData";
 import { PlanReview } from "./PlanReview";
 import "./App.css";
 
-const routes = ["/today", "/plan", "/family", "/settings"] as const;
+const routes = ["/today", "/setup", "/plan", "/family", "/settings"] as const;
 type AppRoute = (typeof routes)[number];
 
 function normalizePath(pathname: string) {
@@ -41,6 +38,7 @@ function App() {
   return (
     <AppShell currentPath={path} onNavigate={navigate}>
       {path === "/today" ? <TodayDashboard onNavigate={navigate} /> : null}
+      {path === "/setup" ? <SetupPage /> : null}
       {path === "/plan" ? <PlanReview /> : null}
       {path === "/family" ? <FamilyPage /> : null}
       {path === "/settings" ? <SettingsPage /> : null}
@@ -119,6 +117,7 @@ function AppShell({
 }) {
   const navItems = [
     { label: "Today", path: "/today" },
+    { label: "Setup", path: "/setup" },
     { label: "Plan", path: "/plan" },
     { label: "Family", path: "/family" },
     { label: "Settings", path: "/settings" }
@@ -126,7 +125,7 @@ function AppShell({
 
   return (
     <div className="workspace-shell">
-      <aside className="workspace-sidebar">
+      <header className="workspace-topbar">
         <a className="brand-mark" href="/" onClick={(event) => {
           event.preventDefault();
           onNavigate("/");
@@ -148,7 +147,7 @@ function AppShell({
             </a>
           ))}
         </nav>
-      </aside>
+      </header>
 
       <main className="workspace-main">{children}</main>
     </div>
@@ -157,101 +156,148 @@ function AppShell({
 
 function TodayDashboard({ onNavigate }: { onNavigate: (path: string) => void }) {
   return (
-    <div className="dashboard-page">
-      <header className="workspace-hero">
+    <div className="dashboard-page first-time-dashboard">
+      <header className="workspace-hero first-time-hero">
         <div>
-          <p className="eyebrow">Command center</p>
+          <p className="eyebrow">First household setup</p>
           <h1>Today</h1>
           <p className="lede">
-            A high-level view of chore health, current routines, family load, and what needs expert
-            review next.
+            Let's get your household context set up.
+          </p>
+          <p className="supporting-copy">
+            A few home details give the assistant enough context to review chores with better
+            cadence, effort, and coverage recommendations.
           </p>
         </div>
-        <button onClick={() => onNavigate("/plan")} type="button">Open Plan review</button>
+        <button onClick={() => onNavigate("/setup")} type="button">Set up household</button>
       </header>
 
-      <section className="panel plan-health-panel" aria-labelledby="plan-health-heading">
-        <div className="panel-heading">
-          <div>
-            <p className="eyebrow">Optimization overview</p>
-            <h2 id="plan-health-heading">Plan health</h2>
+      <div className="first-time-grid">
+        <section className="panel setup-focus-panel" aria-labelledby="next-step-heading">
+          <p className="eyebrow">Next best action</p>
+          <h2 id="next-step-heading">Start with household basics</h2>
+          <p>
+            Tell Chore Helper about the home type, rooms, floors, pets, outdoor space, and any
+            notes that affect recurring work.
+          </p>
+          <button onClick={() => onNavigate("/setup")} type="button">Continue setup</button>
+        </section>
+
+        <section className="panel" aria-labelledby="plan-preview-heading">
+          <div className="panel-heading">
+            <h2 id="plan-preview-heading">Plan health preview</h2>
+            <span>Unlocks after setup</span>
           </div>
-          <span>{demoHousehold.contextCompleteness}% context complete</span>
-        </div>
-        <div className="metric-grid">
-          {demoPlanHealth.map((metric) => (
-            <article className={`metric-card ${metric.tone}`} key={metric.label}>
-              <span>{metric.label}</span>
-              <strong>{metric.value}</strong>
-              <p>{metric.detail}</p>
+          <div className="preview-health-list">
+            <article>
+              <strong>Coverage gaps</strong>
+              <p>Spot chores missing from your current routine.</p>
             </article>
-          ))}
-        </div>
-      </section>
-
-      <div className="dashboard-grid">
-        <section className="panel setup-panel" aria-labelledby="setup-heading">
-          <div className="panel-heading">
-            <h2 id="setup-heading">Setup checklist</h2>
-            <span>{demoHousehold.name}</span>
-          </div>
-          <ul className="checklist">
-            {setupChecklist.map((item) => (
-              <li className={item.complete ? "complete" : ""} key={item.label}>
-                <span>{item.complete ? "Done" : "Next"}</span>
-                {item.label}
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section className="panel" aria-labelledby="people-heading">
-          <h2 id="people-heading">People</h2>
-          <div className="people-list">
-            {demoPeople.map((person) => (
-              <article key={person.name}>
-                <strong>{person.name}</strong>
-                <span>{person.load}</span>
-                <p>{person.role}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="panel wide-panel" aria-labelledby="chores-heading">
-          <div className="panel-heading">
-            <h2 id="chores-heading">Current chores</h2>
-            <span>{demoChores.length} tracked routines</span>
-          </div>
-          <div className="chore-table">
-            {demoChores.map((chore) => (
-              <article key={chore.title}>
-                <strong>{chore.title}</strong>
-                <span>{chore.cadence}</span>
-                <span>{chore.owner}</span>
-                <em>{chore.signal}</em>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="panel wide-panel" aria-labelledby="week-heading">
-          <div className="panel-heading">
-            <h2 id="week-heading">Week view</h2>
-            <span>{demoHousehold.homeType} / {demoHousehold.rooms} rooms</span>
-          </div>
-          <div className="week-strip">
-            {demoWeek.map((day) => (
-              <article key={day.day}>
-                <strong>{day.day}</strong>
-                {day.chores.map((chore) => (
-                  <span key={chore}>{chore}</span>
-                ))}
-              </article>
-            ))}
+            <article>
+              <strong>Cadence risks</strong>
+              <p>Review chores that may be too frequent or too rare.</p>
+            </article>
+            <article>
+              <strong>Duration concerns</strong>
+              <p>Catch estimates that may be too short to be realistic.</p>
+            </article>
           </div>
         </section>
       </div>
+
+      <section className="panel" aria-labelledby="what-next-heading">
+        <div className="panel-heading">
+          <h2 id="what-next-heading">What comes next</h2>
+          <span>{demoHousehold.name}</span>
+        </div>
+        <ol className="next-step-list">
+          {setupChecklist.map((item) => (
+            <li key={item.label}>
+              <span>{item.complete ? "Ready" : "Later"}</span>
+              {item.label}
+            </li>
+          ))}
+        </ol>
+      </section>
+    </div>
+  );
+}
+
+function SetupPage() {
+  const [homeType, setHomeType] = useState<HomeType>("house");
+  const [rooms, setRooms] = useState("kitchen, bathrooms, bedrooms");
+  const [flooring, setFlooring] = useState("hardwood, tile, carpet");
+  const [hasPets, setHasPets] = useState(true);
+  const [hasOutdoorSpace, setHasOutdoorSpace] = useState(true);
+  const [notes, setNotes] = useState("We already use Google Calendar for recurring chores.");
+
+  return (
+    <div className="setup-page">
+      <header className="workspace-hero compact-hero">
+        <div>
+          <p className="eyebrow">Household basics</p>
+          <h1>Household setup</h1>
+          <p className="lede">
+            Start with the context the assistant needs before reviewing cadence, coverage, and
+            estimated effort.
+          </p>
+        </div>
+      </header>
+
+      <form className="panel setup-form">
+        <div className="field-grid">
+          <label>
+            Home type
+            <select value={homeType} onChange={(event) => setHomeType(event.target.value as HomeType)}>
+              <option value="house">House</option>
+              <option value="apartment">Apartment</option>
+              <option value="condo">Condo</option>
+              <option value="townhouse">Townhouse</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+
+          <label>
+            Rooms
+            <input value={rooms} onChange={(event) => setRooms(event.target.value)} />
+          </label>
+
+          <label>
+            Flooring
+            <input value={flooring} onChange={(event) => setFlooring(event.target.value)} />
+          </label>
+        </div>
+
+        <div className="choice-row">
+          <label className="checkbox-field">
+            <input
+              checked={hasPets}
+              onChange={(event) => setHasPets(event.target.checked)}
+              type="checkbox"
+            />
+            Has pets
+          </label>
+
+          <label className="checkbox-field">
+            <input
+              checked={hasOutdoorSpace}
+              onChange={(event) => setHasOutdoorSpace(event.target.checked)}
+              type="checkbox"
+            />
+            Has outdoor space
+          </label>
+        </div>
+
+        <label>
+          Notes
+          <textarea value={notes} onChange={(event) => setNotes(event.target.value)} />
+        </label>
+
+        <div className="form-footer">
+          <button type="button">Save basics</button>
+          <span>People and calendar setup come later.</span>
+        </div>
+      </form>
     </div>
   );
 }

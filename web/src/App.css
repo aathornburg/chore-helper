@@ -185,22 +185,27 @@ button:hover {
 
 .workspace-shell {
   display: grid;
-  grid-template-columns: 244px minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
 }
 
-.workspace-sidebar {
+.workspace-topbar {
+  align-items: center;
   background: rgba(255, 252, 247, 0.9);
-  border-right: 1px solid #e3d7ca;
-  display: grid;
-  gap: 30px;
-  grid-template-rows: auto 1fr;
-  min-height: 100vh;
-  padding: 28px 22px;
+  border-bottom: 1px solid #e3d7ca;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  padding: 18px 34px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .workspace-nav {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+  justify-content: flex-end;
 }
 
 .workspace-nav a {
@@ -222,6 +227,7 @@ button:hover {
 }
 
 .dashboard-page,
+.setup-page,
 .plan-review {
   display: grid;
   gap: 20px;
@@ -238,6 +244,13 @@ button:hover {
   padding: 30px;
 }
 
+.first-time-hero {
+  align-items: center;
+  background:
+    linear-gradient(135deg, rgba(255, 252, 247, 0.98), rgba(239, 247, 235, 0.94)),
+    #fffdf9;
+}
+
 .compact-hero {
   background: #fffdf9;
 }
@@ -250,6 +263,98 @@ button:hover {
 
 .status {
   margin: 0;
+}
+
+.supporting-copy {
+  color: #5e625b;
+  line-height: 1.55;
+  margin: 12px 0 0;
+  max-width: 720px;
+}
+
+.first-time-grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: 0.95fr 1.05fr;
+}
+
+.setup-focus-panel {
+  align-content: start;
+  background: #fbfdf8;
+  border-color: #d7e4d5;
+  display: grid;
+  gap: 14px;
+}
+
+.setup-focus-panel h2 {
+  font-size: 1.6rem;
+}
+
+.setup-focus-panel button {
+  justify-self: start;
+}
+
+.preview-health-list,
+.next-step-list {
+  display: grid;
+  gap: 12px;
+}
+
+.preview-health-list article,
+.next-step-list li {
+  background: #fffefa;
+  border: 1px solid #eaded1;
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.preview-health-list p {
+  margin: 6px 0 0;
+}
+
+.next-step-list {
+  counter-reset: setup-step;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.next-step-list li {
+  align-items: center;
+  counter-increment: setup-step;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: auto 1fr;
+}
+
+.next-step-list li::before {
+  align-items: center;
+  background: #dfeade;
+  border-radius: 999px;
+  color: #2f694d;
+  content: counter(setup-step);
+  display: inline-flex;
+  font-weight: 850;
+  height: 30px;
+  justify-content: center;
+  width: 30px;
+}
+
+.setup-form {
+  display: grid;
+  gap: 18px;
+}
+
+.form-footer {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.form-footer span {
+  color: #5e625b;
+  font-weight: 700;
 }
 
 .plan-health-panel {
@@ -623,12 +728,8 @@ textarea {
   .landing-hero,
   .workspace-hero,
   .dashboard-grid,
-  .workspace-shell {
+  .first-time-grid {
     grid-template-columns: 1fr;
-  }
-
-  .workspace-sidebar {
-    min-height: auto;
   }
 
   .workspace-nav {
@@ -646,6 +747,16 @@ textarea {
   .landing-page,
   .workspace-main {
     padding: 18px;
+  }
+
+  .workspace-topbar {
+    align-items: start;
+    display: grid;
+    padding: 16px 18px;
+  }
+
+  .workspace-nav {
+    justify-content: start;
   }
 
   .hero-copy h1,
