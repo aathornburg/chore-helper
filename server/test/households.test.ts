@@ -39,4 +39,39 @@ describe("household baseline flow", () => {
       ])
     );
   });
+
+  it("flags existing chores that look under-scoped for their ask", async () => {
+    const app = createApp();
+
+    const created = await request(app)
+      .post("/api/households")
+      .send({ name: "Home" })
+      .expect(201);
+
+    const householdId = created.body.id;
+
+    await request(app)
+      .post(`/api/households/${householdId}/chores`)
+      .send({
+        title: "Clean bathrooms",
+        cadence: "weekly",
+        estimatedMinutes: 5,
+        source: "manual"
+      })
+      .expect(201);
+
+    const recommendations = await request(app)
+      .post(`/api/households/${householdId}/recommendations`)
+      .expect(201);
+
+    expect(recommendations.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          title: "Review duration for Clean bathrooms",
+          confidence: "high",
+          status: "pending"
+        })
+      ])
+    );
+  });
 });

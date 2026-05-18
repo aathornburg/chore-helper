@@ -16,6 +16,13 @@ const baselineSchema = z.object({
   notes: z.string().optional()
 });
 
+const createChoreSchema = z.object({
+  title: z.string().min(1),
+  cadence: z.string().min(1),
+  estimatedMinutes: z.number().int().positive(),
+  source: z.enum(["manual", "google-calendar"])
+});
+
 export function createHouseholdRouter(store: InMemoryStore, agentProvider: AgentProvider) {
   const router = Router();
 
@@ -36,11 +43,36 @@ export function createHouseholdRouter(store: InMemoryStore, agentProvider: Agent
     return res.status(200).json(household);
   });
 
+  router.post("/:householdId/chores", (req, res) => {
+    const household = store.getHousehold(req.params.householdId);
+    if (!household) return res.status(404).json({ error: "Household not found" });
+
+    const parsed = createChoreSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid chore payload" });
+
+    const chore = store.createChore({
+      ...parsed.data,
+      householdId: household.id
+    });
+
+    return res.status(201).json(chore);
+  });
+
+  router.get("/:householdId/chores", (req, res) => {
+    const household = store.getHousehold(req.params.householdId);
+    if (!household) return res.status(404).json({ error: "Household not found" });
+
+    return res.status(200).json(store.listChores(household.id));
+  });
+
   router.post("/:householdId/recommendations", async (req, res) => {
     const household = store.getHousehold(req.params.householdId);
     if (!household) return res.status(404).json({ error: "Household not found" });
 
-    const recommendations = await agentProvider.recommendSetupImprovements(household);
+    const recommendations = await agentProvider.recommendSetupImprovements({
+      household,
+      chores: store.listChores(household.id)
+    });
     return res.status(201).json(store.saveRecommendations(household.id, recommendations));
   });
 

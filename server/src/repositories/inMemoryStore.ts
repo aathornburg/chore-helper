@@ -1,14 +1,17 @@
-import type { Household, HouseholdBaseline, Recommendation } from "@chore-helper/shared";
+import type { Chore, Household, HouseholdBaseline, Recommendation } from "@chore-helper/shared";
 
 export type InMemoryStore = {
   createHousehold(name: string): Household;
   updateBaseline(householdId: string, baseline: HouseholdBaseline): Household | undefined;
   getHousehold(householdId: string): Household | undefined;
+  createChore(chore: Omit<Chore, "id">): Chore;
+  listChores(householdId: string): Chore[];
   saveRecommendations(householdId: string, recommendations: Recommendation[]): Recommendation[];
 };
 
 export function createInMemoryStore(): InMemoryStore {
   const households = new Map<string, Household>();
+  const chores = new Map<string, Chore[]>();
   const recommendations = new Map<string, Recommendation[]>();
 
   return {
@@ -29,6 +32,17 @@ export function createInMemoryStore(): InMemoryStore {
 
     getHousehold(householdId) {
       return households.get(householdId);
+    },
+
+    createChore(chore) {
+      const created = { ...chore, id: crypto.randomUUID() };
+      const existingChores = chores.get(chore.householdId) ?? [];
+      chores.set(chore.householdId, [...existingChores, created]);
+      return created;
+    },
+
+    listChores(householdId) {
+      return chores.get(householdId) ?? [];
     },
 
     saveRecommendations(householdId, nextRecommendations) {

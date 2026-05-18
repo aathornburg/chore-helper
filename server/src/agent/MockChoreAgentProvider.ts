@@ -1,8 +1,11 @@
-import type { Household, Recommendation } from "@chore-helper/shared";
-import type { AgentProvider } from "./AgentProvider.js";
+import type { Recommendation } from "@chore-helper/shared";
+import type { AgentProvider, AgentRecommendationContext } from "./AgentProvider.js";
 
 export class MockChoreAgentProvider implements AgentProvider {
-  async recommendSetupImprovements(household: Household): Promise<Recommendation[]> {
+  async recommendSetupImprovements({
+    household,
+    chores
+  }: AgentRecommendationContext): Promise<Recommendation[]> {
     const baseline = household.baseline;
     const recommendations: Recommendation[] = [];
 
@@ -28,6 +31,23 @@ export class MockChoreAgentProvider implements AgentProvider {
         confidence: "high",
         status: "pending"
       });
+    }
+
+    for (const chore of chores) {
+      const looksLikeBathroomCleaning = chore.title.toLowerCase().includes("bathroom");
+      const looksUnderScoped = looksLikeBathroomCleaning && chore.estimatedMinutes < 15;
+
+      if (looksUnderScoped) {
+        recommendations.push({
+          id: crypto.randomUUID(),
+          householdId: household.id,
+          title: `Review duration for ${chore.title}`,
+          rationale:
+            "Bathroom cleaning usually includes several surfaces and reset steps. A very short estimate may cause the chore to be rushed or repeatedly deferred.",
+          confidence: "high",
+          status: "pending"
+        });
+      }
     }
 
     return recommendations;
