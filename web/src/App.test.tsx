@@ -1,66 +1,89 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+
+function renderAt(path: string) {
+  window.history.pushState({}, "", path);
+  return render(<App />);
+}
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
+  window.history.pushState({}, "", "/");
 });
 
 describe("App", () => {
-  it("renders the household baseline entry point", () => {
-    render(<App />);
+  it("renders the landing hero with a get started action", () => {
+    renderAt("/");
 
     expect(screen.getByRole("heading", { name: "Chore Helper" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Review my chore plan" })).toBeTruthy();
+    expect(screen.getByText("Make household work visible, fair, and easier to adjust.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Get Started" })).toBeTruthy();
   });
 
-  it("renders the accordion journey sections", () => {
-    render(<App />);
+  it("routes get started to the Today command center", () => {
+    renderAt("/");
 
-    expect(screen.getByRole("heading", { name: "Household Context" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Existing Chore" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Agent Review" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Recommendations" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Get Started" }));
+
+    expect(screen.getByRole("heading", { name: "Today" })).toBeTruthy();
+    expect(screen.getByText("Plan health")).toBeTruthy();
   });
 
-  it("only shows household context inputs on initial load", () => {
-    render(<App />);
+  it("renders the app shell navigation", () => {
+    renderAt("/today");
 
-    expect(screen.getByLabelText("Household name")).toBeTruthy();
-    expect(screen.getByLabelText("Home type")).toBeTruthy();
-    expect(screen.getByLabelText("Rooms")).toBeTruthy();
-    expect(screen.getByLabelText("Flooring")).toBeTruthy();
-    expect(screen.getByLabelText("Has pets")).toBeTruthy();
-    expect(screen.getByLabelText("Has outdoor space")).toBeTruthy();
-    expect(screen.getByLabelText("Notes")).toBeTruthy();
-    expect(screen.queryByLabelText("Chore title")).toBeNull();
-    expect(screen.queryByLabelText("Tell the assistant what kind of help would be useful")).toBeNull();
+    expect(screen.getByRole("link", { name: "Today" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Plan" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Family" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Settings" })).toBeTruthy();
   });
 
-  it("shows an existing chore summary before its inputs are expanded", () => {
-    render(<App />);
+  it("renders the Today dashboard overview", () => {
+    renderAt("/today");
 
-    expect(screen.getByRole("heading", { name: "Existing Chore" })).toBeTruthy();
-    expect(screen.getByText("Clean bathrooms / weekly / 5 min / manual")).toBeTruthy();
-    expect(screen.queryByLabelText("Chore title")).toBeNull();
+    expect(screen.getByText("Plan health")).toBeTruthy();
+    expect(screen.getByText("Coverage gaps")).toBeTruthy();
+    expect(screen.getByText("Setup checklist")).toBeTruthy();
+    expect(screen.getByText("People")).toBeTruthy();
+    expect(screen.getByText("Current chores")).toBeTruthy();
+    expect(screen.getByText("Week view")).toBeTruthy();
   });
 
-  it("reveals existing chore inputs when the section is edited", () => {
-    render(<App />);
+  it("keeps the Plan recommendation submit flow working", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: "household-1", name: "Home" })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: "household-1", name: "Home" })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: "chore-1", title: "Clean bathrooms" })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            id: "recommendation-1",
+            title: "Review duration for Clean bathrooms",
+            rationale: "The current estimate may be too short for the scope.",
+            confidence: "high"
+          }
+        ]
+      });
+    vi.stubGlobal("fetch", fetchMock);
+    renderAt("/plan");
 
-    fireEvent.click(screen.getByRole("button", { name: "Edit Existing Chore" }));
+    fireEvent.click(screen.getByRole("button", { name: "Review my chore plan" }));
 
-    expect(screen.getByLabelText("Chore title")).toBeTruthy();
-    expect(screen.getByLabelText("Cadence")).toBeTruthy();
-    expect(screen.getByLabelText("Estimated minutes")).toBeTruthy();
-    expect(screen.getByLabelText("Source")).toBeTruthy();
-  });
-
-  it("reveals the agent review prompt when the section is edited", () => {
-    render(<App />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Edit Agent Review" }));
-
-    expect(screen.getByLabelText("Tell the assistant what kind of help would be useful")).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByText("Review duration for Clean bathrooms")).toBeTruthy();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 });

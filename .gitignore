@@ -53,3 +53,4 @@ temp/
 
 # Local browser verification artifacts
 .browser-use-config/
+.superpowers/

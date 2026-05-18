@@ -1,338 +1,284 @@
-import { useState } from "react";
-import type { FlooringType, HomeType, Recommendation } from "@chore-helper/shared";
-import { createChore, createHousehold, generateRecommendations, saveBaseline } from "./api";
+import { useEffect, useState } from "react";
+import {
+  demoChores,
+  demoHousehold,
+  demoPeople,
+  demoPlanHealth,
+  demoWeek,
+  setupChecklist
+} from "./demoData";
+import { PlanReview } from "./PlanReview";
 import "./App.css";
 
-const allowedFlooringTypes: FlooringType[] = ["carpet", "hardwood", "tile", "mixed", "unknown"];
-type EditableSection = "household" | "chore" | "agent";
+const routes = ["/today", "/plan", "/family", "/settings"] as const;
+type AppRoute = (typeof routes)[number];
 
-function parseList(value: string) {
-  return value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function parseFlooring(value: string): FlooringType[] {
-  const requestedTypes = parseList(value).map((item) => item.toLowerCase());
-  const validTypes = requestedTypes.filter((item): item is FlooringType =>
-    allowedFlooringTypes.includes(item as FlooringType)
-  );
-
-  return validTypes.length > 0 ? validTypes : ["unknown"];
-}
-
-function getRecommendationType(recommendation: Recommendation) {
-  if (recommendation.title.startsWith("Add")) return "New chore";
-  if (recommendation.title.startsWith("Review")) return "Existing chore";
-  return "Maintenance";
-}
-
-function getPromptPreview(prompt: string) {
-  const trimmedPrompt = prompt.trim();
-
-  if (!trimmedPrompt) return "No specific request yet.";
-  if (trimmedPrompt.length <= 96) return trimmedPrompt;
-
-  return `${trimmedPrompt.slice(0, 93)}...`;
+function normalizePath(pathname: string) {
+  return routes.includes(pathname as AppRoute) ? (pathname as AppRoute) : "/";
 }
 
 function App() {
-  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
-  const [status, setStatus] = useState("Ready when you are.");
-  const [expandedSection, setExpandedSection] = useState<EditableSection>("household");
-  const [householdName, setHouseholdName] = useState("Home");
-  const [homeType, setHomeType] = useState<HomeType>("house");
-  const [rooms, setRooms] = useState("kitchen, bathroom");
-  const [flooring, setFlooring] = useState("hardwood, tile");
-  const [hasPets, setHasPets] = useState(true);
-  const [hasOutdoorSpace, setHasOutdoorSpace] = useState(true);
-  const [notes, setNotes] = useState("We already have recurring chores in Google Calendar.");
-  const [choreTitle, setChoreTitle] = useState("Clean bathrooms");
-  const [choreCadence, setChoreCadence] = useState("weekly");
-  const [estimatedMinutes, setEstimatedMinutes] = useState("5");
-  const [choreSource, setChoreSource] = useState<"manual" | "google-calendar">("manual");
-  const [reviewPrompt, setReviewPrompt] = useState(
-    "Review my existing setup and suggest practical improvements."
-  );
-  const householdSummary = `${homeType} / ${parseList(rooms).length || 0} rooms / ${flooring} / ${
-    hasPets ? "pets" : "no pets"
-  } / ${hasOutdoorSpace ? "outdoor space" : "no outdoor space"}`;
-  const choreSummary = `${choreTitle || "Untitled chore"} / ${choreCadence || "cadence"} / ${
-    estimatedMinutes || "?"
-  } min / ${choreSource}`;
-  const agentSummary = getPromptPreview(reviewPrompt);
+  const [path, setPath] = useState(() => normalizePath(window.location.pathname));
 
-  function toggleSection(section: EditableSection) {
-    setExpandedSection((currentSection) => (currentSection === section ? "household" : section));
+  useEffect(() => {
+    function handlePopState() {
+      setPath(normalizePath(window.location.pathname));
+    }
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  function navigate(nextPath: string) {
+    window.history.pushState({}, "", nextPath);
+    setPath(normalizePath(nextPath));
   }
 
-  async function handleGenerate(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setStatus("Gathering household context...");
-
-    const household = await createHousehold(householdName);
-
-    await saveBaseline(household.id, {
-      homeType,
-      rooms: parseList(rooms),
-      flooring: parseFlooring(flooring),
-      hasPets,
-      hasOutdoorSpace,
-      notes
-    });
-
-    await createChore(household.id, {
-      title: choreTitle,
-      cadence: choreCadence,
-      estimatedMinutes: Number(estimatedMinutes),
-      source: choreSource
-    });
-
-    setStatus("Asking the assistant to review your chore plan...");
-    const nextRecommendations = await generateRecommendations(household.id, reviewPrompt);
-    setRecommendations(nextRecommendations);
-    setStatus("Review complete.");
+  if (path === "/") {
+    return <LandingPage onGetStarted={() => navigate("/today")} />;
   }
 
   return (
-    <main className="app-shell">
-      <form className="dashboard" onSubmit={handleGenerate}>
-        <header className="app-header">
-          <div>
-            <p className="eyebrow">Warm household planning</p>
-            <h1>Chore Helper</h1>
-            <p className="lede">
-              Give the assistant a practical snapshot of your home, one existing chore, and the
-              kind of help you want.
-            </p>
-          </div>
-          <div className="header-action">
-            <p className="status">{status}</p>
-            <button type="submit">Review my chore plan</button>
-          </div>
-        </header>
+    <AppShell currentPath={path} onNavigate={navigate}>
+      {path === "/today" ? <TodayDashboard onNavigate={navigate} /> : null}
+      {path === "/plan" ? <PlanReview /> : null}
+      {path === "/family" ? <FamilyPage /> : null}
+      {path === "/settings" ? <SettingsPage /> : null}
+    </AppShell>
+  );
+}
 
-        <section
-          className={`dashboard-section ${expandedSection === "household" ? "is-expanded" : "is-collapsed"}`}
-          aria-labelledby="household-context-heading"
-        >
-          <div className="section-heading">
-            <div className="section-title">
-              <span>01</span>
-              <div>
-                <h2 id="household-context-heading">Household Context</h2>
-                <p>Start with the home details that shape cadence, effort, and missing chores.</p>
-              </div>
-            </div>
-            <button
-              className="section-action"
-              onClick={() => toggleSection("household")}
-              type="button"
-            >
-              {expandedSection === "household" ? "Collapse Household Context" : "Edit Household Context"}
-            </button>
-          </div>
+function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
+  return (
+    <main className="landing-page">
+      <nav className="landing-nav" aria-label="Landing">
+        <a href="/" onClick={(event) => event.preventDefault()}>
+          Chore Helper
+        </a>
+        <button onClick={onGetStarted} type="button">Open app</button>
+      </nav>
 
-          <p className="section-summary">{householdSummary}</p>
-
-          {expandedSection === "household" ? (
-            <div className="section-body">
-              <div className="field-grid">
-                <label>
-                  Household name
-                  <input value={householdName} onChange={(event) => setHouseholdName(event.target.value)} />
-                </label>
-
-                <label>
-                  Home type
-                  <select value={homeType} onChange={(event) => setHomeType(event.target.value as HomeType)}>
-                    <option value="house">House</option>
-                    <option value="apartment">Apartment</option>
-                    <option value="condo">Condo</option>
-                    <option value="townhouse">Townhouse</option>
-                    <option value="other">Other</option>
-                  </select>
-                </label>
-
-                <label>
-                  Rooms
-                  <input value={rooms} onChange={(event) => setRooms(event.target.value)} />
-                </label>
-
-                <label>
-                  Flooring
-                  <input value={flooring} onChange={(event) => setFlooring(event.target.value)} />
-                </label>
-              </div>
-
-              <div className="choice-row">
-                <label className="checkbox-field">
-                  <input
-                    checked={hasPets}
-                    onChange={(event) => setHasPets(event.target.checked)}
-                    type="checkbox"
-                  />
-                  Has pets
-                </label>
-
-                <label className="checkbox-field">
-                  <input
-                    checked={hasOutdoorSpace}
-                    onChange={(event) => setHasOutdoorSpace(event.target.checked)}
-                    type="checkbox"
-                  />
-                  Has outdoor space
-                </label>
-              </div>
-
-              <label>
-                Notes
-                <textarea value={notes} onChange={(event) => setNotes(event.target.value)} />
-              </label>
-            </div>
-          ) : null}
-        </section>
-
-        <section
-          className={`dashboard-section ${expandedSection === "chore" ? "is-expanded" : "is-collapsed"}`}
-          aria-labelledby="existing-chore-heading"
-        >
-          <div className="section-heading">
-            <div className="section-title">
-              <span>02</span>
-              <div>
-                <h2 id="existing-chore-heading">Existing Chore</h2>
-                <p>Add one chore you already track so the assistant can review scope and timing.</p>
-              </div>
-            </div>
-            <button
-              className="section-action"
-              onClick={() => toggleSection("chore")}
-              type="button"
-            >
-              {expandedSection === "chore" ? "Collapse Existing Chore" : "Edit Existing Chore"}
-            </button>
-          </div>
-
-          <p className="section-summary">{choreSummary}</p>
-
-          {expandedSection === "chore" ? (
-            <div className="section-body">
-              <div className="field-grid">
-                <label>
-                  Chore title
-                  <input value={choreTitle} onChange={(event) => setChoreTitle(event.target.value)} />
-                </label>
-
-                <label>
-                  Cadence
-                  <input value={choreCadence} onChange={(event) => setChoreCadence(event.target.value)} />
-                </label>
-
-                <label>
-                  Estimated minutes
-                  <input
-                    min="1"
-                    type="number"
-                    value={estimatedMinutes}
-                    onChange={(event) => setEstimatedMinutes(event.target.value)}
-                  />
-                </label>
-
-                <label>
-                  Source
-                  <select
-                    value={choreSource}
-                    onChange={(event) =>
-                      setChoreSource(event.target.value as "manual" | "google-calendar")
-                    }
-                  >
-                    <option value="manual">Manual</option>
-                    <option value="google-calendar">Google Calendar</option>
-                  </select>
-                </label>
-              </div>
-            </div>
-          ) : null}
-        </section>
-
-        <section
-          className={`dashboard-section agent-section ${expandedSection === "agent" ? "is-expanded" : "is-collapsed"}`}
-          aria-labelledby="agent-review-heading"
-        >
-          <div className="section-heading">
-            <div className="section-title">
-              <span>03</span>
-              <div>
-                <h2 id="agent-review-heading">Agent Review</h2>
-                <p>Tell the assistant what kind of guidance would be most useful right now.</p>
-              </div>
-            </div>
-            <button
-              className="section-action"
-              onClick={() => toggleSection("agent")}
-              type="button"
-            >
-              {expandedSection === "agent" ? "Collapse Agent Review" : "Edit Agent Review"}
-            </button>
-          </div>
-
-          <p className="section-summary">{agentSummary}</p>
-
-          {expandedSection === "agent" ? (
-            <div className="section-body">
-              <label>
-                Tell the assistant what kind of help would be useful
-                <textarea
-                  value={reviewPrompt}
-                  onChange={(event) => setReviewPrompt(event.target.value)}
-                />
-              </label>
-            </div>
-          ) : null}
-        </section>
-
-        <section className="dashboard-section recommendations-section" aria-labelledby="recommendations-heading">
-          <div className="section-heading">
-            <div className="section-title">
-              <span>04</span>
-              <div>
-                <h2 id="recommendations-heading">Recommendations</h2>
-                <p>Suggestions will appear here with rationale and confidence.</p>
-              </div>
-            </div>
-          </div>
-
-          <p className="section-summary">
-            {recommendations.length === 0
-              ? "No review yet. Suggestions will appear after the assistant reviews your current plan."
-              : `${recommendations.length} recommendation${recommendations.length === 1 ? "" : "s"} ready for review.`}
+      <section className="landing-hero">
+        <div className="hero-copy">
+          <p className="eyebrow">A shared plan for the people who live there</p>
+          <h1>Chore Helper</h1>
+          <p className="hero-statement">
+            Make household work visible, fair, and easier to adjust.
           </p>
+          <p className="lede">
+            Optimize recurring chores, catch missed routines, and turn family calendars into a
+            clearer home operating rhythm.
+          </p>
+          <div className="hero-actions">
+            <button onClick={onGetStarted} type="button">Get Started</button>
+            <span>Demo household included for this first slice.</span>
+          </div>
+        </div>
 
-          {recommendations.length === 0 ? (
-            <div className="empty-state">
-              Review your chore plan to see suggested new chores and existing chore improvements.
+        <div className="hero-preview" aria-label="Chore Helper dashboard preview">
+          <div className="preview-toolbar">
+            <span>Today</span>
+            <span>Plan</span>
+            <span>Family</span>
+          </div>
+          <div className="preview-grid">
+            <div className="preview-card wide">
+              <span>Plan health</span>
+              <strong>82%</strong>
+              <p>3 duration concerns need a second look.</p>
             </div>
-          ) : (
-            <div className="recommendation-list">
-              {recommendations.map((recommendation) => (
-                <article key={recommendation.id} className="recommendation">
-                  <div>
-                    <span className="recommendation-type">
-                      {getRecommendationType(recommendation)}
-                    </span>
-                    <h3>{recommendation.title}</h3>
-                    <p>{recommendation.rationale}</p>
-                  </div>
-                  <span className="confidence">Confidence: {recommendation.confidence}</span>
-                </article>
-              ))}
+            <div className="preview-card">
+              <span>People</span>
+              <strong>3</strong>
+              <p>Shared workload view.</p>
             </div>
-          )}
-        </section>
-      </form>
+            <div className="preview-card">
+              <span>Week view</span>
+              <strong>12</strong>
+              <p>Upcoming chores.</p>
+            </div>
+            <div className="preview-card wide accent-preview">
+              <span>Expert recommendation</span>
+              <p>Review bathroom duration before accepting calendar changes.</p>
+            </div>
+          </div>
+        </div>
+      </section>
     </main>
+  );
+}
+
+function AppShell({
+  children,
+  currentPath,
+  onNavigate
+}: {
+  children: React.ReactNode;
+  currentPath: string;
+  onNavigate: (path: string) => void;
+}) {
+  const navItems = [
+    { label: "Today", path: "/today" },
+    { label: "Plan", path: "/plan" },
+    { label: "Family", path: "/family" },
+    { label: "Settings", path: "/settings" }
+  ];
+
+  return (
+    <div className="workspace-shell">
+      <aside className="workspace-sidebar">
+        <a className="brand-mark" href="/" onClick={(event) => {
+          event.preventDefault();
+          onNavigate("/");
+        }}>
+          Chore Helper
+        </a>
+        <nav className="workspace-nav" aria-label="Primary">
+          {navItems.map((item) => (
+            <a
+              aria-current={currentPath === item.path ? "page" : undefined}
+              href={item.path}
+              key={item.path}
+              onClick={(event) => {
+                event.preventDefault();
+                onNavigate(item.path);
+              }}
+            >
+              {item.label}
+            </a>
+          ))}
+        </nav>
+      </aside>
+
+      <main className="workspace-main">{children}</main>
+    </div>
+  );
+}
+
+function TodayDashboard({ onNavigate }: { onNavigate: (path: string) => void }) {
+  return (
+    <div className="dashboard-page">
+      <header className="workspace-hero">
+        <div>
+          <p className="eyebrow">Command center</p>
+          <h1>Today</h1>
+          <p className="lede">
+            A high-level view of chore health, current routines, family load, and what needs expert
+            review next.
+          </p>
+        </div>
+        <button onClick={() => onNavigate("/plan")} type="button">Open Plan review</button>
+      </header>
+
+      <section className="panel plan-health-panel" aria-labelledby="plan-health-heading">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Optimization overview</p>
+            <h2 id="plan-health-heading">Plan health</h2>
+          </div>
+          <span>{demoHousehold.contextCompleteness}% context complete</span>
+        </div>
+        <div className="metric-grid">
+          {demoPlanHealth.map((metric) => (
+            <article className={`metric-card ${metric.tone}`} key={metric.label}>
+              <span>{metric.label}</span>
+              <strong>{metric.value}</strong>
+              <p>{metric.detail}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <div className="dashboard-grid">
+        <section className="panel setup-panel" aria-labelledby="setup-heading">
+          <div className="panel-heading">
+            <h2 id="setup-heading">Setup checklist</h2>
+            <span>{demoHousehold.name}</span>
+          </div>
+          <ul className="checklist">
+            {setupChecklist.map((item) => (
+              <li className={item.complete ? "complete" : ""} key={item.label}>
+                <span>{item.complete ? "Done" : "Next"}</span>
+                {item.label}
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="panel" aria-labelledby="people-heading">
+          <h2 id="people-heading">People</h2>
+          <div className="people-list">
+            {demoPeople.map((person) => (
+              <article key={person.name}>
+                <strong>{person.name}</strong>
+                <span>{person.load}</span>
+                <p>{person.role}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="panel wide-panel" aria-labelledby="chores-heading">
+          <div className="panel-heading">
+            <h2 id="chores-heading">Current chores</h2>
+            <span>{demoChores.length} tracked routines</span>
+          </div>
+          <div className="chore-table">
+            {demoChores.map((chore) => (
+              <article key={chore.title}>
+                <strong>{chore.title}</strong>
+                <span>{chore.cadence}</span>
+                <span>{chore.owner}</span>
+                <em>{chore.signal}</em>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="panel wide-panel" aria-labelledby="week-heading">
+          <div className="panel-heading">
+            <h2 id="week-heading">Week view</h2>
+            <span>{demoHousehold.homeType} / {demoHousehold.rooms} rooms</span>
+          </div>
+          <div className="week-strip">
+            {demoWeek.map((day) => (
+              <article key={day.day}>
+                <strong>{day.day}</strong>
+                {day.chores.map((chore) => (
+                  <span key={chore}>{chore}</span>
+                ))}
+              </article>
+            ))}
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function FamilyPage() {
+  return (
+    <section className="placeholder-page">
+      <p className="eyebrow">Family</p>
+      <h1>Family</h1>
+      <p className="lede">
+        This area will grow into household members, workload preferences, and shared responsibility
+        views. For now, Today shows the demo family overview.
+      </p>
+    </section>
+  );
+}
+
+function SettingsPage() {
+  return (
+    <section className="placeholder-page">
+      <p className="eyebrow">Settings</p>
+      <h1>Settings</h1>
+      <p className="lede">
+        Calendar connections, household defaults, and agent review preferences will live here in a
+        later slice.
+      </p>
+    </section>
   );
 }
 
