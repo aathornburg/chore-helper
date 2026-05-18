@@ -46,6 +46,48 @@ button:hover {
   background: #18553f;
 }
 
+.baseline-form {
+  display: grid;
+  gap: 16px;
+  margin-top: 24px;
+  max-width: 680px;
+}
+
+label {
+  color: #26352f;
+  display: grid;
+  font-size: 0.95rem;
+  font-weight: 700;
+  gap: 8px;
+}
+
+input,
+select,
+textarea {
+  background: white;
+  border: 1px solid #cfd8d2;
+  border-radius: 6px;
+  color: #17201c;
+  font: inherit;
+  padding: 10px 12px;
+}
+
+textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.checkbox-field {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.checkbox-field input {
+  height: 18px;
+  width: 18px;
+}
+
 .recommendations {
   display: grid;
   gap: 12px;

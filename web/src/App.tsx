@@ -1,24 +1,50 @@
 import { useState } from "react";
-import type { Recommendation } from "@chore-helper/shared";
+import type { FlooringType, HomeType, Recommendation } from "@chore-helper/shared";
 import { createHousehold, generateRecommendations, saveBaseline } from "./api";
 import "./App.css";
+
+const allowedFlooringTypes: FlooringType[] = ["carpet", "hardwood", "tile", "mixed", "unknown"];
+
+function parseList(value: string) {
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function parseFlooring(value: string): FlooringType[] {
+  const requestedTypes = parseList(value).map((item) => item.toLowerCase());
+  const validTypes = requestedTypes.filter((item): item is FlooringType =>
+    allowedFlooringTypes.includes(item as FlooringType)
+  );
+
+  return validTypes.length > 0 ? validTypes : ["unknown"];
+}
 
 function App() {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [status, setStatus] = useState("Ready to learn the lay of the land.");
+  const [householdName, setHouseholdName] = useState("Home");
+  const [homeType, setHomeType] = useState<HomeType>("house");
+  const [rooms, setRooms] = useState("kitchen, bathroom");
+  const [flooring, setFlooring] = useState("hardwood, tile");
+  const [hasPets, setHasPets] = useState(true);
+  const [hasOutdoorSpace, setHasOutdoorSpace] = useState(true);
+  const [notes, setNotes] = useState("We already have recurring chores in Google Calendar.");
 
-  async function handleGenerate() {
+  async function handleGenerate(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setStatus("Building household baseline...");
 
-    const household = await createHousehold("Home");
+    const household = await createHousehold(householdName);
 
     await saveBaseline(household.id, {
-      homeType: "house",
-      rooms: ["kitchen", "bathroom"],
-      flooring: ["hardwood", "tile"],
-      hasPets: true,
-      hasOutdoorSpace: true,
-      notes: "Initial mock baseline for the first vertical slice."
+      homeType,
+      rooms: parseList(rooms),
+      flooring: parseFlooring(flooring),
+      hasPets,
+      hasOutdoorSpace,
+      notes
     });
 
     const nextRecommendations = await generateRecommendations(household.id);
@@ -35,10 +61,61 @@ function App() {
           Start by giving the assistant enough context to make practical, respectful chore
           recommendations.
         </p>
-        <p className="status">{status}</p>
-        <button type="button" onClick={handleGenerate}>
-          Generate expert suggestions
-        </button>
+        <form className="baseline-form" onSubmit={handleGenerate}>
+          <label>
+            Household name
+            <input value={householdName} onChange={(event) => setHouseholdName(event.target.value)} />
+          </label>
+
+          <label>
+            Home type
+            <select value={homeType} onChange={(event) => setHomeType(event.target.value as HomeType)}>
+              <option value="house">House</option>
+              <option value="apartment">Apartment</option>
+              <option value="condo">Condo</option>
+              <option value="townhouse">Townhouse</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+
+          <label>
+            Rooms
+            <input value={rooms} onChange={(event) => setRooms(event.target.value)} />
+          </label>
+
+          <label>
+            Flooring
+            <input value={flooring} onChange={(event) => setFlooring(event.target.value)} />
+          </label>
+
+          <label className="checkbox-field">
+            <input
+              checked={hasPets}
+              onChange={(event) => setHasPets(event.target.checked)}
+              type="checkbox"
+            />
+            Has pets
+          </label>
+
+          <label className="checkbox-field">
+            <input
+              checked={hasOutdoorSpace}
+              onChange={(event) => setHasOutdoorSpace(event.target.checked)}
+              type="checkbox"
+            />
+            Has outdoor space
+          </label>
+
+          <label>
+            Notes
+            <textarea value={notes} onChange={(event) => setNotes(event.target.value)} />
+          </label>
+
+          <p className="status">{status}</p>
+          <button type="submit">
+            Generate expert suggestions
+          </button>
+        </form>
       </section>
 
       <section className="recommendations" aria-label="Expert suggestions">
