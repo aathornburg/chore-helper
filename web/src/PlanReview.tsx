@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { FlooringType, HomeType, Recommendation } from "@chore-helper/shared";
+import type { FlooringType, HomeType, HouseholdBaseline, Recommendation } from "@chore-helper/shared";
 import { createChore, createHousehold, generateRecommendations, saveBaseline } from "./api";
 
 const allowedFlooringTypes: FlooringType[] = ["carpet", "hardwood", "tile", "mixed", "unknown"];
@@ -36,17 +36,29 @@ function getPromptPreview(prompt: string) {
   return `${trimmedPrompt.slice(0, 93)}...`;
 }
 
-export function PlanReview() {
+type PlanReviewProps = {
+  householdId?: string;
+  householdName?: string;
+  baseline?: HouseholdBaseline;
+};
+
+export function PlanReview({
+  householdId,
+  householdName: savedHouseholdName = "Home",
+  baseline
+}: PlanReviewProps) {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [status, setStatus] = useState("Ready when you are.");
   const [expandedSection, setExpandedSection] = useState<EditableSection>("household");
-  const [householdName, setHouseholdName] = useState("Home");
-  const [homeType, setHomeType] = useState<HomeType>("house");
-  const [rooms, setRooms] = useState("kitchen, bathroom");
-  const [flooring, setFlooring] = useState("hardwood, tile");
-  const [hasPets, setHasPets] = useState(true);
-  const [hasOutdoorSpace, setHasOutdoorSpace] = useState(true);
-  const [notes, setNotes] = useState("We already have recurring chores in Google Calendar.");
+  const [householdName, setHouseholdName] = useState(savedHouseholdName);
+  const [homeType, setHomeType] = useState<HomeType>(baseline?.homeType ?? "house");
+  const [rooms, setRooms] = useState(baseline?.rooms.join(", ") ?? "kitchen, bathroom");
+  const [flooring, setFlooring] = useState(baseline?.flooring.join(", ") ?? "hardwood, tile");
+  const [hasPets, setHasPets] = useState(baseline?.hasPets ?? true);
+  const [hasOutdoorSpace, setHasOutdoorSpace] = useState(baseline?.hasOutdoorSpace ?? true);
+  const [notes, setNotes] = useState(
+    baseline?.notes ?? "We already have recurring chores in Google Calendar."
+  );
   const [choreTitle, setChoreTitle] = useState("Clean bathrooms");
   const [choreCadence, setChoreCadence] = useState("weekly");
   const [estimatedMinutes, setEstimatedMinutes] = useState("5");
@@ -70,18 +82,23 @@ export function PlanReview() {
     event.preventDefault();
     setStatus("Gathering household context...");
 
-    const household = await createHousehold(householdName);
+    let activeHouseholdId = householdId;
 
-    await saveBaseline(household.id, {
-      homeType,
-      rooms: parseList(rooms),
-      flooring: parseFlooring(flooring),
-      hasPets,
-      hasOutdoorSpace,
-      notes
-    });
+    if (!activeHouseholdId) {
+      const household = await createHousehold(householdName);
+      activeHouseholdId = household.id;
 
-    await createChore(household.id, {
+      await saveBaseline(activeHouseholdId, {
+        homeType,
+        rooms: parseList(rooms),
+        flooring: parseFlooring(flooring),
+        hasPets,
+        hasOutdoorSpace,
+        notes
+      });
+    }
+
+    await createChore(activeHouseholdId, {
       title: choreTitle,
       cadence: choreCadence,
       estimatedMinutes: Number(estimatedMinutes),
@@ -89,7 +106,7 @@ export function PlanReview() {
     });
 
     setStatus("Asking the assistant to review your chore plan...");
-    const nextRecommendations = await generateRecommendations(household.id, reviewPrompt);
+    const nextRecommendations = await generateRecommendations(activeHouseholdId, reviewPrompt);
     setRecommendations(nextRecommendations);
     setStatus("Review complete.");
   }
