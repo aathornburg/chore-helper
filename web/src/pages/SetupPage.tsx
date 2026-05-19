@@ -7,6 +7,7 @@ type SetupStep = "context" | "chores" | "import" | "review";
 type SetupPageProps = {
   householdSetup: HouseholdSetupState;
   onAddChore: (values: ExistingChoreFormValues) => Promise<void>;
+  onReviewChores: () => void;
   onSave: (values: SetupFormValues) => Promise<void>;
 };
 
@@ -21,7 +22,12 @@ function getStepNumber(step: SetupStep) {
   return setupSteps.findIndex((setupStep) => setupStep.id === step) + 1;
 }
 
-export function SetupPage({ householdSetup, onAddChore, onSave }: SetupPageProps) {
+export function SetupPage({
+  householdSetup,
+  onAddChore,
+  onReviewChores,
+  onSave
+}: SetupPageProps) {
   const [activeStep, setActiveStep] = useState<SetupStep>(
     householdSetup.baseline ? "chores" : "context"
   );
@@ -82,10 +88,17 @@ export function SetupPage({ householdSetup, onAddChore, onSave }: SetupPageProps
         estimatedMinutes: Number(estimatedMinutes),
         source: choreSource
       });
+      setStatus("Existing chore saved. Review your setup next.");
+      setActiveStep("review");
     } catch {
       setStatus("Could not add existing chore.");
     }
   }
+
+  const readyChoreSummary =
+    householdSetup.choreCount === 1
+      ? "1 existing chore ready for review"
+      : `${householdSetup.choreCount} existing chores ready for review`;
 
   return (
     <div className="setup-page">
@@ -262,12 +275,22 @@ export function SetupPage({ householdSetup, onAddChore, onSave }: SetupPageProps
           <p className="eyebrow">Step {getStepNumber(activeStep)} of 4</p>
           <h2>Review Handoff</h2>
           <p className="section-summary">
-            Once at least one existing chore is saved, Today will send you to Plan for expert
-            review.
+            {householdSetup.choreCount > 0
+              ? readyChoreSummary
+              : "Add at least one existing chore before starting expert review."}
           </p>
-          <button className="section-action" onClick={() => setActiveStep("chores")} type="button">
-            Back to existing chores
-          </button>
+          <div className="form-footer">
+            <button
+              disabled={householdSetup.choreCount === 0}
+              onClick={onReviewChores}
+              type="button"
+            >
+              Review existing chores
+            </button>
+            <button className="section-action" onClick={() => setActiveStep("chores")} type="button">
+              Back to existing chores
+            </button>
+          </div>
         </section>
       ) : null}
     </div>

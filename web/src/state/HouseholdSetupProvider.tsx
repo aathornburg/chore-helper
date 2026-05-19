@@ -4,6 +4,11 @@ import { createChore, createHousehold, getHousehold, listChores, saveBaseline } 
 import type { ExistingChoreFormValues, HouseholdSetupState, SetupFormValues } from "../types";
 import { parseFlooring, parseList } from "../utils/household";
 
+// Angular comparisons
+// Every variable is private to the file, kind of like a module in Angular.
+// The only way to share state is through React Context, which is kind of like an Angular Service.
+// The provider component is like the service provider in Angular,
+// and the useHouseholdSetup hook is like the service itself that components can inject to access the shared state and functions.
 const householdStorageKey = "chore-helper:household-id";
 
 type HouseholdSetupContextValue = {
@@ -28,6 +33,9 @@ export function HouseholdSetupProvider({ children }: { children: React.ReactNode
   const [householdSetup, setHouseholdSetup] =
     useState<HouseholdSetupState>(initialHouseholdSetup);
 
+  // Angular comparisons
+  // useEffect is like ngOnInit in Angular, it runs after the component mounts.
+  // The empty dependency array means it only runs once, similar to how ngOnInit only runs once when the component is initialized.
   useEffect(() => {
     const savedHouseholdId = window.localStorage.getItem(householdStorageKey);
     if (!savedHouseholdId) return;
@@ -35,6 +43,9 @@ export function HouseholdSetupProvider({ children }: { children: React.ReactNode
 
     let cancelled = false;
 
+    // Angular comparisons
+    // This is like making an HTTP request in Angular and subscribing to the response.
+    // If the component unmounts before the response comes back, we set a cancelled flag to avoid updating state on an unmounted component, which is similar to unsubscribing from an Observable in Angular to prevent memory leaks.
     async function restoreHousehold() {
       try {
         const household = await getHousehold(activeHouseholdId);
@@ -102,6 +113,11 @@ export function HouseholdSetupProvider({ children }: { children: React.ReactNode
     });
   }
 
+  // Angular comparisons
+  // useMemo is like a computed property in Angular, it memoizes the value and only recomputes it
+  // when the dependencies change. In this case, the context value will only be recreated
+  // when the householdSetup state changes, which can help prevent unnecessary re-renders of components
+  // that consume this context.
   const value = useMemo(
     () => ({
       addExistingChore,
@@ -111,6 +127,10 @@ export function HouseholdSetupProvider({ children }: { children: React.ReactNode
     [householdSetup]
   );
 
+  // Angular comparisons
+  // This is like providing a service in Angular and then injecting it into child components.
+  // The HouseholdSetupContext.Provider is like the service provider, and any component
+  // that calls useHouseholdSetup is like a component that injects the service to access the shared state and functions.
   return (
     <HouseholdSetupContext.Provider value={value}>
       {children}

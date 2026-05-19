@@ -7,7 +7,6 @@ import { SetupPage } from "./pages/SetupPage";
 import { TodayDashboard } from "./pages/TodayDashboard";
 import { normalizePath } from "./routes";
 import { HouseholdSetupProvider, useHouseholdSetup } from "./state/HouseholdSetupProvider";
-import type { ExistingChoreFormValues } from "./types";
 import "./App.css";
 
 function App() {
@@ -36,11 +35,6 @@ function AppRoutes() {
     setPath(normalizePath(nextPath));
   }
 
-  async function handleAddSetupChore(values: ExistingChoreFormValues) {
-    await addExistingChore(values);
-    navigate("/today");
-  }
-
   if (path === "/") {
     return <LandingPage onGetStarted={() => navigate("/today")} />;
   }
@@ -53,7 +47,8 @@ function AppRoutes() {
       {path === "/setup" ? (
         <SetupPage
           householdSetup={householdSetup}
-          onAddChore={handleAddSetupChore}
+          onAddChore={addExistingChore}
+          onReviewChores={() => navigate("/plan")}
           onSave={saveHouseholdContext}
         />
       ) : null}

@@ -59,7 +59,7 @@ async function completeSetupWithChore() {
   await saveSetup();
   fireEvent.click(screen.getByRole("button", { name: "Add chore and continue" }));
   await waitFor(() => {
-    expect(screen.getByRole("heading", { name: "Today" })).toBeTruthy();
+    expect(screen.getByText("Step 4 of 4")).toBeTruthy();
   });
 }
 
@@ -178,11 +178,23 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Continue setup" })).toBeTruthy();
   });
 
+  it("shows review handoff after adding an existing chore", async () => {
+    mockSuccessfulSetupAndChoreFetches();
+    renderAt("/setup");
+
+    await completeSetupWithChore();
+
+    expect(screen.getByRole("heading", { name: "Review Handoff" })).toBeTruthy();
+    expect(screen.getByText("1 existing chore ready for review")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Review existing chores" })).toBeTruthy();
+  });
+
   it("shows setup-complete context on Today after adding an existing chore", async () => {
     mockSuccessfulSetupAndChoreFetches();
     renderAt("/setup");
 
     await completeSetupWithChore();
+    fireEvent.click(screen.getByRole("link", { name: "Today" }));
 
     expect(screen.getByText("Setup complete")).toBeTruthy();
     expect(screen.getByText("house / 3 rooms / hardwood, tile, carpet / pets / outdoor space")).toBeTruthy();
