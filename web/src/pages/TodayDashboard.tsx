@@ -47,8 +47,8 @@ export function TodayDashboard({ householdSetup, onNavigate }: TodayDashboardPro
             <p className="eyebrow">Next best action</p>
             <h2 id="setup-complete-heading">Review the current chore plan</h2>
             <p>
-              Add an existing chore from your current calendar so the assistant can evaluate
-              cadence, duration, and missing coverage before suggesting manual changes.
+              Open Plan to review cadence, duration, and coverage signals for the chores already saved.
+              Recommendations remain manual until you accept them in a later milestone.
             </p>
           </section>
 
@@ -99,7 +99,9 @@ export function TodayDashboard({ householdSetup, onNavigate }: TodayDashboardPro
               : "A few home details give the assistant enough context to review chores with better cadence, effort, and coverage recommendations."}
           </p>
         </div>
-        <button onClick={() => onNavigate("/setup")} type="button">Set up household</button>
+        <button onClick={() => onNavigate("/setup")} type="button">
+          {householdSetup.baseline ? "Continue setup" : "Set up household"}
+        </button>
       </header>
 
       <div className="first-time-grid">
@@ -113,7 +115,9 @@ export function TodayDashboard({ householdSetup, onNavigate }: TodayDashboardPro
               ? "Setup is not complete until Chore Helper has at least one real chore to review."
               : "Tell Chore Helper about the home type, rooms, floors, pets, outdoor space, and any notes that affect recurring work."}
           </p>
-          <button onClick={() => onNavigate("/setup")} type="button">Continue setup</button>
+          <button onClick={() => onNavigate("/setup")} type="button">
+            {householdSetup.baseline ? "Add existing chore" : "Continue setup"}
+          </button>
         </section>
 
         <section className="panel" aria-labelledby="plan-preview-heading">

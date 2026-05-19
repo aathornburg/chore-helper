@@ -233,6 +233,19 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Review existing chores" })).toBeTruthy();
   });
 
+  it("shows the Plan handoff as the primary action after setup completes", async () => {
+    mockSuccessfulSetupAndChoreFetches();
+    renderAt("/setup");
+
+    await completeSetupWithChore();
+    fireEvent.click(screen.getByRole("link", { name: "Today" }));
+
+    expect(screen.getByRole("button", { name: "Review existing chores" })).toBeTruthy();
+    expect(screen.getByText("Next best action")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Review the current chore plan" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Set up household" })).toBeNull();
+  });
+
   it("shows Google Calendar as an upcoming setup import option", async () => {
     mockSuccessfulSetupFetches();
     renderAt("/setup");
