@@ -28,6 +28,7 @@ export function SetupPage({
   onReviewChores,
   onSave
 }: SetupPageProps) {
+  // Like Angular component fields plus click handlers, this local state drives which template branch renders.
   const [activeStep, setActiveStep] = useState<SetupStep>(
     householdSetup.baseline ? "chores" : "context"
   );
@@ -55,6 +56,27 @@ export function SetupPage({
       ? "Household context saved. Add one existing chore next."
       : "Ready to save household basics."
   );
+
+  function handleStepSelect(step: SetupStep) {
+    if (step === "context") {
+      setActiveStep(step);
+      return;
+    }
+
+    if (!householdSetup.baseline) {
+      setStatus("Save household context before adding chores.");
+      setActiveStep("context");
+      return;
+    }
+
+    if (step === "review" && householdSetup.choreCount === 0) {
+      setStatus("Add at least one existing chore before review.");
+      setActiveStep("chores");
+      return;
+    }
+
+    setActiveStep(step);
+  }
 
   async function handleContextSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -119,13 +141,32 @@ export function SetupPage({
             aria-current={activeStep === step.id ? "step" : undefined}
             className="setup-step"
             key={step.id}
-            onClick={() => setActiveStep(step.id)}
+            onClick={() => handleStepSelect(step.id)}
             type="button"
           >
             <span>{index + 1}</span>
             {step.label}
           </button>
         ))}
+      </section>
+
+      <section className="panel setup-progress-panel" aria-label="Setup readiness">
+        <article>
+          <span>{householdSetup.baseline ? "Saved" : "Next"}</span>
+          <strong>Household context {householdSetup.baseline ? "saved" : "needed"}</strong>
+        </article>
+        <article>
+          <span>{householdSetup.choreCount > 0 ? "Saved" : "Next"}</span>
+          <strong>
+            {householdSetup.choreCount > 0
+              ? `${householdSetup.choreCount} existing chore${householdSetup.choreCount === 1 ? "" : "s"} saved`
+              : "No existing chores saved yet"}
+          </strong>
+        </article>
+        <article>
+          <span>{householdSetup.setupComplete ? "Ready" : "Locked"}</span>
+          <strong>{householdSetup.setupComplete ? "Review handoff ready" : "Review unlocks after one chore"}</strong>
+        </article>
       </section>
 
       {activeStep === "context" ? (
@@ -263,7 +304,7 @@ export function SetupPage({
           </div>
           <div className="form-footer">
             <button disabled type="button">Google Calendar import coming soon</button>
-            <button className="section-action" onClick={() => setActiveStep("review")} type="button">
+            <button className="section-action" onClick={() => handleStepSelect("review")} type="button">
               Continue to review handoff
             </button>
           </div>

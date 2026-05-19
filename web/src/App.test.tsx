@@ -166,6 +166,37 @@ describe("App", () => {
     );
   });
 
+  it("prevents jumping to existing chores before household context is saved", () => {
+    renderAt("/setup");
+
+    fireEvent.click(screen.getByRole("button", { name: /Existing Chores/ }));
+
+    expect(screen.getByText("Step 1 of 4")).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toBe("Save household context before adding chores.");
+  });
+
+  it("prevents review handoff until at least one existing chore is saved", async () => {
+    mockSuccessfulSetupFetches();
+    renderAt("/setup");
+
+    await saveSetup();
+    fireEvent.click(screen.getByRole("button", { name: "Continue to import options" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue to review handoff" }));
+
+    expect(screen.getByText("Step 2 of 4")).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toBe("Add at least one existing chore before review.");
+  });
+
+  it("shows setup progress after household context is saved", async () => {
+    mockSuccessfulSetupFetches();
+    renderAt("/setup");
+
+    await saveSetup();
+
+    expect(screen.getByText("Household context saved")).toBeTruthy();
+    expect(screen.getByText("No existing chores saved yet")).toBeTruthy();
+  });
+
   it("does not mark setup complete after saving household context only", async () => {
     mockSuccessfulSetupFetches();
     renderAt("/setup");

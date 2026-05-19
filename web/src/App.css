@@ -633,6 +633,32 @@ button:hover {
   width: 28px;
 }
 
+.setup-progress-panel {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.setup-progress-panel article {
+  background: #fffefa;
+  border: 1px solid #eaded1;
+  border-radius: 12px;
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+}
+
+.setup-progress-panel span {
+  color: #9a4f3f;
+  font-size: 0.78rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.setup-progress-panel strong {
+  color: #24352e;
+}
+
 .is-collapsed {
   box-shadow: 0 12px 30px rgba(62, 49, 37, 0.05);
 }
@@ -897,6 +923,7 @@ textarea {
   .preview-grid,
   .field-grid,
   .setup-stepper,
+  .setup-progress-panel,
   .metric-grid,
   .week-strip,
   .chore-table article,
