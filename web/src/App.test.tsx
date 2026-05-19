@@ -32,8 +32,32 @@ function mockSuccessfulSetupFetches() {
   return fetchMock;
 }
 
+function mockSuccessfulSetupAndChoreFetches() {
+  const fetchMock = mockSuccessfulSetupFetches()
+    .mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        id: "chore-1",
+        householdId: "household-1",
+        title: "Clean bathrooms",
+        cadence: "weekly",
+        estimatedMinutes: 5,
+        source: "manual"
+      })
+    });
+  return fetchMock;
+}
+
 async function saveSetup() {
   fireEvent.click(screen.getByRole("button", { name: "Save basics" }));
+  await waitFor(() => {
+    expect(screen.getByText("Household context saved. Add one existing chore next.")).toBeTruthy();
+  });
+}
+
+async function completeSetupWithChore() {
+  await saveSetup();
+  fireEvent.click(screen.getByRole("button", { name: "Add chore and continue" }));
   await waitFor(() => {
     expect(screen.getByRole("heading", { name: "Today" })).toBeTruthy();
   });
@@ -70,7 +94,7 @@ describe("App", () => {
     expect(screen.getByRole("link", { name: "Today" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Setup" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Plan" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Family" })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Family" })).toBeNull();
     expect(screen.getByRole("link", { name: "Settings" })).toBeTruthy();
   });
 
@@ -96,6 +120,8 @@ describe("App", () => {
   it("renders household basics on the setup page", () => {
     renderAt("/setup");
 
+    expect(screen.getByText("Step 1 of 4")).toBeTruthy();
+    expect(screen.getAllByText("Household Context").length).toBeGreaterThan(0);
     expect(screen.getByLabelText("Household name")).toBeTruthy();
     expect(screen.getByLabelText("Home type")).toBeTruthy();
     expect(screen.getByLabelText("Rooms")).toBeTruthy();
@@ -105,13 +131,15 @@ describe("App", () => {
     expect(screen.getByLabelText("Notes")).toBeTruthy();
   });
 
-  it("saves setup through the household APIs and returns to Today", async () => {
+  it("saves household context through the household APIs and moves to chore setup", async () => {
     const fetchMock = mockSuccessfulSetupFetches();
     renderAt("/setup");
 
     await saveSetup();
 
     expect(window.localStorage.getItem("chore-helper:household-id")).toBe("household-1");
+    expect(screen.getByText("Step 2 of 4")).toBeTruthy();
+    expect(screen.getAllByText("Existing Chores").length).toBeGreaterThan(0);
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
@@ -138,32 +166,94 @@ describe("App", () => {
     );
   });
 
-  it("shows setup-complete context on Today after saving household basics", async () => {
+  it("does not mark setup complete after saving household context only", async () => {
     mockSuccessfulSetupFetches();
     renderAt("/setup");
 
     await saveSetup();
+
+    fireEvent.click(screen.getByRole("link", { name: "Today" }));
+
+    expect(screen.getByText("Finish setup by adding an existing chore.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Continue setup" })).toBeTruthy();
+  });
+
+  it("shows setup-complete context on Today after adding an existing chore", async () => {
+    mockSuccessfulSetupAndChoreFetches();
+    renderAt("/setup");
+
+    await completeSetupWithChore();
 
     expect(screen.getByText("Setup complete")).toBeTruthy();
     expect(screen.getByText("house / 3 rooms / hardwood, tile, carpet / pets / outdoor space")).toBeTruthy();
+    expect(screen.getByText("1 existing chore ready for review")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Review existing chores" })).toBeTruthy();
   });
 
-  it("routes from setup-complete Today to Plan", async () => {
+  it("shows Google Calendar as an upcoming setup import option", async () => {
     mockSuccessfulSetupFetches();
     renderAt("/setup");
 
     await saveSetup();
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue to import options" }));
+
+    expect(screen.getByText("Step 3 of 4")).toBeTruthy();
+    expect(
+      (screen.getByRole("button", { name: "Google Calendar import coming soon" }) as HTMLButtonElement)
+        .disabled
+    ).toBe(true);
+  });
+
+  it("routes from setup-complete Today to Plan", async () => {
+    mockSuccessfulSetupAndChoreFetches()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            id: "chore-1",
+            householdId: "household-1",
+            title: "Clean bathrooms",
+            cadence: "weekly",
+            estimatedMinutes: 5,
+            source: "manual"
+          }
+        ]
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => []
+      });
+    renderAt("/setup");
+
+    await completeSetupWithChore();
     fireEvent.click(screen.getByRole("button", { name: "Review existing chores" }));
 
     expect(screen.getByRole("heading", { name: "Plan" })).toBeTruthy();
   });
 
   it("preloads saved household context in Plan after setup", async () => {
-    mockSuccessfulSetupFetches();
+    mockSuccessfulSetupAndChoreFetches()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            id: "chore-1",
+            householdId: "household-1",
+            title: "Clean bathrooms",
+            cadence: "weekly",
+            estimatedMinutes: 5,
+            source: "manual"
+          }
+        ]
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => []
+      });
     renderAt("/setup");
 
-    await saveSetup();
+    await completeSetupWithChore();
     fireEvent.click(screen.getByRole("button", { name: "Review existing chores" }));
 
     expect(screen.getByText("Home")).toBeTruthy();
@@ -172,6 +262,17 @@ describe("App", () => {
 
   it("uses the existing household id when submitting Plan after setup", async () => {
     const fetchMock = mockSuccessfulSetupFetches()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          id: "chore-1",
+          householdId: "household-1",
+          title: "Clean bathrooms",
+          cadence: "weekly",
+          estimatedMinutes: 5,
+          source: "manual"
+        })
+      })
       .mockResolvedValueOnce({
         ok: true,
         json: async () => [
@@ -204,7 +305,7 @@ describe("App", () => {
       });
     renderAt("/setup");
 
-    await saveSetup();
+    await completeSetupWithChore();
     fireEvent.click(screen.getByRole("button", { name: "Review existing chores" }));
     await waitFor(() => {
       expect(screen.getAllByText("Clean bathrooms").length).toBeGreaterThan(0);
@@ -214,13 +315,13 @@ describe("App", () => {
     await waitFor(() => {
       expect(screen.getAllByText("Review duration for Clean bathrooms").length).toBeGreaterThan(0);
     });
-    expect(fetchMock).toHaveBeenCalledTimes(5);
+    expect(fetchMock).toHaveBeenCalledTimes(6);
     expect(fetchMock).toHaveBeenNthCalledWith(
-      3,
+      4,
       "http://localhost:3001/api/households/household-1/chores"
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
-      5,
+      6,
       "http://localhost:3001/api/households/household-1/recommendations",
       expect.objectContaining({ method: "POST" })
     );
@@ -241,27 +342,32 @@ describe("App", () => {
     window.localStorage.setItem("chore-helper:household-id", "household-1");
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          id: "household-1",
-          name: "Home",
-          baseline: {
-            homeType: "house",
-            rooms: ["kitchen", "bathrooms", "bedrooms"],
-            flooring: ["hardwood", "tile", "carpet"],
-            hasPets: true,
-            hasOutdoorSpace: true,
-            notes: "Restored setup."
-          }
+      vi.fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            id: "household-1",
+            name: "Home",
+            baseline: {
+              homeType: "house",
+              rooms: ["kitchen", "bathrooms", "bedrooms"],
+              flooring: ["hardwood", "tile", "carpet"],
+              hasPets: true,
+              hasOutdoorSpace: true,
+              notes: "Restored setup."
+            }
+          })
         })
-      })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => []
+        })
     );
 
     renderAt("/today");
 
     await waitFor(() => {
-      expect(screen.getByText("Setup complete")).toBeTruthy();
+      expect(screen.getByText("Finish setup by adding an existing chore.")).toBeTruthy();
     });
     expect(screen.getByText("house / 3 rooms / hardwood, tile, carpet / pets / outdoor space")).toBeTruthy();
   });
@@ -282,6 +388,17 @@ describe("App", () => {
     const fetchMock = mockSuccessfulSetupFetches()
       .mockResolvedValueOnce({
         ok: true,
+        json: async () => ({
+          id: "chore-1",
+          householdId: "household-1",
+          title: "Clean bathrooms",
+          cadence: "weekly",
+          estimatedMinutes: 5,
+          source: "manual"
+        })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
         json: async () => [
           {
             id: "chore-1",
@@ -299,7 +416,7 @@ describe("App", () => {
       });
     renderAt("/setup");
 
-    await saveSetup();
+    await completeSetupWithChore();
     fireEvent.click(screen.getByRole("button", { name: "Review existing chores" }));
 
     await waitFor(() => {
@@ -310,17 +427,28 @@ describe("App", () => {
     expect(screen.getAllByText("Manual acceptance only").length).toBeGreaterThan(0);
     expect(screen.queryByText("Household Context")).toBeNull();
     expect(fetchMock).toHaveBeenNthCalledWith(
-      3,
+      4,
       "http://localhost:3001/api/households/household-1/chores"
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
-      4,
+      5,
       "http://localhost:3001/api/households/household-1/recommendations"
     );
   });
 
   it("shows an empty Plan queue with manual chore entry", async () => {
     mockSuccessfulSetupFetches()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          id: "chore-1",
+          householdId: "household-1",
+          title: "Clean bathrooms",
+          cadence: "weekly",
+          estimatedMinutes: 5,
+          source: "manual"
+        })
+      })
       .mockResolvedValueOnce({
         ok: true,
         json: async () => []
@@ -331,7 +459,7 @@ describe("App", () => {
       });
     renderAt("/setup");
 
-    await saveSetup();
+    await completeSetupWithChore();
     fireEvent.click(screen.getByRole("button", { name: "Review existing chores" }));
 
     await waitFor(() => {
@@ -350,6 +478,17 @@ describe("App", () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ id: "household-1", name: "Home" })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          id: "chore-1",
+          householdId: "household-1",
+          title: "Clean bathrooms",
+          cadence: "weekly",
+          estimatedMinutes: 5,
+          source: "manual"
+        })
       })
       .mockResolvedValueOnce({
         ok: true,
@@ -382,7 +521,7 @@ describe("App", () => {
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/setup");
 
-    await saveSetup();
+    await completeSetupWithChore();
     fireEvent.click(screen.getByRole("button", { name: "Review existing chores" }));
     await waitFor(() => {
       expect(screen.getAllByText("Clean bathrooms").length).toBeGreaterThan(0);
@@ -392,6 +531,6 @@ describe("App", () => {
     await waitFor(() => {
       expect(screen.getAllByText("Review duration for Clean bathrooms").length).toBeGreaterThan(0);
     });
-    expect(fetchMock).toHaveBeenCalledTimes(5);
+    expect(fetchMock).toHaveBeenCalledTimes(6);
   });
 });

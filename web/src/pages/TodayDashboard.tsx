@@ -1,4 +1,3 @@
-import { demoHousehold, setupChecklist } from "../demoData";
 import type { HouseholdSetupState, Navigate } from "../types";
 import { formatBaselineSummary } from "../utils/household";
 
@@ -19,6 +18,9 @@ export function TodayDashboard({ householdSetup, onNavigate }: TodayDashboardPro
               {householdSetup.householdName} is ready for a first expert chore review.
             </p>
             <p className="supporting-copy">{formatBaselineSummary(householdSetup.baseline)}</p>
+            <p className="section-summary">
+              {householdSetup.choreCount} existing chore{householdSetup.choreCount === 1 ? "" : "s"} ready for review
+            </p>
           </div>
           <button onClick={() => onNavigate("/plan")} type="button">Review existing chores</button>
         </header>
@@ -62,14 +64,19 @@ export function TodayDashboard({ householdSetup, onNavigate }: TodayDashboardPro
     <div className="dashboard-page first-time-dashboard">
       <header className="workspace-hero first-time-hero">
         <div>
-          <p className="eyebrow">First household setup</p>
+          <p className="eyebrow">
+            {householdSetup.baseline ? "Setup in progress" : "First household setup"}
+          </p>
           <h1>Today</h1>
           <p className="lede">
-            Let's get your household context set up.
+            {householdSetup.baseline
+              ? "Finish setup by adding an existing chore."
+              : "Let's get your household context set up."}
           </p>
           <p className="supporting-copy">
-            A few home details give the assistant enough context to review chores with better
-            cadence, effort, and coverage recommendations.
+            {householdSetup.baseline
+              ? formatBaselineSummary(householdSetup.baseline)
+              : "A few home details give the assistant enough context to review chores with better cadence, effort, and coverage recommendations."}
           </p>
         </div>
         <button onClick={() => onNavigate("/setup")} type="button">Set up household</button>
@@ -78,10 +85,13 @@ export function TodayDashboard({ householdSetup, onNavigate }: TodayDashboardPro
       <div className="first-time-grid">
         <section className="panel setup-focus-panel" aria-labelledby="next-step-heading">
           <p className="eyebrow">Next best action</p>
-          <h2 id="next-step-heading">Start with household basics</h2>
+          <h2 id="next-step-heading">
+            {householdSetup.baseline ? "Add one existing chore" : "Start with household basics"}
+          </h2>
           <p>
-            Tell Chore Helper about the home type, rooms, floors, pets, outdoor space, and any
-            notes that affect recurring work.
+            {householdSetup.baseline
+              ? "Setup is not complete until Chore Helper has at least one real chore to review."
+              : "Tell Chore Helper about the home type, rooms, floors, pets, outdoor space, and any notes that affect recurring work."}
           </p>
           <button onClick={() => onNavigate("/setup")} type="button">Continue setup</button>
         </section>
@@ -111,15 +121,25 @@ export function TodayDashboard({ householdSetup, onNavigate }: TodayDashboardPro
       <section className="panel" aria-labelledby="what-next-heading">
         <div className="panel-heading">
           <h2 id="what-next-heading">What comes next</h2>
-          <span>{demoHousehold.name}</span>
+          <span>MVP 1</span>
         </div>
         <ol className="next-step-list">
-          {setupChecklist.map((item) => (
-            <li key={item.label}>
-              <span>{item.complete ? "Ready" : "Later"}</span>
-              {item.label}
-            </li>
-          ))}
+          <li>
+            <span>{householdSetup.baseline ? "Ready" : "Next"}</span>
+            Confirm household context
+          </li>
+          <li>
+            <span>{householdSetup.choreCount > 0 ? "Ready" : "Next"}</span>
+            Add one existing chore
+          </li>
+          <li>
+            <span>Later</span>
+            Connect Google Calendar
+          </li>
+          <li>
+            <span>{householdSetup.setupComplete ? "Ready" : "Later"}</span>
+            Review first recommendation set
+          </li>
         </ol>
       </section>
     </div>

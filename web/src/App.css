@@ -595,6 +595,44 @@ button:hover {
   gap: 18px;
 }
 
+.setup-stepper {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  padding: 16px;
+}
+
+.setup-step {
+  align-items: center;
+  background: #fffefa;
+  border: 1px solid #e3d7ca;
+  border-radius: 12px;
+  color: #3f4a43;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-start;
+  padding: 12px;
+  text-align: left;
+}
+
+.setup-step:hover,
+.setup-step[aria-current="step"] {
+  background: #eef6ea;
+  border-color: #b8d1af;
+  color: #2f694d;
+}
+
+.setup-step span {
+  align-items: center;
+  background: #dfeade;
+  border-radius: 999px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 28px;
+  justify-content: center;
+  width: 28px;
+}
+
 .is-collapsed {
   box-shadow: 0 12px 30px rgba(62, 49, 37, 0.05);
 }
@@ -858,6 +896,7 @@ textarea {
 
   .preview-grid,
   .field-grid,
+  .setup-stepper,
   .metric-grid,
   .week-strip,
   .chore-table article,

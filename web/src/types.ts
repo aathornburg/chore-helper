@@ -1,4 +1,4 @@
-import type { HomeType, HouseholdBaseline } from "@chore-helper/shared";
+import type { Chore, HomeType, HouseholdBaseline } from "@chore-helper/shared";
 
 export type Navigate = (path: string) => void;
 
@@ -6,6 +6,7 @@ export type HouseholdSetupState = {
   householdId?: string;
   householdName: string;
   baseline?: HouseholdBaseline;
+  choreCount: number;
   setupComplete: boolean;
 };
 
@@ -18,3 +19,5 @@ export type SetupFormValues = {
   hasOutdoorSpace: boolean;
   notes: string;
 };
+
+export type ExistingChoreFormValues = Omit<Chore, "id" | "householdId">;
