@@ -4,6 +4,8 @@
 
 Build a small web app backed by an API-first backend for an expert chore assistant. The first version helps a user connect Google Calendar, import existing recurring chore events, get the lay of the land for their household, and receive optional expert recommendations. The assistant should be collaborative and respectful of existing systems: it offers guidance, rationale, and confidence, but it does not automatically critique every chore or make calendar changes without explicit user approval.
 
+> Current MVP note, added 2026-05-19: the immediate MVP 1 implementation is narrowed to household context, existing chore setup, and chore optimization. People, family workload balancing, ownership rotation, and fairness views remain valid product directions, but they are MVP 2/future scope rather than required for the first setup-flow milestone.
+
 ## Product Principles
 
 - The assistant is an expert chore assistant, not a mandatory auditor.
@@ -16,7 +18,7 @@ Build a small web app backed by an API-first backend for an expert chore assista
 ## Primary Users
 
 - A personal user who already has chores in Google Calendar and wants help understanding, improving, and planning them.
-- A household or family that wants a shared chore system with multiple members.
+- A household or family that wants a shared chore system with multiple members. This is an important future audience; MVP 1 should not require people or workload setup.
 - Future external users or clients that may interact with the assistant through an API.
 
 ## First Usable Product
@@ -38,7 +40,7 @@ The Household Baseline is the agent's early discovery process. It gathers contex
 - Home type: house, apartment, condo, townhouse, or other.
 - Rooms and zones: kitchen, bathrooms, bedrooms, living areas, garage, basement, outdoor spaces.
 - Flooring: carpet, hard floors, tile, rugs, mixed flooring.
-- Household members and participation level.
+- Household members and participation level. For MVP 1 this remains optional/future context, not a required setup step.
 - Pets, children, allergies, mobility constraints, and other care factors.
 - Appliances and systems: HVAC filters, dishwasher, laundry, garbage disposal, yard equipment.
 - Outdoor responsibilities: lawn, snow, gutters, garden, patio, exterior checks.
@@ -90,7 +92,7 @@ Recommendations may include:
 - Combine duplicate chores.
 - Move timing to a better window.
 - Add seasonal or conditional reminders.
-- Suggest a rotation or ownership model.
+- Suggest a rotation or ownership model in a future people/workload milestone.
 
 Each recommendation should include:
 
@@ -212,6 +214,7 @@ Initial tests should cover:
 - Public developer API access.
 - Non-Google integrations.
 - Complex fairness scoring across household members.
+- Required people/workload setup in MVP 1.
 - Native mobile apps.
 
 ## Open Decisions

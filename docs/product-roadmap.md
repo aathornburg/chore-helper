@@ -12,19 +12,21 @@ The app should evolve milestone by milestone from the current React + Express + 
 
 ### 1. UI + Data Integration
 
-Replace demo-feeling dashboard data with persisted household, chore, and recommendation data.
+Replace demo-feeling dashboard data with persisted household, chore, and recommendation data. This milestone also finishes the MVP 1 setup flow: household context, existing chores, import options, and review handoff.
 
 Key outcomes:
 
 - Today, Plan, Family, and Settings feel like connected parts of one product.
 - Today shows real household context, setup status, chores, and recommendation summary data.
+- Setup guides the user through household context and at least one existing chore before marking setup complete.
 - Plan remains focused on reviewing and optimizing existing chores.
 - Empty, loading, saved, and review states feel intentional rather than placeholder-like.
 - Demo data is removed or clearly isolated from real app state.
+- People, family workload, and fairness views are treated as MVP 2, not MVP 1.
 
 Suggested child doc:
 
-- `docs/superpowers/specs/YYYY-MM-DD-ui-data-integration-design.md`
+- `docs/superpowers/specs/2026-05-19-ui-data-setup-flow-design.md`
 
 ### 2. Auth + Household Ownership
 
@@ -48,7 +50,7 @@ Build on the existing Prisma + Postgres persistence and expand it into durable p
 
 Key outcomes:
 
-- Add domain models for people, chore ownership, import metadata, recommendation drafts, and accepted/skipped decisions.
+- Add domain models for import metadata, recommendation drafts, accepted/skipped decisions, and future people/workload features.
 - Preserve source metadata for imported chores without making Google Calendar the only source of truth.
 - Store recommendation decisions so the assistant can avoid repeating dismissed suggestions.
 - Support future calendar draft generation and manual acceptance flows.
