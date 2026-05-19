@@ -8,6 +8,8 @@ export type HouseholdSetupState = {
   baseline?: HouseholdBaseline;
   choreCount: number;
   setupComplete: boolean;
+  isRestoring: boolean;
+  restoreError?: string;
 };
 
 export type SetupFormValues = {

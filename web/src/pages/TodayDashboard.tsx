@@ -7,6 +7,23 @@ type TodayDashboardProps = {
 };
 
 export function TodayDashboard({ householdSetup, onNavigate }: TodayDashboardProps) {
+  if (householdSetup.isRestoring) {
+    return (
+      <div className="dashboard-page first-time-dashboard">
+        <header className="workspace-hero first-time-hero">
+          <div>
+            <p className="eyebrow">Household setup</p>
+            <h1>Today</h1>
+            <p className="lede">Loading household setup...</p>
+            <p className="supporting-copy">
+              Chore Helper is checking your saved household before showing the next setup step.
+            </p>
+          </div>
+        </header>
+      </div>
+    );
+  }
+
   if (householdSetup.setupComplete && householdSetup.baseline) {
     return (
       <div className="dashboard-page first-time-dashboard">
@@ -73,6 +90,9 @@ export function TodayDashboard({ householdSetup, onNavigate }: TodayDashboardPro
               ? "Finish setup by adding an existing chore."
               : "Let's get your household context set up."}
           </p>
+          {householdSetup.restoreError ? (
+            <p className="section-summary">{householdSetup.restoreError}</p>
+          ) : null}
           <p className="supporting-copy">
             {householdSetup.baseline
               ? formatBaselineSummary(householdSetup.baseline)

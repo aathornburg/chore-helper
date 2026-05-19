@@ -384,6 +384,50 @@ describe("App", () => {
     expect(screen.getByText("house / 3 rooms / hardwood, tile, carpet / pets / outdoor space")).toBeTruthy();
   });
 
+  it("shows a setup restore loading state before saved household data loads", async () => {
+    window.localStorage.setItem("chore-helper:household-id", "household-1");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          id: "household-1",
+          name: "Home",
+          baseline: {
+            homeType: "house",
+            rooms: ["kitchen"],
+            flooring: ["tile"],
+            hasPets: false,
+            hasOutdoorSpace: false,
+            notes: "Restoring."
+          }
+        })
+      }).mockResolvedValueOnce({
+        ok: true,
+        json: async () => []
+      })
+    );
+
+    renderAt("/today");
+
+    expect(screen.getByText("Loading household setup...")).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByText("Finish setup by adding an existing chore.")).toBeTruthy();
+    });
+  });
+
+  it("shows a recoverable setup restore error when saved household data cannot load", async () => {
+    window.localStorage.setItem("chore-helper:household-id", "missing-household");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce({ ok: false }));
+
+    renderAt("/today");
+
+    await waitFor(() => {
+      expect(screen.getByText("We could not restore your saved household. Start setup again.")).toBeTruthy();
+    });
+    expect(window.localStorage.getItem("chore-helper:household-id")).toBeNull();
+  });
+
   it("clears saved household id when startup restore cannot find it", async () => {
     window.localStorage.setItem("chore-helper:household-id", "missing-household");
     vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce({ ok: false }));
