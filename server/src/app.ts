@@ -2,17 +2,19 @@ import cors from "cors";
 import express from "express";
 import type { AgentProvider } from "./agent/AgentProvider.js";
 import { MockChoreAgentProvider } from "./agent/MockChoreAgentProvider.js";
-import { createInMemoryStore, type InMemoryStore } from "./repositories/inMemoryStore.js";
+import type { HouseholdStore } from "./repositories/inMemoryStore.js";
+import { createPrismaClient } from "./repositories/prismaClient.js";
+import { createPrismaStore } from "./repositories/prismaStore.js";
 import { createHouseholdRouter } from "./routes/households.js";
 
 type AppDependencies = {
-  store?: InMemoryStore;
+  store?: HouseholdStore;
   agentProvider?: AgentProvider;
 };
 
 export function createApp(dependencies: AppDependencies = {}) {
   const app = express();
-  const store = dependencies.store ?? createInMemoryStore();
+  const store = dependencies.store ?? createPrismaStore(createPrismaClient());
   const agentProvider = dependencies.agentProvider ?? new MockChoreAgentProvider();
 
   app.use(cors());

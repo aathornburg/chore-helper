@@ -27,6 +27,13 @@ export async function saveBaseline(
   return response.json();
 }
 
+export async function getHousehold(householdId: string): Promise<Household> {
+  const response = await fetch(`${API_BASE_URL}/api/households/${householdId}`);
+
+  if (!response.ok) throw new Error("Failed to fetch household");
+  return response.json();
+}
+
 export async function createChore(
   householdId: string,
   chore: Omit<Chore, "id" | "householdId">
@@ -41,6 +48,13 @@ export async function createChore(
   return response.json();
 }
 
+export async function listChores(householdId: string): Promise<Chore[]> {
+  const response = await fetch(`${API_BASE_URL}/api/households/${householdId}/chores`);
+
+  if (!response.ok) throw new Error("Failed to fetch chores");
+  return response.json();
+}
+
 export async function generateRecommendations(
   householdId: string,
   reviewPrompt?: string
@@ -52,5 +66,12 @@ export async function generateRecommendations(
   });
 
   if (!response.ok) throw new Error("Failed to generate recommendations");
+  return response.json();
+}
+
+export async function listRecommendations(householdId: string): Promise<Recommendation[]> {
+  const response = await fetch(`${API_BASE_URL}/api/households/${householdId}/recommendations`);
+
+  if (!response.ok) throw new Error("Failed to fetch recommendations");
   return response.json();
 }

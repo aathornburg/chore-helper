@@ -666,6 +666,91 @@ textarea {
   border-color: #d7e4d5;
 }
 
+.plan-queue-section {
+  background: linear-gradient(180deg, #fffdf9 0%, #fbf8f2 100%);
+}
+
+.plan-review-grid,
+.plan-empty-grid {
+  align-items: start;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.1fr);
+}
+
+.queue-list {
+  display: grid;
+  gap: 12px;
+}
+
+.queue-card {
+  background: #fffefa;
+  border: 1px solid #e3d7ca;
+  border-radius: 14px;
+  color: #24352e;
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  padding: 16px;
+  text-align: left;
+  width: 100%;
+}
+
+.queue-card:hover,
+.queue-card[aria-pressed="true"] {
+  background: #eef6ea;
+  border-color: #b8d1af;
+  color: #24352e;
+}
+
+.queue-card span {
+  color: #9a4f3f;
+  font-size: 0.78rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.queue-card strong {
+  font-size: 1.05rem;
+}
+
+.queue-card small {
+  color: #687167;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.detail-panel {
+  background: #fffefa;
+  border: 1px solid #eaded1;
+  border-radius: 16px;
+  display: grid;
+  gap: 14px;
+  min-height: 260px;
+  padding: 22px;
+}
+
+.detail-panel h3 {
+  color: #24352e;
+  font-size: 1.45rem;
+  margin: 0;
+}
+
+.detail-panel > p {
+  color: #5e625b;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.manual-chore-form {
+  background: #fffefa;
+  border: 1px solid #eaded1;
+  border-radius: 16px;
+  display: grid;
+  gap: 18px;
+  padding: 20px;
+}
+
 .recommendations-section {
   background: #fffdf9;
 }
@@ -728,7 +813,9 @@ textarea {
   .landing-hero,
   .workspace-hero,
   .dashboard-grid,
-  .first-time-grid {
+  .first-time-grid,
+  .plan-review-grid,
+  .plan-empty-grid {
     grid-template-columns: 1fr;
   }
 

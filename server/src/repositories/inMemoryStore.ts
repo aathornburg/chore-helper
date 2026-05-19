@@ -1,15 +1,21 @@
 import type { Chore, Household, HouseholdBaseline, Recommendation } from "@chore-helper/shared";
 
-export type InMemoryStore = {
-  createHousehold(name: string): Household;
-  updateBaseline(householdId: string, baseline: HouseholdBaseline): Household | undefined;
-  getHousehold(householdId: string): Household | undefined;
-  createChore(chore: Omit<Chore, "id">): Chore;
-  listChores(householdId: string): Chore[];
-  saveRecommendations(householdId: string, recommendations: Recommendation[]): Recommendation[];
+export type StoreResult<T> = T | Promise<T>;
+
+export type HouseholdStore = {
+  createHousehold(name: string): StoreResult<Household>;
+  updateBaseline(householdId: string, baseline: HouseholdBaseline): StoreResult<Household | undefined>;
+  getHousehold(householdId: string): StoreResult<Household | undefined>;
+  createChore(chore: Omit<Chore, "id">): StoreResult<Chore>;
+  listChores(householdId: string): StoreResult<Chore[]>;
+  saveRecommendations(
+    householdId: string,
+    recommendations: Recommendation[]
+  ): StoreResult<Recommendation[]>;
+  listRecommendations(householdId: string): StoreResult<Recommendation[]>;
 };
 
-export function createInMemoryStore(): InMemoryStore {
+export function createInMemoryStore(): HouseholdStore {
   const households = new Map<string, Household>();
   const chores = new Map<string, Chore[]>();
   const recommendations = new Map<string, Recommendation[]>();
@@ -48,6 +54,10 @@ export function createInMemoryStore(): InMemoryStore {
     saveRecommendations(householdId, nextRecommendations) {
       recommendations.set(householdId, nextRecommendations);
       return nextRecommendations;
+    },
+
+    listRecommendations(householdId) {
+      return recommendations.get(householdId) ?? [];
     }
   };
 }

@@ -5,12 +5,13 @@ import {
   setupChecklist
 } from "./demoData";
 import { PlanReview } from "./PlanReview";
-import { createHousehold, saveBaseline } from "./api";
+import { createHousehold, getHousehold, saveBaseline } from "./api";
 import "./App.css";
 
 const routes = ["/today", "/setup", "/plan", "/family", "/settings"] as const;
 type AppRoute = (typeof routes)[number];
 const allowedFlooringTypes: FlooringType[] = ["carpet", "hardwood", "tile", "mixed", "unknown"];
+const householdStorageKey = "chore-helper:household-id";
 
 type HouseholdSetupState = {
   householdId?: string;
@@ -71,6 +72,36 @@ function App() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
+  useEffect(() => {
+    const savedHouseholdId = window.localStorage.getItem(householdStorageKey);
+    if (!savedHouseholdId) return;
+    const activeHouseholdId = savedHouseholdId;
+
+    let cancelled = false;
+
+    async function restoreHousehold() {
+      try {
+        const household = await getHousehold(activeHouseholdId);
+        if (cancelled) return;
+
+        setHouseholdSetup({
+          householdId: household.id,
+          householdName: household.name,
+          baseline: household.baseline,
+          setupComplete: Boolean(household.baseline)
+        });
+      } catch {
+        window.localStorage.removeItem(householdStorageKey);
+      }
+    }
+
+    void restoreHousehold();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   function navigate(nextPath: string) {
     window.history.pushState({}, "", nextPath);
     setPath(normalizePath(nextPath));
@@ -97,6 +128,7 @@ function App() {
       baseline: savedHousehold.baseline ?? baseline,
       setupComplete: true
     });
+    window.localStorage.setItem(householdStorageKey, household.id);
     navigate("/today");
   }
 

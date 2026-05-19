@@ -1,0 +1,54 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Household {
+  id              String             @id
+  name            String
+  baseline        HouseholdBaseline?
+  chores          Chore[]
+  recommendations Recommendation[]
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+}
+
+model HouseholdBaseline {
+  householdId     String    @id
+  household       Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  homeType        String
+  rooms           String
+  flooring        String
+  hasPets         Boolean
+  hasOutdoorSpace Boolean
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model Chore {
+  id               String    @id
+  householdId      String
+  household        Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  title            String
+  cadence          String
+  estimatedMinutes Int
+  source           String
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model Recommendation {
+  id          String    @id
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  title       String
+  rationale   String
+  confidence  String
+  status      String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}

@@ -4,6 +4,11 @@
   "workspaces": ["shared", "server", "web"],
   "scripts": {
     "dev": "npm run dev -w server",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:logs": "docker compose logs -f postgres",
+    "db:push": "npm run db:push -w server",
+    "db:studio": "npm run db:studio -w server",
     "test": "npm run test -ws",
     "typecheck": "npm run typecheck -ws"
   }

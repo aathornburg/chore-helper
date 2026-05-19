@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import type { AgentProvider } from "../agent/AgentProvider.js";
-import type { InMemoryStore } from "../repositories/inMemoryStore.js";
+import type { HouseholdStore } from "../repositories/inMemoryStore.js";
 
 const createHouseholdSchema = z.object({
   name: z.string().min(1)
@@ -27,34 +27,41 @@ const recommendationRequestSchema = z.object({
   reviewPrompt: z.string().trim().optional()
 });
 
-export function createHouseholdRouter(store: InMemoryStore, agentProvider: AgentProvider) {
+export function createHouseholdRouter(store: HouseholdStore, agentProvider: AgentProvider) {
   const router = Router();
 
-  router.post("/", (req, res) => {
+  router.post("/", async (req, res) => {
     const parsed = createHouseholdSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid household payload" });
 
-    return res.status(201).json(store.createHousehold(parsed.data.name));
+    return res.status(201).json(await store.createHousehold(parsed.data.name));
   });
 
-  router.put("/:householdId/baseline", (req, res) => {
-    const parsed = baselineSchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: "Invalid baseline payload" });
-
-    const household = store.updateBaseline(req.params.householdId, parsed.data);
+  router.get("/:householdId", async (req, res) => {
+    const household = await store.getHousehold(req.params.householdId);
     if (!household) return res.status(404).json({ error: "Household not found" });
 
     return res.status(200).json(household);
   });
 
-  router.post("/:householdId/chores", (req, res) => {
-    const household = store.getHousehold(req.params.householdId);
+  router.put("/:householdId/baseline", async (req, res) => {
+    const parsed = baselineSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid baseline payload" });
+
+    const household = await store.updateBaseline(req.params.householdId, parsed.data);
+    if (!household) return res.status(404).json({ error: "Household not found" });
+
+    return res.status(200).json(household);
+  });
+
+  router.post("/:householdId/chores", async (req, res) => {
+    const household = await store.getHousehold(req.params.householdId);
     if (!household) return res.status(404).json({ error: "Household not found" });
 
     const parsed = createChoreSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid chore payload" });
 
-    const chore = store.createChore({
+    const chore = await store.createChore({
       ...parsed.data,
       householdId: household.id
     });
@@ -62,15 +69,22 @@ export function createHouseholdRouter(store: InMemoryStore, agentProvider: Agent
     return res.status(201).json(chore);
   });
 
-  router.get("/:householdId/chores", (req, res) => {
-    const household = store.getHousehold(req.params.householdId);
+  router.get("/:householdId/chores", async (req, res) => {
+    const household = await store.getHousehold(req.params.householdId);
     if (!household) return res.status(404).json({ error: "Household not found" });
 
-    return res.status(200).json(store.listChores(household.id));
+    return res.status(200).json(await store.listChores(household.id));
+  });
+
+  router.get("/:householdId/recommendations", async (req, res) => {
+    const household = await store.getHousehold(req.params.householdId);
+    if (!household) return res.status(404).json({ error: "Household not found" });
+
+    return res.status(200).json(await store.listRecommendations(household.id));
   });
 
   router.post("/:householdId/recommendations", async (req, res) => {
-    const household = store.getHousehold(req.params.householdId);
+    const household = await store.getHousehold(req.params.householdId);
     if (!household) return res.status(404).json({ error: "Household not found" });
 
     const parsed = recommendationRequestSchema.safeParse(req.body);
@@ -78,10 +92,10 @@ export function createHouseholdRouter(store: InMemoryStore, agentProvider: Agent
 
     const recommendations = await agentProvider.recommendSetupImprovements({
       household,
-      chores: store.listChores(household.id),
+      chores: await store.listChores(household.id),
       reviewPrompt: parsed.data.reviewPrompt
     });
-    return res.status(201).json(store.saveRecommendations(household.id, recommendations));
+    return res.status(201).json(await store.saveRecommendations(household.id, recommendations));
   });
 
   return router;
