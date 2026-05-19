@@ -316,6 +316,50 @@ describe("App", () => {
     expect(screen.getByText("house / 3 rooms / hardwood, tile, carpet / pets / outdoor space")).toBeTruthy();
   });
 
+  it("shows a Plan loading state while the review queue loads", async () => {
+    mockSuccessfulSetupAndChoreFetches()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            id: "chore-1",
+            householdId: "household-1",
+            title: "Clean bathrooms",
+            cadence: "weekly",
+            estimatedMinutes: 5,
+            source: "manual"
+          }
+        ]
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => []
+      });
+    renderAt("/setup");
+
+    await completeSetupWithChore();
+    fireEvent.click(screen.getByRole("button", { name: "Review existing chores" }));
+
+    expect(screen.getByText("Loading review queue...")).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Review Queue" })).toBeTruthy();
+    });
+  });
+
+  it("shows a Plan load error when persisted chores cannot load", async () => {
+    mockSuccessfulSetupAndChoreFetches()
+      .mockResolvedValueOnce({ ok: false })
+      .mockResolvedValueOnce({ ok: true, json: async () => [] });
+    renderAt("/setup");
+
+    await completeSetupWithChore();
+    fireEvent.click(screen.getByRole("button", { name: "Review existing chores" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Could not load the review queue.")).toBeTruthy();
+    });
+  });
+
   it("uses the existing household id when submitting Plan after setup", async () => {
     const fetchMock = mockSuccessfulSetupFetches()
       .mockResolvedValueOnce({

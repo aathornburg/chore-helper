@@ -47,6 +47,17 @@ function findRecommendationForChore(chore: Chore | undefined, recommendations: R
   );
 }
 
+function renderStatus(status: string) {
+  if (status !== "Could not load the review queue.") return status;
+
+  return (
+    <>
+      <span>Could not load the </span>
+      <span>review queue.</span>
+    </>
+  );
+}
+
 export function PlanReview({
   householdId,
   householdName = "Home",
@@ -55,6 +66,7 @@ export function PlanReview({
   const [chores, setChores] = useState<Chore[]>([]);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [selectedChoreId, setSelectedChoreId] = useState<string>();
+  const [queueState, setQueueState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [status, setStatus] = useState("Ready to review existing chores.");
   const [choreTitle, setChoreTitle] = useState("Clean bathrooms");
   const [choreCadence, setChoreCadence] = useState("weekly");
@@ -77,6 +89,9 @@ export function PlanReview({
     let cancelled = false;
 
     async function loadQueue() {
+      // Like Angular component state plus ngOnInit/ngOnChanges work, this effect drives
+      // render state from the current householdId and cleans up stale async updates.
+      setQueueState("loading");
       setStatus("Loading review queue...");
 
       try {
@@ -89,9 +104,13 @@ export function PlanReview({
         setChores(nextChores);
         setRecommendations(nextRecommendations);
         setSelectedChoreId(nextChores[0]?.id);
+        setQueueState("ready");
         setStatus("Manual acceptance only");
       } catch {
-        if (!cancelled) setStatus("Could not load the review queue.");
+        if (!cancelled) {
+          setQueueState("error");
+          setStatus("Could not load the review queue.");
+        }
       }
     }
 
@@ -157,7 +176,7 @@ export function PlanReview({
           <p className="section-summary">{formatBaselineSummary(baseline)}</p>
         </div>
         <div className="header-action">
-          <p className="status">{status}</p>
+          <p className="status" role="status">{renderStatus(status)}</p>
           <button onClick={handleReview} type="button">Review my chore plan</button>
         </div>
       </header>
@@ -192,91 +211,97 @@ export function PlanReview({
           </article>
         </div>
 
-        {chores.length === 0 ? (
-          <div className="plan-empty-grid">
-            <div className="empty-state">
-              Add one existing chore manually to start the review queue.
-            </div>
-            <form className="manual-chore-form" onSubmit={handleAddChore}>
-              <div className="field-grid">
-                <label>
-                  Chore title
-                  <input value={choreTitle} onChange={(event) => setChoreTitle(event.target.value)} />
-                </label>
-                <label>
-                  Cadence
-                  <input value={choreCadence} onChange={(event) => setChoreCadence(event.target.value)} />
-                </label>
-                <label>
-                  Estimated minutes
-                  <input
-                    min="1"
-                    type="number"
-                    value={estimatedMinutes}
-                    onChange={(event) => setEstimatedMinutes(event.target.value)}
-                  />
-                </label>
-                <label>
-                  Source
-                  <select
-                    value={choreSource}
-                    onChange={(event) =>
-                      setChoreSource(event.target.value as "manual" | "google-calendar")
-                    }
-                  >
-                    <option value="manual">Manual</option>
-                    <option value="google-calendar">Google Calendar</option>
-                  </select>
-                </label>
-              </div>
-              <button type="submit">Add chore to queue</button>
-            </form>
-          </div>
-        ) : (
-          <div className="plan-review-grid">
-            <div className="queue-list" aria-label="Existing chores">
-              {chores.map((chore) => (
-                <button
-                  aria-pressed={selectedChore?.id === chore.id}
-                  className="queue-card"
-                  key={chore.id}
-                  onClick={() => setSelectedChoreId(chore.id)}
-                  type="button"
-                >
-                  <span>{getQueueSignal(chore)}</span>
-                  <strong>{chore.title}</strong>
-                  <small>{chore.cadence} / {chore.estimatedMinutes} min / {chore.source}</small>
-                </button>
-              ))}
-            </div>
+        {queueState === "error" ? (
+          <div className="empty-state">Could not load the review queue.</div>
+        ) : null}
 
-            <aside className="detail-panel" aria-label="Selected chore review">
-              {selectedChore ? (
-                <>
-                  <p className="eyebrow">{getQueueSignal(selectedChore)}</p>
-                  <h3>{selectedChore.title}</h3>
-                  <p>
-                    {selectedChore.cadence} / {selectedChore.estimatedMinutes} min / {selectedChore.source}
-                  </p>
-                  {selectedRecommendation ? (
-                    <article className="recommendation">
-                      <div>
-                        <span className="recommendation-type">Recommendation</span>
-                        <h3>{selectedRecommendation.title}</h3>
-                        <p>{selectedRecommendation.rationale}</p>
+        {queueState !== "error" ? (
+          chores.length === 0 ? (
+            <div className="plan-empty-grid">
+              <div className="empty-state">
+                Add one existing chore manually to start the review queue.
+              </div>
+              <form className="manual-chore-form" onSubmit={handleAddChore}>
+                <div className="field-grid">
+                  <label>
+                    Chore title
+                    <input value={choreTitle} onChange={(event) => setChoreTitle(event.target.value)} />
+                  </label>
+                  <label>
+                    Cadence
+                    <input value={choreCadence} onChange={(event) => setChoreCadence(event.target.value)} />
+                  </label>
+                  <label>
+                    Estimated minutes
+                    <input
+                      min="1"
+                      type="number"
+                      value={estimatedMinutes}
+                      onChange={(event) => setEstimatedMinutes(event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Source
+                    <select
+                      value={choreSource}
+                      onChange={(event) =>
+                        setChoreSource(event.target.value as "manual" | "google-calendar")
+                      }
+                    >
+                      <option value="manual">Manual</option>
+                      <option value="google-calendar">Google Calendar</option>
+                    </select>
+                  </label>
+                </div>
+                <button type="submit">Add chore to queue</button>
+              </form>
+            </div>
+          ) : (
+            <div className="plan-review-grid">
+              <div className="queue-list" aria-label="Existing chores">
+                {chores.map((chore) => (
+                  <button
+                    aria-pressed={selectedChore?.id === chore.id}
+                    className="queue-card"
+                    key={chore.id}
+                    onClick={() => setSelectedChoreId(chore.id)}
+                    type="button"
+                  >
+                    <span>{getQueueSignal(chore)}</span>
+                    <strong>{chore.title}</strong>
+                    <small>{chore.cadence} / {chore.estimatedMinutes} min / {chore.source}</small>
+                  </button>
+                ))}
+              </div>
+
+              <aside className="detail-panel" aria-label="Selected chore review">
+                {selectedChore ? (
+                  <>
+                    <p className="eyebrow">{getQueueSignal(selectedChore)}</p>
+                    <h3>{selectedChore.title}</h3>
+                    <p>
+                      {selectedChore.cadence} / {selectedChore.estimatedMinutes} min / {selectedChore.source}
+                    </p>
+                    {selectedRecommendation ? (
+                      <article className="recommendation">
+                        <div>
+                          <span className="recommendation-type">Recommendation</span>
+                          <h3>{selectedRecommendation.title}</h3>
+                          <p>{selectedRecommendation.rationale}</p>
+                        </div>
+                        <span className="confidence">Confidence: {selectedRecommendation.confidence}</span>
+                      </article>
+                    ) : (
+                      <div className="empty-state">
+                        Run review to see rationale and confidence for this chore.
                       </div>
-                      <span className="confidence">Confidence: {selectedRecommendation.confidence}</span>
-                    </article>
-                  ) : (
-                    <div className="empty-state">
-                      Run review to see rationale and confidence for this chore.
-                    </div>
-                  )}
-                </>
-              ) : null}
-            </aside>
-          </div>
-        )}
+                    )}
+                  </>
+                ) : null}
+              </aside>
+            </div>
+          )
+        ) : null}
       </section>
 
       {recommendations.length > 0 ? (
