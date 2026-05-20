@@ -9,6 +9,15 @@ import { normalizePath } from "./routes";
 import { HouseholdSetupProvider, useHouseholdSetup } from "./state/HouseholdSetupProvider";
 import "./App.css";
 
+/*
+  App is the top-level React component in this tree, similar to Angular's
+  AppComponent. It sets up the root layout and wraps child routes with
+  shared application context.
+
+  In Angular, this would be the component declared in `bootstrapModule`
+  and its template would contain `<router-outlet>` and any shared
+  provider-scoped wrappers.
+*/
 function App() {
   return (
     <HouseholdSetupProvider>
@@ -21,6 +30,15 @@ function AppRoutes() {
   const [path, setPath] = useState(() => normalizePath(window.location.pathname));
   const { addExistingChore, householdSetup, saveHouseholdContext } = useHouseholdSetup();
 
+  /*
+    `useState` is similar to component-scoped state in Angular, though
+    React keeps state local to the function component. This state controls
+    the current route path.
+
+    `useHouseholdSetup()` is like injecting an Angular service into a
+    component constructor; it gives access to shared application state and
+    actions managed by a provider.
+  */
   useEffect(() => {
     function handlePopState() {
       setPath(normalizePath(window.location.pathname));
@@ -35,6 +53,11 @@ function AppRoutes() {
     setPath(normalizePath(nextPath));
   }
 
+  /*
+    This manual navigation is roughly like calling `router.navigateByUrl`
+    in Angular. The component manages browser history and updates local
+    state to control which child component is rendered.
+  */
   if (path === "/") {
     return <LandingPage onGetStarted={() => navigate("/today")} />;
   }
@@ -81,6 +104,11 @@ function AppShell({
     { label: "Settings", path: "/settings" }
   ];
 
+  /*
+    AppShell functions like a shared layout component in Angular. Its
+    template contains the navigation bar and a content region, similar to
+    a shell component with `<router-outlet>`.
+  */
   return (
     <div className="workspace-shell">
       <header className="workspace-topbar">
