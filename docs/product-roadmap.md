@@ -28,23 +28,7 @@ Suggested child doc:
 
 - `docs/superpowers/specs/2026-05-19-ui-data-setup-flow-design.md`
 
-### 2. Auth + Household Ownership
-
-Introduce user authentication and make households belong to authenticated users.
-
-Key outcomes:
-
-- Users can sign in and sign out.
-- Households are associated with users.
-- The app replaces localStorage household ownership with authenticated household selection.
-- Local development remains simple while the architecture prepares for hosted deployment.
-- The backend enforces household access through authenticated ownership rather than client-provided IDs alone.
-
-Suggested child doc:
-
-- `docs/superpowers/specs/2026-05-20-auth-household-ownership-design.md`
-
-### 3. Persistence + Domain Hardening
+### 2. Persistence + Domain Hardening
 
 Build on the existing Prisma + Postgres persistence and expand it into durable product state.
 
@@ -60,7 +44,7 @@ Suggested child doc:
 
 - `docs/superpowers/specs/YYYY-MM-DD-domain-persistence-design.md`
 
-### 4. OpenAI Agents SDK Integration
+### 3. OpenAI Agents SDK Integration
 
 Replace the mock recommendation provider with an OpenAI Agents SDK-backed implementation behind the existing backend `AgentProvider` boundary.
 
@@ -75,6 +59,22 @@ Key outcomes:
 Suggested child doc:
 
 - `docs/superpowers/specs/YYYY-MM-DD-openai-agents-sdk-design.md`
+
+### 4. Auth + Household Ownership
+
+Introduce user authentication and make households belong to authenticated users.
+
+Key outcomes:
+
+- Users can sign in and sign out.
+- Households are associated with users.
+- The app replaces localStorage household ownership with authenticated household selection.
+- Local development remains simple while the architecture prepares for hosted deployment.
+- The backend enforces household access through authenticated ownership rather than client-provided IDs alone.
+
+Suggested child doc:
+
+- `docs/superpowers/specs/2026-05-20-auth-household-ownership-design.md`
 
 ### 5. Google Calendar Import + Export
 
