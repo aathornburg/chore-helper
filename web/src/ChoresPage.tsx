@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Chore, HouseholdBaseline, Recommendation } from "@chore-helper/shared";
 import {
+  applyRecommendationDecisions,
   archiveChore,
   createChore,
   generateRecommendations,
@@ -8,6 +9,7 @@ import {
   listChores,
   listRecommendations,
   restoreChore,
+  updateRecommendationDecision,
   updateChore
 } from "./api";
 
@@ -18,6 +20,8 @@ type PlanReviewProps = {
 };
 
 type QueueSignal = "Duration concern" | "Cadence review" | "Ready";
+type ChoreReviewState = "unreviewed" | "recommendation-pending" | "reviewed";
+type ChoreStatusTab = "all-active" | "unreviewed" | "recommendation-pending" | "reviewed" | "archived";
 
 function formatBaselineSummary(baseline?: HouseholdBaseline) {
   if (!baseline) return "Household context is not complete yet.";
@@ -28,7 +32,7 @@ function formatBaselineSummary(baseline?: HouseholdBaseline) {
 }
 
 /*
-  PlanReview is similar to an Angular component that consumes a service.
+  ChoresPage is similar to an Angular component that consumes a service.
   It keeps UI state local and delegates network requests to the API module,
   similar to how Angular components call service methods instead of
   performing HTTP logic directly.
@@ -54,8 +58,22 @@ function findRecommendationForChore(chore: Chore | undefined, recommendations: R
   if (!chore) return undefined;
 
   return recommendations.find((recommendation) =>
+    recommendation.affectedChoreId === chore.id ||
     recommendation.title.toLowerCase().includes(chore.title.toLowerCase())
   );
+}
+
+function getChoreReviewState(chore: Chore, recommendations: Recommendation[]): ChoreReviewState {
+  const recommendation = findRecommendationForChore(chore, recommendations);
+  if (!recommendation) return "unreviewed";
+  if (recommendation.decision === "applied") return "reviewed";
+  return "recommendation-pending";
+}
+
+function formatReviewState(state: ChoreReviewState) {
+  if (state === "recommendation-pending") return "Recommendation pending";
+  if (state === "reviewed") return "Reviewed";
+  return "Unreviewed";
 }
 
 function renderStatus(status: string) {
@@ -69,7 +87,7 @@ function renderStatus(status: string) {
   );
 }
 
-export function PlanReview({
+export function ChoresPage({
   householdId,
   householdName = "Home",
   baseline
@@ -82,6 +100,11 @@ export function PlanReview({
   const [status, setStatus] = useState("Ready to review existing chores.");
   const [showArchived, setShowArchived] = useState(false);
   const [recommendationsStale, setRecommendationsStale] = useState(false);
+  const [activeTab, setActiveTab] = useState<ChoreStatusTab>("all-active");
+  const [reviewFlowOpen, setReviewFlowOpen] = useState(false);
+  const [reviewStep, setReviewStep] = useState<"select" | "decide">("select");
+  const [selectedReviewChoreIds, setSelectedReviewChoreIds] = useState<string[]>([]);
+  const [reviewRecommendations, setReviewRecommendations] = useState<Recommendation[]>([]);
   const [choreTitle, setChoreTitle] = useState("");
   const [choreCadence, setChoreCadence] = useState("");
   const [estimatedMinutes, setEstimatedMinutes] = useState("");
@@ -98,6 +121,15 @@ export function PlanReview({
     () => chores.filter((chore) => getQueueSignal(chore) === "Duration concern").length,
     [chores]
   );
+  const unreviewedCount = useMemo(
+    () => chores.filter((chore) => getChoreReviewState(chore, recommendations) === "unreviewed").length,
+    [chores, recommendations]
+  );
+  const visibleChores = useMemo(() => {
+    if (activeTab === "all-active") return chores;
+    if (activeTab === "archived") return archivedChores;
+    return chores.filter((chore) => getChoreReviewState(chore, recommendations) === activeTab);
+  }, [activeTab, archivedChores, chores, recommendations]);
 
   useEffect(() => {
     if (!householdId) return;
@@ -180,6 +212,64 @@ export function PlanReview({
     setStatus("Review complete.");
   }
 
+  function handleStartReviewFlow() {
+    const defaultIds = chores
+      .filter((chore) => getChoreReviewState(chore, recommendations) === "unreviewed")
+      .map((chore) => chore.id);
+
+    setSelectedReviewChoreIds(defaultIds.length > 0 ? defaultIds : chores.map((chore) => chore.id));
+    setReviewRecommendations([]);
+    setReviewStep("select");
+    setReviewFlowOpen(true);
+  }
+
+  async function handleGenerateSelectedReview() {
+    if (!householdId) return;
+
+    setStatus("Reviewing selected chores...");
+    const nextRecommendations = await generateRecommendations(
+      householdId,
+      "Review the selected chores and suggest practical improvements.",
+      selectedReviewChoreIds
+    );
+    setReviewRecommendations(nextRecommendations);
+    setRecommendations(nextRecommendations);
+    setRecommendationsStale(false);
+    setReviewStep("decide");
+    setStatus("Review ready.");
+  }
+
+  async function handleDecisionChange(
+    recommendation: Recommendation,
+    decision: Recommendation["decision"]
+  ) {
+    if (!householdId || !decision) return;
+
+    const updated = await updateRecommendationDecision(householdId, recommendation.id, decision);
+    setReviewRecommendations((currentRecommendations) =>
+      currentRecommendations.map((candidate) => (candidate.id === updated.id ? updated : candidate))
+    );
+    setRecommendations((currentRecommendations) =>
+      currentRecommendations.map((candidate) => (candidate.id === updated.id ? updated : candidate))
+    );
+  }
+
+  async function handleApplyDecisions() {
+    if (!householdId) return;
+
+    setStatus("Applying recommendation decisions...");
+    await applyRecommendationDecisions(householdId);
+    const [nextChores, nextRecommendations] = await Promise.all([
+      listChores(householdId),
+      listRecommendations(householdId)
+    ]);
+    setChores(nextChores);
+    setRecommendations(nextRecommendations);
+    setReviewRecommendations([]);
+    setReviewFlowOpen(false);
+    setStatus("Recommendation decisions applied.");
+  }
+
   async function handleSaveSelectedChore(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!householdId || !selectedChore) return;
@@ -240,8 +330,8 @@ export function PlanReview({
   if (!householdId) {
     return (
       <section className="placeholder-page">
-        <p className="eyebrow">Plan</p>
-        <h1>Plan</h1>
+        <p className="eyebrow">Chores</p>
+        <h1>Household chores</h1>
         <p className="lede">Set up a household before reviewing existing chores.</p>
       </section>
     );
@@ -251,11 +341,10 @@ export function PlanReview({
     <div className="plan-review">
       <header className="workspace-hero compact-hero">
         <div>
-          <p className="eyebrow">Expert review workspace</p>
-          <h1>Plan</h1>
+          <p className="eyebrow">Chore workspace</p>
+          <h1>Household chores</h1>
           <p className="lede">
-            Optimize existing chores with rationale-backed recommendations before accepting any
-            changes.
+            Add, edit, archive, and track chore review state from one durable workspace.
           </p>
           <p className="supporting-copy">
             <strong>{householdName}</strong> / {formatBaselineSummary(baseline)}
@@ -271,14 +360,121 @@ export function PlanReview({
       <section className="dashboard-section plan-queue-section" aria-labelledby="review-queue-heading">
         <div className="section-heading">
           <div className="section-title">
-            <span>01</span>
             <div>
-              <h2 id="review-queue-heading">Review Queue</h2>
-              <p>Existing chores that may need cadence, duration, or coverage review.</p>
+              <h2 id="review-queue-heading">Chore list</h2>
+              <p>Existing chores, review state, and manual CRUD controls.</p>
             </div>
           </div>
           <span className="confidence">Manual acceptance only</span>
         </div>
+
+        <section className="review-entry-panel" aria-label="Review entry point">
+          <div>
+            <strong>{unreviewedCount} chores have not been reviewed yet</strong>
+            <p>Choose which chores the assistant should review. You can include already-reviewed chores if you want a second pass.</p>
+          </div>
+          <button className="secondary-action" onClick={handleStartReviewFlow} type="button">
+            Start review flow
+          </button>
+        </section>
+
+        <div className="status-tabs" role="tablist" aria-label="Chore status filters">
+          {[
+            ["all-active", "All active"],
+            ["unreviewed", "Unreviewed"],
+            ["recommendation-pending", "Recommendation pending"],
+            ["reviewed", "Reviewed"],
+            ["archived", "Archived"]
+          ].map(([tab, label]) => (
+            <button
+              aria-selected={activeTab === tab}
+              key={tab}
+              onClick={() => {
+                setActiveTab(tab as ChoreStatusTab);
+                if (tab === "archived" && !showArchived) void handleLoadArchivedChores();
+              }}
+              role="tab"
+              type="button"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {reviewFlowOpen ? (
+          <section className="dashboard-section review-flow-section" aria-label="Review flow">
+            {reviewStep === "select" ? (
+              <>
+                <h2>Choose chores to review</h2>
+                <p>Unreviewed chores are selected by default. You can add reviewed chores if you want another pass.</p>
+                <div className="review-checkbox-list">
+                  {chores.map((chore) => (
+                    <label className="review-checkbox-row" key={chore.id}>
+                      <input
+                        checked={selectedReviewChoreIds.includes(chore.id)}
+                        onChange={(event) => {
+                          setSelectedReviewChoreIds((currentIds) =>
+                            event.target.checked
+                              ? [...currentIds, chore.id]
+                              : currentIds.filter((id) => id !== chore.id)
+                          );
+                        }}
+                        type="checkbox"
+                      />
+                      <span>{chore.title}</span>
+                    </label>
+                  ))}
+                </div>
+                <div className="form-actions">
+                  <button className="secondary-action" onClick={() => setReviewFlowOpen(false)} type="button">Cancel</button>
+                  <button onClick={handleGenerateSelectedReview} type="button">Review selected chores</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h2>Decide on recommendations</h2>
+                <div className="recommendation-list">
+                  {reviewRecommendations.map((recommendation) => (
+                    <article className="recommendation" key={recommendation.id}>
+                      <div>
+                        <span className="recommendation-type">Recommendation</span>
+                        <h3>{recommendation.title}</h3>
+                        <p>{recommendation.rationale}</p>
+                      </div>
+                      <div className="decision-toggle" role="group" aria-label={`Decision for ${recommendation.title}`}>
+                        <button
+                          aria-pressed={recommendation.decision === "accepted"}
+                          onClick={() => handleDecisionChange(recommendation, "accepted")}
+                          type="button"
+                        >
+                          Accept {recommendation.title}
+                        </button>
+                        <button
+                          aria-pressed={recommendation.decision === "declined"}
+                          onClick={() => handleDecisionChange(recommendation, "declined")}
+                          type="button"
+                        >
+                          Decline {recommendation.title}
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+                <div className="context-support">
+                  <strong>Recommendations not adding up?</strong>
+                  <p>Make sure your household context is correct for more accurate recommendations.</p>
+                  <button className="secondary-action" onClick={() => setReviewFlowOpen(false)} type="button">
+                    Review household context
+                  </button>
+                </div>
+                <div className="form-actions">
+                  <button className="secondary-action" onClick={() => setReviewStep("select")} type="button">Back</button>
+                  <button onClick={handleApplyDecisions} type="button">Apply decisions</button>
+                </div>
+              </>
+            )}
+          </section>
+        ) : null}
 
         <div className="metric-grid">
           <article className="metric-card good">
@@ -303,7 +499,7 @@ export function PlanReview({
         ) : null}
 
         {queueState === "ready" ? (
-          chores.length === 0 ? (
+          visibleChores.length === 0 ? (
             <div className="plan-empty-grid">
               <div className="empty-state">
                 {recommendationsStale ? "No active chores in the review queue." : "Add one existing chore manually to start the review queue."}
@@ -352,19 +548,22 @@ export function PlanReview({
           ) : (
             <div className="plan-review-grid">
               <div className="queue-list" aria-label="Existing chores">
-                {chores.map((chore) => (
+                {visibleChores.map((chore) => {
+                  const reviewState = getChoreReviewState(chore, recommendations);
+                  return (
                   <button
                     aria-pressed={selectedChore?.id === chore.id}
-                    className="queue-card"
+                    className={`queue-card chore-card-${reviewState}`}
                     key={chore.id}
                     onClick={() => setSelectedChoreId(chore.id)}
                     type="button"
                   >
-                    <span>{getQueueSignal(chore)}</span>
+                    <span>{formatReviewState(reviewState)}</span>
                     <strong>{chore.title}</strong>
                     <small>{chore.cadence} / {chore.estimatedMinutes} min / {chore.source}</small>
                   </button>
-                ))}
+                  );
+                })}
               </div>
 
               <aside className="detail-panel" aria-label="Selected chore review">

@@ -108,12 +108,13 @@ export async function listArchivedChores(householdId: string): Promise<Chore[]> 
 
 export async function generateRecommendations(
   householdId: string,
-  reviewPrompt?: string
+  reviewPrompt?: string,
+  selectedChoreIds?: string[]
 ): Promise<Recommendation[]> {
   const response = await fetch(`${API_BASE_URL}/api/households/${householdId}/recommendations`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ reviewPrompt })
+    body: JSON.stringify({ reviewPrompt, selectedChoreIds })
   });
 
   if (!response.ok) throw new Error("Failed to generate recommendations");
@@ -124,5 +125,34 @@ export async function listRecommendations(householdId: string): Promise<Recommen
   const response = await fetch(`${API_BASE_URL}/api/households/${householdId}/recommendations`);
 
   if (!response.ok) throw new Error("Failed to fetch recommendations");
+  return response.json();
+}
+
+export async function updateRecommendationDecision(
+  householdId: string,
+  recommendationId: string,
+  decision: Recommendation["decision"]
+): Promise<Recommendation> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/households/${householdId}/recommendations/${recommendationId}/decision`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ decision })
+    }
+  );
+
+  if (!response.ok) throw new Error("Failed to update recommendation decision");
+  return response.json();
+}
+
+export async function applyRecommendationDecisions(
+  householdId: string
+): Promise<{ applied: Recommendation[]; declined: Recommendation[] }> {
+  const response = await fetch(`${API_BASE_URL}/api/households/${householdId}/recommendations/apply`, {
+    method: "POST"
+  });
+
+  if (!response.ok) throw new Error("Failed to apply recommendation decisions");
   return response.json();
 }

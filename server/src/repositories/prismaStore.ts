@@ -5,7 +5,8 @@ import type {
   Household,
   HouseholdBaseline,
   Recommendation,
-  RecommendationConfidence
+  RecommendationConfidence,
+  RecommendationDecision
 } from "@chore-helper/shared";
 import type { HouseholdStore } from "./inMemoryStore.js";
 
@@ -76,19 +77,27 @@ function toChore(chore: {
 function toRecommendation(recommendation: {
   id: string;
   householdId: string;
+  affectedChoreId?: string | null;
   title: string;
   rationale: string;
   confidence: string;
   status: string;
+  decision?: string | null;
+  proposedCadence?: string | null;
+  proposedEstimatedMinutes?: number | null;
   staleAt?: Date | null;
 }): Recommendation {
   return {
     id: recommendation.id,
     householdId: recommendation.householdId,
+    affectedChoreId: recommendation.affectedChoreId ?? undefined,
     title: recommendation.title,
     rationale: recommendation.rationale,
     confidence: recommendation.confidence as RecommendationConfidence,
     status: recommendation.status as Recommendation["status"],
+    decision: (recommendation.decision ?? "pending") as RecommendationDecision,
+    proposedCadence: recommendation.proposedCadence ?? undefined,
+    proposedEstimatedMinutes: recommendation.proposedEstimatedMinutes ?? undefined,
     staleAt: serializeDate(recommendation.staleAt)
   };
 }
@@ -261,12 +270,19 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
             rationale: recommendation.rationale,
             confidence: recommendation.confidence,
             status: recommendation.status,
+            affectedChoreId: recommendation.affectedChoreId,
+            decision: recommendation.decision ?? "pending",
+            proposedCadence: recommendation.proposedCadence,
+            proposedEstimatedMinutes: recommendation.proposedEstimatedMinutes,
             staleAt: recommendation.staleAt ? new Date(recommendation.staleAt) : null
           }))
         })
       ]);
 
-      return recommendations;
+      return recommendations.map((recommendation) => ({
+        ...recommendation,
+        decision: recommendation.decision ?? "pending"
+      }));
     },
 
     async markRecommendationsStale(householdId) {
@@ -283,6 +299,73 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
       });
 
       return recommendations.map(toRecommendation);
+    },
+
+    async updateRecommendationDecision(householdId, recommendationId, update) {
+      const existing = await prisma.recommendation.findFirst({
+        where: { id: recommendationId, householdId }
+      });
+      if (!existing) return undefined;
+
+      const updated = await prisma.recommendation.update({
+        where: { id: recommendationId },
+        data: { decision: update.decision }
+      });
+
+      return toRecommendation(updated);
+    },
+
+    async applyRecommendationDecisions(householdId) {
+      return prisma.$transaction(async (tx) => {
+        const accepted = await tx.recommendation.findMany({
+          where: {
+            householdId,
+            staleAt: null,
+            decision: "accepted"
+          },
+          orderBy: { createdAt: "asc" }
+        });
+        const declined = await tx.recommendation.findMany({
+          where: {
+            householdId,
+            staleAt: null,
+            decision: "declined"
+          },
+          orderBy: { createdAt: "asc" }
+        });
+        const applied: Recommendation[] = [];
+
+        for (const recommendation of accepted) {
+          if (!recommendation.affectedChoreId) continue;
+
+          const chore = await tx.chore.findFirst({
+            where: {
+              id: recommendation.affectedChoreId,
+              householdId
+            }
+          });
+          if (!chore) continue;
+
+          await tx.chore.update({
+            where: { id: chore.id },
+            data: {
+              cadence: recommendation.proposedCadence ?? chore.cadence,
+              estimatedMinutes: recommendation.proposedEstimatedMinutes ?? chore.estimatedMinutes
+            }
+          });
+
+          const appliedRecommendation = await tx.recommendation.update({
+            where: { id: recommendation.id },
+            data: { decision: "applied" }
+          });
+          applied.push(toRecommendation(appliedRecommendation));
+        }
+
+        return {
+          applied,
+          declined: declined.map(toRecommendation)
+        };
+      });
     }
   };
 }

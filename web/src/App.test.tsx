@@ -126,7 +126,8 @@ describe("App", () => {
 
     expect(screen.getByRole("link", { name: "Today" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Setup" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Plan" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Chores" })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Plan" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Family" })).toBeNull();
     expect(screen.getByRole("link", { name: "Settings" })).toBeTruthy();
   });
@@ -322,7 +323,7 @@ describe("App", () => {
     expect((sourceSelect as HTMLSelectElement).value).toBe("manual");
   });
 
-  it("routes from setup-complete Today to Plan", async () => {
+  it("routes from setup-complete Today to Chores", async () => {
     mockSuccessfulSetupAndChoreFetches()
       .mockResolvedValueOnce({
         ok: true,
@@ -346,10 +347,10 @@ describe("App", () => {
     await completeSetupWithChore();
     fireEvent.click(screen.getByRole("button", { name: "Review existing chores" }));
 
-    expect(screen.getByRole("heading", { name: "Plan" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Household chores" })).toBeTruthy();
   });
 
-  it("preloads saved household context in Plan after setup", async () => {
+  it("preloads saved household context in Chores after setup", async () => {
     mockSuccessfulSetupAndChoreFetches()
       .mockResolvedValueOnce({
         ok: true,
@@ -377,7 +378,7 @@ describe("App", () => {
     expect(screen.getByText("house / 3 rooms / hardwood, tile, carpet / pets / outdoor space")).toBeTruthy();
   });
 
-  it("shows a Plan loading state while the review queue loads", async () => {
+  it("shows a Chores loading state while the chore list loads", async () => {
     mockSuccessfulSetupAndChoreFetches()
       .mockResolvedValueOnce({
         ok: true,
@@ -404,11 +405,11 @@ describe("App", () => {
     expect(screen.getByText("Loading review queue...")).toBeTruthy();
     expect(screen.queryByText("Add one existing chore manually to start the review queue.")).toBeNull();
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Review Queue" })).toBeTruthy();
+      expect(screen.getByRole("heading", { name: "Chore list" })).toBeTruthy();
     });
   });
 
-  it("shows a Plan load error when persisted chores cannot load", async () => {
+  it("shows a Chores load error when persisted chores cannot load", async () => {
     mockSuccessfulSetupAndChoreFetches()
       .mockResolvedValueOnce({ ok: false })
       .mockResolvedValueOnce({ ok: true, json: async () => [] });
@@ -422,7 +423,7 @@ describe("App", () => {
     });
   });
 
-  it("uses the existing household id when submitting Plan after setup", async () => {
+  it("uses the existing household id when submitting Chores review after setup", async () => {
     const fetchMock = mockSuccessfulSetupFetches()
       .mockResolvedValueOnce({
         ok: true,
@@ -672,7 +673,7 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Set up household" })).toBeTruthy();
   });
 
-  it("renders Plan as a review queue instead of a setup accordion", async () => {
+  it("renders Chores as a chore workspace instead of a setup accordion", async () => {
     const fetchMock = mockSuccessfulSetupFetches()
       .mockResolvedValueOnce({
         ok: true,
@@ -708,7 +709,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Review existing chores" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Review Queue" })).toBeTruthy();
+      expect(screen.getByRole("heading", { name: "Chore list" })).toBeTruthy();
     });
     expect(screen.getAllByText("Clean bathrooms").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Duration concern").length).toBeGreaterThan(0);
@@ -724,7 +725,7 @@ describe("App", () => {
     );
   });
 
-  it("shows an empty Plan queue with manual chore entry", async () => {
+  it("shows an empty Chores list with manual chore entry", async () => {
     mockSuccessfulSetupFetches()
       .mockResolvedValueOnce({
         ok: true,
@@ -757,7 +758,7 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Add chore to queue" })).toBeTruthy();
   });
 
-  it("keeps Google Calendar unavailable as an active Plan manual chore source", async () => {
+  it("keeps Google Calendar unavailable as an active Chores manual chore source", async () => {
     mockSuccessfulSetupFetches()
       .mockResolvedValueOnce({
         ok: true,
@@ -793,7 +794,7 @@ describe("App", () => {
     expect((sourceSelect as HTMLSelectElement).value).toBe("manual");
   });
 
-  it("edits the selected Plan chore and shows stale recommendation status", async () => {
+  it("edits the selected Chores chore and shows stale recommendation status", async () => {
     const fetchMock = mockSuccessfulSetupAndChoreFetches()
       .mockResolvedValueOnce({
         ok: true,
@@ -861,7 +862,7 @@ describe("App", () => {
     );
   });
 
-  it("archives and restores chores in Plan", async () => {
+  it("archives and restores chores in Chores", async () => {
     const fetchMock = mockSuccessfulSetupAndChoreFetches()
       .mockResolvedValueOnce({
         ok: true,
@@ -941,7 +942,7 @@ describe("App", () => {
     );
   });
 
-  it("keeps the Plan recommendation submit flow working", async () => {
+  it("keeps the Chores recommendation submit flow working", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce({
         ok: true,
@@ -1004,5 +1005,104 @@ describe("App", () => {
       expect(screen.getAllByText("Review duration for Clean bathrooms").length).toBeGreaterThan(0);
     });
     expect(fetchMock).toHaveBeenCalledTimes(6);
+  });
+
+  it("runs a staged review flow from Chores and applies decisions explicitly", async () => {
+    const fetchMock = mockSuccessfulSetupAndChoreFetches()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            id: "chore-1",
+            householdId: "household-1",
+            title: "Clean bathrooms",
+            cadence: "weekly",
+            estimatedMinutes: 5,
+            source: "manual"
+          },
+          {
+            id: "chore-2",
+            householdId: "household-1",
+            title: "Vacuum bedrooms",
+            cadence: "weekly",
+            estimatedMinutes: 20,
+            source: "manual"
+          }
+        ]
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => [] })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            id: "recommendation-1",
+            householdId: "household-1",
+            affectedChoreId: "chore-1",
+            title: "Review duration for Clean bathrooms",
+            rationale: "The current estimate may be too short.",
+            confidence: "high",
+            status: "pending",
+            decision: "pending",
+            proposedEstimatedMinutes: 30
+          }
+        ]
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          id: "recommendation-1",
+          householdId: "household-1",
+          affectedChoreId: "chore-1",
+          title: "Review duration for Clean bathrooms",
+          rationale: "The current estimate may be too short.",
+          confidence: "high",
+          status: "pending",
+          decision: "accepted",
+          proposedEstimatedMinutes: 30
+        })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ applied: [{ id: "recommendation-1", decision: "applied" }], declined: [] })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            id: "chore-1",
+            householdId: "household-1",
+            title: "Clean bathrooms",
+            cadence: "weekly",
+            estimatedMinutes: 30,
+            source: "manual"
+          }
+        ]
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => [] });
+    renderAt("/setup");
+
+    await completeSetupWithChore();
+    fireEvent.click(screen.getByRole("button", { name: "Review existing chores" }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Household chores" })).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("button", { name: "Start review flow" }));
+    expect((screen.getByLabelText("Clean bathrooms") as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByLabelText("Vacuum bedrooms") as HTMLInputElement).checked).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "Review selected chores" }));
+    await waitFor(() => expect(screen.getAllByText("Review duration for Clean bathrooms").length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByRole("button", { name: "Accept Review duration for Clean bathrooms" }));
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Accept Review duration for Clean bathrooms" }).getAttribute("aria-pressed")
+      ).toBe("true");
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Apply decisions" }));
+
+    await waitFor(() => expect(screen.getByText("Recommendation decisions applied.")).toBeTruthy());
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/households/household-1/recommendations/apply",
+      expect.objectContaining({ method: "POST" })
+    );
   });
 });

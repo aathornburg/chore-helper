@@ -734,6 +734,99 @@ textarea {
   background: linear-gradient(180deg, #fffdf9 0%, #fbf8f2 100%);
 }
 
+.review-entry-panel {
+  align-items: center;
+  background: white;
+  border: 1px solid #eaded1;
+  border-radius: 12px;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  padding: 14px;
+}
+
+.review-entry-panel p {
+  color: #5e625b;
+  margin: 4px 0 0;
+}
+
+.secondary-action {
+  background: #f4f0e9;
+  border: 1px solid #d8cabd;
+  color: #2f694d;
+}
+
+.status-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.status-tabs button {
+  background: white;
+  border: 1px solid #eaded1;
+  color: #3f4a43;
+  padding: 9px 13px;
+}
+
+.status-tabs button[aria-selected="true"] {
+  background: #eef6ea;
+  border-color: #b8d1af;
+  color: #2f694d;
+}
+
+.review-flow-section {
+  background: #fffefa;
+  border-color: #d8cabd;
+}
+
+.review-checkbox-list {
+  display: grid;
+  gap: 10px;
+}
+
+.review-checkbox-row {
+  align-items: center;
+  background: white;
+  border: 1px solid #eaded1;
+  border-radius: 10px;
+  display: flex;
+  gap: 10px;
+  padding: 12px;
+}
+
+.review-checkbox-row input {
+  height: 18px;
+  width: 18px;
+}
+
+.decision-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.decision-toggle button {
+  background: #f4f0e9;
+  border: 1px solid #d8cabd;
+  color: #3f4a43;
+}
+
+.decision-toggle button[aria-pressed="true"] {
+  background: #e8f0e4;
+  border-color: #b8d1af;
+  color: #2f694d;
+}
+
+.context-support {
+  background: #f8fbf6;
+  border: 1px solid #d7e4d5;
+  border-radius: 12px;
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+}
+
 .plan-review-grid,
 .plan-empty-grid {
   align-items: start;
@@ -782,6 +875,19 @@ textarea {
   color: #687167;
   font-size: 0.9rem;
   line-height: 1.4;
+}
+
+.chore-card-unreviewed {
+  border-style: dotted;
+  border-width: 2px;
+}
+
+.chore-card-recommendation-pending {
+  border-color: #ddbd9f;
+}
+
+.chore-card-reviewed {
+  border-color: #b8d1af;
 }
 
 .detail-panel {

@@ -81,6 +81,106 @@ describe("household baseline flow", () => {
     );
   });
 
+  it("stages a recommendation decision without immediately changing chores", async () => {
+    const app = createTestApp();
+    const created = await request(app).post("/api/households").send({ name: "Home" }).expect(201);
+    const householdId = created.body.id;
+    const chore = await request(app)
+      .post(`/api/households/${householdId}/chores`)
+      .send({
+        title: "Clean bathrooms",
+        cadence: "weekly",
+        estimatedMinutes: 5,
+        source: "manual"
+      })
+      .expect(201);
+
+    const recommendations = await request(app)
+      .post(`/api/households/${householdId}/recommendations`)
+      .send({
+        selectedChoreIds: [chore.body.id],
+        reviewPrompt: "Review the selected chores."
+      })
+      .expect(201);
+    const recommendation = recommendations.body[0];
+
+    await request(app)
+      .put(`/api/households/${householdId}/recommendations/${recommendation.id}/decision`)
+      .send({ decision: "accepted" })
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toEqual(
+          expect.objectContaining({
+            id: recommendation.id,
+            affectedChoreId: chore.body.id,
+            decision: "accepted"
+          })
+        );
+      });
+
+    await request(app)
+      .get(`/api/households/${householdId}/chores`)
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toEqual([
+          expect.objectContaining({
+            id: chore.body.id,
+            estimatedMinutes: 5
+          })
+        ]);
+      });
+  });
+
+  it("applies accepted recommendation decisions in one explicit request", async () => {
+    const app = createTestApp();
+    const created = await request(app).post("/api/households").send({ name: "Home" }).expect(201);
+    const householdId = created.body.id;
+    const chore = await request(app)
+      .post(`/api/households/${householdId}/chores`)
+      .send({
+        title: "Clean bathrooms",
+        cadence: "weekly",
+        estimatedMinutes: 5,
+        source: "manual"
+      })
+      .expect(201);
+
+    const recommendations = await request(app)
+      .post(`/api/households/${householdId}/recommendations`)
+      .send({ selectedChoreIds: [chore.body.id] })
+      .expect(201);
+    const recommendation = recommendations.body[0];
+
+    await request(app)
+      .put(`/api/households/${householdId}/recommendations/${recommendation.id}/decision`)
+      .send({ decision: "accepted" })
+      .expect(200);
+
+    await request(app)
+      .post(`/api/households/${householdId}/recommendations/apply`)
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.applied).toEqual([
+          expect.objectContaining({
+            id: recommendation.id,
+            decision: "applied"
+          })
+        ]);
+      });
+
+    await request(app)
+      .get(`/api/households/${householdId}/chores`)
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toEqual([
+          expect.objectContaining({
+            id: chore.body.id,
+            estimatedMinutes: 30
+          })
+        ]);
+      });
+  });
+
   it("fetches a saved household with its baseline for frontend restore", async () => {
     const app = createTestApp();
 

@@ -1,4 +1,10 @@
-import type { Chore, Household, HouseholdBaseline, Recommendation } from "@chore-helper/shared";
+import type {
+  Chore,
+  Household,
+  HouseholdBaseline,
+  Recommendation,
+  RecommendationDecision
+} from "@chore-helper/shared";
 
 export type StoreResult<T> = T | Promise<T>;
 
@@ -8,6 +14,15 @@ export type ChoreListOptions = {
 };
 
 export type ChoreUpdate = Omit<Chore, "id" | "householdId" | "archivedAt">;
+
+export type RecommendationDecisionUpdate = {
+  decision: Exclude<RecommendationDecision, "applied">;
+};
+
+export type ApplyRecommendationResult = {
+  applied: Recommendation[];
+  declined: Recommendation[];
+};
 
 export type HouseholdStore = {
   createHousehold(name: string): StoreResult<Household>;
@@ -24,7 +39,20 @@ export type HouseholdStore = {
   ): StoreResult<Recommendation[]>;
   markRecommendationsStale(householdId: string): StoreResult<void>;
   listRecommendations(householdId: string): StoreResult<Recommendation[]>;
+  updateRecommendationDecision(
+    householdId: string,
+    recommendationId: string,
+    update: RecommendationDecisionUpdate
+  ): StoreResult<Recommendation | undefined>;
+  applyRecommendationDecisions(householdId: string): StoreResult<ApplyRecommendationResult>;
 };
+
+function normalizeRecommendation(recommendation: Recommendation): Recommendation {
+  return {
+    ...recommendation,
+    decision: recommendation.decision ?? "pending"
+  };
+}
 
 export function createInMemoryStore(): HouseholdStore {
   const households = new Map<string, Household>();
@@ -113,8 +141,9 @@ export function createInMemoryStore(): HouseholdStore {
     },
 
     saveRecommendations(householdId, nextRecommendations) {
-      recommendations.set(householdId, nextRecommendations);
-      return nextRecommendations;
+      const normalized = nextRecommendations.map(normalizeRecommendation);
+      recommendations.set(householdId, normalized);
+      return normalized;
     },
 
     markRecommendationsStale(householdId) {
@@ -123,6 +152,55 @@ export function createInMemoryStore(): HouseholdStore {
 
     listRecommendations(householdId) {
       return recommendations.get(householdId) ?? [];
+    },
+
+    updateRecommendationDecision(householdId, recommendationId, update) {
+      const householdRecommendations = recommendations.get(householdId) ?? [];
+      const existing = householdRecommendations.find((recommendation) => recommendation.id === recommendationId);
+      if (!existing) return undefined;
+
+      const updated = { ...existing, decision: update.decision };
+      recommendations.set(
+        householdId,
+        householdRecommendations.map((recommendation) =>
+          recommendation.id === recommendationId ? updated : recommendation
+        )
+      );
+      return updated;
+    },
+
+    applyRecommendationDecisions(householdId) {
+      const householdRecommendations = recommendations.get(householdId) ?? [];
+      let nextChores = chores.get(householdId) ?? [];
+      const applied: Recommendation[] = [];
+      const declined: Recommendation[] = [];
+
+      const nextRecommendations = householdRecommendations.map((recommendation) => {
+        if (recommendation.staleAt) return recommendation;
+        if (recommendation.decision === "declined") {
+          declined.push(recommendation);
+          return recommendation;
+        }
+        if (recommendation.decision !== "accepted") return recommendation;
+
+        const affectedChore = nextChores.find((chore) => chore.id === recommendation.affectedChoreId);
+        if (!affectedChore) return recommendation;
+
+        const updatedChore = {
+          ...affectedChore,
+          cadence: recommendation.proposedCadence ?? affectedChore.cadence,
+          estimatedMinutes: recommendation.proposedEstimatedMinutes ?? affectedChore.estimatedMinutes
+        };
+        nextChores = nextChores.map((chore) => (chore.id === updatedChore.id ? updatedChore : chore));
+
+        const appliedRecommendation = { ...recommendation, decision: "applied" as const };
+        applied.push(appliedRecommendation);
+        return appliedRecommendation;
+      });
+
+      chores.set(householdId, nextChores);
+      recommendations.set(householdId, nextRecommendations);
+      return { applied, declined };
     }
   };
 }

@@ -44,7 +44,7 @@ export function TodayDashboard({ householdSetup, onNavigate }: TodayDashboardPro
               {householdSetup.choreCount} existing chore{householdSetup.choreCount === 1 ? "" : "s"} ready for review
             </p>
           </div>
-          <button onClick={() => onNavigate("/plan")} type="button">Review existing chores</button>
+          <button onClick={() => onNavigate("/chores")} type="button">Review existing chores</button>
         </header>
 
         <div className="first-time-grid">
@@ -52,7 +52,7 @@ export function TodayDashboard({ householdSetup, onNavigate }: TodayDashboardPro
             <p className="eyebrow">Next best action</p>
             <h2 id="setup-complete-heading">Review the current chore plan</h2>
             <p>
-              Open Plan to review cadence, duration, and coverage signals for the chores already saved.
+              Open Chores to manage saved chores and start a separate review flow when needed.
               Recommendations remain manual until you accept them in a later milestone.
             </p>
           </section>

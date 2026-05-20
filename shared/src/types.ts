@@ -33,13 +33,18 @@ export type Chore = {
 };
 
 export type RecommendationConfidence = "low" | "medium" | "high";
+export type RecommendationDecision = "pending" | "accepted" | "declined" | "applied";
 
 export type Recommendation = {
   id: string;
   householdId: string;
+  affectedChoreId?: string;
   title: string;
   rationale: string;
   confidence: RecommendationConfidence;
   status: "pending" | "accepted" | "skipped";
+  decision?: RecommendationDecision;
+  proposedCadence?: string;
+  proposedEstimatedMinutes?: number;
   staleAt?: string;
 };

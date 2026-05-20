@@ -43,14 +43,18 @@ model Chore {
 }
 
 model Recommendation {
-  id          String    @id
-  householdId String
-  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  title       String
-  rationale   String
-  confidence  String
-  status      String
-  staleAt     DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id                       String    @id
+  householdId              String
+  household                Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  affectedChoreId          String?
+  title                    String
+  rationale                String
+  confidence               String
+  status                   String
+  decision                 String    @default("pending")
+  proposedCadence          String?
+  proposedEstimatedMinutes Int?
+  staleAt                  DateTime?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
 }

@@ -16,10 +16,10 @@ Replace demo-feeling dashboard data with persisted household, chore, and recomme
 
 Key outcomes:
 
-- Today, Plan, Family, and Settings feel like connected parts of one product.
+- Today, Chores, Family, and Settings feel like connected parts of one product.
 - Today shows real household context, setup status, chores, and recommendation summary data.
 - Setup guides the user through household context and at least one existing chore before marking setup complete.
-- Plan remains focused on reviewing and optimizing existing chores.
+- Ongoing Setup/Plan behavior is consolidated into a Chores workspace with a separate staged review flow.
 - Empty, loading, saved, and review states feel intentional rather than placeholder-like.
 - Demo data is removed or clearly isolated from real app state.
 - People, family workload, and fairness views are treated as MVP 2, not MVP 1.
@@ -37,6 +37,7 @@ Key outcomes:
 - Add domain models for import metadata, recommendation drafts, accepted/skipped decisions, and future people/workload features.
 - Preserve source metadata for imported chores without making Google Calendar the only source of truth.
 - Store recommendation decisions so the assistant can avoid repeating dismissed suggestions.
+- Store recommendation accept/decline decisions before real agent integration so the Agents SDK plugs into a durable review contract.
 - Support future calendar draft generation and manual acceptance flows.
 - Keep database changes incremental and covered by backend tests.
 

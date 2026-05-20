@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { PlanReview } from "./PlanReview";
+import { ChoresPage } from "./ChoresPage";
 import { FamilyPage } from "./pages/FamilyPage";
 import { LandingPage } from "./pages/LandingPage";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -81,12 +81,12 @@ function AppRoutes() {
         <SetupPage
           householdSetup={householdSetup}
           onAddChore={addExistingChore}
-          onReviewChores={() => navigate("/plan")}
+          onReviewChores={() => navigate("/chores")}
           onSave={saveHouseholdContext}
         />
       ) : null}
-      {path === "/plan" ? (
-        <PlanReview
+      {path === "/chores" || path === "/plan" ? (
+        <ChoresPage
           householdId={householdSetup.householdId}
           householdName={householdSetup.householdName}
           baseline={householdSetup.baseline}
@@ -110,7 +110,7 @@ function AppShell({
   const navItems = [
     { label: "Today", path: "/today" },
     { label: "Setup", path: "/setup" },
-    { label: "Plan", path: "/plan" },
+    { label: "Chores", path: "/chores" },
     { label: "Settings", path: "/settings" }
   ];
 

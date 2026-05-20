@@ -5,6 +5,7 @@
 */
 import { Router } from "express";
 import { z } from "zod";
+import type { Chore, Recommendation } from "@chore-helper/shared";
 import type { AgentProvider } from "../agent/AgentProvider.js";
 import type { HouseholdStore } from "../repositories/inMemoryStore.js";
 
@@ -29,8 +30,39 @@ const choreSchema = z.object({
 });
 
 const recommendationRequestSchema = z.object({
-  reviewPrompt: z.string().trim().optional()
+  reviewPrompt: z.string().trim().optional(),
+  selectedChoreIds: z.array(z.string()).optional()
 });
+
+const recommendationDecisionSchema = z.object({
+  decision: z.enum(["pending", "accepted", "declined"])
+});
+
+function attachReviewMetadata(recommendation: Recommendation, selectedChores: Chore[]) {
+  const matchedChore =
+    selectedChores.find((chore) =>
+      recommendation.title.toLowerCase().includes(chore.title.toLowerCase())
+    ) ?? (selectedChores.length === 1 ? selectedChores[0] : undefined);
+
+  if (!matchedChore) {
+    return {
+      ...recommendation,
+      decision: recommendation.decision ?? "pending"
+    };
+  }
+
+  return {
+    ...recommendation,
+    affectedChoreId: recommendation.affectedChoreId ?? matchedChore.id,
+    decision: recommendation.decision ?? "pending",
+    // Like an Angular smart component enriching DTOs before binding, the
+    // controller records the concrete proposed change so the final Apply
+    // action can be deterministic instead of asking the agent again.
+    proposedCadence: recommendation.proposedCadence ?? matchedChore.cadence,
+    proposedEstimatedMinutes:
+      recommendation.proposedEstimatedMinutes ?? (matchedChore.estimatedMinutes < 15 ? 30 : matchedChore.estimatedMinutes)
+  };
+}
 
 export function createHouseholdRouter(store: HouseholdStore, agentProvider: AgentProvider) {
   const router = Router();
@@ -131,6 +163,30 @@ export function createHouseholdRouter(store: HouseholdStore, agentProvider: Agen
     );
   });
 
+  router.put("/:householdId/recommendations/:recommendationId/decision", async (req, res) => {
+    const household = await store.getHousehold(req.params.householdId);
+    if (!household) return res.status(404).json({ error: "Household not found" });
+
+    const parsed = recommendationDecisionSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid recommendation decision payload" });
+
+    const recommendation = await store.updateRecommendationDecision(
+      household.id,
+      req.params.recommendationId,
+      parsed.data
+    );
+    if (!recommendation) return res.status(404).json({ error: "Recommendation not found" });
+
+    return res.status(200).json(recommendation);
+  });
+
+  router.post("/:householdId/recommendations/apply", async (req, res) => {
+    const household = await store.getHousehold(req.params.householdId);
+    if (!household) return res.status(404).json({ error: "Household not found" });
+
+    return res.status(200).json(await store.applyRecommendationDecisions(household.id));
+  });
+
   router.post("/:householdId/recommendations", async (req, res) => {
     const household = await store.getHousehold(req.params.householdId);
     if (!household) return res.status(404).json({ error: "Household not found" });
@@ -138,12 +194,21 @@ export function createHouseholdRouter(store: HouseholdStore, agentProvider: Agen
     const parsed = recommendationRequestSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid recommendation payload" });
 
+    const chores = await store.listChores(household.id);
+    const selectedChores = parsed.data.selectedChoreIds
+      ? chores.filter((chore) => parsed.data.selectedChoreIds?.includes(chore.id))
+      : chores;
+
     const recommendations = await agentProvider.recommendSetupImprovements({
       household,
-      chores: await store.listChores(household.id),
+      chores: selectedChores,
       reviewPrompt: parsed.data.reviewPrompt
     });
-    return res.status(201).json(await store.saveRecommendations(household.id, recommendations));
+    const reviewRecommendations = recommendations.map((recommendation) =>
+      attachReviewMetadata(recommendation, selectedChores)
+    );
+
+    return res.status(201).json(await store.saveRecommendations(household.id, reviewRecommendations));
   });
 
   return router;
