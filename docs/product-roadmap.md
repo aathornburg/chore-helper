@@ -1,6 +1,6 @@
 # Chore Helper Product Roadmap
 
-Date: 2026-05-19
+Date: 2026-05-20
 
 ## Summary
 
@@ -42,7 +42,7 @@ Key outcomes:
 
 Suggested child doc:
 
-- `docs/superpowers/specs/YYYY-MM-DD-auth-household-ownership-design.md`
+- `docs/superpowers/specs/2026-05-20-auth-household-ownership-design.md`
 
 ### 3. Persistence + Domain Hardening
 
