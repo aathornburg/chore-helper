@@ -68,10 +68,10 @@ export function PlanReview({
   const [selectedChoreId, setSelectedChoreId] = useState<string>();
   const [queueState, setQueueState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [status, setStatus] = useState("Ready to review existing chores.");
-  const [choreTitle, setChoreTitle] = useState("Clean bathrooms");
-  const [choreCadence, setChoreCadence] = useState("weekly");
-  const [estimatedMinutes, setEstimatedMinutes] = useState("5");
-  const [choreSource, setChoreSource] = useState<"manual" | "google-calendar">("manual");
+  const [choreTitle, setChoreTitle] = useState("");
+  const [choreCadence, setChoreCadence] = useState("");
+  const [estimatedMinutes, setEstimatedMinutes] = useState("");
+  const choreSource = "manual";
   const selectedChore = chores.find((chore) => chore.id === selectedChoreId) ?? chores[0];
   const selectedRecommendation = findRecommendationForChore(selectedChore, recommendations);
   const pendingRecommendations = recommendations.filter(
@@ -215,7 +215,7 @@ export function PlanReview({
           <div className="empty-state">Could not load the review queue.</div>
         ) : null}
 
-        {queueState !== "error" ? (
+        {queueState === "ready" ? (
           chores.length === 0 ? (
             <div className="plan-empty-grid">
               <div className="empty-state">
@@ -225,16 +225,28 @@ export function PlanReview({
                 <div className="field-grid">
                   <label>
                     Chore title
-                    <input value={choreTitle} onChange={(event) => setChoreTitle(event.target.value)} />
+                    <input
+                      placeholder="Clean bathrooms"
+                      required
+                      value={choreTitle}
+                      onChange={(event) => setChoreTitle(event.target.value)}
+                    />
                   </label>
                   <label>
                     Cadence
-                    <input value={choreCadence} onChange={(event) => setChoreCadence(event.target.value)} />
+                    <input
+                      placeholder="weekly"
+                      required
+                      value={choreCadence}
+                      onChange={(event) => setChoreCadence(event.target.value)}
+                    />
                   </label>
                   <label>
                     Estimated minutes
                     <input
                       min="1"
+                      placeholder="5"
+                      required
                       type="number"
                       value={estimatedMinutes}
                       onChange={(event) => setEstimatedMinutes(event.target.value)}
@@ -242,14 +254,8 @@ export function PlanReview({
                   </label>
                   <label>
                     Source
-                    <select
-                      value={choreSource}
-                      onChange={(event) =>
-                        setChoreSource(event.target.value as "manual" | "google-calendar")
-                      }
-                    >
+                    <select value={choreSource} onChange={() => undefined}>
                       <option value="manual">Manual</option>
-                      <option value="google-calendar">Google Calendar</option>
                     </select>
                   </label>
                 </div>

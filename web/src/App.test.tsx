@@ -2,6 +2,37 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 
+function fillSetupBasics() {
+  fireEvent.change(screen.getByLabelText("Household name"), { target: { value: "Home" } });
+  fireEvent.change(screen.getByLabelText("Rooms"), {
+    target: { value: "kitchen, bathrooms, bedrooms" }
+  });
+  fireEvent.change(screen.getByLabelText("Flooring"), {
+    target: { value: "hardwood, tile, carpet" }
+  });
+  const hasPets = screen.getByLabelText("Has pets") as HTMLInputElement;
+  const hasOutdoorSpace = screen.getByLabelText("Has outdoor space") as HTMLInputElement;
+  if (!hasPets.checked) fireEvent.click(hasPets);
+  if (!hasOutdoorSpace.checked) fireEvent.click(hasOutdoorSpace);
+  fireEvent.change(screen.getByLabelText("Notes"), {
+    target: { value: "We already use Google Calendar for recurring chores." }
+  });
+}
+
+function fillExistingChore() {
+  fireEvent.change(screen.getByLabelText("Chore title"), { target: { value: "Clean bathrooms" } });
+  fireEvent.change(screen.getByLabelText("Cadence"), { target: { value: "weekly" } });
+  fireEvent.change(screen.getByLabelText("Estimated minutes"), { target: { value: "5" } });
+}
+
+function getOptionLabels(select: HTMLElement) {
+  return Array.from((select as HTMLSelectElement).options).map((option) => option.textContent);
+}
+
+function getFieldValue(label: string) {
+  return (screen.getByLabelText(label) as HTMLInputElement | HTMLTextAreaElement).value;
+}
+
 function renderAt(path: string) {
   window.history.pushState({}, "", path);
   return render(<App />);
@@ -49,6 +80,7 @@ function mockSuccessfulSetupAndChoreFetches() {
 }
 
 async function saveSetup() {
+  fillSetupBasics();
   fireEvent.click(screen.getByRole("button", { name: "Save basics" }));
   await waitFor(() => {
     expect(screen.getByText("Household context saved. Add one existing chore next.")).toBeTruthy();
@@ -57,6 +89,7 @@ async function saveSetup() {
 
 async function completeSetupWithChore() {
   await saveSetup();
+  fillExistingChore();
   fireEvent.click(screen.getByRole("button", { name: "Add chore and continue" }));
   await waitFor(() => {
     expect(screen.getByText("Step 4 of 4")).toBeTruthy();
@@ -166,6 +199,22 @@ describe("App", () => {
     );
   });
 
+  it("renders setup forms with blank user-entered defaults instead of demo values", async () => {
+    mockSuccessfulSetupFetches();
+    renderAt("/setup");
+
+    expect(getFieldValue("Household name")).toBe("");
+    expect(getFieldValue("Rooms")).toBe("");
+    expect(getFieldValue("Flooring")).toBe("");
+    expect(getFieldValue("Notes")).toBe("");
+
+    await saveSetup();
+
+    expect(getFieldValue("Chore title")).toBe("");
+    expect(getFieldValue("Cadence")).toBe("");
+    expect(getFieldValue("Estimated minutes")).toBe("");
+  });
+
   it("prevents jumping to existing chores before household context is saved", () => {
     renderAt("/setup");
 
@@ -261,6 +310,18 @@ describe("App", () => {
     ).toBe(true);
   });
 
+  it("keeps Google Calendar unavailable as an active setup chore source", async () => {
+    mockSuccessfulSetupFetches();
+    renderAt("/setup");
+
+    await saveSetup();
+
+    const sourceSelect = screen.getByLabelText("Source");
+
+    expect(getOptionLabels(sourceSelect)).toEqual(["Manual"]);
+    expect((sourceSelect as HTMLSelectElement).value).toBe("manual");
+  });
+
   it("routes from setup-complete Today to Plan", async () => {
     mockSuccessfulSetupAndChoreFetches()
       .mockResolvedValueOnce({
@@ -341,6 +402,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Review existing chores" }));
 
     expect(screen.getByText("Loading review queue...")).toBeTruthy();
+    expect(screen.queryByText("Add one existing chore manually to start the review queue.")).toBeNull();
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: "Review Queue" })).toBeTruthy();
     });
@@ -431,6 +493,7 @@ describe("App", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce({ ok: false }));
     renderAt("/setup");
 
+    fillSetupBasics();
     fireEvent.click(screen.getByRole("button", { name: "Save basics" }));
 
     await waitFor(() => {
@@ -470,6 +533,87 @@ describe("App", () => {
       expect(screen.getByText("Finish setup by adding an existing chore.")).toBeTruthy();
     });
     expect(screen.getByText("house / 3 rooms / hardwood, tile, carpet / pets / outdoor space")).toBeTruthy();
+  });
+
+  it("populates setup context fields after restoring saved household setup", async () => {
+    window.localStorage.setItem("chore-helper:household-id", "household-1");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            id: "household-1",
+            name: "Restored Home",
+            baseline: {
+              homeType: "townhouse",
+              rooms: ["kitchen", "bathrooms"],
+              flooring: ["hardwood", "tile"],
+              hasPets: true,
+              hasOutdoorSpace: false,
+              notes: "Restored setup notes."
+            }
+          })
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => []
+        })
+    );
+
+    renderAt("/setup");
+
+    await waitFor(() => {
+      expect(screen.getByText("Household context saved")).toBeTruthy();
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Household Context/ }));
+
+    expect(getFieldValue("Household name")).toBe("Restored Home");
+    expect((screen.getByLabelText("Home type") as HTMLSelectElement).value).toBe("townhouse");
+    expect(getFieldValue("Rooms")).toBe("kitchen, bathrooms");
+    expect(getFieldValue("Flooring")).toBe("hardwood, tile");
+    expect((screen.getByLabelText("Has pets") as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByLabelText("Has outdoor space") as HTMLInputElement).checked).toBe(false);
+    expect(getFieldValue("Notes")).toBe("Restored setup notes.");
+  });
+
+  it("keeps direct setup restore non-actionable until saved household data loads", async () => {
+    window.localStorage.setItem("chore-helper:household-id", "household-1");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            id: "household-1",
+            name: "Restored Home",
+            baseline: {
+              homeType: "townhouse",
+              rooms: ["kitchen", "bathrooms"],
+              flooring: ["hardwood", "tile"],
+              hasPets: true,
+              hasOutdoorSpace: false,
+              notes: "Restored setup notes."
+            }
+          })
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => []
+        })
+    );
+
+    renderAt("/setup");
+
+    expect(screen.getByText("Loading household setup...")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Save basics" })).toBeNull();
+    await waitFor(() => {
+      expect(screen.getByText("Household context saved")).toBeTruthy();
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Household Context/ }));
+
+    expect(getFieldValue("Household name")).toBe("Restored Home");
+    expect(getFieldValue("Rooms")).toBe("kitchen, bathrooms");
   });
 
   it("shows a setup restore loading state before saved household data loads", async () => {
@@ -611,6 +755,42 @@ describe("App", () => {
     });
     expect(screen.getByLabelText("Chore title")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Add chore to queue" })).toBeTruthy();
+  });
+
+  it("keeps Google Calendar unavailable as an active Plan manual chore source", async () => {
+    mockSuccessfulSetupFetches()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          id: "chore-1",
+          householdId: "household-1",
+          title: "Clean bathrooms",
+          cadence: "weekly",
+          estimatedMinutes: 5,
+          source: "manual"
+        })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => []
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => []
+      });
+    renderAt("/setup");
+
+    await completeSetupWithChore();
+    fireEvent.click(screen.getByRole("button", { name: "Review existing chores" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Add one existing chore manually to start the review queue.")).toBeTruthy();
+    });
+
+    const sourceSelect = screen.getByLabelText("Source");
+
+    expect(getOptionLabels(sourceSelect)).toEqual(["Manual"]);
+    expect((sourceSelect as HTMLSelectElement).value).toBe("manual");
   });
 
   it("keeps the Plan recommendation submit flow working", async () => {

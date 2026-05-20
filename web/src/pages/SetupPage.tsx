@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { HomeType } from "@chore-helper/shared";
 import type { ExistingChoreFormValues, HouseholdSetupState, SetupFormValues } from "../types";
 
@@ -32,30 +32,42 @@ export function SetupPage({
   const [activeStep, setActiveStep] = useState<SetupStep>(
     householdSetup.baseline ? "chores" : "context"
   );
-  const [householdName, setHouseholdName] = useState(householdSetup.householdName);
+  const [householdName, setHouseholdName] = useState(
+    householdSetup.baseline ? householdSetup.householdName : ""
+  );
   const [homeType, setHomeType] = useState<HomeType>(householdSetup.baseline?.homeType ?? "house");
-  const [rooms, setRooms] = useState(
-    householdSetup.baseline?.rooms.join(", ") ?? "kitchen, bathrooms, bedrooms"
-  );
-  const [flooring, setFlooring] = useState(
-    householdSetup.baseline?.flooring.join(", ") ?? "hardwood, tile, carpet"
-  );
-  const [hasPets, setHasPets] = useState(householdSetup.baseline?.hasPets ?? true);
+  const [rooms, setRooms] = useState(householdSetup.baseline?.rooms.join(", ") ?? "");
+  const [flooring, setFlooring] = useState(householdSetup.baseline?.flooring.join(", ") ?? "");
+  const [hasPets, setHasPets] = useState(householdSetup.baseline?.hasPets ?? false);
   const [hasOutdoorSpace, setHasOutdoorSpace] = useState(
-    householdSetup.baseline?.hasOutdoorSpace ?? true
+    householdSetup.baseline?.hasOutdoorSpace ?? false
   );
-  const [notes, setNotes] = useState(
-    householdSetup.baseline?.notes ?? "We already use Google Calendar for recurring chores."
-  );
-  const [choreTitle, setChoreTitle] = useState("Clean bathrooms");
-  const [choreCadence, setChoreCadence] = useState("weekly");
-  const [estimatedMinutes, setEstimatedMinutes] = useState("5");
-  const [choreSource, setChoreSource] = useState<ExistingChoreFormValues["source"]>("manual");
+  const [notes, setNotes] = useState(householdSetup.baseline?.notes ?? "");
+  const [choreTitle, setChoreTitle] = useState("");
+  const [choreCadence, setChoreCadence] = useState("");
+  const [estimatedMinutes, setEstimatedMinutes] = useState("");
+  const choreSource: ExistingChoreFormValues["source"] = "manual";
+  const syncedHouseholdId = useRef<string | undefined>(undefined);
   const [status, setStatus] = useState(
     householdSetup.baseline
       ? "Household context saved. Add one existing chore next."
       : "Ready to save household basics."
   );
+
+  useEffect(() => {
+    if (!householdSetup.householdId || !householdSetup.baseline) return;
+    if (syncedHouseholdId.current === householdSetup.householdId) return;
+
+    // Similar to Angular ngOnChanges for @Input data: sync restored props into editable local form fields once.
+    syncedHouseholdId.current = householdSetup.householdId;
+    setHouseholdName(householdSetup.householdName);
+    setHomeType(householdSetup.baseline.homeType);
+    setRooms(householdSetup.baseline.rooms.join(", "));
+    setFlooring(householdSetup.baseline.flooring.join(", "));
+    setHasPets(householdSetup.baseline.hasPets);
+    setHasOutdoorSpace(householdSetup.baseline.hasOutdoorSpace);
+    setNotes(householdSetup.baseline.notes ?? "");
+  }, [householdSetup.householdId, householdSetup.householdName, householdSetup.baseline]);
 
   function handleStepSelect(step: SetupStep) {
     if (step === "context") {
@@ -122,6 +134,27 @@ export function SetupPage({
       ? "1 existing chore ready for review"
       : `${householdSetup.choreCount} existing chores ready for review`;
 
+  if (householdSetup.isRestoring) {
+    return (
+      <div className="setup-page">
+        <header className="workspace-hero compact-hero">
+          <div>
+            <p className="eyebrow">MVP 1 setup</p>
+            <h1>Household setup</h1>
+            <p className="lede">
+              Build enough context to review the chores you already have before the assistant
+              recommends changes.
+            </p>
+          </div>
+        </header>
+
+        <section className="panel setup-form" aria-live="polite">
+          <p className="status" role="status">Loading household setup...</p>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="setup-page">
       <header className="workspace-hero compact-hero">
@@ -179,7 +212,12 @@ export function SetupPage({
           <div className="field-grid">
             <label>
               Household name
-              <input value={householdName} onChange={(event) => setHouseholdName(event.target.value)} />
+              <input
+                placeholder="Home"
+                required
+                value={householdName}
+                onChange={(event) => setHouseholdName(event.target.value)}
+              />
             </label>
 
             <label>
@@ -195,12 +233,22 @@ export function SetupPage({
 
             <label>
               Rooms
-              <input value={rooms} onChange={(event) => setRooms(event.target.value)} />
+              <input
+                placeholder="kitchen, bathrooms, bedrooms"
+                required
+                value={rooms}
+                onChange={(event) => setRooms(event.target.value)}
+              />
             </label>
 
             <label>
               Flooring
-              <input value={flooring} onChange={(event) => setFlooring(event.target.value)} />
+              <input
+                placeholder="hardwood, tile, carpet"
+                required
+                value={flooring}
+                onChange={(event) => setFlooring(event.target.value)}
+              />
             </label>
           </div>
 
@@ -226,7 +274,11 @@ export function SetupPage({
 
           <label>
             Notes
-            <textarea value={notes} onChange={(event) => setNotes(event.target.value)} />
+            <textarea
+              placeholder="Anything the assistant should account for."
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+            />
           </label>
 
           <div className="form-footer">
@@ -247,16 +299,28 @@ export function SetupPage({
           <div className="field-grid">
             <label>
               Chore title
-              <input value={choreTitle} onChange={(event) => setChoreTitle(event.target.value)} />
+              <input
+                placeholder="Clean bathrooms"
+                required
+                value={choreTitle}
+                onChange={(event) => setChoreTitle(event.target.value)}
+              />
             </label>
             <label>
               Cadence
-              <input value={choreCadence} onChange={(event) => setChoreCadence(event.target.value)} />
+              <input
+                placeholder="weekly"
+                required
+                value={choreCadence}
+                onChange={(event) => setChoreCadence(event.target.value)}
+              />
             </label>
             <label>
               Estimated minutes
               <input
                 min="1"
+                placeholder="5"
+                required
                 type="number"
                 value={estimatedMinutes}
                 onChange={(event) => setEstimatedMinutes(event.target.value)}
@@ -264,14 +328,8 @@ export function SetupPage({
             </label>
             <label>
               Source
-              <select
-                value={choreSource}
-                onChange={(event) =>
-                  setChoreSource(event.target.value as ExistingChoreFormValues["source"])
-                }
-              >
+              <select value={choreSource} onChange={() => undefined}>
                 <option value="manual">Manual</option>
-                <option value="google-calendar">Google Calendar</option>
               </select>
             </label>
           </div>
