@@ -45,7 +45,7 @@ export async function getHousehold(householdId: string): Promise<Household> {
 
 export async function createChore(
   householdId: string,
-  chore: Omit<Chore, "id" | "householdId">
+  chore: Omit<Chore, "id" | "householdId" | "archivedAt">
 ): Promise<Chore> {
   const response = await fetch(`${API_BASE_URL}/api/households/${householdId}/chores`, {
     method: "POST",
@@ -61,6 +61,48 @@ export async function listChores(householdId: string): Promise<Chore[]> {
   const response = await fetch(`${API_BASE_URL}/api/households/${householdId}/chores`);
 
   if (!response.ok) throw new Error("Failed to fetch chores");
+  return response.json();
+}
+
+export async function updateChore(
+  householdId: string,
+  choreId: string,
+  chore: Omit<Chore, "id" | "householdId" | "archivedAt">
+): Promise<Chore> {
+  const response = await fetch(`${API_BASE_URL}/api/households/${householdId}/chores/${choreId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(chore)
+  });
+
+  if (!response.ok) throw new Error("Failed to update chore");
+  return response.json();
+}
+
+export async function archiveChore(householdId: string, choreId: string): Promise<Chore> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/households/${householdId}/chores/${choreId}/archive`,
+    { method: "POST" }
+  );
+
+  if (!response.ok) throw new Error("Failed to archive chore");
+  return response.json();
+}
+
+export async function restoreChore(householdId: string, choreId: string): Promise<Chore> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/households/${householdId}/chores/${choreId}/restore`,
+    { method: "POST" }
+  );
+
+  if (!response.ok) throw new Error("Failed to restore chore");
+  return response.json();
+}
+
+export async function listArchivedChores(householdId: string): Promise<Chore[]> {
+  const response = await fetch(`${API_BASE_URL}/api/households/${householdId}/chores?status=archived`);
+
+  if (!response.ok) throw new Error("Failed to fetch archived chores");
   return response.json();
 }
 
