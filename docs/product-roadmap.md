@@ -42,7 +42,7 @@ Key outcomes:
 
 Suggested child doc:
 
-- `docs/superpowers/specs/YYYY-MM-DD-domain-persistence-design.md`
+- `docs/superpowers/specs/2026-05-20-domain-persistence-design.md`
 
 ### 3. OpenAI Agents SDK Integration
 
