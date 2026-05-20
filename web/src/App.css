@@ -789,7 +789,7 @@ textarea {
   border: 1px solid #eaded1;
   border-radius: 16px;
   display: grid;
-  gap: 14px;
+  gap: 16px;
   min-height: 260px;
   padding: 22px;
 }
@@ -813,6 +813,49 @@ textarea {
   display: grid;
   gap: 18px;
   padding: 20px;
+}
+
+.detail-panel .manual-chore-form {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  gap: 16px;
+  padding: 0;
+}
+
+.form-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.form-actions button {
+  flex: 0 1 auto;
+}
+
+.archived-chores {
+  border-top: 1px solid #eaded1;
+  display: grid;
+  gap: 14px;
+  padding-top: 18px;
+}
+
+.archived-chores > button {
+  justify-self: start;
+}
+
+.archived-chores .queue-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.archived-chores .queue-card {
+  align-content: start;
+}
+
+.archived-chores .queue-card button {
+  justify-self: start;
+  margin-top: 4px;
 }
 
 .recommendations-section {
@@ -927,8 +970,13 @@ textarea {
   .metric-grid,
   .week-strip,
   .chore-table article,
+  .archived-chores .queue-list,
   .recommendation {
     grid-template-columns: 1fr;
+  }
+
+  .form-actions button {
+    width: 100%;
   }
 
   .workspace-hero,
