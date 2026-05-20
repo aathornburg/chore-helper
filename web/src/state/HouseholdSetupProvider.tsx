@@ -14,6 +14,11 @@ type HouseholdSetupContextValue = {
 
 const HouseholdSetupContext = createContext<HouseholdSetupContextValue | undefined>(undefined);
 
+/*
+  This context provider is similar to an Angular service provided in the
+  root injector. It supplies shared state and actions to components within
+  the provider tree.
+*/
 const initialHouseholdSetup: HouseholdSetupState = {
   householdName: "Home",
   choreCount: 0,
@@ -32,6 +37,11 @@ export function HouseholdSetupProvider({ children }: { children: React.ReactNode
   }));
 
   useEffect(() => {
+    /*
+      This effect behaves like Angular's `ngOnInit` in a root service or
+      component. It restores persisted state from localStorage when the
+      app starts.
+    */
     const savedHouseholdId = window.localStorage.getItem(householdStorageKey);
     if (!savedHouseholdId) return;
     const activeHouseholdId = savedHouseholdId;
@@ -119,6 +129,12 @@ export function HouseholdSetupProvider({ children }: { children: React.ReactNode
     });
   }
 
+  /*
+    `useMemo` is used to keep the provider value stable unless the
+    contained household state changes. This is similar to Angular's
+    `OnPush` strategy or memoized selector patterns that avoid unnecessary
+    change detection / re-renders.
+  */
   const value = useMemo(
     () => ({
       addExistingChore,

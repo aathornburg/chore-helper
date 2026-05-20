@@ -1,3 +1,9 @@
+/*
+  This file is the server's bootstrap entrypoint and is analogous to a
+  Spring Boot application class annotated with `@SpringBootApplication`.
+  `createApp` wires middleware and routes, similar to how a Spring Boot
+  app configures beans and controller wiring during startup.
+*/
 import cors from "cors";
 import express from "express";
 import type { AgentProvider } from "./agent/AgentProvider.js";

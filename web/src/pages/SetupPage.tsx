@@ -28,7 +28,11 @@ export function SetupPage({
   onReviewChores,
   onSave
 }: SetupPageProps) {
-  // Like Angular component fields plus click handlers, this local state drives which template branch renders.
+  /*
+    SetupPage is similar to an Angular component class. The props are
+    like `@Input()` / `@Output()` bindings, and the local state fields are
+    like component properties that control template rendering.
+  */
   const [activeStep, setActiveStep] = useState<SetupStep>(
     householdSetup.baseline ? "chores" : "context"
   );

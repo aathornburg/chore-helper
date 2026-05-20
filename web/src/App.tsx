@@ -7,6 +7,12 @@ import { SetupPage } from "./pages/SetupPage";
 import { TodayDashboard } from "./pages/TodayDashboard";
 import { normalizePath } from "./routes";
 import { HouseholdSetupProvider, useHouseholdSetup } from "./state/HouseholdSetupProvider";
+
+/*
+  Importing CSS directly inside a React module is a bundler feature. With
+  Vite this becomes an injected style during dev and a CSS chunk in build.
+  In Webpack, this would be handled by `style-loader` / `css-loader`.
+*/
 import "./App.css";
 
 /*
@@ -38,6 +44,10 @@ function AppRoutes() {
     `useHouseholdSetup()` is like injecting an Angular service into a
     component constructor; it gives access to shared application state and
     actions managed by a provider.
+
+    This file does not use React Router. Instead, the route is determined
+    by the current URL and rendered conditionally, which is analogous to
+    a simplified Angular route config + `<router-outlet>` flow.
   */
   useEffect(() => {
     function handlePopState() {
@@ -108,6 +118,9 @@ function AppShell({
     AppShell functions like a shared layout component in Angular. Its
     template contains the navigation bar and a content region, similar to
     a shell component with `<router-outlet>`.
+
+    In Angular this would likely be a `ShellComponent` with `routerLink`
+    bindings instead of raw anchor click handlers.
   */
   return (
     <div className="workspace-shell">

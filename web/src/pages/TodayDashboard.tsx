@@ -7,6 +7,11 @@ type TodayDashboardProps = {
 };
 
 export function TodayDashboard({ householdSetup, onNavigate }: TodayDashboardProps) {
+  /*
+    This component receives `householdSetup` and `onNavigate` as props,
+    which is analogous to Angular's `@Input() householdSetup` and
+    `@Output() navigate = new EventEmitter()` patterns.
+  */
   if (householdSetup.isRestoring) {
     return (
       <div className="dashboard-page first-time-dashboard">

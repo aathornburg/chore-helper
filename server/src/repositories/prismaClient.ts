@@ -1,3 +1,9 @@
+/*
+  This file is similar to a Spring Boot database configuration class.
+  It reads the JDBC-style database URL from environment properties and
+  instantiates the Prisma client, analogous to creating a DataSource or
+  `EntityManagerFactory` bean in Spring.
+*/
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";

@@ -1,5 +1,14 @@
 import type { Chore, Household, HouseholdBaseline, Recommendation } from "@chore-helper/shared";
 
+/*
+  This API layer is analogous to an Angular service that wraps HttpClient.
+  It centralizes all backend calls so React components can stay focused on
+  presentation and state management.
+
+  `import.meta.env` is a Vite-specific way to inject environment variables
+  at build time; in a Webpack app this would typically be handled by
+  `DefinePlugin` or a similar replacement strategy.
+*/
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3001";
 
 export async function createHousehold(name: string): Promise<Household> {

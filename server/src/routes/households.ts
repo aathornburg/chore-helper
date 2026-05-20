@@ -1,3 +1,8 @@
+/*
+  This router module serves the same purpose as a Spring Boot `@RestController`
+  class. Each route handler is like a controller method that validates input,
+  calls service/repository operations, and returns JSON responses.
+*/
 import { Router } from "express";
 import { z } from "zod";
 import type { AgentProvider } from "../agent/AgentProvider.js";

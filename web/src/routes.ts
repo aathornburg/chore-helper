@@ -1,3 +1,8 @@
+/*
+  This route list is a lightweight alternative to Angular's RouterModule
+  configuration. Each path is a known route, and `normalizePath` ensures
+  unknown URLs default back to `/`.
+*/
 export const routes = ["/today", "/setup", "/plan", "/family", "/settings"] as const;
 
 export type AppRoute = (typeof routes)[number];

@@ -1,3 +1,9 @@
+/*
+  This class is a stand-in service implementation, similar to a Spring
+  `@Service` bean that contains business rules. It uses the shared
+  recommendation contract while remaining replaceable by a real AI-backed
+  implementation in the future.
+*/
 import type { Recommendation } from "@chore-helper/shared";
 import type { AgentProvider, AgentRecommendationContext } from "./AgentProvider.js";
 

@@ -1,3 +1,8 @@
+/*
+  These shared TypeScript types are like Angular model interfaces. They
+  define the contract between frontend components, services, and backend
+  APIs in a way that is enforced by the compiler.
+*/
 export type HomeType = "house" | "apartment" | "condo" | "townhouse" | "other";
 
 export type FlooringType = "carpet" | "hardwood" | "tile" | "mixed" | "unknown";

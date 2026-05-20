@@ -23,6 +23,13 @@ function formatBaselineSummary(baseline?: HouseholdBaseline) {
   } / ${baseline.hasOutdoorSpace ? "outdoor space" : "no outdoor space"}`;
 }
 
+/*
+  PlanReview is similar to an Angular component that consumes a service.
+  It keeps UI state local and delegates network requests to the API module,
+  similar to how Angular components call service methods instead of
+  performing HTTP logic directly.
+*/
+
 function getQueueSignal(chore: Chore): QueueSignal {
   const title = chore.title.toLowerCase();
   const broadCleaningAsk =
