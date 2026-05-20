@@ -29,6 +29,7 @@ export type Chore = {
   cadence: string;
   estimatedMinutes: number;
   source: "manual" | "google-calendar";
+  archivedAt?: string;
 };
 
 export type RecommendationConfidence = "low" | "medium" | "high";
@@ -40,4 +41,5 @@ export type Recommendation = {
   rationale: string;
   confidence: RecommendationConfidence;
   status: "pending" | "accepted" | "skipped";
+  staleAt?: string;
 };

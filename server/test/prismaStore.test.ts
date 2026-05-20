@@ -97,4 +97,59 @@ describe.skipIf(!prisma)("Prisma household store", () => {
       }
     ]);
   });
+
+  it("archives, restores, updates chores, and marks recommendations stale", async () => {
+    const store = createPrismaStore(prisma!);
+    const household = await store.createHousehold("Home");
+    const chore = await store.createChore({
+      householdId: household.id,
+      title: "Clean bathrooms",
+      cadence: "weekly",
+      estimatedMinutes: 20,
+      source: "manual"
+    });
+
+    await store.saveRecommendations(household.id, [
+      {
+        id: "recommendation-1",
+        householdId: household.id,
+        title: "Review duration",
+        rationale: "The current estimate may be off.",
+        confidence: "medium",
+        status: "pending"
+      }
+    ]);
+
+    const updated = await store.updateChore(household.id, chore.id, {
+      title: "Clean main bathroom",
+      cadence: "biweekly",
+      estimatedMinutes: 30,
+      source: "manual"
+    });
+
+    expect(updated).toEqual(
+      expect.objectContaining({
+        id: chore.id,
+        title: "Clean main bathroom",
+        cadence: "biweekly",
+        estimatedMinutes: 30
+      })
+    );
+    expect(await store.listRecommendations(household.id)).toEqual([
+      expect.objectContaining({ staleAt: expect.any(String) })
+    ]);
+
+    const archived = await store.archiveChore(household.id, chore.id);
+    expect(archived?.archivedAt).toEqual(expect.any(String));
+    expect(await store.listChores(household.id)).toEqual([]);
+    expect(await store.listChores(household.id, { includeArchived: true })).toEqual([
+      expect.objectContaining({ id: chore.id, archivedAt: expect.any(String) })
+    ]);
+
+    const restored = await store.restoreChore(household.id, chore.id);
+    expect(restored?.archivedAt).toBeUndefined();
+    expect(await store.listChores(household.id)).toEqual([
+      expect.objectContaining({ id: chore.id, archivedAt: undefined })
+    ]);
+  });
 });

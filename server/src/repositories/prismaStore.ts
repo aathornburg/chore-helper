@@ -17,6 +17,10 @@ function deserializeList(value: string) {
   return JSON.parse(value) as string[];
 }
 
+function serializeDate(value: Date | null | undefined) {
+  return value ? value.toISOString() : undefined;
+}
+
 function toHousehold(
   household: {
     id: string;
@@ -56,6 +60,7 @@ function toChore(chore: {
   cadence: string;
   estimatedMinutes: number;
   source: string;
+  archivedAt?: Date | null;
 }): Chore {
   return {
     id: chore.id,
@@ -63,7 +68,8 @@ function toChore(chore: {
     title: chore.title,
     cadence: chore.cadence,
     estimatedMinutes: chore.estimatedMinutes,
-    source: chore.source as Chore["source"]
+    source: chore.source as Chore["source"],
+    archivedAt: serializeDate(chore.archivedAt)
   };
 }
 
@@ -74,6 +80,7 @@ function toRecommendation(recommendation: {
   rationale: string;
   confidence: string;
   status: string;
+  staleAt?: Date | null;
 }): Recommendation {
   return {
     id: recommendation.id,
@@ -81,7 +88,8 @@ function toRecommendation(recommendation: {
     title: recommendation.title,
     rationale: recommendation.rationale,
     confidence: recommendation.confidence as RecommendationConfidence,
-    status: recommendation.status as Recommendation["status"]
+    status: recommendation.status as Recommendation["status"],
+    staleAt: serializeDate(recommendation.staleAt)
   };
 }
 
@@ -145,23 +153,97 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
     },
 
     async createChore(chore) {
-      const created = await prisma.chore.create({
-        data: {
-          id: crypto.randomUUID(),
-          householdId: chore.householdId,
-          title: chore.title,
-          cadence: chore.cadence,
-          estimatedMinutes: chore.estimatedMinutes,
-          source: chore.source
-        }
+      const created = await prisma.$transaction(async (tx) => {
+        const nextChore = await tx.chore.create({
+          data: {
+            id: crypto.randomUUID(),
+            householdId: chore.householdId,
+            title: chore.title,
+            cadence: chore.cadence,
+            estimatedMinutes: chore.estimatedMinutes,
+            source: chore.source
+          }
+        });
+        await tx.recommendation.updateMany({
+          where: { householdId: chore.householdId, staleAt: null },
+          data: { staleAt: new Date() }
+        });
+        return nextChore;
       });
 
       return toChore(created);
     },
 
-    async listChores(householdId) {
+    async updateChore(householdId, choreId, chore) {
+      const existing = await prisma.chore.findFirst({
+        where: { id: choreId, householdId }
+      });
+      if (!existing) return undefined;
+
+      const updated = await prisma.$transaction(async (tx) => {
+        const nextChore = await tx.chore.update({
+          where: { id: choreId },
+          data: chore
+        });
+        await tx.recommendation.updateMany({
+          where: { householdId, staleAt: null },
+          data: { staleAt: new Date() }
+        });
+        return nextChore;
+      });
+
+      return toChore(updated);
+    },
+
+    async archiveChore(householdId, choreId) {
+      const existing = await prisma.chore.findFirst({
+        where: { id: choreId, householdId }
+      });
+      if (!existing) return undefined;
+
+      const updated = await prisma.$transaction(async (tx) => {
+        const nextChore = await tx.chore.update({
+          where: { id: choreId },
+          data: { archivedAt: new Date() }
+        });
+        await tx.recommendation.updateMany({
+          where: { householdId, staleAt: null },
+          data: { staleAt: new Date() }
+        });
+        return nextChore;
+      });
+
+      return toChore(updated);
+    },
+
+    async restoreChore(householdId, choreId) {
+      const existing = await prisma.chore.findFirst({
+        where: { id: choreId, householdId }
+      });
+      if (!existing) return undefined;
+
+      const updated = await prisma.$transaction(async (tx) => {
+        const nextChore = await tx.chore.update({
+          where: { id: choreId },
+          data: { archivedAt: null }
+        });
+        await tx.recommendation.updateMany({
+          where: { householdId, staleAt: null },
+          data: { staleAt: new Date() }
+        });
+        return nextChore;
+      });
+
+      return toChore(updated);
+    },
+
+    async listChores(householdId, options = {}) {
       const chores = await prisma.chore.findMany({
-        where: { householdId },
+        where: options.archivedOnly
+          ? { householdId, archivedAt: { not: null } }
+          : options.includeArchived
+            ? { householdId }
+            : { householdId, archivedAt: null },
         orderBy: { createdAt: "asc" }
       });
 
@@ -178,12 +260,20 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
             title: recommendation.title,
             rationale: recommendation.rationale,
             confidence: recommendation.confidence,
-            status: recommendation.status
+            status: recommendation.status,
+            staleAt: recommendation.staleAt ? new Date(recommendation.staleAt) : null
           }))
         })
       ]);
 
       return recommendations;
+    },
+
+    async markRecommendationsStale(householdId) {
+      await prisma.recommendation.updateMany({
+        where: { householdId, staleAt: null },
+        data: { staleAt: new Date() }
+      });
     },
 
     async listRecommendations(householdId) {

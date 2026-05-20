@@ -37,6 +37,7 @@ model Chore {
   cadence          String
   estimatedMinutes Int
   source           String
+  archivedAt       DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 }
@@ -49,6 +50,7 @@ model Recommendation {
   rationale   String
   confidence  String
   status      String
+  staleAt     DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 }
