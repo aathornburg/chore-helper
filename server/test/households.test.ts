@@ -155,4 +155,77 @@ describe("household baseline flow", () => {
       ])
     );
   });
+
+  it("updates, archives, lists archived, and restores household chores", async () => {
+    const app = createTestApp();
+    const created = await request(app).post("/api/households").send({ name: "Home" }).expect(201);
+    const householdId = created.body.id;
+    const chore = await request(app)
+      .post(`/api/households/${householdId}/chores`)
+      .send({ title: "Clean bathrooms", cadence: "weekly", estimatedMinutes: 20, source: "manual" })
+      .expect(201);
+
+    await request(app)
+      .post(`/api/households/${householdId}/recommendations`)
+      .send({ reviewPrompt: "Review existing chores." })
+      .expect(201);
+
+    await request(app)
+      .put(`/api/households/${householdId}/chores/${chore.body.id}`)
+      .send({ title: "Clean main bathroom", cadence: "biweekly", estimatedMinutes: 30, source: "manual" })
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toEqual(expect.objectContaining({ title: "Clean main bathroom" }));
+      });
+
+    await request(app)
+      .get(`/api/households/${householdId}/recommendations`)
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toEqual([]);
+      });
+
+    await request(app)
+      .post(`/api/households/${householdId}/chores/${chore.body.id}/archive`)
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.archivedAt).toEqual(expect.any(String));
+      });
+
+    await request(app)
+      .get(`/api/households/${householdId}/chores`)
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toEqual([]);
+      });
+
+    await request(app)
+      .get(`/api/households/${householdId}/chores?status=archived`)
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toEqual([expect.objectContaining({ id: chore.body.id })]);
+      });
+
+    await request(app)
+      .post(`/api/households/${householdId}/chores/${chore.body.id}/restore`)
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.archivedAt).toBeUndefined();
+      });
+  });
+
+  it("returns 404 when updating a chore through the wrong household", async () => {
+    const app = createTestApp();
+    const first = await request(app).post("/api/households").send({ name: "First" }).expect(201);
+    const second = await request(app).post("/api/households").send({ name: "Second" }).expect(201);
+    const chore = await request(app)
+      .post(`/api/households/${first.body.id}/chores`)
+      .send({ title: "Vacuum", cadence: "weekly", estimatedMinutes: 15, source: "manual" })
+      .expect(201);
+
+    await request(app)
+      .put(`/api/households/${second.body.id}/chores/${chore.body.id}`)
+      .send({ title: "Vacuum", cadence: "weekly", estimatedMinutes: 20, source: "manual" })
+      .expect(404);
+  });
 });
