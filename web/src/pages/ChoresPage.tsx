@@ -132,7 +132,7 @@ export function ChoresPage({
   const [selectedChoreId, setSelectedChoreId] = useState<string>();
   const [queueState, setQueueState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [status, setStatus] = useState("Ready to review existing chores.");
-  const [showArchived, setShowArchived] = useState(false);
+  const [archivedLoaded, setArchivedLoaded] = useState(false);
   const [activeTab, setActiveTab] = useState<ChoreStatusTab>("all-active");
   const [reviewFlowOpen, setReviewFlowOpen] = useState(false);
   const [reviewStep, setReviewStep] = useState<"select" | "decide">("select");
@@ -321,10 +321,8 @@ export function ChoresPage({
   async function handleLoadArchivedChores() {
     if (!householdId) return;
 
-    if (!showArchived) {
-      setArchivedChores(await listArchivedChores(householdId));
-    }
-    setShowArchived((currentValue) => !currentValue);
+    setArchivedChores(await listArchivedChores(householdId));
+    setArchivedLoaded(true);
   }
 
   async function handleRestoreChore(choreId: string) {
@@ -338,6 +336,7 @@ export function ChoresPage({
     setChores((currentChores) => [...currentChores, restored]);
     setSelectedChoreId(restored.id);
     setRecommendations([]);
+    setActiveTab("all-active");
     setStatus("Chores changed. Run review again for updated recommendations.");
   }
 
@@ -395,7 +394,7 @@ export function ChoresPage({
               key={key}
               onClick={() => {
                 setActiveTab(key as ChoreStatusTab);
-                if (key === "archived" && !showArchived) void handleLoadArchivedChores();
+                if (key === "archived" && !archivedLoaded) void handleLoadArchivedChores();
               }}
               role="tab"
               type="button"
@@ -543,6 +542,20 @@ export function ChoresPage({
               <div className="queue-list" aria-label="Existing chores">
                 {visibleChores.map((chore) => {
                   const reviewState = getChoreReviewState(chore, recommendations);
+
+                  if (activeTab === "archived") {
+                    return (
+                      <article className="queue-card" key={chore.id}>
+                        <span>Archived</span>
+                        <strong>{chore.title}</strong>
+                        <small>{chore.cadence} / {chore.estimatedMinutes} min / {chore.source}</small>
+                        <button type="button" onClick={() => handleRestoreChore(chore.id)}>
+                          Restore {chore.title}
+                        </button>
+                      </article>
+                    );
+                  }
+
                   return (
                   <button
                     aria-pressed={selectedChore?.id === chore.id}
@@ -559,7 +572,8 @@ export function ChoresPage({
                 })}
               </div>
 
-              <aside className="detail-panel" aria-label="Selected chore review">
+              {activeTab !== "archived" ? (
+                <aside className="detail-panel" aria-label="Selected chore review">
                 {selectedChore ? (
                   <>
                     <p className="eyebrow">{getQueueSignal(selectedChore)}</p>
@@ -620,35 +634,10 @@ export function ChoresPage({
                     )}
                   </>
                 ) : null}
-              </aside>
+                </aside>
+              ) : null}
             </div>
           )
-        ) : null}
-
-        {queueState === "ready" ? (
-          <div className="archived-chores">
-            <button onClick={handleLoadArchivedChores} type="button">
-              {showArchived ? "Hide archived chores" : "Show archived chores"}
-            </button>
-            {showArchived ? (
-              archivedChores.length > 0 ? (
-                <div className="queue-list" aria-label="Archived chores">
-                  {archivedChores.map((chore) => (
-                    <article className="queue-card" key={chore.id}>
-                      <span>Archived</span>
-                      <strong>{chore.title}</strong>
-                      <small>{chore.cadence} / {chore.estimatedMinutes} min / {chore.source}</small>
-                      <button type="button" onClick={() => handleRestoreChore(chore.id)}>
-                        Restore {chore.title}
-                      </button>
-                    </article>
-                  ))}
-                </div>
-              ) : (
-                <div className="empty-state">No archived chores yet.</div>
-              )
-            ) : null}
-          </div>
         ) : null}
       </section>
     </div>

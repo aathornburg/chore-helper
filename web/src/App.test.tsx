@@ -951,15 +951,18 @@ describe("App", () => {
     await waitFor(() => {
       expect(screen.getByText("No active chores yet. Add a chore to start building the household routine.")).toBeTruthy();
     });
-    fireEvent.click(screen.getByRole("button", { name: "Show archived chores" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Archived" }));
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Restore Clean bathrooms" })).toBeTruthy();
     });
+    expect(screen.queryByRole("button", { name: "Show archived chores" })).toBeNull();
+    expect(screen.queryByLabelText("Selected chore title")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Restore Clean bathrooms" }));
 
     await waitFor(() => {
       expect(screen.getAllByText("Clean bathrooms").length).toBeGreaterThan(0);
     });
+    expect(screen.getByRole("tab", { name: "All active" }).getAttribute("aria-selected")).toBe("true");
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:3001/api/households/household-1/chores/chore-1/archive",
       expect.objectContaining({ method: "POST" })
