@@ -133,7 +133,6 @@ export function ChoresPage({
   const [queueState, setQueueState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [status, setStatus] = useState("Ready to review existing chores.");
   const [showArchived, setShowArchived] = useState(false);
-  const [recommendationsStale, setRecommendationsStale] = useState(false);
   const [activeTab, setActiveTab] = useState<ChoreStatusTab>("all-active");
   const [reviewFlowOpen, setReviewFlowOpen] = useState(false);
   const [reviewStep, setReviewStep] = useState<"select" | "decide">("select");
@@ -228,7 +227,6 @@ export function ChoresPage({
     setAddFormOpen(false);
     setActiveTab("all-active");
     setRecommendations([]);
-    setRecommendationsStale(true);
     setStatus("Manual acceptance only");
   }
 
@@ -254,7 +252,6 @@ export function ChoresPage({
     );
     setReviewRecommendations(nextRecommendations);
     setRecommendations(nextRecommendations);
-    setRecommendationsStale(false);
     setReviewStep("decide");
     setStatus("Review ready.");
   }
@@ -306,7 +303,6 @@ export function ChoresPage({
       currentChores.map((chore) => (chore.id === updated.id ? updated : chore))
     );
     setRecommendations([]);
-    setRecommendationsStale(true);
     setStatus("Chores changed. Run review again for updated recommendations.");
   }
 
@@ -319,7 +315,6 @@ export function ChoresPage({
     setArchivedChores((currentChores) => [archived, ...currentChores]);
     setSelectedChoreId(undefined);
     setRecommendations([]);
-    setRecommendationsStale(true);
     setStatus("Chores changed. Run review again for updated recommendations.");
   }
 
@@ -343,7 +338,6 @@ export function ChoresPage({
     setChores((currentChores) => [...currentChores, restored]);
     setSelectedChoreId(restored.id);
     setRecommendations([]);
-    setRecommendationsStale(true);
     setStatus("Chores changed. Run review again for updated recommendations.");
   }
 
