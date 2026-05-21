@@ -813,9 +813,18 @@ textarea {
   border-color: #d8cabd;
 }
 
+.review-page .review-flow-section {
+  display: grid;
+  gap: 1rem;
+}
+
 .review-checkbox-list {
   display: grid;
   gap: 10px;
+}
+
+.review-page .review-checkbox-list {
+  max-width: 48rem;
 }
 
 .review-checkbox-row {
@@ -858,6 +867,17 @@ textarea {
   display: grid;
   gap: 8px;
   padding: 14px;
+}
+
+.review-completion {
+  display: grid;
+  gap: 1rem;
+  max-width: 42rem;
+}
+
+.review-completion p {
+  color: #5e625b;
+  margin: 0;
 }
 
 .queue-list {
@@ -998,6 +1018,10 @@ button.chore-row-summary[aria-expanded="true"] {
 .recommendation-list {
   display: grid;
   gap: 12px;
+}
+
+.review-page .recommendation-list {
+  gap: 0.875rem;
 }
 
 .recommendation {

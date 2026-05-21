@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ChoreReviewPage } from "./pages/ChoreReviewPage";
 import { ChoresPage } from "./pages/ChoresPage";
 import { FamilyPage } from "./pages/FamilyPage";
 import { LandingPage } from "./pages/LandingPage";
@@ -90,6 +91,14 @@ function AppRoutes() {
           householdId={householdSetup.householdId}
           householdName={householdSetup.householdName}
           baseline={householdSetup.baseline}
+          onReviewChores={() => navigate("/chores/review")}
+        />
+      ) : null}
+      {path === "/chores/review" ? (
+        <ChoreReviewPage
+          householdId={householdSetup.householdId}
+          householdName={householdSetup.householdName}
+          onBackToChores={() => navigate("/chores")}
         />
       ) : null}
       {path === "/family" ? <FamilyPage /> : null}
