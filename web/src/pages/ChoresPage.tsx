@@ -86,10 +86,8 @@ function formatReviewState(state: ChoreReviewState) {
 }
 
 function formatUnreviewedSummary(count: number) {
-  if (count === 0) return "All chores have been reviewed.";
-  return count === 1
-    ? "1 chore has not been reviewed yet"
-    : `${count} chores have not been reviewed yet`;
+  if (count === 0) return "All chores reviewed";
+  return count === 1 ? "1 chore needs review" : `${count} chores need review`;
 }
 
 function getEmptyChoreMessage(activeTab: ChoreStatusTab) {
@@ -107,17 +105,6 @@ function getEmptyChoreMessage(activeTab: ChoreStatusTab) {
   }
 
   return "No active chores yet. Add a chore to start building the household routine.";
-}
-
-function renderStatus(status: string) {
-  if (status !== "Could not load chores.") return status;
-
-  return (
-    <>
-      <span>Could not load </span>
-      <span>chores.</span>
-    </>
-  );
 }
 
 export function ChoresPage({
@@ -300,7 +287,7 @@ export function ChoresPage({
 
   return (
     <div className="plan-review">
-      <header className="workspace-hero compact-hero">
+      <header className="workspace-hero compact-hero chores-hero">
         <div>
           <h1>Household chores</h1>
           <p className="lede">
@@ -310,17 +297,13 @@ export function ChoresPage({
             <span><strong>{householdName}</strong> / {formatBaselineSummary(baseline)}</span>
           </p>
         </div>
-      </header>
-
-      <section className="dashboard-section review-entry-panel" aria-label="Review entry point">
-        <div>
-          <strong>{formatUnreviewedSummary(unreviewedCount)}</strong>
-          <p>Choose which chores the assistant should review. You can include already-reviewed chores if you want a second pass.</p>
+        <div className="chores-hero-actions">
+          <button className="secondary-action" onClick={onReviewChores} type="button">
+            Review
+          </button>
+          <span>{formatUnreviewedSummary(unreviewedCount)}</span>
         </div>
-        <button className="secondary-action" onClick={onReviewChores} type="button">
-          Review
-        </button>
-      </section>
+      </header>
 
       <section className="dashboard-section plan-queue-section" aria-labelledby="review-queue-heading">
         <div className="section-heading">
@@ -330,33 +313,46 @@ export function ChoresPage({
               <p>Manage active and archived chores, review state, and recommendation decisions.</p>
             </div>
           </div>
-          <span className="confidence" role="status">{renderStatus(status)}</span>
         </div>
 
-        <div className="chore-list-toolbar">
-          <div className="status-tabs" role="tablist" aria-label="Chore status filters">
-            {ChoreStatusTabs.map(({ key, label }) => (
-              <button
-                aria-selected={activeTab === key}
-                key={key}
-                onClick={() => {
-                  setActiveTab(key as ChoreStatusTab);
-                  if (key === "archived" && !archivedLoaded) void handleLoadArchivedChores();
-                }}
-                role="tab"
-                type="button"
-              >
-                {label}
+        {queueState === "loading" ? (
+          <div className="empty-state">Loading chores...</div>
+        ) : null}
+
+        {queueState === "error" ? (
+          <div className="empty-state">Could not load chores.</div>
+        ) : null}
+
+        {queueState === "ready" ? (
+          <div className="chore-list-toolbar">
+            <div className="status-tabs" role="tablist" aria-label="Chore status filters">
+              {ChoreStatusTabs.map(({ key, label }) => (
+                <button
+                  aria-selected={activeTab === key}
+                  key={key}
+                  onClick={() => {
+                    setActiveTab(key as ChoreStatusTab);
+                    if (key === "archived" && !archivedLoaded) void handleLoadArchivedChores();
+                  }}
+                  role="tab"
+                  type="button"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <div className="chore-list-actions">
+              <button className="add-chore-action" onClick={() => setAddFormOpen((isOpen) => !isOpen)} type="button">
+                {addFormOpen ? "Cancel add chore" : "Add chore"}
               </button>
-            ))}
+            </div>
           </div>
+        ) : null}
 
-          <div className="chore-list-actions">
-            <button className="add-chore-action" onClick={() => setAddFormOpen((isOpen) => !isOpen)} type="button">
-              {addFormOpen ? "Cancel add chore" : "Add chore"}
-            </button>
-          </div>
-        </div>
+        {queueState === "ready" && status !== "Manual acceptance only" ? (
+          <div className="empty-state">{status}</div>
+        ) : null}
 
         {addFormOpen ? (
           <form className="manual-chore-form compact-chore-form" onSubmit={handleAddChore}>
@@ -399,10 +395,6 @@ export function ChoresPage({
             </div>
             <button type="submit">Save chore</button>
           </form>
-        ) : null}
-
-        {queueState === "error" ? (
-          <div className="empty-state">{renderStatus(status)}</div>
         ) : null}
 
         {queueState === "ready" ? (

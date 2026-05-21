@@ -451,6 +451,8 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Review existing chores" }));
 
     expect(screen.getByText("Loading chores...")).toBeTruthy();
+    expect(screen.queryByText("Manual acceptance only")).toBeNull();
+    expect(screen.queryByRole("tablist", { name: "Chore status filters" })).toBeNull();
     expect(screen.queryByText("Add one existing chore manually to start the review queue.")).toBeNull();
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: "Chore list" })).toBeTruthy();
@@ -467,8 +469,9 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Review existing chores" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("status").textContent).toBe("Could not load chores.");
+      expect(screen.getByText("Could not load chores.")).toBeTruthy();
     });
+    expect(screen.queryByText("Manual acceptance only")).toBeNull();
   });
 
   it("uses the existing household id when submitting Chores review after setup", async () => {
@@ -782,8 +785,10 @@ describe("App", () => {
       expect(screen.getByRole("heading", { name: "Chore list" })).toBeTruthy();
     });
     expect(screen.getAllByText("Clean bathrooms").length).toBeGreaterThan(0);
-    expect(screen.getByText("1 chore has not been reviewed yet")).toBeTruthy();
+    expect(screen.getByText("1 chore needs review")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Review" })).toBeTruthy();
+    expect(screen.queryByText("Manual acceptance only")).toBeNull();
+    expect(screen.queryByLabelText("Review entry point")).toBeNull();
     expect(screen.queryByRole("button", { name: "Start review flow" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Review selected chores" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Apply decisions" })).toBeNull();
@@ -1772,7 +1777,7 @@ describe("App", () => {
     renderAt("/chores/review");
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Choose chores to review" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Review selected chores" })).toBeTruthy();
     });
     fireEvent.click(screen.getByRole("button", { name: "Review selected chores" }));
     await waitFor(() => {

@@ -737,20 +737,36 @@ textarea {
   background: linear-gradient(180deg, #fffdf9 0%, #fbf8f2 100%);
 }
 
-.review-entry-panel {
+.chores-hero {
   align-items: center;
-  background: white;
-  border: 1px solid #eaded1;
-  border-radius: 12px;
   display: flex;
-  gap: 14px;
+  gap: 20px;
   justify-content: space-between;
-  padding: 14px;
 }
 
-.review-entry-panel p {
+.chores-hero-actions {
+  align-items: flex-end;
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+}
+
+.chores-hero-actions span {
   color: #5e625b;
-  margin: 4px 0 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+@media (max-width: 680px) {
+  .chores-hero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .chores-hero-actions {
+    align-items: flex-start;
+    justify-items: start;
+  }
 }
 
 .secondary-action {
