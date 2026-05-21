@@ -33,6 +33,9 @@ function getFieldValue(label: string) {
   return (screen.getByLabelText(label) as HTMLInputElement | HTMLTextAreaElement).value;
 }
 
+const cleanBathroomsRowName = /Clean bathrooms.*weekly.*5 min.*manual/;
+const vacuumBedroomsRowName = /Vacuum bedrooms.*weekly.*20 min.*manual/;
+
 function renderAt(path: string) {
   window.history.pushState({}, "", path);
   return render(<App />);
@@ -719,6 +722,12 @@ describe("App", () => {
     expect(screen.getAllByText("Clean bathrooms").length).toBeGreaterThan(0);
     expect(screen.getByText("1 chore has not been reviewed yet")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Start review flow" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Pending" })).toBeTruthy();
+    expect(screen.queryByRole("tab", { name: "Recommendation pending" })).toBeNull();
+    expect(screen.queryByLabelText("Selected chore title")).toBeNull();
+    expect(screen.queryByLabelText("Selected chore cadence")).toBeNull();
+    expect(screen.queryByLabelText("Selected chore estimated minutes")).toBeNull();
+    expect(screen.queryByLabelText("Selected chore source")).toBeNull();
     expect(screen.queryByText("Tracked chores")).toBeNull();
     expect(screen.queryByText("Duration concerns")).toBeNull();
     expect(screen.queryByText("Pending recommendations")).toBeNull();
@@ -772,7 +781,7 @@ describe("App", () => {
       expect(screen.getByRole("heading", { name: "Chore list" })).toBeTruthy();
     });
 
-    fireEvent.click(screen.getByRole("tab", { name: "Recommendation pending" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Pending" }));
 
     expect(screen.getByText("No chores have pending recommendations.")).toBeTruthy();
     expect(screen.queryByText("Add one existing chore manually to start the review queue.")).toBeNull();
@@ -816,6 +825,106 @@ describe("App", () => {
 
     expect(getOptionLabels(sourceSelect)).toEqual(["Manual"]);
     expect((sourceSelect as HTMLSelectElement).value).toBe("manual");
+  });
+
+  it("opens active chore editing inline only after clicking a chore row", async () => {
+    mockSuccessfulSetupAndChoreFetches()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            id: "chore-1",
+            householdId: "household-1",
+            title: "Clean bathrooms",
+            cadence: "weekly",
+            estimatedMinutes: 5,
+            source: "manual"
+          },
+          {
+            id: "chore-2",
+            householdId: "household-1",
+            title: "Vacuum bedrooms",
+            cadence: "weekly",
+            estimatedMinutes: 20,
+            source: "manual"
+          }
+        ]
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => []
+      });
+    renderAt("/setup");
+
+    await completeSetupWithChore();
+    fireEvent.click(screen.getByRole("button", { name: "Review existing chores" }));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: cleanBathroomsRowName })).toBeTruthy();
+    });
+
+    expect(screen.queryByLabelText("Selected chore title")).toBeNull();
+    expect(screen.queryByLabelText("Selected chore cadence")).toBeNull();
+    expect(screen.queryByLabelText("Selected chore estimated minutes")).toBeNull();
+    expect(screen.queryByLabelText("Selected chore source")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: cleanBathroomsRowName }));
+
+    expect(screen.getByLabelText("Selected chore title")).toBeTruthy();
+    expect(screen.getByLabelText("Selected chore cadence")).toBeTruthy();
+    expect(screen.getByLabelText("Selected chore estimated minutes")).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText("Selected chore title"), {
+      target: { value: "Clean guest bathroom" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel edit" }));
+
+    expect(screen.queryByLabelText("Selected chore title")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: cleanBathroomsRowName }));
+    expect(getFieldValue("Selected chore title")).toBe("Clean bathrooms");
+  });
+
+  it("keeps only one Chores row expanded at a time", async () => {
+    mockSuccessfulSetupAndChoreFetches()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            id: "chore-1",
+            householdId: "household-1",
+            title: "Clean bathrooms",
+            cadence: "weekly",
+            estimatedMinutes: 5,
+            source: "manual"
+          },
+          {
+            id: "chore-2",
+            householdId: "household-1",
+            title: "Vacuum bedrooms",
+            cadence: "weekly",
+            estimatedMinutes: 20,
+            source: "manual"
+          }
+        ]
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => []
+      });
+    renderAt("/setup");
+
+    await completeSetupWithChore();
+    fireEvent.click(screen.getByRole("button", { name: "Review existing chores" }));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: cleanBathroomsRowName })).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: cleanBathroomsRowName }));
+    expect(getFieldValue("Selected chore title")).toBe("Clean bathrooms");
+
+    fireEvent.click(screen.getByRole("button", { name: vacuumBedroomsRowName }));
+    expect(getFieldValue("Selected chore title")).toBe("Vacuum bedrooms");
+    expect(screen.getAllByLabelText("Selected chore title").length).toBe(1);
   });
 
   it("edits the selected Chores chore and shows stale recommendation status", async () => {
@@ -865,6 +974,7 @@ describe("App", () => {
       expect(screen.getAllByText("Clean bathrooms").length).toBeGreaterThan(0);
     });
 
+    fireEvent.click(screen.getByRole("button", { name: cleanBathroomsRowName }));
     fireEvent.change(screen.getByLabelText("Selected chore title"), {
       target: { value: "Clean main bathroom" }
     });
@@ -879,6 +989,7 @@ describe("App", () => {
     await waitFor(() => {
       expect(screen.getAllByText("Clean main bathroom").length).toBeGreaterThan(0);
     });
+    expect(screen.queryByLabelText("Selected chore title")).toBeNull();
     expect(screen.getByText("Chores changed. Run review again for updated recommendations.")).toBeTruthy();
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:3001/api/households/household-1/chores/chore-1",
@@ -947,6 +1058,7 @@ describe("App", () => {
       expect(screen.getAllByText("Clean bathrooms").length).toBeGreaterThan(0);
     });
 
+    fireEvent.click(screen.getByRole("button", { name: cleanBathroomsRowName }));
     fireEvent.click(screen.getByRole("button", { name: "Archive chore" }));
     await waitFor(() => {
       expect(screen.getByText("No active chores yet. Add a chore to start building the household routine.")).toBeTruthy();
@@ -1003,6 +1115,11 @@ describe("App", () => {
 
     await completeSetupWithChore();
     fireEvent.click(screen.getByRole("button", { name: "Review existing chores" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: cleanBathroomsRowName })).toBeTruthy();
+    });
+    fireEvent.click(screen.getByRole("button", { name: cleanBathroomsRowName }));
 
     await waitFor(() => {
       expect(screen.getAllByText("Review duration for Clean bathrooms").length).toBeGreaterThan(0);

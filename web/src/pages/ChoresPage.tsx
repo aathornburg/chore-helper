@@ -29,7 +29,7 @@ type ChoreStatusTab = "all-active" | "unreviewed" | "recommendation-pending" | "
 const ChoreStatusTabs: { key: ChoreStatusTab; label: string }[] = [
   { key: "all-active", label: "All active" },
   { key: "unreviewed", label: "Unreviewed" },
-  { key: "recommendation-pending", label: "Recommendation pending" },
+  { key: "recommendation-pending", label: "Pending" },
   { key: "reviewed", label: "Reviewed" },
   { key: "archived", label: "Archived" }
 ];
@@ -129,7 +129,7 @@ export function ChoresPage({
   const [chores, setChores] = useState<Chore[]>([]);
   const [archivedChores, setArchivedChores] = useState<Chore[]>([]);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
-  const [selectedChoreId, setSelectedChoreId] = useState<string>();
+  const [expandedChoreId, setExpandedChoreId] = useState<string>();
   const [queueState, setQueueState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [status, setStatus] = useState("Ready to review existing chores.");
   const [archivedLoaded, setArchivedLoaded] = useState(false);
@@ -146,8 +146,9 @@ export function ChoresPage({
   const [editCadence, setEditCadence] = useState("");
   const [editEstimatedMinutes, setEditEstimatedMinutes] = useState("");
   const choreSource = "manual";
-  const selectedChore = chores.find((chore) => chore.id === selectedChoreId) ?? chores[0];
-  const selectedRecommendation = findRecommendationForChore(selectedChore, recommendations);
+  // Like an Angular accordion item keyed by id, only the expanded row owns the edit form.
+  const expandedChore = chores.find((chore) => chore.id === expandedChoreId);
+  const expandedRecommendation = findRecommendationForChore(expandedChore, recommendations);
   const unreviewedCount = useMemo(
     () => chores.filter((chore) => getChoreReviewState(chore, recommendations) === "unreviewed").length,
     [chores, recommendations]
@@ -179,7 +180,6 @@ export function ChoresPage({
 
         setChores(nextChores);
         setRecommendations(nextRecommendations);
-        setSelectedChoreId(nextChores[0]?.id);
         setQueueState("ready");
         setStatus("Manual acceptance only");
       } catch {
@@ -198,14 +198,14 @@ export function ChoresPage({
   }, [householdId]);
 
   useEffect(() => {
-    if (!selectedChore) return;
+    if (!expandedChore) return;
 
-    // Similar to Angular ngOnChanges for an @Input, this copies the selected chore
+    // Similar to Angular ngOnChanges for an @Input, this copies the expanded chore
     // into local edit fields so typing can be cancelled or saved explicitly.
-    setEditTitle(selectedChore.title);
-    setEditCadence(selectedChore.cadence);
-    setEditEstimatedMinutes(String(selectedChore.estimatedMinutes));
-  }, [selectedChore]);
+    setEditTitle(expandedChore.title);
+    setEditCadence(expandedChore.cadence);
+    setEditEstimatedMinutes(String(expandedChore.estimatedMinutes));
+  }, [expandedChore]);
 
   async function handleAddChore(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -220,7 +220,7 @@ export function ChoresPage({
     });
 
     setChores((currentChores) => [...currentChores, created]);
-    setSelectedChoreId(created.id);
+    setExpandedChoreId(undefined);
     setChoreTitle("");
     setChoreCadence("");
     setEstimatedMinutes("");
@@ -239,6 +239,14 @@ export function ChoresPage({
     setReviewRecommendations([]);
     setReviewStep("select");
     setReviewFlowOpen(true);
+  }
+
+  function handleExpandChore(chore: Chore) {
+    setExpandedChoreId((currentId) => (currentId === chore.id ? undefined : chore.id));
+  }
+
+  function handleCancelEdit() {
+    setExpandedChoreId(undefined);
   }
 
   async function handleGenerateSelectedReview() {
@@ -289,10 +297,10 @@ export function ChoresPage({
 
   async function handleSaveSelectedChore(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!householdId || !selectedChore) return;
+    if (!householdId || !expandedChore) return;
 
     setStatus("Saving chore changes...");
-    const updated = await updateChore(householdId, selectedChore.id, {
+    const updated = await updateChore(householdId, expandedChore.id, {
       title: editTitle,
       cadence: editCadence,
       estimatedMinutes: Number(editEstimatedMinutes),
@@ -303,17 +311,18 @@ export function ChoresPage({
       currentChores.map((chore) => (chore.id === updated.id ? updated : chore))
     );
     setRecommendations([]);
+    setExpandedChoreId(undefined);
     setStatus("Chores changed. Run review again for updated recommendations.");
   }
 
   async function handleArchiveSelectedChore() {
-    if (!householdId || !selectedChore) return;
+    if (!householdId || !expandedChore) return;
 
     setStatus("Archiving chore...");
-    const archived = await archiveChore(householdId, selectedChore.id);
+    const archived = await archiveChore(householdId, expandedChore.id);
     setChores((currentChores) => currentChores.filter((chore) => chore.id !== archived.id));
     setArchivedChores((currentChores) => [archived, ...currentChores]);
-    setSelectedChoreId(undefined);
+    setExpandedChoreId(undefined);
     setRecommendations([]);
     setStatus("Chores changed. Run review again for updated recommendations.");
   }
@@ -334,7 +343,7 @@ export function ChoresPage({
       currentChores.filter((chore) => chore.id !== restored.id)
     );
     setChores((currentChores) => [...currentChores, restored]);
-    setSelectedChoreId(restored.id);
+    setExpandedChoreId(undefined);
     setRecommendations([]);
     setActiveTab("all-active");
     setStatus("Chores changed. Run review again for updated recommendations.");
@@ -538,104 +547,104 @@ export function ChoresPage({
               {getEmptyChoreMessage(activeTab)}
             </div>
           ) : (
-            <div className="plan-review-grid">
-              <div className="queue-list" aria-label="Existing chores">
-                {visibleChores.map((chore) => {
-                  const reviewState = getChoreReviewState(chore, recommendations);
+            <div className="queue-list chore-row-list" aria-label="Existing chores">
+              {visibleChores.map((chore) => {
+                const reviewState = getChoreReviewState(chore, recommendations);
+                const isExpanded = expandedChoreId === chore.id;
 
-                  if (activeTab === "archived") {
-                    return (
-                      <article className="queue-card" key={chore.id}>
+                if (activeTab === "archived") {
+                  return (
+                    <article className="queue-card chore-row" key={chore.id}>
+                      <div className="chore-row-summary">
                         <span>Archived</span>
                         <strong>{chore.title}</strong>
                         <small>{chore.cadence} / {chore.estimatedMinutes} min / {chore.source}</small>
-                        <button type="button" onClick={() => handleRestoreChore(chore.id)}>
-                          Restore {chore.title}
-                        </button>
-                      </article>
-                    );
-                  }
-
-                  return (
-                  <button
-                    aria-pressed={selectedChore?.id === chore.id}
-                    className={`queue-card chore-card-${reviewState}`}
-                    key={chore.id}
-                    onClick={() => setSelectedChoreId(chore.id)}
-                    type="button"
-                  >
-                    <span>{formatReviewState(reviewState)}</span>
-                    <strong>{chore.title}</strong>
-                    <small>{chore.cadence} / {chore.estimatedMinutes} min / {chore.source}</small>
-                  </button>
+                      </div>
+                      <button type="button" onClick={() => handleRestoreChore(chore.id)}>
+                        Restore {chore.title}
+                      </button>
+                    </article>
                   );
-                })}
-              </div>
+                }
 
-              {activeTab !== "archived" ? (
-                <aside className="detail-panel" aria-label="Selected chore review">
-                {selectedChore ? (
-                  <>
-                    <p className="eyebrow">{getQueueSignal(selectedChore)}</p>
-                    <h3>{selectedChore.title}</h3>
-                    <form className="manual-chore-form" onSubmit={handleSaveSelectedChore}>
-                      <div className="field-grid">
-                        <label>
-                          Selected chore title
-                          <input
-                            required
-                            value={editTitle}
-                            onChange={(event) => setEditTitle(event.target.value)}
-                          />
-                        </label>
-                        <label>
-                          Selected chore cadence
-                          <input
-                            required
-                            value={editCadence}
-                            onChange={(event) => setEditCadence(event.target.value)}
-                          />
-                        </label>
-                        <label>
-                          Selected chore estimated minutes
-                          <input
-                            min="1"
-                            required
-                            type="number"
-                            value={editEstimatedMinutes}
-                            onChange={(event) => setEditEstimatedMinutes(event.target.value)}
-                          />
-                        </label>
-                        <label>
-                          Selected chore source
-                          <select value="manual" onChange={() => undefined}>
-                            <option value="manual">Manual</option>
-                          </select>
-                        </label>
+                return (
+                  <article className={`queue-card chore-row chore-card-${reviewState}`} key={chore.id}>
+                    <button
+                      aria-expanded={isExpanded}
+                      className="chore-row-summary"
+                      onClick={() => handleExpandChore(chore)}
+                      type="button"
+                    >
+                      <span>{formatReviewState(reviewState)}</span>
+                      <strong>{chore.title}</strong>
+                      <small>{chore.cadence} / {chore.estimatedMinutes} min / {chore.source}</small>
+                    </button>
+
+                    {isExpanded ? (
+                      <div className="chore-row-editor">
+                        <p className="eyebrow">{getQueueSignal(chore)}</p>
+                        <form className="manual-chore-form inline-chore-form" onSubmit={handleSaveSelectedChore}>
+                          <div className="field-grid">
+                            <label>
+                              Selected chore title
+                              <input
+                                required
+                                value={editTitle}
+                                onChange={(event) => setEditTitle(event.target.value)}
+                              />
+                            </label>
+                            <label>
+                              Selected chore cadence
+                              <input
+                                required
+                                value={editCadence}
+                                onChange={(event) => setEditCadence(event.target.value)}
+                              />
+                            </label>
+                            <label>
+                              Selected chore estimated minutes
+                              <input
+                                min="1"
+                                required
+                                type="number"
+                                value={editEstimatedMinutes}
+                                onChange={(event) => setEditEstimatedMinutes(event.target.value)}
+                              />
+                            </label>
+                            <label>
+                              Selected chore source
+                              <select value="manual" onChange={() => undefined}>
+                                <option value="manual">Manual</option>
+                              </select>
+                            </label>
+                          </div>
+                          <div className="form-actions">
+                            <button type="submit">Save chore changes</button>
+                            <button onClick={handleArchiveSelectedChore} type="button">Archive chore</button>
+                            <button className="secondary-action" onClick={handleCancelEdit} type="button">
+                              Cancel edit
+                            </button>
+                          </div>
+                        </form>
+                        {expandedRecommendation ? (
+                          <article className="recommendation inline-recommendation">
+                            <div>
+                              <span className="recommendation-type">Recommendation</span>
+                              <h3>{expandedRecommendation.title}</h3>
+                              <p>{expandedRecommendation.rationale}</p>
+                            </div>
+                            <span className="confidence">Confidence: {expandedRecommendation.confidence}</span>
+                          </article>
+                        ) : (
+                          <div className="empty-state">
+                            No recommendation for this chore yet.
+                          </div>
+                        )}
                       </div>
-                      <div className="form-actions">
-                        <button type="submit">Save chore changes</button>
-                        <button onClick={handleArchiveSelectedChore} type="button">Archive chore</button>
-                      </div>
-                    </form>
-                    {selectedRecommendation ? (
-                      <article className="recommendation">
-                        <div>
-                          <span className="recommendation-type">Recommendation</span>
-                          <h3>{selectedRecommendation.title}</h3>
-                          <p>{selectedRecommendation.rationale}</p>
-                        </div>
-                        <span className="confidence">Confidence: {selectedRecommendation.confidence}</span>
-                      </article>
-                    ) : (
-                      <div className="empty-state">
-                        No recommendation for this chore yet.
-                      </div>
-                    )}
-                  </>
-                ) : null}
-                </aside>
-              ) : null}
+                    ) : null}
+                  </article>
+                );
+              })}
             </div>
           )
         ) : null}
