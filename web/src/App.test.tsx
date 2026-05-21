@@ -375,7 +375,11 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Review existing chores" }));
 
     expect(screen.getByText("Home")).toBeTruthy();
-    expect(screen.getByText("house / 3 rooms / hardwood, tile, carpet / pets / outdoor space")).toBeTruthy();
+    expect(
+      screen.getAllByText((_, element) =>
+        element?.textContent === "Home / house / 3 rooms / hardwood, tile, carpet / pets / outdoor space"
+      ).length
+    ).toBeGreaterThan(0);
   });
 
   it("shows a Chores loading state while the chore list loads", async () => {
@@ -402,7 +406,7 @@ describe("App", () => {
     await completeSetupWithChore();
     fireEvent.click(screen.getByRole("button", { name: "Review existing chores" }));
 
-    expect(screen.getByText("Loading review queue...")).toBeTruthy();
+    expect(screen.getByText("Loading chores...")).toBeTruthy();
     expect(screen.queryByText("Add one existing chore manually to start the review queue.")).toBeNull();
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: "Chore list" })).toBeTruthy();
@@ -419,7 +423,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Review existing chores" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Could not load the review queue.")).toBeTruthy();
+      expect(screen.getByRole("status").textContent).toBe("Could not load chores.");
     });
   });
 
@@ -473,7 +477,8 @@ describe("App", () => {
     await waitFor(() => {
       expect(screen.getAllByText("Clean bathrooms").length).toBeGreaterThan(0);
     });
-    fireEvent.click(screen.getByRole("button", { name: "Review my chore plan" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start review flow" }));
+    fireEvent.click(screen.getByRole("button", { name: "Review selected chores" }));
 
     await waitFor(() => {
       expect(screen.getAllByText("Review duration for Clean bathrooms").length).toBeGreaterThan(0);
@@ -712,8 +717,12 @@ describe("App", () => {
       expect(screen.getByRole("heading", { name: "Chore list" })).toBeTruthy();
     });
     expect(screen.getAllByText("Clean bathrooms").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Duration concern").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Manual acceptance only").length).toBeGreaterThan(0);
+    expect(screen.getByText("1 chore has not been reviewed yet")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Start review flow" })).toBeTruthy();
+    expect(screen.queryByText("Tracked chores")).toBeNull();
+    expect(screen.queryByText("Duration concerns")).toBeNull();
+    expect(screen.queryByText("Pending recommendations")).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Recommendations" })).toBeNull();
     expect(screen.queryByText("Household Context")).toBeNull();
     expect(fetchMock).toHaveBeenNthCalledWith(
       4,
@@ -725,7 +734,7 @@ describe("App", () => {
     );
   });
 
-  it("shows an empty Chores list with manual chore entry", async () => {
+  it("shows filter-specific empty Chores states without the add-chore form", async () => {
     mockSuccessfulSetupFetches()
       .mockResolvedValueOnce({
         ok: true,
@@ -740,7 +749,16 @@ describe("App", () => {
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => []
+        json: async () => [
+          {
+            id: "chore-1",
+            householdId: "household-1",
+            title: "Clean bathrooms",
+            cadence: "weekly",
+            estimatedMinutes: 5,
+            source: "manual"
+          }
+        ]
       })
       .mockResolvedValueOnce({
         ok: true,
@@ -750,12 +768,16 @@ describe("App", () => {
 
     await completeSetupWithChore();
     fireEvent.click(screen.getByRole("button", { name: "Review existing chores" }));
-
     await waitFor(() => {
-      expect(screen.getByText("Add one existing chore manually to start the review queue.")).toBeTruthy();
+      expect(screen.getByRole("heading", { name: "Chore list" })).toBeTruthy();
     });
-    expect(screen.getByLabelText("Chore title")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Add chore to queue" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Recommendation pending" }));
+
+    expect(screen.getByText("No chores have pending recommendations.")).toBeTruthy();
+    expect(screen.queryByText("Add one existing chore manually to start the review queue.")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add chore to queue" })).toBeNull();
+    expect(screen.queryByLabelText("Chore title")).toBeNull();
   });
 
   it("keeps Google Calendar unavailable as an active Chores manual chore source", async () => {
@@ -785,8 +807,10 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Review existing chores" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Add one existing chore manually to start the review queue.")).toBeTruthy();
+      expect(screen.getByRole("heading", { name: "Chore list" })).toBeTruthy();
     });
+
+    fireEvent.click(screen.getByRole("button", { name: "Add chore" }));
 
     const sourceSelect = screen.getByLabelText("Source");
 
@@ -925,7 +949,7 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Archive chore" }));
     await waitFor(() => {
-      expect(screen.getByText("No active chores in the review queue.")).toBeTruthy();
+      expect(screen.getByText("No active chores yet. Add a chore to start building the household routine.")).toBeTruthy();
     });
     fireEvent.click(screen.getByRole("button", { name: "Show archived chores" }));
     await waitFor(() => {
@@ -940,6 +964,49 @@ describe("App", () => {
       "http://localhost:3001/api/households/household-1/chores/chore-1/archive",
       expect.objectContaining({ method: "POST" })
     );
+  });
+
+  it("shows chore recommendations in selected detail without a bottom recommendations panel", async () => {
+    mockSuccessfulSetupAndChoreFetches()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            id: "chore-1",
+            householdId: "household-1",
+            title: "Clean bathrooms",
+            cadence: "weekly",
+            estimatedMinutes: 5,
+            source: "manual"
+          }
+        ]
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            id: "recommendation-1",
+            householdId: "household-1",
+            affectedChoreId: "chore-1",
+            title: "Review duration for Clean bathrooms",
+            rationale: "Too short.",
+            confidence: "high",
+            status: "pending",
+            decision: "pending"
+          }
+        ]
+      });
+    renderAt("/setup");
+
+    await completeSetupWithChore();
+    fireEvent.click(screen.getByRole("button", { name: "Review existing chores" }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Review duration for Clean bathrooms").length).toBeGreaterThan(0);
+    });
+    expect(screen.getByText("Too short.")).toBeTruthy();
+    expect(screen.getByText("Confidence: high")).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Recommendations" })).toBeNull();
   });
 
   it("keeps the Chores recommendation submit flow working", async () => {
@@ -999,7 +1066,8 @@ describe("App", () => {
     await waitFor(() => {
       expect(screen.getAllByText("Clean bathrooms").length).toBeGreaterThan(0);
     });
-    fireEvent.click(screen.getByRole("button", { name: "Review my chore plan" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start review flow" }));
+    fireEvent.click(screen.getByRole("button", { name: "Review selected chores" }));
 
     await waitFor(() => {
       expect(screen.getAllByText("Review duration for Clean bathrooms").length).toBeGreaterThan(0);

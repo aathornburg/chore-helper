@@ -87,13 +87,36 @@ function formatReviewState(state: ChoreReviewState) {
   return "Unreviewed";
 }
 
+function formatUnreviewedSummary(count: number) {
+  return count === 1
+    ? "1 chore has not been reviewed yet"
+    : `${count} chores have not been reviewed yet`;
+}
+
+function getEmptyChoreMessage(activeTab: ChoreStatusTab) {
+  if (activeTab === "unreviewed") {
+    return "No unreviewed chores. New or changed chores will appear here before review.";
+  }
+  if (activeTab === "recommendation-pending") {
+    return "No chores have pending recommendations.";
+  }
+  if (activeTab === "reviewed") {
+    return "No reviewed chores yet. Applied recommendations will move chores here.";
+  }
+  if (activeTab === "archived") {
+    return "No archived chores yet.";
+  }
+
+  return "No active chores yet. Add a chore to start building the household routine.";
+}
+
 function renderStatus(status: string) {
-  if (status !== "Could not load the review queue.") return status;
+  if (status !== "Could not load chores.") return status;
 
   return (
     <>
-      <span>Could not load the </span>
-      <span>review queue.</span>
+      <span>Could not load </span>
+      <span>chores.</span>
     </>
   );
 }
@@ -116,6 +139,7 @@ export function ChoresPage({
   const [reviewStep, setReviewStep] = useState<"select" | "decide">("select");
   const [selectedReviewChoreIds, setSelectedReviewChoreIds] = useState<string[]>([]);
   const [reviewRecommendations, setReviewRecommendations] = useState<Recommendation[]>([]);
+  const [addFormOpen, setAddFormOpen] = useState(false);
   const [choreTitle, setChoreTitle] = useState("");
   const [choreCadence, setChoreCadence] = useState("");
   const [estimatedMinutes, setEstimatedMinutes] = useState("");
@@ -125,13 +149,6 @@ export function ChoresPage({
   const choreSource = "manual";
   const selectedChore = chores.find((chore) => chore.id === selectedChoreId) ?? chores[0];
   const selectedRecommendation = findRecommendationForChore(selectedChore, recommendations);
-  const pendingRecommendations = recommendations.filter(
-    (recommendation) => recommendation.status === "pending" || !recommendation.status
-  );
-  const durationConcerns = useMemo(
-    () => chores.filter((chore) => getQueueSignal(chore) === "Duration concern").length,
-    [chores]
-  );
   const unreviewedCount = useMemo(
     () => chores.filter((chore) => getChoreReviewState(chore, recommendations) === "unreviewed").length,
     [chores, recommendations]
@@ -152,7 +169,7 @@ export function ChoresPage({
       // Like Angular component state plus ngOnInit/ngOnChanges work, this effect drives
       // render state from the current householdId and cleans up stale async updates.
       setQueueState("loading");
-      setStatus("Loading review queue...");
+      setStatus("Loading chores...");
 
       try {
         const [nextChores, nextRecommendations] = await Promise.all([
@@ -169,7 +186,7 @@ export function ChoresPage({
       } catch {
         if (!cancelled) {
           setQueueState("error");
-          setStatus("Could not load the review queue.");
+          setStatus("Could not load chores.");
         }
       }
     }
@@ -205,22 +222,14 @@ export function ChoresPage({
 
     setChores((currentChores) => [...currentChores, created]);
     setSelectedChoreId(created.id);
+    setChoreTitle("");
+    setChoreCadence("");
+    setEstimatedMinutes("");
+    setAddFormOpen(false);
+    setActiveTab("all-active");
     setRecommendations([]);
     setRecommendationsStale(true);
     setStatus("Manual acceptance only");
-  }
-
-  async function handleReview() {
-    if (!householdId) return;
-
-    setStatus("Asking the assistant to review your chore plan...");
-    const nextRecommendations = await generateRecommendations(
-      householdId,
-      "Review my existing setup and suggest practical improvements."
-    );
-    setRecommendations(nextRecommendations);
-    setRecommendationsStale(false);
-    setStatus("Review complete.");
   }
 
   function handleStartReviewFlow() {
@@ -359,12 +368,7 @@ export function ChoresPage({
           <p className="supporting-copy">
             <span><strong>{householdName}</strong> / {formatBaselineSummary(baseline)}</span>
           </p>
-          {/* <p className="section-summary">{formatBaselineSummary(baseline)}</p> */}
         </div>
-        {/* <div className="header-action"> */}
-          {/* <p className="status" role="status">{formatBaselineSummary(baseline)}</p> */}
-          {/* <button onClick={handleReview} type="button">Review my chore plan</button> */}
-        {/* </div> */}
       </header>
 
       <section className="dashboard-section plan-queue-section" aria-labelledby="review-queue-heading">
@@ -372,16 +376,16 @@ export function ChoresPage({
           <div className="section-title">
             <div>
               <h2 id="review-queue-heading">Chore list</h2>
-              <p>Existing chores, review state, and manual CRUD controls.</p>
+              <p>Manage active and archived chores, review state, and recommendation decisions.</p>
             </div>
           </div>
-          <span className="confidence">Manual acceptance only</span>
+          <span className="confidence" role="status">{renderStatus(status)}</span>
         </div>
 
         {unreviewedCount > 0 ? (
           <section className="review-entry-panel" aria-label="Review entry point">
             <div>
-              <strong>{unreviewedCount} chore{unreviewedCount !== 1 ? "s have" : " has"} not been reviewed yet</strong>
+              <strong>{formatUnreviewedSummary(unreviewedCount)}</strong>
               <p>Choose which chores the assistant should review. You can include already-reviewed chores if you want a second pass.</p>
             </div>
             <button className="secondary-action" onClick={handleStartReviewFlow} type="button">
@@ -406,6 +410,55 @@ export function ChoresPage({
             </button>
           ))}
         </div>
+
+        <div className="chore-list-actions">
+          <button className="secondary-action" onClick={() => setAddFormOpen((isOpen) => !isOpen)} type="button">
+            {addFormOpen ? "Cancel add chore" : "Add chore"}
+          </button>
+        </div>
+
+        {addFormOpen ? (
+          <form className="manual-chore-form compact-chore-form" onSubmit={handleAddChore}>
+            <div className="field-grid">
+              <label>
+                Chore title
+                <input
+                  placeholder="Clean bathrooms"
+                  required
+                  value={choreTitle}
+                  onChange={(event) => setChoreTitle(event.target.value)}
+                />
+              </label>
+              <label>
+                Cadence
+                <input
+                  placeholder="weekly"
+                  required
+                  value={choreCadence}
+                  onChange={(event) => setChoreCadence(event.target.value)}
+                />
+              </label>
+              <label>
+                Estimated minutes
+                <input
+                  min="1"
+                  placeholder="5"
+                  required
+                  type="number"
+                  value={estimatedMinutes}
+                  onChange={(event) => setEstimatedMinutes(event.target.value)}
+                />
+              </label>
+              <label>
+                Source
+                <select value={choreSource} onChange={() => undefined}>
+                  <option value="manual">Manual</option>
+                </select>
+              </label>
+            </div>
+            <button type="submit">Save chore</button>
+          </form>
+        ) : null}
 
         {reviewFlowOpen ? (
           <section className="dashboard-section review-flow-section" aria-label="Review flow">
@@ -482,74 +535,14 @@ export function ChoresPage({
           </section>
         ) : null}
 
-        {/* <div className="metric-grid">
-          <article className="metric-card good">
-            <span>Tracked chores</span>
-            <strong>{chores.length}</strong>
-            <p>Manual and imported chores will share this queue.</p>
-          </article>
-          <article className="metric-card strong">
-            <span>Duration concerns</span>
-            <strong>{durationConcerns}</strong>
-            <p>Broad chores with short estimates need a closer look.</p>
-          </article>
-          <article className="metric-card attention">
-            <span>Pending recommendations</span>
-            <strong>{pendingRecommendations.length}</strong>
-            <p>Suggestions stay manual until accepted later.</p>
-          </article>
-        </div> */}
-
         {queueState === "error" ? (
-          <div className="empty-state">Could not load the review queue.</div>
+          <div className="empty-state">{renderStatus(status)}</div>
         ) : null}
 
         {queueState === "ready" ? (
           visibleChores.length === 0 ? (
-            <div className="plan-empty-grid">
-              <div className="empty-state">
-                {recommendationsStale ? "No active chores in the review queue." : "Add one existing chore manually to start the review queue."}
-              </div>
-              <form className="manual-chore-form" onSubmit={handleAddChore}>
-                <div className="field-grid">
-                  <label>
-                    Chore title
-                    <input
-                      placeholder="Clean bathrooms"
-                      required
-                      value={choreTitle}
-                      onChange={(event) => setChoreTitle(event.target.value)}
-                    />
-                  </label>
-                  <label>
-                    Cadence
-                    <input
-                      placeholder="weekly"
-                      required
-                      value={choreCadence}
-                      onChange={(event) => setChoreCadence(event.target.value)}
-                    />
-                  </label>
-                  <label>
-                    Estimated minutes
-                    <input
-                      min="1"
-                      placeholder="5"
-                      required
-                      type="number"
-                      value={estimatedMinutes}
-                      onChange={(event) => setEstimatedMinutes(event.target.value)}
-                    />
-                  </label>
-                  <label>
-                    Source
-                    <select value={choreSource} onChange={() => undefined}>
-                      <option value="manual">Manual</option>
-                    </select>
-                  </label>
-                </div>
-                <button type="submit">Add chore to queue</button>
-              </form>
+            <div className="empty-state">
+              {getEmptyChoreMessage(activeTab)}
             </div>
           ) : (
             <div className="plan-review-grid">
@@ -628,7 +621,7 @@ export function ChoresPage({
                       </article>
                     ) : (
                       <div className="empty-state">
-                        Run review to see rationale and confidence for this chore.
+                        No recommendation for this chore yet.
                       </div>
                     )}
                   </>
@@ -664,32 +657,6 @@ export function ChoresPage({
           </div>
         ) : null}
       </section>
-
-      {recommendations.length > 0 ? (
-        <section className="dashboard-section recommendations-section" aria-labelledby="recommendations-heading">
-          <div className="section-heading">
-            <div className="section-title">
-              <span>02</span>
-              <div>
-                <h2 id="recommendations-heading">Recommendations</h2>
-                <p>Suggestions appear with rationale and confidence for manual acceptance.</p>
-              </div>
-            </div>
-          </div>
-          <div className="recommendation-list">
-            {recommendations.map((recommendation) => (
-              <article key={recommendation.id} className="recommendation">
-                <div>
-                  <span className="recommendation-type">Recommendation</span>
-                  <h3>{recommendation.title}</h3>
-                  <p>{recommendation.rationale}</p>
-                </div>
-                <span className="confidence">Confidence: {recommendation.confidence}</span>
-              </article>
-            ))}
-          </div>
-        </section>
-      ) : null}
     </div>
   );
 }
