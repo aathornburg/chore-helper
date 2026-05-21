@@ -82,6 +82,10 @@ function mockSuccessfulSetupAndChoreFetches() {
   return fetchMock;
 }
 
+function restoreHouseholdInStorage() {
+  window.localStorage.setItem("chore-helper:household-id", "household-1");
+}
+
 async function saveSetup() {
   fillSetupBasics();
   fireEvent.click(screen.getByRole("button", { name: "Save basics" }));
@@ -133,6 +137,43 @@ describe("App", () => {
     expect(screen.queryByRole("link", { name: "Plan" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Family" })).toBeNull();
     expect(screen.getByRole("link", { name: "Settings" })).toBeTruthy();
+  });
+
+  it("keeps the dedicated chore review route out of primary navigation", async () => {
+    restoreHouseholdInStorage();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            id: "household-1",
+            name: "Home",
+            baseline: {
+              homeType: "house",
+              rooms: ["kitchen"],
+              flooring: ["tile"],
+              hasPets: false,
+              hasOutdoorSpace: false,
+              notes: ""
+            }
+          })
+        })
+        .mockResolvedValueOnce({ ok: true, json: async () => [] })
+        .mockResolvedValueOnce({ ok: true, json: async () => [] })
+    );
+
+    renderAt("/chores/review");
+
+    expect(screen.getByRole("link", { name: "Today" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Setup" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Chores" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Settings" })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Review" })).toBeNull();
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Review chores" })).toBeTruthy();
+    });
   });
 
   it("renders a first-time Today page without the full dense dashboard", () => {
@@ -744,6 +785,73 @@ describe("App", () => {
       5,
       "http://localhost:3001/api/households/household-1/recommendations"
     );
+  });
+
+  it("routes from the Chores review CTA to the dedicated review page", async () => {
+    restoreHouseholdInStorage();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            id: "household-1",
+            name: "Home",
+            baseline: {
+              homeType: "house",
+              rooms: ["bathrooms"],
+              flooring: ["tile"],
+              hasPets: false,
+              hasOutdoorSpace: false,
+              notes: ""
+            }
+          })
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => [
+            {
+              id: "chore-1",
+              householdId: "household-1",
+              title: "Clean bathrooms",
+              cadence: "weekly",
+              estimatedMinutes: 5,
+              source: "manual"
+            }
+          ]
+        })
+        .mockResolvedValueOnce({ ok: true, json: async () => [] })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => [
+            {
+              id: "chore-1",
+              householdId: "household-1",
+              title: "Clean bathrooms",
+              cadence: "weekly",
+              estimatedMinutes: 5,
+              source: "manual"
+            }
+          ]
+        })
+        .mockResolvedValueOnce({ ok: true, json: async () => [] })
+    );
+
+    renderAt("/chores");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Chore list" })).toBeTruthy();
+    });
+    expect(screen.queryByRole("heading", { name: "Choose chores to review" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Review selected chores" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Apply decisions" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Review" }));
+
+    await waitFor(() => {
+      expect(window.location.pathname).toBe("/chores/review");
+      expect(screen.getByRole("heading", { name: "Review chores" })).toBeTruthy();
+    });
   });
 
   it("shows filter-specific empty Chores states without the add-chore form", async () => {
