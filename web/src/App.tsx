@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
-import { ChoreReviewPage } from "./pages/ChoreReviewPage";
+import { OptimizePage } from "./pages/OptimizePage";
 import { ChoresPage } from "./pages/ChoresPage";
 import { FamilyPage } from "./pages/FamilyPage";
 import { LandingPage } from "./pages/LandingPage";
 import { SettingsPage } from "./pages/SettingsPage";
-import { SetupPage } from "./pages/SetupPage";
 import { TodayDashboard } from "./pages/TodayDashboard";
 import { normalizePath } from "./routes";
 import { HouseholdSetupProvider, useHouseholdSetup } from "./state/HouseholdSetupProvider";
@@ -78,15 +77,15 @@ function AppRoutes() {
       {path === "/today" ? (
         <TodayDashboard householdSetup={householdSetup} onNavigate={navigate} />
       ) : null}
-      {path === "/setup" ? (
+      {/* {path === "/setup" ? (
         <SetupPage
           householdSetup={householdSetup}
           onAddChore={addExistingChore}
           onReviewChores={() => navigate("/chores")}
           onSave={saveHouseholdContext}
         />
-      ) : null}
-      {path === "/chores" || path === "/plan" ? (
+      ) : null} */}
+      {path === "/chores" ? (
         <ChoresPage
           householdId={householdSetup.householdId}
           householdName={householdSetup.householdName}
@@ -94,11 +93,10 @@ function AppRoutes() {
           onReviewChores={() => navigate("/chores/review")}
         />
       ) : null}
-      {path === "/chores/review" ? (
-        <ChoreReviewPage
+      {path === "/optimize" ? (
+        <OptimizePage
           householdId={householdSetup.householdId}
           householdName={householdSetup.householdName}
-          onBackToChores={() => navigate("/chores")}
         />
       ) : null}
       {path === "/family" ? <FamilyPage /> : null}
@@ -118,8 +116,9 @@ function AppShell({
 }) {
   const navItems = [
     { label: "Today", path: "/today" },
-    { label: "Setup", path: "/setup" },
+    { label: "Households", path: "/setup" },
     { label: "Chores", path: "/chores" },
+    { label: "Optimize ✨", path: "/optimize" },
     { label: "Settings", path: "/settings" }
   ];
 

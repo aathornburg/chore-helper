@@ -287,7 +287,7 @@ export function ChoresPage({
 
   return (
     <div className="plan-review">
-      <header className="workspace-hero compact-hero chores-hero">
+      <header className="workspace-hero compact-hero">
         <div>
           <h1>Household chores</h1>
           <p className="lede">
@@ -296,12 +296,6 @@ export function ChoresPage({
           <p className="supporting-copy">
             <span><strong>{householdName}</strong> / {formatBaselineSummary(baseline)}</span>
           </p>
-        </div>
-        <div className="chores-hero-actions">
-          <button className="secondary-action" onClick={onReviewChores} type="button">
-            Review
-          </button>
-          <span>{formatUnreviewedSummary(unreviewedCount)}</span>
         </div>
       </header>
 

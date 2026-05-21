@@ -14,7 +14,6 @@ type ReviewLoadState = "idle" | "loading" | "ready" | "error";
 type ChoreReviewPageProps = {
   householdId?: string;
   householdName?: string;
-  onBackToChores: () => void;
 };
 
 function findRecommendationForChore(chore: Chore, recommendations: Recommendation[]) {
@@ -35,10 +34,9 @@ function getReviewDefaultSelection(chores: Chore[], recommendations: Recommendat
   return unreviewedIds.length > 0 ? unreviewedIds : chores.map((chore) => chore.id);
 }
 
-export function ChoreReviewPage({
+export function OptimizePage({
   householdId,
   householdName = "Home",
-  onBackToChores
 }: ChoreReviewPageProps) {
   const [chores, setChores] = useState<Chore[]>([]);
   const [reviewRecommendations, setReviewRecommendations] = useState<Recommendation[]>([]);
@@ -165,7 +163,7 @@ export function ChoreReviewPage({
         <p className="eyebrow">Review</p>
         <h1>Review chores</h1>
         <p className="lede">Set up a household before reviewing existing chores.</p>
-        <button className="secondary-action" onClick={onBackToChores} type="button">
+        <button className="secondary-action" type="button">
           Back to chores
         </button>
       </section>
@@ -246,7 +244,7 @@ export function ChoreReviewPage({
             )}
 
             <div className="form-actions">
-              <button className="secondary-action" onClick={onBackToChores} type="button">
+              <button className="secondary-action" type="button">
                 Back to chores
               </button>
               <button
@@ -311,7 +309,7 @@ export function ChoreReviewPage({
           <div className="review-completion">
             <p>Recommendation decisions applied.</p>
             <div className="form-actions">
-              <button onClick={onBackToChores} type="button">
+              <button type="button">
                 Back to chores
               </button>
             </div>

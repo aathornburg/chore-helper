@@ -3,7 +3,7 @@
   configuration. Each path is a known route, and `normalizePath` ensures
   unknown URLs default back to `/`.
 */
-export const routes = ["/today", "/setup", "/chores", "/chores/review", "/plan", "/family", "/settings"] as const;
+export const routes = ["/today", "/optimize","/household", "/chores", "/family", "/settings"] as const;
 
 export type AppRoute = (typeof routes)[number];
 

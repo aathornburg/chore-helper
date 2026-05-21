@@ -93,6 +93,14 @@ Suggested child doc:
 
 - `docs/superpowers/specs/YYYY-MM-DD-google-calendar-integration-design.md`
 
+### 6. Tech Debt
+
+Implementation changes that won't change the experience of using the application.
+
+Key changes:
+
+- Update styling from simple CSS to Tailwind
+
 ## Documentation Flow
 
 For each milestone:
