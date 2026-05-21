@@ -759,6 +759,12 @@ textarea {
   color: #2f694d;
 }
 
+.secondary-action:hover {
+  background: #e8f0e4;
+  border-color: #b8d1af;
+  color: #24352e;
+}
+
 .status-tabs {
   display: flex;
   flex-wrap: wrap;
@@ -776,6 +782,11 @@ textarea {
   background: #eef6ea;
   border-color: #b8d1af;
   color: #2f694d;
+}
+
+.chore-list-actions {
+  display: flex;
+  justify-content: flex-start;
 }
 
 .review-flow-section {
@@ -924,6 +935,10 @@ textarea {
   padding: 20px;
 }
 
+.compact-chore-form {
+  box-shadow: none;
+}
+
 .detail-panel .manual-chore-form {
   background: transparent;
   border: 0;
@@ -965,10 +980,6 @@ textarea {
 .archived-chores .queue-card button {
   justify-self: start;
   margin-top: 4px;
-}
-
-.recommendations-section {
-  background: #fffdf9;
 }
 
 .empty-state {
