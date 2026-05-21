@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Chore, HouseholdBaseline, Recommendation } from "@chore-helper/shared";
+import { type ChoreReviewState, type Chore, type HouseholdBaseline, type Recommendation } from "@chore-helper/shared";
 import {
   applyRecommendationDecisions,
   archiveChore,
@@ -11,7 +11,7 @@ import {
   restoreChore,
   updateRecommendationDecision,
   updateChore
-} from "./api";
+} from "../api";
 
 type PlanReviewProps = {
   householdId?: string;
@@ -19,9 +19,20 @@ type PlanReviewProps = {
   baseline?: HouseholdBaseline;
 };
 
+// In older TS versions, this definition is generally less desirable than an enum
+// But with the --erasableSyntaxOnly flag (tsconfig), this is recommended as it
+// Allows the entire TS project to be run directly thru Node instead of having to
+// Go through transpiling
 type QueueSignal = "Duration concern" | "Cadence review" | "Ready";
-type ChoreReviewState = "unreviewed" | "recommendation-pending" | "reviewed";
 type ChoreStatusTab = "all-active" | "unreviewed" | "recommendation-pending" | "reviewed" | "archived";
+
+const ChoreStatusTabs: { key: ChoreStatusTab; label: string }[] = [
+  { key: "all-active", label: "All active" },
+  { key: "unreviewed", label: "Unreviewed" },
+  { key: "recommendation-pending", label: "Recommendation pending" },
+  { key: "reviewed", label: "Reviewed" },
+  { key: "archived", label: "Archived" }
+];
 
 function formatBaselineSummary(baseline?: HouseholdBaseline) {
   if (!baseline) return "Household context is not complete yet.";
@@ -341,20 +352,19 @@ export function ChoresPage({
     <div className="plan-review">
       <header className="workspace-hero compact-hero">
         <div>
-          <p className="eyebrow">Chore workspace</p>
           <h1>Household chores</h1>
           <p className="lede">
-            Add, edit, archive, and track chore review state from one durable workspace.
+            Add, edit, archive, and track your chores all in one place.
           </p>
           <p className="supporting-copy">
-            <strong>{householdName}</strong> / {formatBaselineSummary(baseline)}
+            <span><strong>{householdName}</strong> / {formatBaselineSummary(baseline)}</span>
           </p>
-          <p className="section-summary">{formatBaselineSummary(baseline)}</p>
+          {/* <p className="section-summary">{formatBaselineSummary(baseline)}</p> */}
         </div>
-        <div className="header-action">
-          <p className="status" role="status">{renderStatus(status)}</p>
-          <button onClick={handleReview} type="button">Review my chore plan</button>
-        </div>
+        {/* <div className="header-action"> */}
+          {/* <p className="status" role="status">{formatBaselineSummary(baseline)}</p> */}
+          {/* <button onClick={handleReview} type="button">Review my chore plan</button> */}
+        {/* </div> */}
       </header>
 
       <section className="dashboard-section plan-queue-section" aria-labelledby="review-queue-heading">
@@ -368,30 +378,26 @@ export function ChoresPage({
           <span className="confidence">Manual acceptance only</span>
         </div>
 
-        <section className="review-entry-panel" aria-label="Review entry point">
-          <div>
-            <strong>{unreviewedCount} chores have not been reviewed yet</strong>
-            <p>Choose which chores the assistant should review. You can include already-reviewed chores if you want a second pass.</p>
-          </div>
-          <button className="secondary-action" onClick={handleStartReviewFlow} type="button">
-            Start review flow
-          </button>
-        </section>
+        {unreviewedCount > 0 ? (
+          <section className="review-entry-panel" aria-label="Review entry point">
+            <div>
+              <strong>{unreviewedCount} chore{unreviewedCount !== 1 ? "s have" : " has"} not been reviewed yet</strong>
+              <p>Choose which chores the assistant should review. You can include already-reviewed chores if you want a second pass.</p>
+            </div>
+            <button className="secondary-action" onClick={handleStartReviewFlow} type="button">
+              Start review flow
+            </button>
+          </section>
+        ) : null}
 
         <div className="status-tabs" role="tablist" aria-label="Chore status filters">
-          {[
-            ["all-active", "All active"],
-            ["unreviewed", "Unreviewed"],
-            ["recommendation-pending", "Recommendation pending"],
-            ["reviewed", "Reviewed"],
-            ["archived", "Archived"]
-          ].map(([tab, label]) => (
+          {ChoreStatusTabs.map(({ key, label }) => (
             <button
-              aria-selected={activeTab === tab}
-              key={tab}
+              aria-selected={activeTab === key}
+              key={key}
               onClick={() => {
-                setActiveTab(tab as ChoreStatusTab);
-                if (tab === "archived" && !showArchived) void handleLoadArchivedChores();
+                setActiveTab(key as ChoreStatusTab);
+                if (key === "archived" && !showArchived) void handleLoadArchivedChores();
               }}
               role="tab"
               type="button"
@@ -476,7 +482,7 @@ export function ChoresPage({
           </section>
         ) : null}
 
-        <div className="metric-grid">
+        {/* <div className="metric-grid">
           <article className="metric-card good">
             <span>Tracked chores</span>
             <strong>{chores.length}</strong>
@@ -492,7 +498,7 @@ export function ChoresPage({
             <strong>{pendingRecommendations.length}</strong>
             <p>Suggestions stay manual until accepted later.</p>
           </article>
-        </div>
+        </div> */}
 
         {queueState === "error" ? (
           <div className="empty-state">Could not load the review queue.</div>

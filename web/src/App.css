@@ -268,8 +268,11 @@ button:hover {
 .supporting-copy {
   color: #5e625b;
   line-height: 1.55;
-  margin: 12px 0 0;
-  max-width: 720px;
+  margin: 18px 0 0;
+  /* max-width: 720px; */
+  border-top: 1px solid #eaded1;
+  display: grid;
+  padding-top: 18px;
 }
 
 .first-time-grid {

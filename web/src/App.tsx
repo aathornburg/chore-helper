@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChoresPage } from "./ChoresPage";
+import { ChoresPage } from "./pages/ChoresPage";
 import { FamilyPage } from "./pages/FamilyPage";
 import { LandingPage } from "./pages/LandingPage";
 import { SettingsPage } from "./pages/SettingsPage";

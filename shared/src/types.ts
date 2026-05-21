@@ -32,6 +32,8 @@ export type Chore = {
   archivedAt?: string;
 };
 
+export type ChoreReviewState = "unreviewed" | "recommendation-pending" | "reviewed";
+
 export type RecommendationConfidence = "low" | "medium" | "high";
 export type RecommendationDecision = "pending" | "accepted" | "declined" | "applied";
 
