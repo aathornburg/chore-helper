@@ -723,6 +723,9 @@ describe("App", () => {
     expect(screen.getByText("1 chore has not been reviewed yet")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Start review flow" })).toBeTruthy();
     expect(screen.getByRole("tab", { name: "Pending" })).toBeTruthy();
+    const filters = screen.getByRole("tablist", { name: "Chore status filters" });
+    const addChoreButton = screen.getByRole("button", { name: "Add chore" });
+    expect(filters.contains(addChoreButton)).toBe(false);
     expect(screen.queryByRole("tab", { name: "Recommendation pending" })).toBeNull();
     expect(screen.queryByLabelText("Selected chore title")).toBeNull();
     expect(screen.queryByLabelText("Selected chore cadence")).toBeNull();
@@ -919,12 +922,19 @@ describe("App", () => {
       expect(screen.getByRole("button", { name: cleanBathroomsRowName })).toBeTruthy();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: cleanBathroomsRowName }));
-    expect(getFieldValue("Selected chore title")).toBe("Clean bathrooms");
+    const cleanBathroomsRow = screen.getByRole("button", { name: cleanBathroomsRowName });
+    const vacuumBedroomsRow = screen.getByRole("button", { name: vacuumBedroomsRowName });
 
-    fireEvent.click(screen.getByRole("button", { name: vacuumBedroomsRowName }));
+    fireEvent.click(cleanBathroomsRow);
+    expect(getFieldValue("Selected chore title")).toBe("Clean bathrooms");
+    expect(cleanBathroomsRow.getAttribute("aria-expanded")).toBe("true");
+    expect(vacuumBedroomsRow.getAttribute("aria-expanded")).toBe("false");
+
+    fireEvent.click(vacuumBedroomsRow);
     expect(getFieldValue("Selected chore title")).toBe("Vacuum bedrooms");
     expect(screen.getAllByLabelText("Selected chore title").length).toBe(1);
+    expect(cleanBathroomsRow.getAttribute("aria-expanded")).toBe("false");
+    expect(vacuumBedroomsRow.getAttribute("aria-expanded")).toBe("true");
   });
 
   it("edits the selected Chores chore and shows stale recommendation status", async () => {
@@ -1068,6 +1078,7 @@ describe("App", () => {
       expect(screen.getByRole("button", { name: "Restore Clean bathrooms" })).toBeTruthy();
     });
     expect(screen.queryByRole("button", { name: "Show archived chores" })).toBeNull();
+    expect(screen.queryByRole("button", { name: cleanBathroomsRowName })).toBeNull();
     expect(screen.queryByLabelText("Selected chore title")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Restore Clean bathrooms" }));
 

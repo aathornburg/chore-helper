@@ -765,6 +765,13 @@ textarea {
   color: #24352e;
 }
 
+.chore-list-toolbar {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
 .status-tabs {
   display: flex;
   flex-wrap: wrap;
@@ -786,7 +793,19 @@ textarea {
 
 .chore-list-actions {
   display: flex;
-  justify-content: flex-start;
+  justify-content: flex-end;
+}
+
+.add-chore-action {
+  background: #2f694d;
+  border-color: #2f694d;
+  color: white;
+}
+
+.add-chore-action:hover {
+  background: #24352e;
+  border-color: #24352e;
+  color: white;
 }
 
 .review-flow-section {
@@ -841,17 +860,13 @@ textarea {
   padding: 14px;
 }
 
-.plan-review-grid,
-.plan-empty-grid {
-  align-items: start;
-  display: grid;
-  gap: 18px;
-  grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.1fr);
-}
-
 .queue-list {
   display: grid;
   gap: 12px;
+}
+
+.chore-row-list {
+  grid-template-columns: 1fr;
 }
 
 .queue-card {
@@ -865,13 +880,6 @@ textarea {
   padding: 16px;
   text-align: left;
   width: 100%;
-}
-
-.queue-card:hover,
-.queue-card[aria-pressed="true"] {
-  background: #eef6ea;
-  border-color: #b8d1af;
-  color: #24352e;
 }
 
 .queue-card span {
@@ -904,28 +912,6 @@ textarea {
   border-color: #b8d1af;
 }
 
-.detail-panel {
-  background: #fffefa;
-  border: 1px solid #eaded1;
-  border-radius: 16px;
-  display: grid;
-  gap: 16px;
-  min-height: 260px;
-  padding: 22px;
-}
-
-.detail-panel h3 {
-  color: #24352e;
-  font-size: 1.45rem;
-  margin: 0;
-}
-
-.detail-panel > p {
-  color: #5e625b;
-  line-height: 1.5;
-  margin: 0;
-}
-
 .manual-chore-form {
   background: #fffefa;
   border: 1px solid #eaded1;
@@ -939,12 +925,56 @@ textarea {
   box-shadow: none;
 }
 
-.detail-panel .manual-chore-form {
+.chore-row {
+  gap: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.chore-row-summary {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: inherit;
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  padding: 16px;
+  text-align: left;
+  width: 100%;
+}
+
+button.chore-row-summary {
+  cursor: pointer;
+}
+
+button.chore-row-summary:hover,
+button.chore-row-summary[aria-expanded="true"] {
+  background: #eef6ea;
+}
+
+.chore-row-editor {
+  border-top: 1px solid #eaded1;
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+}
+
+.inline-chore-form {
   background: transparent;
   border: 0;
   border-radius: 0;
   gap: 16px;
   padding: 0;
+}
+
+.inline-recommendation {
+  background: white;
+}
+
+.archived-chore-actions {
+  border-top: 1px solid #eaded1;
+  padding: 0 16px 16px;
 }
 
 .form-actions {
@@ -956,30 +986,6 @@ textarea {
 
 .form-actions button {
   flex: 0 1 auto;
-}
-
-.archived-chores {
-  border-top: 1px solid #eaded1;
-  display: grid;
-  gap: 14px;
-  padding-top: 18px;
-}
-
-.archived-chores > button {
-  justify-self: start;
-}
-
-.archived-chores .queue-list {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.archived-chores .queue-card {
-  align-content: start;
-}
-
-.archived-chores .queue-card button {
-  justify-self: start;
-  margin-top: 4px;
 }
 
 .empty-state {
@@ -1040,9 +1046,7 @@ textarea {
   .landing-hero,
   .workspace-hero,
   .dashboard-grid,
-  .first-time-grid,
-  .plan-review-grid,
-  .plan-empty-grid {
+  .first-time-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1090,9 +1094,18 @@ textarea {
   .metric-grid,
   .week-strip,
   .chore-table article,
-  .archived-chores .queue-list,
   .recommendation {
     grid-template-columns: 1fr;
+  }
+
+  .chore-list-toolbar {
+    align-items: stretch;
+    display: grid;
+  }
+
+  .chore-list-actions,
+  .chore-list-actions button {
+    width: 100%;
   }
 
   .form-actions button {

@@ -396,27 +396,29 @@ export function ChoresPage({
           </section>
         ) : null}
 
-        <div className="status-tabs" role="tablist" aria-label="Chore status filters">
-          {ChoreStatusTabs.map(({ key, label }) => (
-            <button
-              aria-selected={activeTab === key}
-              key={key}
-              onClick={() => {
-                setActiveTab(key as ChoreStatusTab);
-                if (key === "archived" && !archivedLoaded) void handleLoadArchivedChores();
-              }}
-              role="tab"
-              type="button"
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <div className="chore-list-toolbar">
+          <div className="status-tabs" role="tablist" aria-label="Chore status filters">
+            {ChoreStatusTabs.map(({ key, label }) => (
+              <button
+                aria-selected={activeTab === key}
+                key={key}
+                onClick={() => {
+                  setActiveTab(key as ChoreStatusTab);
+                  if (key === "archived" && !archivedLoaded) void handleLoadArchivedChores();
+                }}
+                role="tab"
+                type="button"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
 
-        <div className="chore-list-actions">
-          <button className="secondary-action" onClick={() => setAddFormOpen((isOpen) => !isOpen)} type="button">
-            {addFormOpen ? "Cancel add chore" : "Add chore"}
-          </button>
+          <div className="chore-list-actions">
+            <button className="add-chore-action" onClick={() => setAddFormOpen((isOpen) => !isOpen)} type="button">
+              {addFormOpen ? "Cancel add chore" : "Add chore"}
+            </button>
+          </div>
         </div>
 
         {addFormOpen ? (
@@ -560,9 +562,11 @@ export function ChoresPage({
                         <strong>{chore.title}</strong>
                         <small>{chore.cadence} / {chore.estimatedMinutes} min / {chore.source}</small>
                       </div>
-                      <button type="button" onClick={() => handleRestoreChore(chore.id)}>
-                        Restore {chore.title}
-                      </button>
+                      <div className="archived-chore-actions">
+                        <button type="button" onClick={() => handleRestoreChore(chore.id)}>
+                          Restore {chore.title}
+                        </button>
+                      </div>
                     </article>
                   );
                 }
