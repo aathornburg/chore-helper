@@ -1,7 +1,12 @@
 import type { Recommendation } from "@chore-helper/shared";
 import request from "supertest";
 import { describe, expect, it } from "vitest";
-import type { AgentProvider, AgentRecommendationContext } from "../src/agent/AgentProvider.js";
+import type {
+  AgentChatContext,
+  AgentChatResponse,
+  AgentProvider,
+  AgentRecommendationContext
+} from "../src/agent/AgentProvider.js";
 import { createInMemoryStore } from "../src/repositories/inMemoryStore.js";
 import { createApp } from "../src/app.js";
 
@@ -13,6 +18,10 @@ class RecordingAgentProvider implements AgentProvider {
   ): Promise<Recommendation[]> {
     this.receivedContext = context;
     return [];
+  }
+
+  async answerHouseholdQuestion(_context: AgentChatContext): Promise<AgentChatResponse> {
+    return { answer: "Not used by this test." };
   }
 }
 

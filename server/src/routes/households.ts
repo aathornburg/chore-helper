@@ -38,6 +38,10 @@ const recommendationDecisionSchema = z.object({
   decision: z.enum(["pending", "accepted", "declined"])
 });
 
+const assistantChatRequestSchema = z.object({
+  message: z.string().trim().min(1)
+});
+
 function attachReviewMetadata(recommendation: Recommendation, selectedChores: Chore[]) {
   const matchedChore =
     selectedChores.find((chore) =>
@@ -161,6 +165,33 @@ export function createHouseholdRouter(store: HouseholdStore, agentProvider: Agen
     return res.status(200).json(
       recommendations.filter((recommendation) => !recommendation.staleAt)
     );
+  });
+
+  router.post("/:householdId/assistant/chat", async (req, res) => {
+    const household = await store.getHousehold(req.params.householdId);
+    if (!household) return res.status(404).json({ error: "Household not found" });
+
+    const parsed = assistantChatRequestSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid assistant chat payload" });
+
+    const chores = await store.listChores(household.id);
+    const activeChores = chores.filter((chore) => !chore.archivedAt);
+    const activeRecommendations = (await store.listRecommendations(household.id)).filter(
+      (recommendation) => !recommendation.staleAt
+    );
+
+    try {
+      return res.status(200).json(
+        await agentProvider.answerHouseholdQuestion({
+          household,
+          chores: activeChores,
+          recommendations: activeRecommendations,
+          message: parsed.data.message
+        })
+      );
+    } catch {
+      return res.status(502).json({ error: "Could not answer assistant question" });
+    }
   });
 
   router.put("/:householdId/recommendations/:recommendationId/decision", async (req, res) => {

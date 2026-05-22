@@ -1,7 +1,12 @@
 import { Agent, run } from "@openai/agents";
 import type { Chore, Recommendation } from "@chore-helper/shared";
 import { z } from "zod";
-import type { AgentProvider, AgentRecommendationContext } from "./AgentProvider.js";
+import type {
+  AgentChatContext,
+  AgentChatResponse,
+  AgentProvider,
+  AgentRecommendationContext
+} from "./AgentProvider.js";
 
 export const DEFAULT_OPENAI_AGENT_MODEL = "gpt-5.5";
 
@@ -104,6 +109,38 @@ function mapOutputToRecommendations(
   }));
 }
 
+function formatDeterministicChatResponse({
+  household,
+  chores,
+  recommendations,
+  message
+}: AgentChatContext): AgentChatResponse {
+  const pendingRecommendations = recommendations.filter(
+    (recommendation) =>
+      recommendation.status === "pending" && (recommendation.decision ?? "pending") === "pending"
+  );
+  const shortestChore = chores
+    .slice()
+    .sort((first, second) => first.estimatedMinutes - second.estimatedMinutes)[0];
+  const baselineSummary = household.baseline
+    ? `Baseline: ${household.baseline.homeType} with ${household.baseline.rooms.length} tracked room${household.baseline.rooms.length === 1 ? "" : "s"}, pets=${household.baseline.hasPets}, outdoorSpace=${household.baseline.hasOutdoorSpace}.`
+    : "Baseline details are not set yet.";
+  const choreSummary = shortestChore
+    ? `${shortestChore.title} has the shortest estimate at ${shortestChore.estimatedMinutes} minutes, so it is a practical first chore to review.`
+    : "There are no active chores to inspect yet.";
+  const recommendationSummary =
+    pendingRecommendations.length > 0
+      ? `Pending recommendations: ${pendingRecommendations.map((recommendation) => recommendation.title).join("; ")}.`
+      : "There are no pending recommendations right now.";
+
+  return {
+    answer: `For "${message}", ${choreSummary} ${baselineSummary} ${recommendationSummary}`,
+    ...(pendingRecommendations.length > 0
+      ? { relatedRecommendationIds: pendingRecommendations.map((recommendation) => recommendation.id) }
+      : {})
+  };
+}
+
 export class OpenAiChoreAgentProvider implements AgentProvider {
   constructor(
     private readonly model = DEFAULT_OPENAI_AGENT_MODEL,
@@ -122,5 +159,9 @@ export class OpenAiChoreAgentProvider implements AgentProvider {
     );
 
     return mapOutputToRecommendations(output, context);
+  }
+
+  async answerHouseholdQuestion(context: AgentChatContext): Promise<AgentChatResponse> {
+    return formatDeterministicChatResponse(context);
   }
 }

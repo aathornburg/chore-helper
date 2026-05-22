@@ -12,6 +12,19 @@ export type AgentRecommendationContext = {
   reviewPrompt?: string;
 };
 
+export type AgentChatContext = {
+  household: Household;
+  chores: Chore[];
+  recommendations: Recommendation[];
+  message: string;
+};
+
+export type AgentChatResponse = {
+  answer: string;
+  relatedRecommendationIds?: string[];
+};
+
 export type AgentProvider = {
   recommendSetupImprovements(context: AgentRecommendationContext): Promise<Recommendation[]>;
+  answerHouseholdQuestion(context: AgentChatContext): Promise<AgentChatResponse>;
 };

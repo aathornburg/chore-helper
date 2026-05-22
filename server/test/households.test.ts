@@ -22,7 +22,7 @@ class FailingAgentProvider implements AgentProvider {
   }
 
   async answerHouseholdQuestion(_context: AgentChatContext): Promise<AgentChatResponse> {
-    return { reply: "Not used by this test." };
+    return { answer: "Not used by this test." };
   }
 }
 
@@ -49,7 +49,10 @@ class RecordingChatAgentProvider implements AgentProvider {
 
   async answerHouseholdQuestion(context: AgentChatContext): Promise<AgentChatResponse> {
     this.receivedContext = context;
-    return { reply: `Mock reply for ${context.household.name}` };
+    return {
+      answer: `Mock answer for ${context.household.name}`,
+      relatedRecommendationIds: context.recommendations.map((recommendation) => recommendation.id)
+    };
   }
 }
 
@@ -444,7 +447,10 @@ describe("household baseline flow", () => {
       .send({ message: " Which chores look under-scoped? " })
       .expect(200)
       .expect((response) => {
-        expect(response.body).toEqual({ reply: "Mock reply for Home" });
+        expect(response.body).toEqual({
+          answer: "Mock answer for Home",
+          relatedRecommendationIds: [recommendations.body[0].id]
+        });
       });
 
     expect(agentProvider.receivedContext).toEqual(
