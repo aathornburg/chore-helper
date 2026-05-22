@@ -1,10 +1,4 @@
-type HouseholdPageProps = {
-    householdId?: string;
-};
-
-export function HouseholdsPage({
-    householdId
-}: HouseholdPageProps) {
+export function HouseholdsPage() {
     return (
         <div className="household-page">
             <p className="eyebrow">Households</p>
@@ -12,4 +6,4 @@ export function HouseholdsPage({
             <p className="lede">Set up a household to get started.</p>
         </div>
     );
-};
+}

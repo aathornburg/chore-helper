@@ -35,7 +35,7 @@ function App() {
 
 function AppRoutes() {
   const [path, setPath] = useState(() => normalizePath(window.location.pathname));
-  const { addExistingChore, householdSetup, saveHouseholdContext } = useHouseholdSetup();
+  const { householdSetup } = useHouseholdSetup();
 
   /*
     `useState` is similar to component-scoped state in Angular, though
@@ -79,16 +79,13 @@ function AppRoutes() {
         <TodayDashboard householdSetup={householdSetup} onNavigate={navigate} />
       ) : null}
       {path === "/households" ? (
-        <HouseholdsPage
-          householdId={householdSetup.householdId}
-        />
+        <HouseholdsPage />
       ) : null}
       {path === "/chores" ? (
         <ChoresPage
           householdId={householdSetup.householdId}
           householdName={householdSetup.householdName}
           baseline={householdSetup.baseline}
-          onReviewChores={() => navigate("/chores/review")}
         />
       ) : null}
       {path === "/optimize" ? (

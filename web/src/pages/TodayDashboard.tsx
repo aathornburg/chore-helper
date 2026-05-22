@@ -17,11 +17,11 @@ export function TodayDashboard({ householdSetup, onNavigate }: TodayDashboardPro
       <div className="dashboard-page first-time-dashboard">
         <header className="workspace-hero first-time-hero">
           <div>
-            <p className="eyebrow">Household setup</p>
+            <p className="eyebrow">Household</p>
             <h1>Today</h1>
-            <p className="lede">Loading household setup...</p>
+            <p className="lede">Loading household context...</p>
             <p className="supporting-copy">
-              Chore Helper is checking your saved household before showing the next setup step.
+              Chore Helper is checking your saved household before showing the next best action.
             </p>
           </div>
         </header>
@@ -34,7 +34,7 @@ export function TodayDashboard({ householdSetup, onNavigate }: TodayDashboardPro
       <div className="dashboard-page first-time-dashboard">
         <header className="workspace-hero first-time-hero">
           <div>
-            <p className="eyebrow">Setup complete</p>
+            <p className="eyebrow">Household ready</p>
             <h1>Today</h1>
             <p className="lede">
               {householdSetup.householdName} is ready for a first expert chore review.
@@ -87,12 +87,12 @@ export function TodayDashboard({ householdSetup, onNavigate }: TodayDashboardPro
       <header className="workspace-hero first-time-hero">
         <div>
           <p className="eyebrow">
-            {householdSetup.baseline ? "Setup in progress" : "First household setup"}
+            {householdSetup.baseline ? "Household in progress" : "First household"}
           </p>
           <h1>Today</h1>
           <p className="lede">
             {householdSetup.baseline
-              ? "Finish setup by adding an existing chore."
+              ? "Add an existing chore to make the assistant recommendations useful."
               : "Let's get your household context set up."}
           </p>
           {householdSetup.restoreError ? (
@@ -104,8 +104,8 @@ export function TodayDashboard({ householdSetup, onNavigate }: TodayDashboardPro
               : "A few home details give the assistant enough context to review chores with better cadence, effort, and coverage recommendations."}
           </p>
         </div>
-        <button onClick={() => onNavigate("/setup")} type="button">
-          {householdSetup.baseline ? "Continue setup" : "Set up household"}
+        <button onClick={() => onNavigate("/households")} type="button">
+          {householdSetup.baseline ? "Review household" : "Set up household"}
         </button>
       </header>
 
@@ -117,11 +117,11 @@ export function TodayDashboard({ householdSetup, onNavigate }: TodayDashboardPro
           </h2>
           <p>
             {householdSetup.baseline
-              ? "Setup is not complete until Chore Helper has at least one real chore to review."
+              ? "Chore Helper needs at least one real chore before it can review the plan."
               : "Tell Chore Helper about the home type, rooms, floors, pets, outdoor space, and any notes that affect recurring work."}
           </p>
-          <button onClick={() => onNavigate("/setup")} type="button">
-            {householdSetup.baseline ? "Add existing chore" : "Continue setup"}
+          <button onClick={() => onNavigate("/households")} type="button">
+            {householdSetup.baseline ? "Review household" : "Continue setup"}
           </button>
         </section>
 

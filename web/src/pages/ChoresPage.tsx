@@ -14,7 +14,6 @@ type PlanReviewProps = {
   householdId?: string;
   householdName?: string;
   baseline?: HouseholdBaseline;
-  onReviewChores?: () => void;
 };
 
 // In older TS versions, this definition is generally less desirable than an enum
@@ -85,11 +84,6 @@ function formatReviewState(state: ChoreReviewState) {
   return "Unreviewed";
 }
 
-function formatUnreviewedSummary(count: number) {
-  if (count === 0) return "All chores reviewed";
-  return count === 1 ? "1 chore needs review" : `${count} chores need review`;
-}
-
 function getEmptyChoreMessage(activeTab: ChoreStatusTab) {
   if (activeTab === "unreviewed") {
     return "No unreviewed chores. New or changed chores will appear here before review.";
@@ -110,8 +104,7 @@ function getEmptyChoreMessage(activeTab: ChoreStatusTab) {
 export function ChoresPage({
   householdId,
   householdName = "Home",
-  baseline,
-  onReviewChores = () => undefined
+  baseline
 }: PlanReviewProps) {
   const [chores, setChores] = useState<Chore[]>([]);
   const [archivedChores, setArchivedChores] = useState<Chore[]>([]);
@@ -132,10 +125,6 @@ export function ChoresPage({
   // Like an Angular accordion item keyed by id, only the expanded row owns the edit form.
   const expandedChore = chores.find((chore) => chore.id === expandedChoreId);
   const expandedRecommendation = findRecommendationForChore(expandedChore, recommendations);
-  const unreviewedCount = useMemo(
-    () => chores.filter((chore) => getChoreReviewState(chore, recommendations) === "unreviewed").length,
-    [chores, recommendations]
-  );
   const visibleChores = useMemo(() => {
     if (activeTab === "all-active") return chores;
     if (activeTab === "archived") return archivedChores;
