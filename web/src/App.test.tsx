@@ -176,6 +176,131 @@ describe("App", () => {
     });
   });
 
+  it("shows Optimize chat prompts and renders an assistant answer", async () => {
+    restoreHouseholdInStorage();
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          id: "household-1",
+          name: "Home",
+          baseline: {
+            homeType: "house",
+            rooms: ["bathroom"],
+            flooring: ["tile"],
+            hasPets: true,
+            hasOutdoorSpace: false,
+            notes: ""
+          }
+        })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            id: "chore-1",
+            householdId: "household-1",
+            title: "Clean bathrooms",
+            cadence: "weekly",
+            estimatedMinutes: 10,
+            source: "manual"
+          }
+        ]
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            id: "chore-1",
+            householdId: "household-1",
+            title: "Clean bathrooms",
+            cadence: "weekly",
+            estimatedMinutes: 10,
+            source: "manual"
+          }
+        ]
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => [] })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ answer: "Clean bathrooms may be under-scoped." })
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderAt("/optimize");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Optimize chores" })).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole("tab", { name: "Chat" }));
+
+    expect(screen.getByText("Which chores look under-scoped?")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Ask the assistant"), {
+      target: { value: "Which chores look under-scoped?" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Clean bathrooms may be under-scoped.")).toBeTruthy();
+    });
+
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "http://localhost:3001/api/households/household-1/assistant/chat",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ message: "Which chores look under-scoped?" })
+      })
+    );
+  });
+
+  it("keeps Optimize chat messages visible when assistant chat fails", async () => {
+    restoreHouseholdInStorage();
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: "household-1", name: "Home" })
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => [] })
+      .mockResolvedValueOnce({ ok: true, json: async () => [] })
+      .mockResolvedValueOnce({ ok: true, json: async () => [] })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ answer: "First answer." })
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({ error: "Could not answer assistant question" })
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderAt("/optimize");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Optimize chores" })).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole("tab", { name: "Chat" }));
+    fireEvent.change(screen.getByLabelText("Ask the assistant"), {
+      target: { value: "First question" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("First answer.")).toBeTruthy();
+    });
+
+    fireEvent.change(screen.getByLabelText("Ask the assistant"), {
+      target: { value: "Second question" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("First answer.")).toBeTruthy();
+      expect(screen.getByRole("status").textContent).toBe("Could not answer assistant question.");
+    });
+  });
+
   it("renders a first-time Today page without the full dense dashboard", () => {
     renderAt("/today");
 
