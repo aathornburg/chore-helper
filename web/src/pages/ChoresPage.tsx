@@ -289,7 +289,7 @@ export function ChoresPage({
     <div className="plan-review">
       <header className="workspace-hero compact-hero">
         <div>
-          <h1>Household chores</h1>
+          <h1>Chores</h1>
           <p className="lede">
             Add, edit, archive, and track your chores all in one place.
           </p>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { OptimizePage } from "./pages/OptimizePage";
+import { HouseholdsPage } from "./pages/HouseholdsPage";
 import { ChoresPage } from "./pages/ChoresPage";
 import { FamilyPage } from "./pages/FamilyPage";
 import { LandingPage } from "./pages/LandingPage";
@@ -77,14 +78,11 @@ function AppRoutes() {
       {path === "/today" ? (
         <TodayDashboard householdSetup={householdSetup} onNavigate={navigate} />
       ) : null}
-      {/* {path === "/setup" ? (
-        <SetupPage
-          householdSetup={householdSetup}
-          onAddChore={addExistingChore}
-          onReviewChores={() => navigate("/chores")}
-          onSave={saveHouseholdContext}
+      {path === "/households" ? (
+        <HouseholdsPage
+          householdId={householdSetup.householdId}
         />
-      ) : null} */}
+      ) : null}
       {path === "/chores" ? (
         <ChoresPage
           householdId={householdSetup.householdId}
@@ -116,7 +114,7 @@ function AppShell({
 }) {
   const navItems = [
     { label: "Today", path: "/today" },
-    { label: "Households", path: "/setup" },
+    { label: "Households", path: "/households" },
     { label: "Chores", path: "/chores" },
     { label: "Optimize ✨", path: "/optimize" },
     { label: "Settings", path: "/settings" }

@@ -11,7 +11,7 @@ import {
 type ReviewStep = "select" | "decide" | "complete";
 type ReviewLoadState = "idle" | "loading" | "ready" | "error";
 
-type ChoreReviewPageProps = {
+type OptimizePageProps = {
   householdId?: string;
   householdName?: string;
 };
@@ -37,7 +37,7 @@ function getReviewDefaultSelection(chores: Chore[], recommendations: Recommendat
 export function OptimizePage({
   householdId,
   householdName = "Home",
-}: ChoreReviewPageProps) {
+}: OptimizePageProps) {
   const [chores, setChores] = useState<Chore[]>([]);
   const [reviewRecommendations, setReviewRecommendations] = useState<Recommendation[]>([]);
   const [selectedChoreIds, setSelectedChoreIds] = useState<string[]>([]);
