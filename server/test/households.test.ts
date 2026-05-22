@@ -1,10 +1,20 @@
+import type { Recommendation } from "@chore-helper/shared";
 import request from "supertest";
 import { describe, expect, it } from "vitest";
+import type { AgentProvider, AgentRecommendationContext } from "../src/agent/AgentProvider.js";
 import { createApp } from "../src/app.js";
 import { createInMemoryStore } from "../src/repositories/inMemoryStore.js";
 
 function createTestApp() {
   return createApp({ store: createInMemoryStore() });
+}
+
+class FailingAgentProvider implements AgentProvider {
+  async recommendSetupImprovements(
+    _context: AgentRecommendationContext
+  ): Promise<Recommendation[]> {
+    throw new Error("OpenAI request failed");
+  }
 }
 
 describe("household baseline flow", () => {
@@ -327,5 +337,21 @@ describe("household baseline flow", () => {
       .put(`/api/households/${second.body.id}/chores/${chore.body.id}`)
       .send({ title: "Vacuum", cadence: "weekly", estimatedMinutes: 20, source: "manual" })
       .expect(404);
+  });
+
+  it("returns a stable 502 when recommendation generation fails", async () => {
+    const app = createApp({
+      store: createInMemoryStore(),
+      agentProvider: new FailingAgentProvider()
+    });
+    const created = await request(app).post("/api/households").send({ name: "Home" }).expect(201);
+
+    await request(app)
+      .post(`/api/households/${created.body.id}/recommendations`)
+      .send({ reviewPrompt: "Review these chores." })
+      .expect(502)
+      .expect((response) => {
+        expect(response.body).toEqual({ error: "Could not generate recommendations" });
+      });
   });
 });

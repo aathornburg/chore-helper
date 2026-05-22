@@ -199,16 +199,20 @@ export function createHouseholdRouter(store: HouseholdStore, agentProvider: Agen
       ? chores.filter((chore) => parsed.data.selectedChoreIds?.includes(chore.id))
       : chores;
 
-    const recommendations = await agentProvider.recommendSetupImprovements({
-      household,
-      chores: selectedChores,
-      reviewPrompt: parsed.data.reviewPrompt
-    });
-    const reviewRecommendations = recommendations.map((recommendation) =>
-      attachReviewMetadata(recommendation, selectedChores)
-    );
+    try {
+      const recommendations = await agentProvider.recommendSetupImprovements({
+        household,
+        chores: selectedChores,
+        reviewPrompt: parsed.data.reviewPrompt
+      });
+      const reviewRecommendations = recommendations.map((recommendation) =>
+        attachReviewMetadata(recommendation, selectedChores)
+      );
 
-    return res.status(201).json(await store.saveRecommendations(household.id, reviewRecommendations));
+      return res.status(201).json(await store.saveRecommendations(household.id, reviewRecommendations));
+    } catch {
+      return res.status(502).json({ error: "Could not generate recommendations" });
+    }
   });
 
   return router;
