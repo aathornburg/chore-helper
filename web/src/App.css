@@ -883,9 +883,6 @@ textarea {
 
 .optimize-mode-tabs {
   align-items: center;
-  background: #f4f0e9;
-  border: 1px solid #e3d7ca;
-  border-radius: 12px;
   display: inline-flex;
   gap: 6px;
   justify-self: start;

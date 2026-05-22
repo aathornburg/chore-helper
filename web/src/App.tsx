@@ -92,6 +92,7 @@ function AppRoutes() {
         <OptimizePage
           householdId={householdSetup.householdId}
           householdName={householdSetup.householdName}
+          baseline={householdSetup.baseline}
         />
       ) : null}
       {path === "/family" ? <FamilyPage /> : null}

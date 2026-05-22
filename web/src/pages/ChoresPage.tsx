@@ -10,7 +10,7 @@ import {
   updateChore
 } from "../api";
 
-type PlanReviewProps = {
+type ChoresPageProps = {
   householdId?: string;
   householdName?: string;
   baseline?: HouseholdBaseline;
@@ -105,7 +105,7 @@ export function ChoresPage({
   householdId,
   householdName = "Home",
   baseline
-}: PlanReviewProps) {
+}: ChoresPageProps) {
   const [chores, setChores] = useState<Chore[]>([]);
   const [archivedChores, setArchivedChores] = useState<Chore[]>([]);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);

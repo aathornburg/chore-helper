@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { type Chore, type Recommendation } from "@chore-helper/shared";
+import { type Chore, type HouseholdBaseline, type Recommendation } from "@chore-helper/shared";
 import {
   applyRecommendationDecisions,
   askAssistantQuestion,
@@ -21,6 +21,7 @@ type ChatMessage = {
 type OptimizePageProps = {
   householdId?: string;
   householdName?: string;
+  baseline?: HouseholdBaseline;
 };
 
 const chatPrompts = [
@@ -52,9 +53,18 @@ function createMessageId() {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
 }
 
+function formatBaselineSummary(baseline?: HouseholdBaseline) {
+  if (!baseline) return "Household context is not complete yet.";
+
+  return `${baseline.homeType} / ${baseline.rooms.length} rooms / ${baseline.flooring.join(", ")} / ${
+    baseline.hasPets ? "pets" : "no pets"
+  } / ${baseline.hasOutdoorSpace ? "outdoor space" : "no outdoor space"}`;
+}
+
 export function OptimizePage({
   householdId,
-  householdName = "Home"
+  householdName = "Home",
+  baseline
 }: OptimizePageProps) {
   const [mode, setMode] = useState<OptimizeMode>("recommendations");
   const [chores, setChores] = useState<Chore[]>([]);
@@ -212,7 +222,7 @@ export function OptimizePage({
     return (
       <section className="placeholder-page">
         <p className="eyebrow">Optimize</p>
-        <h1>Optimize chores</h1>
+        <h1>Optimize</h1>
         <p className="lede">Set up a household before asking the assistant to optimize chores.</p>
       </section>
     );
@@ -222,13 +232,12 @@ export function OptimizePage({
     <div className="plan-review review-page optimize-page">
       <header className="workspace-hero compact-hero">
         <div>
-          <p className="eyebrow">Assistant workspace</p>
-          <h1>Optimize chores</h1>
+          <h1>Optimize</h1>
           <p className="lede">
             Generate structured recommendations or ask the assistant free-form questions about your chore plan.
           </p>
           <p className="supporting-copy">
-            <span><strong>{householdName}</strong></span>
+            <span><strong>{householdName}</strong> / {formatBaselineSummary(baseline)}</span>
           </p>
         </div>
       </header>
