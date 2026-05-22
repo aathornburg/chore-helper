@@ -156,3 +156,22 @@ export async function applyRecommendationDecisions(
   if (!response.ok) throw new Error("Failed to apply recommendation decisions");
   return response.json();
 }
+
+export type AssistantChatResponse = {
+  answer: string;
+  relatedRecommendationIds?: string[];
+};
+
+export async function askAssistantQuestion(
+  householdId: string,
+  message: string
+): Promise<AssistantChatResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/households/${householdId}/assistant/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message })
+  });
+
+  if (!response.ok) throw new Error("Failed to ask assistant question");
+  return response.json();
+}
