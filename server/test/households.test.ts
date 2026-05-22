@@ -1,7 +1,12 @@
 import type { Recommendation } from "@chore-helper/shared";
 import request from "supertest";
 import { describe, expect, it } from "vitest";
-import type { AgentProvider, AgentRecommendationContext } from "../src/agent/AgentProvider.js";
+import type {
+  AgentChatContext,
+  AgentChatResponse,
+  AgentProvider,
+  AgentRecommendationContext
+} from "../src/agent/AgentProvider.js";
 import { createApp } from "../src/app.js";
 import { createInMemoryStore } from "../src/repositories/inMemoryStore.js";
 
@@ -14,6 +19,49 @@ class FailingAgentProvider implements AgentProvider {
     _context: AgentRecommendationContext
   ): Promise<Recommendation[]> {
     throw new Error("OpenAI request failed");
+  }
+
+  async answerHouseholdQuestion(_context: AgentChatContext): Promise<AgentChatResponse> {
+    return { reply: "Not used by this test." };
+  }
+}
+
+class RecordingChatAgentProvider implements AgentProvider {
+  receivedContext?: AgentChatContext;
+
+  async recommendSetupImprovements(
+    context: AgentRecommendationContext
+  ): Promise<Recommendation[]> {
+    const firstChore = context.chores[0];
+
+    return [
+      {
+        id: `chat-context-recommendation-${context.household.id}`,
+        householdId: context.household.id,
+        affectedChoreId: firstChore?.id,
+        title: firstChore ? `Review duration for ${firstChore.title}` : "Review household setup",
+        rationale: "Deterministic fixture recommendation for assistant chat context tests.",
+        confidence: "high",
+        status: "pending"
+      }
+    ];
+  }
+
+  async answerHouseholdQuestion(context: AgentChatContext): Promise<AgentChatResponse> {
+    this.receivedContext = context;
+    return { reply: `Mock reply for ${context.household.name}` };
+  }
+}
+
+class FailingChatAgentProvider implements AgentProvider {
+  async recommendSetupImprovements(
+    _context: AgentRecommendationContext
+  ): Promise<Recommendation[]> {
+    return [];
+  }
+
+  async answerHouseholdQuestion(_context: AgentChatContext): Promise<AgentChatResponse> {
+    throw new Error("Assistant chat failed");
   }
 }
 
@@ -352,6 +400,109 @@ describe("household baseline flow", () => {
       .expect(502)
       .expect((response) => {
         expect(response.body).toEqual({ error: "Could not generate recommendations" });
+      });
+  });
+
+  it("answers assistant chat questions with household context", async () => {
+    const agentProvider = new RecordingChatAgentProvider();
+    const app = createApp({
+      store: createInMemoryStore(),
+      agentProvider
+    });
+    const created = await request(app).post("/api/households").send({ name: "Home" }).expect(201);
+    const householdId = created.body.id;
+
+    await request(app)
+      .put(`/api/households/${householdId}/baseline`)
+      .send({
+        homeType: "house",
+        rooms: ["kitchen", "bathroom"],
+        flooring: ["tile"],
+        hasPets: true,
+        hasOutdoorSpace: false,
+        notes: "One dog."
+      })
+      .expect(200);
+
+    const chore = await request(app)
+      .post(`/api/households/${householdId}/chores`)
+      .send({
+        title: "Clean bathrooms",
+        cadence: "weekly",
+        estimatedMinutes: 10,
+        source: "manual"
+      })
+      .expect(201);
+
+    const recommendations = await request(app)
+      .post(`/api/households/${householdId}/recommendations`)
+      .send({ selectedChoreIds: [chore.body.id] })
+      .expect(201);
+
+    await request(app)
+      .post(`/api/households/${householdId}/assistant/chat`)
+      .send({ message: " Which chores look under-scoped? " })
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toEqual({ reply: "Mock reply for Home" });
+      });
+
+    expect(agentProvider.receivedContext).toEqual(
+      expect.objectContaining({
+        message: "Which chores look under-scoped?",
+        household: expect.objectContaining({ id: householdId, name: "Home" }),
+        chores: [expect.objectContaining({ id: chore.body.id, title: "Clean bathrooms" })],
+        recommendations: [
+          expect.objectContaining({
+            id: recommendations.body[0].id,
+            householdId,
+            affectedChoreId: chore.body.id,
+            title: "Review duration for Clean bathrooms",
+            status: "pending"
+          })
+        ]
+      })
+    );
+  });
+
+  it("returns 400 for empty assistant chat messages", async () => {
+    const app = createTestApp();
+    const created = await request(app).post("/api/households").send({ name: "Home" }).expect(201);
+
+    await request(app)
+      .post(`/api/households/${created.body.id}/assistant/chat`)
+      .send({ message: "   " })
+      .expect(400)
+      .expect((response) => {
+        expect(response.body).toEqual({ error: "Invalid assistant chat payload" });
+      });
+  });
+
+  it("returns 404 for assistant chat on an unknown household", async () => {
+    const app = createTestApp();
+
+    await request(app)
+      .post("/api/households/missing-household/assistant/chat")
+      .send({ message: "What should I optimize?" })
+      .expect(404)
+      .expect((response) => {
+        expect(response.body).toEqual({ error: "Household not found" });
+      });
+  });
+
+  it("returns a stable 502 when assistant chat generation fails", async () => {
+    const app = createApp({
+      store: createInMemoryStore(),
+      agentProvider: new FailingChatAgentProvider()
+    });
+    const created = await request(app).post("/api/households").send({ name: "Home" }).expect(201);
+
+    await request(app)
+      .post(`/api/households/${created.body.id}/assistant/chat`)
+      .send({ message: "What should I optimize?" })
+      .expect(502)
+      .expect((response) => {
+        expect(response.body).toEqual({ error: "Could not answer assistant question" });
       });
   });
 });
