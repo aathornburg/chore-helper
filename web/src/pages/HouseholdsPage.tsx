@@ -1,9 +1,14 @@
 export function HouseholdsPage() {
-    return (
-        <div className="household-page">
-            <p className="eyebrow">Households</p>
-            <h1>Household management</h1>
-            <p className="lede">Set up a household to get started.</p>
+  return (
+    <div className="households-page">
+      <header className="workspace-hero compact-hero">
+        <div>
+          <h1>Households</h1>
+          <p className="lede">
+            Manage your floors, ceilings, and everything in between.
+          </p>
         </div>
-    );
+      </header>
+    </div>
+  );
 }

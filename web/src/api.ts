@@ -57,6 +57,14 @@ export async function createChore(
   return response.json();
 }
 
+
+export async function listAllChores(): Promise<Chore[]> {
+  const response = await fetch(`${API_BASE_URL}/api/chores`);
+
+  if (!response.ok) throw new Error("Failed to fetch chores");
+  return response.json();
+}
+
 export async function listChores(householdId: string): Promise<Chore[]> {
   const response = await fetch(`${API_BASE_URL}/api/households/${householdId}/chores`);
 
@@ -118,6 +126,13 @@ export async function generateRecommendations(
   });
 
   if (!response.ok) throw new Error("Failed to generate recommendations");
+  return response.json();
+}
+
+export async function listAllRecommendations(): Promise<Recommendation[]> {
+  const response = await fetch(`${API_BASE_URL}/api/recommendations`);
+
+  if (!response.ok) throw new Error("Failed to fetch recommendations");
   return response.json();
 }
 

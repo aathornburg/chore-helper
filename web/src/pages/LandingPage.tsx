@@ -7,7 +7,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
     <main className="landing-page">
       <nav className="landing-nav" aria-label="Landing">
         <a href="/" onClick={(event) => event.preventDefault()}>
-          Chore Helper
+          Cleainly
         </a>
         <button onClick={onGetStarted} type="button">Open app</button>
       </nav>
@@ -15,7 +15,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
       <section className="landing-hero">
         <div className="hero-copy">
           <p className="eyebrow">A shared plan for the people who live there</p>
-          <h1>Chore Helper</h1>
+          <h1>Cleainly</h1>
           <p className="hero-statement">
             Make household work visible, fair, and easier to adjust.
           </p>
@@ -29,7 +29,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
           </div>
         </div>
 
-        <div className="hero-preview" aria-label="Chore Helper dashboard preview">
+        <div className="hero-preview" aria-label="Cleainly dashboard preview">
           <div className="preview-toolbar">
             <span>Today</span>
             <span>Plan</span>

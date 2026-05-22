@@ -4,8 +4,8 @@ import {
   archiveChore,
   createChore,
   listArchivedChores,
-  listChores,
-  listRecommendations,
+  listAllChores,
+  listAllRecommendations,
   restoreChore,
   updateChore
 } from "../api";
@@ -102,7 +102,6 @@ function getEmptyChoreMessage(activeTab: ChoreStatusTab) {
 }
 
 export function ChoresPage({
-  householdId,
   householdName = "Home",
   baseline
 }: ChoresPageProps) {
@@ -115,6 +114,7 @@ export function ChoresPage({
   const [archivedLoaded, setArchivedLoaded] = useState(false);
   const [activeTab, setActiveTab] = useState<ChoreStatusTab>("all-active");
   const [addFormOpen, setAddFormOpen] = useState(false);
+  const [householdId, setHouseholdId] = useState<string>("");
   const [choreTitle, setChoreTitle] = useState("");
   const [choreCadence, setChoreCadence] = useState("");
   const [estimatedMinutes, setEstimatedMinutes] = useState("");
@@ -132,8 +132,6 @@ export function ChoresPage({
   }, [activeTab, archivedChores, chores, recommendations]);
 
   useEffect(() => {
-    if (!householdId) return;
-    const activeHouseholdId = householdId;
 
     let cancelled = false;
 
@@ -145,8 +143,8 @@ export function ChoresPage({
 
       try {
         const [nextChores, nextRecommendations] = await Promise.all([
-          listChores(activeHouseholdId),
-          listRecommendations(activeHouseholdId)
+          listAllChores(),
+          listAllRecommendations()
         ]);
         if (cancelled) return;
 
@@ -167,7 +165,7 @@ export function ChoresPage({
     return () => {
       cancelled = true;
     };
-  }, [householdId]);
+  }, []);
 
   useEffect(() => {
     if (!expandedChore) return;
@@ -181,7 +179,6 @@ export function ChoresPage({
 
   async function handleAddChore(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!householdId) return;
 
     setStatus("Adding chore to queue...");
     const created = await createChore(householdId, {
@@ -267,15 +264,14 @@ export function ChoresPage({
   if (!householdId) {
     return (
       <section className="placeholder-page">
-        <p className="eyebrow">Chores</p>
-        <h1>Household chores</h1>
+        <h1>Chores</h1>
         <p className="lede">Set up a household before reviewing existing chores.</p>
       </section>
     );
   }
 
   return (
-    <div className="plan-review">
+    <div className="chores-page">
       <header className="workspace-hero compact-hero">
         <div>
           <h1>Chores</h1>
@@ -373,6 +369,13 @@ export function ChoresPage({
                 Source
                 <select value={choreSource} onChange={() => undefined}>
                   <option value="manual">Manual</option>
+                </select>
+              </label>
+              <label>
+                Household
+                <select value={householdId} onChange={(event) => setHouseholdId(event.target.value)}>
+                  <option value="" disabled>Select household</option>
+                  <option value={householdId}>{householdName}</option>
                 </select>
               </label>
             </div>

@@ -133,7 +133,7 @@ function AppShell({
           event.preventDefault();
           onNavigate("/");
         }}>
-          Chore Helper
+          Cleainly
         </a>
         <nav className="workspace-nav" aria-label="Primary">
           {navItems.map((item) => (

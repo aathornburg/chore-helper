@@ -36,12 +36,15 @@ export function HouseholdSetupProvider({ children }: { children: React.ReactNode
     isRestoring: Boolean(window.localStorage.getItem(householdStorageKey))
   }));
 
+  /*
+    This effect behaves like Angular's `ngOnInit` in a root service or
+    component. It restores persisted state from localStorage when the
+    app starts.
+  */
   useEffect(() => {
-    /*
-      This effect behaves like Angular's `ngOnInit` in a root service or
-      component. It restores persisted state from localStorage when the
-      app starts.
-    */
+
+    // Will be replaced by a call to get ALL household data on page load
+    // using teh user's authenticated session
     const savedHouseholdId = window.localStorage.getItem(householdStorageKey);
     if (!savedHouseholdId) return;
     const activeHouseholdId = savedHouseholdId;

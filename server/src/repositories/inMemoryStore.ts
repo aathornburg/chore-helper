@@ -33,12 +33,14 @@ export type HouseholdStore = {
   archiveChore(householdId: string, choreId: string): StoreResult<Chore | undefined>;
   restoreChore(householdId: string, choreId: string): StoreResult<Chore | undefined>;
   listChores(householdId: string, options?: ChoreListOptions): StoreResult<Chore[]>;
+  listAllChores(options?: ChoreListOptions): StoreResult<Chore[]>;
   saveRecommendations(
     householdId: string,
     recommendations: Recommendation[]
   ): StoreResult<Recommendation[]>;
   markRecommendationsStale(householdId: string): StoreResult<void>;
   listRecommendations(householdId: string): StoreResult<Recommendation[]>;
+  listAllRecommendations(): StoreResult<Recommendation[]>;
   updateRecommendationDecision(
     householdId: string,
     recommendationId: string,
@@ -140,6 +142,13 @@ export function createInMemoryStore(): HouseholdStore {
       return householdChores.filter((chore) => !chore.archivedAt);
     },
 
+    listAllChores(options = {}) {
+      const allChores = Array.from(chores.values()).flat();
+      if (options.archivedOnly) return allChores.filter((chore) => chore.archivedAt);
+      if (options.includeArchived) return allChores;
+      return allChores.filter((chore) => !chore.archivedAt);
+    },
+
     saveRecommendations(householdId, nextRecommendations) {
       const normalized = nextRecommendations.map(normalizeRecommendation);
       recommendations.set(householdId, normalized);
@@ -152,6 +161,10 @@ export function createInMemoryStore(): HouseholdStore {
 
     listRecommendations(householdId) {
       return recommendations.get(householdId) ?? [];
+    },
+
+    listAllRecommendations() {
+      return Array.from(recommendations.values()).flat();
     },
 
     updateRecommendationDecision(householdId, recommendationId, update) {

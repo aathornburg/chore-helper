@@ -259,6 +259,19 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
       return chores.map(toChore);
     },
 
+    async listAllChores(options = {}) {
+      const chores = await prisma.chore.findMany({
+        where: options.archivedOnly
+          ? { archivedAt: { not: null } }
+          : options.includeArchived
+            ? {}
+            : { archivedAt: null },
+        orderBy: { createdAt: "asc" }
+      });
+
+      return chores.map(toChore);
+    },
+
     async saveRecommendations(householdId, recommendations) {
       await prisma.$transaction([
         prisma.recommendation.deleteMany({ where: { householdId } }),
@@ -295,6 +308,14 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
     async listRecommendations(householdId) {
       const recommendations = await prisma.recommendation.findMany({
         where: { householdId },
+        orderBy: { createdAt: "asc" }
+      });
+
+      return recommendations.map(toRecommendation);
+    },
+
+    async listAllRecommendations() {
+      const recommendations = await prisma.recommendation.findMany({
         orderBy: { createdAt: "asc" }
       });
 
