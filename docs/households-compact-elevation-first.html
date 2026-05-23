@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Compact Elevation-First Household Mockup</title>
+  <style>
+    :root {
+      color: #18212f;
+      background: #f4f6f9;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #f4f6f9;
+    }
+
+    main {
+      width: min(1160px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 32px 0 48px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 42px;
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin: 0 0 24px;
+      color: #536173;
+      max-width: 760px;
+      font-size: 16px;
+      line-height: 1.5;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 20px;
+      align-items: start;
+    }
+
+    .panel {
+      background: #ffffff;
+      border: 1px solid #d7dee8;
+      border-radius: 8px;
+      box-shadow: 0 18px 36px rgba(20, 30, 45, 0.08);
+    }
+
+    .selector-panel {
+      padding: 16px;
+      position: sticky;
+      top: 20px;
+    }
+
+    .selector-label {
+      margin: 0 0 12px;
+      color: #536173;
+      font-size: 13px;
+      font-weight: 750;
+      text-transform: uppercase;
+    }
+
+    .house-shell {
+      width: 116px;
+      margin: 0 auto 16px;
+    }
+
+    .roof {
+      width: 0;
+      height: 0;
+      border-left: 58px solid transparent;
+      border-right: 58px solid transparent;
+      border-bottom: 36px solid #667085;
+    }
+
+    .floor {
+      height: 38px;
+      border: 2px solid #344054;
+      border-top: 0;
+      background: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 800;
+      color: #1d2939;
+    }
+
+    .floor.active {
+      background: #dbeafe;
+      box-shadow: inset 0 0 0 3px #60a5fa;
+    }
+
+    .floor.basement {
+      background: #e5e7eb;
+    }
+
+    .floor-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .floor-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      border: 1px solid #d7dee8;
+      border-radius: 6px;
+      padding: 9px 10px;
+      font-size: 13px;
+      background: #ffffff;
+    }
+
+    .floor-row.active {
+      border-color: #60a5fa;
+      background: #eff6ff;
+    }
+
+    .floor-row span:last-child {
+      color: #536173;
+    }
+
+    .detail-panel {
+      padding: 20px;
+    }
+
+    .detail-header {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .detail-header h2 {
+      margin: 0 0 5px;
+      font-size: 26px;
+      line-height: 1.1;
+    }
+
+    .detail-header p {
+      margin: 0;
+      color: #536173;
+      line-height: 1.45;
+    }
+
+    .mock-button {
+      border: 0;
+      border-radius: 6px;
+      background: #1d2939;
+      color: #ffffff;
+      padding: 10px 13px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .room-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .room-card {
+      border: 1px solid #d7dee8;
+      border-radius: 8px;
+      padding: 13px;
+      min-height: 112px;
+      background: #ffffff;
+    }
+
+    .room-card strong {
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .room-card span {
+      display: block;
+      color: #536173;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .metadata {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .metadata-card {
+      border: 1px solid #d7dee8;
+      border-radius: 8px;
+      padding: 13px;
+      background: #f8fafc;
+    }
+
+    .metadata-card span {
+      display: block;
+      color: #536173;
+      font-size: 12px;
+      font-weight: 750;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+
+    .metadata-card strong {
+      font-size: 15px;
+    }
+
+    @media (max-width: 820px) {
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+
+      .selector-panel {
+        position: static;
+      }
+
+      .room-grid,
+      .metadata {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Households</h1>
+    <p class="subtitle">
+      Revised direction: compact elevation-first. The house acts as a persistent floor selector, while the selected floor owns the main editing workspace.
+    </p>
+
+    <section class="workspace" aria-label="Compact elevation-first household editor">
+      <aside class="panel selector-panel">
+        <p class="selector-label">Floor selector</p>
+        <div class="house-shell" aria-label="Clickable house elevation">
+          <div class="roof"></div>
+          <div class="floor">Upstairs</div>
+          <div class="floor active">Main</div>
+          <div class="floor basement">Basement</div>
+        </div>
+        <div class="floor-list" aria-label="Floor summary">
+          <div class="floor-row">
+            <strong>Upstairs</strong>
+            <span>3 rooms</span>
+          </div>
+          <div class="floor-row active">
+            <strong>Main floor</strong>
+            <span>5 rooms</span>
+          </div>
+          <div class="floor-row">
+            <strong>Basement</strong>
+            <span>2 rooms</span>
+          </div>
+        </div>
+      </aside>
+
+      <section class="panel detail-panel">
+        <div class="detail-header">
+          <div>
+            <h2>Main floor</h2>
+            <p>Rooms, floor materials, pet impact, and cleaning-device coverage for this floor.</p>
+          </div>
+          <button class="mock-button" type="button">Add room</button>
+        </div>
+
+        <div class="room-grid" aria-label="Rooms on selected floor">
+          <article class="room-card">
+            <strong>Kitchen</strong>
+            <span>Tile floor</span>
+            <span>Robot mop enabled</span>
+          </article>
+          <article class="room-card">
+            <strong>Living room</strong>
+            <span>Hardwood floor</span>
+            <span>High pet hair impact</span>
+          </article>
+          <article class="room-card">
+            <strong>Bathroom</strong>
+            <span>Tile floor</span>
+            <span>No robot coverage</span>
+          </article>
+          <article class="room-card">
+            <strong>Entry</strong>
+            <span>Mixed flooring</span>
+            <span>Outdoor dirt zone</span>
+          </article>
+          <article class="room-card">
+            <strong>Laundry</strong>
+            <span>Tile floor</span>
+            <span>Utility area</span>
+          </article>
+        </div>
+
+        <div class="metadata" aria-label="Selected floor summary">
+          <div class="metadata-card">
+            <span>Dominant flooring</span>
+            <strong>Tile + hardwood</strong>
+          </div>
+          <div class="metadata-card">
+            <span>Pet access</span>
+            <strong>Most rooms</strong>
+          </div>
+          <div class="metadata-card">
+            <span>Robot coverage</span>
+            <strong>3 of 5 rooms</strong>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+</body>
+</html>
