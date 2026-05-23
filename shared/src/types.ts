@@ -16,6 +16,53 @@ export type HouseholdBaseline = {
   notes?: string;
 };
 
+export type CoverageLevel = "none" | "partial" | "most" | "all";
+export type PetImpact = "none" | "low" | "medium" | "high";
+export type RoomOverride<T> = T | "inherit";
+
+export type FlooringSurface =
+  | "hardwood"
+  | "tile"
+  | "carpet"
+  | "rugs"
+  | "vinyl"
+  | "laminate"
+  | "concrete"
+  | "mats"
+  | "mixed"
+  | "other";
+
+export type FloorLevelType = "upstairs" | "main" | "basement" | "other";
+
+export type HouseholdRoom = {
+  id: string;
+  floorId: string;
+  name: string;
+  flooring: FlooringSurface[];
+  petImpact: RoomOverride<PetImpact>;
+  robotVacuumCoverage: RoomOverride<CoverageLevel>;
+  robotMopCoverage: RoomOverride<CoverageLevel>;
+  notes?: string;
+};
+
+export type HouseholdFloor = {
+  id: string;
+  householdId: string;
+  name: string;
+  levelType: FloorLevelType;
+  flooring: FlooringSurface[];
+  petImpact: PetImpact;
+  robotVacuumCoverage: CoverageLevel;
+  robotMopCoverage: CoverageLevel;
+  notes?: string;
+  rooms: HouseholdRoom[];
+};
+
+export type HouseholdStructure = {
+  householdId: string;
+  floors: HouseholdFloor[];
+};
+
 export type Household = {
   id: string;
   name: string;
