@@ -58,7 +58,7 @@ describe("App", () => {
   it("renders the landing hero with a get started action", () => {
     renderAt("/");
 
-    expect(screen.getByRole("heading", { name: "Chore Helper" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Cleainly" })).toBeTruthy();
     expect(screen.getByText("Make household work visible, fair, and easier to adjust.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Get Started" })).toBeTruthy();
   });
@@ -79,19 +79,23 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Set up household" }));
 
-    expect(screen.getByRole("heading", { name: "Household management" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Households" })).toBeTruthy();
   });
 
   it("renders the Households page", () => {
     renderAt("/households");
 
-    expect(screen.getByRole("heading", { name: "Household management" })).toBeTruthy();
-    expect(screen.getByText("Set up a household to get started.")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Households" })).toBeTruthy();
+    expect(screen.getByText("Manage your floors, ceilings, and everything in between.")).toBeTruthy();
   });
 
   it("loads the Chores page with existing chores", async () => {
-    restoreHouseholdInStorage();
-    mockRestoredHouseholdFetches();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn()
+        .mockResolvedValueOnce({ ok: true, json: async () => [cleanBathroomsChore] })
+        .mockResolvedValueOnce({ ok: true, json: async () => [] })
+    );
 
     renderAt("/chores");
 
@@ -101,6 +105,34 @@ describe("App", () => {
     });
   });
 
+  it("loads all chores without a restored household and shows each chore household", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => [
+            {
+              ...cleanBathroomsChore,
+              householdName: "Home"
+            }
+          ]
+        })
+        .mockResolvedValueOnce({ ok: true, json: async () => [] })
+    );
+
+    renderAt("/chores");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Chores" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: /Clean bathrooms/ })).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Clean bathrooms/ }));
+
+    expect(screen.getByText("Household: Home")).toBeTruthy();
+  });
+
   it("shows the Optimize recommendation selection flow", async () => {
     restoreHouseholdInStorage();
     mockRestoredHouseholdFetches();
@@ -108,7 +140,7 @@ describe("App", () => {
     renderAt("/optimize");
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Optimize chores" })).toBeTruthy();
+      expect(screen.getByRole("heading", { name: "Optimize" })).toBeTruthy();
       expect(screen.getByLabelText("Clean bathrooms")).toBeTruthy();
     });
 
@@ -128,7 +160,7 @@ describe("App", () => {
     renderAt("/optimize");
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Optimize chores" })).toBeTruthy();
+      expect(screen.getByRole("heading", { name: "Optimize" })).toBeTruthy();
     });
 
     fireEvent.click(screen.getByRole("tab", { name: "Chat" }));
@@ -167,7 +199,7 @@ describe("App", () => {
     renderAt("/optimize");
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Optimize chores" })).toBeTruthy();
+      expect(screen.getByRole("heading", { name: "Optimize" })).toBeTruthy();
     });
 
     fireEvent.click(screen.getByRole("tab", { name: "Chat" }));

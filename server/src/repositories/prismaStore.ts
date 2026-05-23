@@ -57,6 +57,7 @@ function toHousehold(
 function toChore(chore: {
   id: string;
   householdId: string;
+  household?: { name: string } | null;
   title: string;
   cadence: string;
   estimatedMinutes: number;
@@ -66,6 +67,7 @@ function toChore(chore: {
   return {
     id: chore.id,
     householdId: chore.householdId,
+    householdName: chore.household?.name,
     title: chore.title,
     cadence: chore.cadence,
     estimatedMinutes: chore.estimatedMinutes,
@@ -266,6 +268,11 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
           : options.includeArchived
             ? {}
             : { archivedAt: null },
+        include: {
+          household: {
+            select: { name: true }
+          }
+        },
         orderBy: { createdAt: "asc" }
       });
 

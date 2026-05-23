@@ -26,6 +26,18 @@ export function createApp(dependencies: AppDependencies = {}) {
   app.use(cors());
   app.use(express.json());
   app.get("/api/health", (_req, res) => res.json({ ok: true }));
+  app.get("/api/chores", async (req, res) => {
+    const includeArchived = req.query.includeArchived === "true";
+    const archivedOnly = req.query.status === "archived";
+
+    return res.status(200).json(await store.listAllChores({
+      includeArchived,
+      archivedOnly
+    }));
+  });
+  app.get("/api/recommendations", async (_req, res) => {
+    return res.status(200).json(await store.listAllRecommendations());
+  });
   app.use("/api/households", createHouseholdRouter(store, agentProvider));
 
   return app;

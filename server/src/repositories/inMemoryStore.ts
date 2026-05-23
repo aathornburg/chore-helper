@@ -143,7 +143,12 @@ export function createInMemoryStore(): HouseholdStore {
     },
 
     listAllChores(options = {}) {
-      const allChores = Array.from(chores.values()).flat();
+      const allChores = Array.from(chores.values())
+        .flat()
+        .map((chore) => ({
+          ...chore,
+          householdName: households.get(chore.householdId)?.name
+        }));
       if (options.archivedOnly) return allChores.filter((chore) => chore.archivedAt);
       if (options.includeArchived) return allChores;
       return allChores.filter((chore) => !chore.archivedAt);

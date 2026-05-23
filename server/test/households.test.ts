@@ -375,6 +375,39 @@ describe("household baseline flow", () => {
       });
   });
 
+  it("lists active chores across households from the top-level chores route", async () => {
+    const app = createTestApp();
+    const first = await request(app).post("/api/households").send({ name: "First" }).expect(201);
+    const second = await request(app).post("/api/households").send({ name: "Second" }).expect(201);
+
+    const firstChore = await request(app)
+      .post(`/api/households/${first.body.id}/chores`)
+      .send({ title: "Vacuum", cadence: "weekly", estimatedMinutes: 15, source: "manual" })
+      .expect(201);
+    const secondChore = await request(app)
+      .post(`/api/households/${second.body.id}/chores`)
+      .send({ title: "Mop", cadence: "weekly", estimatedMinutes: 20, source: "manual" })
+      .expect(201);
+
+    await request(app)
+      .get("/api/chores")
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toEqual([
+          expect.objectContaining({
+            id: firstChore.body.id,
+            householdId: first.body.id,
+            householdName: "First"
+          }),
+          expect.objectContaining({
+            id: secondChore.body.id,
+            householdId: second.body.id,
+            householdName: "Second"
+          })
+        ]);
+      });
+  });
+
   it("returns 404 when updating a chore through the wrong household", async () => {
     const app = createTestApp();
     const first = await request(app).post("/api/households").send({ name: "First" }).expect(201);

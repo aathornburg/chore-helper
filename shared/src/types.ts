@@ -25,6 +25,7 @@ export type Household = {
 export type Chore = {
   id: string;
   householdId: string;
+  householdName?: string;
   title: string;
   cadence: string;
   estimatedMinutes: number;

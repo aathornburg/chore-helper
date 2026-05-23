@@ -82,11 +82,7 @@ function AppRoutes() {
         <HouseholdsPage />
       ) : null}
       {path === "/chores" ? (
-        <ChoresPage
-          householdId={householdSetup.householdId}
-          householdName={householdSetup.householdName}
-          baseline={householdSetup.baseline}
-        />
+        <ChoresPage />
       ) : null}
       {path === "/optimize" ? (
         <OptimizePage

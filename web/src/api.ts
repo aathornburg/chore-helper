@@ -58,8 +58,12 @@ export async function createChore(
 }
 
 
-export async function listAllChores(): Promise<Chore[]> {
-  const response = await fetch(`${API_BASE_URL}/api/chores`);
+export async function listAllChores(options: { includeArchived?: boolean; status?: "archived" } = {}): Promise<Chore[]> {
+  const params = new URLSearchParams();
+  if (options.includeArchived) params.set("includeArchived", "true");
+  if (options.status) params.set("status", options.status);
+  const queryString = params.toString();
+  const response = await fetch(`${API_BASE_URL}/api/chores${queryString ? `?${queryString}` : ""}`);
 
   if (!response.ok) throw new Error("Failed to fetch chores");
   return response.json();

@@ -110,11 +110,6 @@ export function createHouseholdRouter(store: HouseholdStore, agentProvider: Agen
     return res.status(201).json(chore);
   });
   
-  router.get("/chores", async (req, res) => {
-    const chores = await store.listAllChores();
-    return res.status(200).json(chores);
-  });
-
   router.get("/:householdId/chores", async (req, res) => {
     const household = await store.getHousehold(req.params.householdId);
     if (!household) return res.status(404).json({ error: "Household not found" });

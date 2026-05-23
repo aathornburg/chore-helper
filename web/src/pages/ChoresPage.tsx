@@ -1,20 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { type ChoreReviewState, type Chore, type HouseholdBaseline, type Recommendation } from "@chore-helper/shared";
+import { type ChoreReviewState, type Chore, type Recommendation } from "@chore-helper/shared";
 import {
   archiveChore,
-  createChore,
-  listArchivedChores,
   listAllChores,
   listAllRecommendations,
   restoreChore,
   updateChore
 } from "../api";
-
-type ChoresPageProps = {
-  householdId?: string;
-  householdName?: string;
-  baseline?: HouseholdBaseline;
-};
 
 // In older TS versions, this definition is generally less desirable than an enum
 // But with the --erasableSyntaxOnly flag (tsconfig), this is recommended as it
@@ -30,14 +22,6 @@ const ChoreStatusTabs: { key: ChoreStatusTab; label: string }[] = [
   { key: "reviewed", label: "Reviewed" },
   { key: "archived", label: "Archived" }
 ];
-
-function formatBaselineSummary(baseline?: HouseholdBaseline) {
-  if (!baseline) return "Household context is not complete yet.";
-
-  return `${baseline.homeType} / ${baseline.rooms.length} rooms / ${baseline.flooring.join(", ")} / ${
-    baseline.hasPets ? "pets" : "no pets"
-  } / ${baseline.hasOutdoorSpace ? "outdoor space" : "no outdoor space"}`;
-}
 
 /*
   ChoresPage is similar to an Angular component that consumes a service.
@@ -101,10 +85,11 @@ function getEmptyChoreMessage(activeTab: ChoreStatusTab) {
   return "No active chores yet. Add a chore to start building the household routine.";
 }
 
-export function ChoresPage({
-  householdName = "Home",
-  baseline
-}: ChoresPageProps) {
+function formatChoreHousehold(chore: Chore) {
+  return chore.householdName ?? chore.householdId;
+}
+
+export function ChoresPage() {
   const [chores, setChores] = useState<Chore[]>([]);
   const [archivedChores, setArchivedChores] = useState<Chore[]>([]);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
@@ -113,15 +98,9 @@ export function ChoresPage({
   const [status, setStatus] = useState("Ready to review existing chores.");
   const [archivedLoaded, setArchivedLoaded] = useState(false);
   const [activeTab, setActiveTab] = useState<ChoreStatusTab>("all-active");
-  const [addFormOpen, setAddFormOpen] = useState(false);
-  const [householdId, setHouseholdId] = useState<string>("");
-  const [choreTitle, setChoreTitle] = useState("");
-  const [choreCadence, setChoreCadence] = useState("");
-  const [estimatedMinutes, setEstimatedMinutes] = useState("");
   const [editTitle, setEditTitle] = useState("");
   const [editCadence, setEditCadence] = useState("");
   const [editEstimatedMinutes, setEditEstimatedMinutes] = useState("");
-  const choreSource = "manual";
   // Like an Angular accordion item keyed by id, only the expanded row owns the edit form.
   const expandedChore = chores.find((chore) => chore.id === expandedChoreId);
   const expandedRecommendation = findRecommendationForChore(expandedChore, recommendations);
@@ -132,12 +111,11 @@ export function ChoresPage({
   }, [activeTab, archivedChores, chores, recommendations]);
 
   useEffect(() => {
-
     let cancelled = false;
 
     async function loadQueue() {
       // Like Angular component state plus ngOnInit/ngOnChanges work, this effect drives
-      // render state from the current householdId and cleans up stale async updates.
+      // render state from the current aggregate queue and cleans up stale async updates.
       setQueueState("loading");
       setStatus("Loading chores...");
 
@@ -177,28 +155,6 @@ export function ChoresPage({
     setEditEstimatedMinutes(String(expandedChore.estimatedMinutes));
   }, [expandedChore]);
 
-  async function handleAddChore(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    setStatus("Adding chore to queue...");
-    const created = await createChore(householdId, {
-      title: choreTitle,
-      cadence: choreCadence,
-      estimatedMinutes: Number(estimatedMinutes),
-      source: choreSource
-    });
-
-    setChores((currentChores) => [...currentChores, created]);
-    setExpandedChoreId(undefined);
-    setChoreTitle("");
-    setChoreCadence("");
-    setEstimatedMinutes("");
-    setAddFormOpen(false);
-    setActiveTab("all-active");
-    setRecommendations([]);
-    setStatus("Manual acceptance only");
-  }
-
   function handleExpandChore(chore: Chore) {
     setExpandedChoreId((currentId) => (currentId === chore.id ? undefined : chore.id));
   }
@@ -209,10 +165,10 @@ export function ChoresPage({
 
   async function handleSaveSelectedChore(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!householdId || !expandedChore) return;
+    if (!expandedChore) return;
 
     setStatus("Saving chore changes...");
-    const updated = await updateChore(householdId, expandedChore.id, {
+    const updated = await updateChore(expandedChore.householdId, expandedChore.id, {
       title: editTitle,
       cadence: editCadence,
       estimatedMinutes: Number(editEstimatedMinutes),
@@ -228,10 +184,10 @@ export function ChoresPage({
   }
 
   async function handleArchiveSelectedChore() {
-    if (!householdId || !expandedChore) return;
+    if (!expandedChore) return;
 
     setStatus("Archiving chore...");
-    const archived = await archiveChore(householdId, expandedChore.id);
+    const archived = await archiveChore(expandedChore.householdId, expandedChore.id);
     setChores((currentChores) => currentChores.filter((chore) => chore.id !== archived.id));
     setArchivedChores((currentChores) => [archived, ...currentChores]);
     setExpandedChoreId(undefined);
@@ -240,17 +196,13 @@ export function ChoresPage({
   }
 
   async function handleLoadArchivedChores() {
-    if (!householdId) return;
-
-    setArchivedChores(await listArchivedChores(householdId));
+    setArchivedChores(await listAllChores({ status: "archived" }));
     setArchivedLoaded(true);
   }
 
-  async function handleRestoreChore(choreId: string) {
-    if (!householdId) return;
-
+  async function handleRestoreChore(chore: Chore) {
     setStatus("Restoring chore...");
-    const restored = await restoreChore(householdId, choreId);
+    const restored = await restoreChore(chore.householdId, chore.id);
     setArchivedChores((currentChores) =>
       currentChores.filter((chore) => chore.id !== restored.id)
     );
@@ -261,15 +213,6 @@ export function ChoresPage({
     setStatus("Chores changed. Run review again for updated recommendations.");
   }
 
-  if (!householdId) {
-    return (
-      <section className="placeholder-page">
-        <h1>Chores</h1>
-        <p className="lede">Set up a household before reviewing existing chores.</p>
-      </section>
-    );
-  }
-
   return (
     <div className="chores-page">
       <header className="workspace-hero compact-hero">
@@ -277,9 +220,6 @@ export function ChoresPage({
           <h1>Chores</h1>
           <p className="lede">
             Add, edit, archive, and track your chores all in one place.
-          </p>
-          <p className="supporting-copy">
-            <span><strong>{householdName}</strong> / {formatBaselineSummary(baseline)}</span>
           </p>
         </div>
       </header>
@@ -321,66 +261,12 @@ export function ChoresPage({
               ))}
             </div>
 
-            <div className="chore-list-actions">
-              <button className="add-chore-action" onClick={() => setAddFormOpen((isOpen) => !isOpen)} type="button">
-                {addFormOpen ? "Cancel add chore" : "Add chore"}
-              </button>
-            </div>
+            <div className="chore-list-actions" />
           </div>
         ) : null}
 
         {queueState === "ready" && status !== "Manual acceptance only" ? (
           <div className="empty-state">{status}</div>
-        ) : null}
-
-        {addFormOpen ? (
-          <form className="manual-chore-form compact-chore-form" onSubmit={handleAddChore}>
-            <div className="field-grid">
-              <label>
-                Chore title
-                <input
-                  placeholder="Clean bathrooms"
-                  required
-                  value={choreTitle}
-                  onChange={(event) => setChoreTitle(event.target.value)}
-                />
-              </label>
-              <label>
-                Cadence
-                <input
-                  placeholder="weekly"
-                  required
-                  value={choreCadence}
-                  onChange={(event) => setChoreCadence(event.target.value)}
-                />
-              </label>
-              <label>
-                Estimated minutes
-                <input
-                  min="1"
-                  placeholder="5"
-                  required
-                  type="number"
-                  value={estimatedMinutes}
-                  onChange={(event) => setEstimatedMinutes(event.target.value)}
-                />
-              </label>
-              <label>
-                Source
-                <select value={choreSource} onChange={() => undefined}>
-                  <option value="manual">Manual</option>
-                </select>
-              </label>
-              <label>
-                Household
-                <select value={householdId} onChange={(event) => setHouseholdId(event.target.value)}>
-                  <option value="" disabled>Select household</option>
-                  <option value={householdId}>{householdName}</option>
-                </select>
-              </label>
-            </div>
-            <button type="submit">Save chore</button>
-          </form>
         ) : null}
 
         {queueState === "ready" ? (
@@ -400,10 +286,12 @@ export function ChoresPage({
                       <div className="chore-row-summary">
                         <span>Archived</span>
                         <strong>{chore.title}</strong>
-                        <small>{chore.cadence} / {chore.estimatedMinutes} min / {chore.source}</small>
+                        <small>
+                          {formatChoreHousehold(chore)} / {chore.cadence} / {chore.estimatedMinutes} min / {chore.source}
+                        </small>
                       </div>
                       <div className="archived-chore-actions">
-                        <button type="button" onClick={() => handleRestoreChore(chore.id)}>
+                        <button type="button" onClick={() => handleRestoreChore(chore)}>
                           Restore {chore.title}
                         </button>
                       </div>
@@ -421,12 +309,15 @@ export function ChoresPage({
                     >
                       <span>{formatReviewState(reviewState)}</span>
                       <strong>{chore.title}</strong>
-                      <small>{chore.cadence} / {chore.estimatedMinutes} min / {chore.source}</small>
+                      <small>
+                        {formatChoreHousehold(chore)} / {chore.cadence} / {chore.estimatedMinutes} min / {chore.source}
+                      </small>
                     </button>
 
                     {isExpanded ? (
                       <div className="chore-row-editor">
                         <p className="eyebrow">{getQueueSignal(chore)}</p>
+                        <p className="supporting-copy">Household: {formatChoreHousehold(chore)}</p>
                         <form className="manual-chore-form inline-chore-form" onSubmit={handleSaveSelectedChore}>
                           <div className="field-grid">
                             <label>
