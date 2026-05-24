@@ -327,9 +327,55 @@ describe("App", () => {
     fireEvent.click(within(screen.getByLabelText("Room flooring")).getByRole("button", { name: "rugs" }));
     fireEvent.click(screen.getByRole("button", { name: "Save room" }));
 
+    await waitFor(() => expect(screen.getByText("hardwood, rugs")).toBeTruthy());
+  });
+
+  it("saves a room to the floor where editing started after switching floors", async () => {
+    restoreHouseholdInStorage();
+    const fetchMock = mockHouseholdsPageFetches({
+      householdId: "household-1",
+      floors: [
+        {
+          id: "floor-upstairs",
+          householdId: "household-1",
+          name: "Upstairs",
+          levelType: "upstairs",
+          flooring: ["carpet"],
+          petImpact: "low",
+          robotVacuumCoverage: "partial",
+          robotMopCoverage: "none",
+          rooms: []
+        },
+        {
+          id: "floor-main",
+          householdId: "household-1",
+          name: "Main floor",
+          levelType: "main",
+          flooring: ["hardwood"],
+          petImpact: "medium",
+          robotVacuumCoverage: "most",
+          robotMopCoverage: "partial",
+          rooms: []
+        }
+      ]
+    });
+
+    renderAt("/households");
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Add room" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Add room" }));
+    fireEvent.change(screen.getByLabelText("Room name"), { target: { value: "Kitchen" } });
+    fireEvent.click(screen.getByLabelText("Select Upstairs"));
+    fireEvent.click(screen.getByRole("button", { name: "Save room" }));
+
     await waitFor(() => {
-      expect(screen.getByText("hardwood")).toBeTruthy();
-      expect(screen.getByText("rugs")).toBeTruthy();
+      expect(fetchMock.mock.calls.some(([url, init]) => {
+        if (url !== "http://localhost:3001/api/households/household-1/structure" || init?.method !== "PUT") return false;
+        const body = JSON.parse(String(init.body)) as Pick<HouseholdStructure, "floors">;
+        return body.floors.some((floor) =>
+          floor.id === "floor-main" && floor.rooms.some((room) => room.name === "Kitchen" && room.floorId === "floor-main")
+        );
+      })).toBe(true);
     });
   });
 

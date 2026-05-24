@@ -138,11 +138,14 @@ export function HouseholdsPage({ householdSetup }: HouseholdsPageProps) {
 
   async function handleSaveRoom(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!activeStructure || !selectedFloor || !editingRoom || !editingRoom.name.trim() || isSaving) return;
+    if (!activeStructure || !editingRoom || !editingRoom.name.trim() || isSaving) return;
 
-    const nextRoom = { ...editingRoom, name: editingRoom.name.trim(), floorId: selectedFloor.id };
+    const targetFloor = activeStructure.floors.find((floor) => floor.id === editingRoom.floorId);
+    if (!targetFloor) return;
+
+    const nextRoom = { ...editingRoom, name: editingRoom.name.trim(), floorId: targetFloor.id };
     const nextFloors = activeStructure.floors.map((floor) => {
-      if (floor.id !== selectedFloor.id) return floor;
+      if (floor.id !== targetFloor.id) return floor;
       const exists = floor.rooms.some((room) => room.id === nextRoom.id);
       return {
         ...floor,
