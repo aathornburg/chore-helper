@@ -79,7 +79,7 @@ function AppRoutes() {
         <TodayDashboard householdSetup={householdSetup} onNavigate={navigate} />
       ) : null}
       {path === "/households" ? (
-        <HouseholdsPage />
+        <HouseholdsPage householdSetup={householdSetup} />
       ) : null}
       {path === "/chores" ? (
         <ChoresPage />

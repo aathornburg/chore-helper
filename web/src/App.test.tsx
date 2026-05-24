@@ -86,7 +86,45 @@ describe("App", () => {
     renderAt("/households");
 
     expect(screen.getByRole("heading", { name: "Households" })).toBeTruthy();
-    expect(screen.getByText("Manage your floors, ceilings, and everything in between.")).toBeTruthy();
+    expect(screen.getByText("Create a household before editing floors and rooms.")).toBeTruthy();
+  });
+
+  it("renders a compact floor selector and selects the main floor by default", async () => {
+    restoreHouseholdInStorage();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn()
+        .mockResolvedValueOnce({ ok: true, json: async () => household })
+        .mockResolvedValueOnce({ ok: true, json: async () => [cleanBathroomsChore] })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            householdId: "household-1",
+            floors: [
+              {
+                id: "floor-main",
+                householdId: "household-1",
+                name: "Main floor",
+                levelType: "main",
+                flooring: ["hardwood", "rugs"],
+                petImpact: "medium",
+                robotVacuumCoverage: "most",
+                robotMopCoverage: "partial",
+                rooms: []
+              }
+            ]
+          })
+        })
+    );
+
+    renderAt("/households");
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Select Main floor")).toBeTruthy();
+      expect(screen.getByRole("heading", { name: "Main floor" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "hardwood" }).getAttribute("aria-pressed")).toBe("true");
+      expect(screen.getByRole("button", { name: "rugs" }).getAttribute("aria-pressed")).toBe("true");
+    });
   });
 
   it("loads the Chores page with existing chores", async () => {
