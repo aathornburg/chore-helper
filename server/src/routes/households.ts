@@ -79,16 +79,15 @@ const householdStructureSchema = z.object({
     });
   }
 
-  const roomIds = structure.floors.flatMap((floor) => floor.rooms.map((room) => room.id));
-  if (!hasUniqueValues(roomIds)) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "Room ids must be unique",
-      path: ["floors"]
-    });
-  }
-
   structure.floors.forEach((floor, floorIndex) => {
+    if (!hasUniqueValues(floor.rooms.map((room) => room.id))) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Room ids must be unique within a floor",
+        path: ["floors", floorIndex, "rooms"]
+      });
+    }
+
     floor.rooms.forEach((room, roomIndex) => {
       if (room.floorId !== floor.id) {
         ctx.addIssue({

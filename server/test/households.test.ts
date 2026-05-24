@@ -254,6 +254,62 @@ describe("household baseline flow", () => {
       });
   });
 
+  it("allows room ids to repeat on different floors", async () => {
+    const app = createTestApp();
+    const created = await request(app).post("/api/households").send({ name: "Home" }).expect(201);
+    const householdId = created.body.id;
+
+    await request(app)
+      .put(`/api/households/${householdId}/structure`)
+      .send({
+        floors: [
+          {
+            id: "floor-main",
+            householdId,
+            name: "Main floor",
+            levelType: "main",
+            flooring: ["hardwood"],
+            petImpact: "medium",
+            robotVacuumCoverage: "most",
+            robotMopCoverage: "partial",
+            rooms: [
+              {
+                id: "room-bathroom",
+                floorId: "floor-main",
+                name: "Main bathroom",
+                flooring: ["tile"],
+                petImpact: "inherit",
+                robotVacuumCoverage: "inherit",
+                robotMopCoverage: "inherit"
+              }
+            ]
+          },
+          {
+            id: "floor-upstairs",
+            householdId,
+            name: "Upstairs",
+            levelType: "upstairs",
+            flooring: ["carpet"],
+            petImpact: "low",
+            robotVacuumCoverage: "partial",
+            robotMopCoverage: "none",
+            rooms: [
+              {
+                id: "room-bathroom",
+                floorId: "floor-upstairs",
+                name: "Upstairs bathroom",
+                flooring: ["tile"],
+                petImpact: "inherit",
+                robotVacuumCoverage: "inherit",
+                robotMopCoverage: "inherit"
+              }
+            ]
+          }
+        ]
+      })
+      .expect(200);
+  });
+
   it("flags existing chores that look under-scoped for their ask", async () => {
     const app = createTestApp();
 
