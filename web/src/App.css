@@ -1211,6 +1211,42 @@ button.chore-row-summary[aria-expanded="true"] {
   margin: 0;
 }
 
+.room-card-section {
+  margin-top: 24px;
+}
+
+.room-card-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
+.room-card,
+.room-editor {
+  background: #fffefa;
+  border: 1px solid #eaded1;
+  border-radius: 8px;
+  padding: 13px;
+}
+
+.room-card {
+  display: grid;
+  gap: 8px;
+}
+
+.room-card span {
+  color: #536173;
+  display: block;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.room-editor {
+  display: grid;
+  gap: 16px;
+  margin-top: 16px;
+}
+
 .recommendation-list {
   display: grid;
   gap: 12px;

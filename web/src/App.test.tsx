@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { HouseholdStructure } from "@chore-helper/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
@@ -293,6 +293,44 @@ describe("App", () => {
     )).toHaveLength(1);
 
     deferred.resolve({ ok: true, json: async () => ({ householdId: "household-1", floors: [] }) });
+  });
+
+  it("adds and edits room cards on the selected floor", async () => {
+    restoreHouseholdInStorage();
+    mockHouseholdsPageFetches({
+      householdId: "household-1",
+      floors: [
+        {
+          id: "floor-main",
+          householdId: "household-1",
+          name: "Main floor",
+          levelType: "main",
+          flooring: ["hardwood"],
+          petImpact: "medium",
+          robotVacuumCoverage: "most",
+          robotMopCoverage: "partial",
+          rooms: []
+        }
+      ]
+    });
+
+    renderAt("/households");
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Add room" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Add room" }));
+    fireEvent.change(screen.getByLabelText("Room name"), { target: { value: "Kitchen" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save room" }));
+
+    await waitFor(() => expect(screen.getByText("Kitchen")).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Kitchen" }));
+    fireEvent.click(within(screen.getByLabelText("Room flooring")).getByRole("button", { name: "rugs" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save room" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("hardwood")).toBeTruthy();
+      expect(screen.getByText("rugs")).toBeTruthy();
+    });
   });
 
   it("loads the Chores page with existing chores", async () => {

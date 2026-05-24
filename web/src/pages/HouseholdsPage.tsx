@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { FlooringSurface, HouseholdFloor, HouseholdStructure } from "@chore-helper/shared";
+import type {
+  FlooringSurface,
+  HouseholdFloor,
+  HouseholdRoom,
+  HouseholdStructure
+} from "@chore-helper/shared";
 import { getHouseholdStructure, saveHouseholdStructure } from "../api";
 import type { HouseholdSetupState } from "../types";
 import {
@@ -26,6 +31,7 @@ export function HouseholdsPage({ householdSetup }: HouseholdsPageProps) {
   const [pendingRemoveFloorId, setPendingRemoveFloorId] = useState<string>();
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string>();
+  const [editingRoom, setEditingRoom] = useState<HouseholdRoom>();
 
   useEffect(() => {
     if (householdSetup.isRestoring) {
@@ -55,6 +61,7 @@ export function HouseholdsPage({ householdSetup }: HouseholdsPageProps) {
         setStructure(nextStructure);
         setSelectedFloorId(getMainFloorId(nextStructure.floors));
         setPendingRemoveFloorId(undefined);
+        setEditingRoom(undefined);
         setSaveError(undefined);
         setLoadState("ready");
       } catch {
@@ -115,6 +122,49 @@ export function HouseholdsPage({ householdSetup }: HouseholdsPageProps) {
     const nextStructure = { ...activeStructure, floors: sortFloors([...activeStructure.floors, floor]) };
     setSelectedFloorId(floor.id);
     await persist(nextStructure);
+  }
+
+  function createRoom(floorId: string): HouseholdRoom {
+    return {
+      id: crypto.randomUUID(),
+      floorId,
+      name: "",
+      flooring: [...(selectedFloor?.flooring ?? [])],
+      petImpact: "inherit",
+      robotVacuumCoverage: "inherit",
+      robotMopCoverage: "inherit"
+    };
+  }
+
+  async function handleSaveRoom(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!activeStructure || !selectedFloor || !editingRoom || !editingRoom.name.trim() || isSaving) return;
+
+    const nextRoom = { ...editingRoom, name: editingRoom.name.trim(), floorId: selectedFloor.id };
+    const nextFloors = activeStructure.floors.map((floor) => {
+      if (floor.id !== selectedFloor.id) return floor;
+      const exists = floor.rooms.some((room) => room.id === nextRoom.id);
+      return {
+        ...floor,
+        rooms: exists
+          ? floor.rooms.map((room) => (room.id === nextRoom.id ? nextRoom : room))
+          : [...floor.rooms, nextRoom]
+      };
+    });
+    setEditingRoom(undefined);
+    const saved = await persist({ ...activeStructure, floors: nextFloors });
+    if (!saved) setEditingRoom(editingRoom);
+  }
+
+  async function handleRemoveRoom(roomId: string) {
+    if (!activeStructure || !selectedFloor || isSaving) return;
+
+    const nextFloors = activeStructure.floors.map((floor) =>
+      floor.id === selectedFloor.id
+        ? { ...floor, rooms: floor.rooms.filter((room) => room.id !== roomId) }
+        : floor
+    );
+    await persist({ ...activeStructure, floors: nextFloors });
   }
 
   async function handleAddBasement() {
@@ -232,6 +282,74 @@ export function HouseholdsPage({ householdSetup }: HouseholdsPageProps) {
                 </button>
               ))}
             </div>
+            <section className="room-card-section" aria-labelledby="room-card-heading">
+              <div className="section-heading">
+                <div className="section-title">
+                  <h3 id="room-card-heading">Rooms</h3>
+                </div>
+                <button
+                  disabled={isSaving}
+                  onClick={() => setEditingRoom(createRoom(selectedFloor.id))}
+                  type="button"
+                >
+                  Add room
+                </button>
+              </div>
+
+              <div className="room-card-grid">
+                {selectedFloor.rooms.map((room) => (
+                  <article className="room-card" key={room.id}>
+                    <strong>{room.name}</strong>
+                    <span>{room.flooring.length > 0 ? room.flooring.join(", ") : "Inherits floor surfaces"}</span>
+                    <span>Pet impact: {room.petImpact}</span>
+                    <span>Vacuum: {room.robotVacuumCoverage}</span>
+                    <span>Mop: {room.robotMopCoverage}</span>
+                    <div className="form-actions">
+                      <button disabled={isSaving} onClick={() => setEditingRoom(room)} type="button">Edit {room.name}</button>
+                      <button disabled={isSaving} onClick={() => handleRemoveRoom(room.id)} type="button">Remove {room.name}</button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            {editingRoom ? (
+              <form className="room-editor" onSubmit={handleSaveRoom}>
+                <label>
+                  Room name
+                  <input
+                    disabled={isSaving}
+                    required
+                    value={editingRoom.name}
+                    onChange={(event) => setEditingRoom({ ...editingRoom, name: event.target.value })}
+                  />
+                </label>
+                <div className="chip-list" aria-label="Room flooring">
+                  {flooringOptions.map((flooring) => (
+                    <button
+                      aria-pressed={editingRoom.flooring.includes(flooring)}
+                      disabled={isSaving}
+                      key={flooring}
+                      onClick={() => {
+                        setEditingRoom({
+                          ...editingRoom,
+                          flooring: editingRoom.flooring.includes(flooring)
+                            ? editingRoom.flooring.filter((candidate) => candidate !== flooring)
+                            : [...editingRoom.flooring, flooring]
+                        });
+                      }}
+                      type="button"
+                    >
+                      {flooring}
+                    </button>
+                  ))}
+                </div>
+                <div className="form-actions">
+                  <button disabled={isSaving} type="submit">Save room</button>
+                  <button disabled={isSaving} onClick={() => setEditingRoom(undefined)} type="button">Cancel</button>
+                </div>
+              </form>
+            ) : null}
           </section>
         </section>
       ) : null}
