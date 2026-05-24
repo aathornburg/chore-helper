@@ -30,7 +30,7 @@ function isSetupComplete(baseline: HouseholdBaseline | undefined, choreCount: nu
   return Boolean(baseline) && choreCount > 0;
 }
 
-export function HouseholdSetupProvider({ children }: { children: React.ReactNode }) {
+export function HouseholdProvider({ children }: { children: React.ReactNode }) {
   const [householdSetup, setHouseholdSetup] = useState<HouseholdSetupState>(() => ({
     ...initialHouseholdSetup,
     isRestoring: Boolean(window.localStorage.getItem(householdStorageKey))
@@ -44,44 +44,45 @@ export function HouseholdSetupProvider({ children }: { children: React.ReactNode
   useEffect(() => {
 
     // Will be replaced by a call to get ALL household data on page load
-    // using teh user's authenticated session
-    const savedHouseholdId = window.localStorage.getItem(householdStorageKey);
-    if (!savedHouseholdId) return;
-    const activeHouseholdId = savedHouseholdId;
+    // using he user's authenticated session
+
+    // const savedHouseholdId = window.localStorage.getItem(householdStorageKey);
+    // if (!savedHouseholdId) return;
+    // const activeHouseholdId = savedHouseholdId;
 
     let cancelled = false;
 
-    async function restoreHousehold() {
-      try {
-        const household = await getHousehold(activeHouseholdId);
-        const chores = await listChores(activeHouseholdId);
-        if (cancelled) return;
+    // async function restoreHousehold() {
+    //   try {
+    //     const household = await getHousehold(activeHouseholdId);
+    //     const chores = await listChores(activeHouseholdId);
+    //     if (cancelled) return;
 
-        setHouseholdSetup({
-          householdId: household.id,
-          householdName: household.name,
-          baseline: household.baseline,
-          choreCount: chores.length,
-          setupComplete: isSetupComplete(household.baseline, chores.length),
-          isRestoring: false,
-          restoreError: undefined
-        });
-      } catch {
-        if (cancelled) return;
+    //     setHouseholdSetup({
+    //       householdId: household.id,
+    //       householdName: household.name,
+    //       baseline: household.baseline,
+    //       choreCount: chores.length,
+    //       setupComplete: isSetupComplete(household.baseline, chores.length),
+    //       isRestoring: false,
+    //       restoreError: undefined
+    //     });
+    //   } catch {
+    //     if (cancelled) return;
 
-        if (window.localStorage.getItem(householdStorageKey) === activeHouseholdId) {
-          window.localStorage.removeItem(householdStorageKey);
-        }
+    //     if (window.localStorage.getItem(householdStorageKey) === activeHouseholdId) {
+    //       window.localStorage.removeItem(householdStorageKey);
+    //     }
 
-        setHouseholdSetup({
-          ...initialHouseholdSetup,
-          isRestoring: false,
-          restoreError: "We could not restore your saved household. Start setup again."
-        });
-      }
-    }
+    //     setHouseholdSetup({
+    //       ...initialHouseholdSetup,
+    //       isRestoring: false,
+    //       restoreError: "We could not restore your saved household. Start setup again."
+    //     });
+    //   }
+    // }
 
-    void restoreHousehold();
+    // void restoreHousehold();
 
     return () => {
       cancelled = true;

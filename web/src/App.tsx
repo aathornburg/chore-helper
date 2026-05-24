@@ -7,7 +7,7 @@ import { LandingPage } from "./pages/LandingPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { TodayDashboard } from "./pages/TodayDashboard";
 import { normalizePath } from "./routes";
-import { HouseholdSetupProvider, useHouseholdSetup } from "./state/HouseholdSetupProvider";
+import { HouseholdProvider, useHouseholdSetup } from "./state/HouseholdSetupProvider";
 
 /*
   Importing CSS directly inside a React module is a bundler feature. With
@@ -27,9 +27,9 @@ import "./App.css";
 */
 function App() {
   return (
-    <HouseholdSetupProvider>
+    <HouseholdProvider>
       <AppRoutes />
-    </HouseholdSetupProvider>
+    </HouseholdProvider>
   );
 }
 
