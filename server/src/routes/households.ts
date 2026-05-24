@@ -149,6 +149,32 @@ function attachReviewMetadata(recommendation: Recommendation, selectedChores: Ch
 export function createHouseholdRouter(store: HouseholdStore, agentProvider: AgentProvider) {
   const router = Router();
 
+  router.get("/", async (_req, res) => {
+    const households = await store.listHouseholds();
+    const appData = await Promise.all(
+      households.map(async (household) => {
+        const recommendations = (await store.listRecommendations(household.id)).filter(
+          (recommendation) => !recommendation.staleAt
+        );
+        const chores = await store.listChores(household.id);
+
+        return {
+          ...household,
+          structure: await store.getHouseholdStructure(household.id),
+          chores: chores.map((chore) => ({
+            ...chore,
+            recommendations: recommendations.filter(
+              (recommendation) => recommendation.affectedChoreId === chore.id
+            )
+          })),
+          recommendations
+        };
+      })
+    );
+
+    return res.status(200).json(appData);
+  });
+
   router.post("/", async (req, res) => {
     const parsed = createHouseholdSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid household payload" });

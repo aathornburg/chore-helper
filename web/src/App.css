@@ -545,6 +545,7 @@ button:hover {
   display: flex;
   gap: 14px;
   justify-content: space-between;
+  padding-bottom: 10px;
 }
 
 .section-title {

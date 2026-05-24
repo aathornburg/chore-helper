@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   FlooringSurface,
+  HouseholdAppData,
   HouseholdFloor,
   HouseholdRoom,
   HouseholdStructure
 } from "@chore-helper/shared";
-import { getHouseholdStructure, saveHouseholdStructure } from "../api";
-import type { HouseholdSetupState } from "../types";
+import { saveHouseholdStructure } from "../api";
 import {
   createBasementFloor,
   createDefaultHouseholdStructure,
@@ -16,68 +16,78 @@ import {
 } from "../utils/householdStructure";
 
 type HouseholdsPageProps = {
-  householdSetup: HouseholdSetupState;
+  households: HouseholdAppData[];
+  isLoading: boolean;
+  onAddHousehold: (name: string) => Promise<void>;
 };
 
 function getMainFloorId(floors: HouseholdFloor[]) {
   return floors.find((floor) => floor.levelType === "main")?.id ?? floors[0]?.id;
 }
 
-export function HouseholdsPage({ householdSetup }: HouseholdsPageProps) {
+export function HouseholdsPage({ households, isLoading, onAddHousehold }: HouseholdsPageProps) {
+  const [isAddingHousehold, setIsAddingHousehold] = useState(false);
+
+  async function handleAddHousehold() {
+    if (isAddingHousehold) return;
+    setIsAddingHousehold(true);
+    try {
+      await onAddHousehold("New household");
+    } finally {
+      setIsAddingHousehold(false);
+    }
+  }
+
+  return (
+    <div className="households-page">
+      <header className="workspace-hero compact-hero">
+        <div>
+          <h1>Households</h1>
+          <p className="lede">Manage floors, rooms, flooring, pet impact, and cleaning-device coverage.</p>
+        </div>
+      </header>
+
+      {isLoading ? (
+        <div className="empty-state">Loading households...</div>
+      ) : (
+        <>
+          <div className="form-actions">
+            <button disabled={isAddingHousehold} onClick={handleAddHousehold} type="button">
+              Add household
+            </button>
+          </div>
+          {households.map((household) => (
+            <HouseholdEditor household={household} key={household.id} />
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
+function HouseholdEditor({ household }: { household: HouseholdAppData }) {
   const saveInFlightRef = useRef(false);
-  const [structure, setStructure] = useState<HouseholdStructure>();
+  const [isManaging, setIsManaging] = useState(false);
+  const initialStructure = household.structure.floors.length > 0
+    ? household.structure
+    : createDefaultHouseholdStructure(household.id, household.baseline);
+  const [structure, setStructure] = useState<HouseholdStructure>(initialStructure);
   const [selectedFloorId, setSelectedFloorId] = useState<string>();
-  const [loadState, setLoadState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [pendingRemoveFloorId, setPendingRemoveFloorId] = useState<string>();
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string>();
   const [editingRoom, setEditingRoom] = useState<HouseholdRoom>();
 
   useEffect(() => {
-    if (householdSetup.isRestoring) {
-      setLoadState("loading");
-      return;
-    }
+    setStructure(initialStructure);
+    setSelectedFloorId(getMainFloorId(initialStructure.floors));
+    setPendingRemoveFloorId(undefined);
+    setEditingRoom(undefined);
+    setSaveError(undefined);
+  }, [household.id]);
 
-    if (!householdSetup.householdId) {
-      setStructure(undefined);
-      setSelectedFloorId(undefined);
-      setLoadState("ready");
-      return;
-    }
-
-    let cancelled = false;
-
-    async function loadStructure() {
-      setLoadState("loading");
-      try {
-        const householdId = householdSetup.householdId as string;
-        const loaded = await getHouseholdStructure(householdId);
-        const nextStructure = loaded.floors.length > 0
-          ? loaded
-          : createDefaultHouseholdStructure(householdId, householdSetup.baseline);
-        if (cancelled) return;
-
-        setStructure(nextStructure);
-        setSelectedFloorId(getMainFloorId(nextStructure.floors));
-        setPendingRemoveFloorId(undefined);
-        setEditingRoom(undefined);
-        setSaveError(undefined);
-        setLoadState("ready");
-      } catch {
-        if (!cancelled) setLoadState("error");
-      }
-    }
-
-    void loadStructure();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [householdSetup.baseline, householdSetup.householdId, householdSetup.isRestoring]);
-
-  const activeStructure = structure?.householdId === householdSetup.householdId ? structure : undefined;
-  const floors = useMemo(() => sortFloors(activeStructure?.floors ?? []), [activeStructure]);
+  const activeStructure = structure;
+  const floors = useMemo(() => sortFloors(activeStructure.floors), [activeStructure]);
   const selectedFloor = floors.find((floor) => floor.id === selectedFloorId);
 
   async function persist(nextStructure: HouseholdStructure) {
@@ -187,29 +197,24 @@ export function HouseholdsPage({ householdSetup }: HouseholdsPageProps) {
     await persist(nextStructure);
   }
 
-  if (!householdSetup.householdId && !householdSetup.isRestoring) {
-    return (
-      <section className="placeholder-page">
-        <h1>Households</h1>
-        <p className="lede">Create a household before editing floors and rooms.</p>
-      </section>
-    );
-  }
-
   return (
-    <div className="households-page">
-      <header className="workspace-hero compact-hero">
-        <div>
-          <h1>Households</h1>
-          <p className="lede">Manage floors, rooms, flooring, pet impact, and cleaning-device coverage.</p>
+    <section className="household-instance panel" aria-label={`${household.name} floor editor`}>
+      <div className="section-heading">
+        <div className="section-title">
+          <h2>{household.name}</h2>
         </div>
-      </header>
-
-      {loadState === "loading" ? <div className="empty-state">Loading household structure...</div> : null}
-      {loadState === "error" ? <div className="empty-state">Could not load household structure.</div> : null}
+        <button onClick={() => setIsManaging((current) => !current)} type="button">
+          {isManaging ? "Done" : "Manage"}
+        </button>
+      </div>
+      {!isManaging ? (
+        <div className="empty-state">
+          {floors.length} floor{floors.length === 1 ? "" : "s"} / {household.chores.length} chore{household.chores.length === 1 ? "" : "s"}
+        </div>
+      ) : null}
       {saveError ? <div className="empty-state" role="status">{saveError}</div> : null}
 
-      {loadState === "ready" && selectedFloor ? (
+      {isManaging && selectedFloor ? (
         <section className="household-editor" aria-label="Household floor editor">
           <aside className="floor-selector-panel">
             <p className="eyebrow">Floor selector</p>
@@ -356,6 +361,6 @@ export function HouseholdsPage({ householdSetup }: HouseholdsPageProps) {
           </section>
         </section>
       ) : null}
-    </div>
+    </section>
   );
 }

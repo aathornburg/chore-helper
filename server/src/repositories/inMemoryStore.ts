@@ -28,6 +28,7 @@ export type ApplyRecommendationResult = {
 
 export type HouseholdStore = {
   createHousehold(name: string): StoreResult<Household>;
+  listHouseholds(): StoreResult<Household[]>;
   updateBaseline(householdId: string, baseline: HouseholdBaseline): StoreResult<Household | undefined>;
   getHousehold(householdId: string): StoreResult<Household | undefined>;
   getHouseholdStructure(householdId: string): StoreResult<HouseholdStructure | undefined>;
@@ -99,6 +100,10 @@ export function createInMemoryStore(): HouseholdStore {
       const household = { id: crypto.randomUUID(), name };
       households.set(household.id, household);
       return household;
+    },
+
+    listHouseholds() {
+      return Array.from(households.values());
     },
 
     updateBaseline(householdId, baseline) {

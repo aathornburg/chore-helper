@@ -1,6 +1,7 @@
 import type {
   Chore,
   Household,
+  HouseholdAppData,
   HouseholdBaseline,
   HouseholdStructure,
   Recommendation
@@ -25,6 +26,13 @@ export async function createHousehold(name: string): Promise<Household> {
   });
 
   if (!response.ok) throw new Error("Failed to create household");
+  return response.json();
+}
+
+export async function listHouseholds(): Promise<HouseholdAppData[]> {
+  const response = await fetch(`${API_BASE_URL}/api/households`);
+
+  if (!response.ok) throw new Error("Failed to fetch households");
   return response.json();
 }
 

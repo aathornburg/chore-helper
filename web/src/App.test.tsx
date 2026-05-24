@@ -1,11 +1,16 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import type { HouseholdStructure } from "@chore-helper/shared";
+import type { HouseholdAppData, HouseholdStructure } from "@chore-helper/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 
 function renderAt(path: string) {
   window.history.pushState({}, "", path);
   return render(<App />);
+}
+
+async function manageHomeHousehold() {
+  await waitFor(() => expect(screen.getByRole("button", { name: "Manage" })).toBeTruthy());
+  fireEvent.click(screen.getByRole("button", { name: "Manage" }));
 }
 
 function restoreHouseholdInStorage() {
@@ -34,15 +39,56 @@ const cleanBathroomsChore = {
   source: "manual"
 };
 
+function createHouseholdAppData({
+  chores = [cleanBathroomsChore],
+  recommendations = [],
+  structure = { householdId: "household-1", floors: [] }
+}: {
+  chores?: typeof cleanBathroomsChore[];
+  recommendations?: unknown[];
+  structure?: HouseholdStructure;
+} = {}): HouseholdAppData {
+  return {
+    ...household,
+    structure,
+    chores: chores.map((chore) => ({ ...chore, recommendations: [] })),
+    recommendations
+  } as HouseholdAppData;
+}
+
 function mockRestoredHouseholdFetches({
   chores = [cleanBathroomsChore],
-  recommendations = []
+  recommendations = [],
+  chatResponses = []
+}: {
+  chores?: typeof cleanBathroomsChore[];
+  recommendations?: unknown[];
+  chatResponses?: Array<{ ok: boolean; json: () => Promise<unknown> }>;
 } = {}) {
-  const fetchMock = vi.fn()
-    .mockResolvedValueOnce({ ok: true, json: async () => household })
-    .mockResolvedValueOnce({ ok: true, json: async () => chores })
-    .mockResolvedValueOnce({ ok: true, json: async () => chores })
-    .mockResolvedValueOnce({ ok: true, json: async () => recommendations });
+  const nextChatResponses = [...chatResponses];
+  const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = input.toString();
+    const method = init?.method ?? "GET";
+
+    if (url === "http://localhost:3001/api/households" && method === "GET") {
+      return { ok: true, json: async () => [createHouseholdAppData({ chores, recommendations })] };
+    }
+
+    if (url === "http://localhost:3001/api/households/household-1/chores" && method === "GET") {
+      return { ok: true, json: async () => chores };
+    }
+
+    if (url === "http://localhost:3001/api/households/household-1/recommendations" && method === "GET") {
+      return { ok: true, json: async () => recommendations };
+    }
+
+    if (url === "http://localhost:3001/api/households/household-1/assistant/chat" && method === "POST") {
+      const response = nextChatResponses.shift();
+      return response ?? { ok: true, json: async () => ({ answer: "Mock assistant answer." }) };
+    }
+
+    throw new Error(`Unhandled fetch ${method} ${url}`);
+  });
 
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
@@ -56,6 +102,22 @@ function createDeferred<T>() {
   return { promise, resolve };
 }
 
+function mockEmptyAppDataFetches() {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input.toString();
+      const method = init?.method ?? "GET";
+
+      if (url === "http://localhost:3001/api/households" && method === "GET") {
+        return { ok: true, json: async () => [] };
+      }
+
+      throw new Error(`Unhandled fetch ${method} ${url}`);
+    })
+  );
+}
+
 function mockHouseholdsPageFetches(
   structure: HouseholdStructure,
   options: {
@@ -67,12 +129,11 @@ function mockHouseholdsPageFetches(
     const url = input.toString();
     const method = init?.method ?? "GET";
 
-    if (url === "http://localhost:3001/api/households/household-1" && method === "GET") {
-      return { ok: true, json: async () => household };
-    }
-
-    if (url === "http://localhost:3001/api/households/household-1/chores" && method === "GET") {
-      return { ok: true, json: async () => [cleanBathroomsChore] };
+    if (url === "http://localhost:3001/api/households" && method === "GET") {
+      return {
+        ok: true,
+        json: async () => [createHouseholdAppData({ structure })]
+      };
     }
 
     if (url === "http://localhost:3001/api/households/household-1/structure" && method === "GET") {
@@ -120,24 +181,97 @@ describe("App", () => {
     expect(screen.queryByRole("link", { name: "Setup" })).toBeNull();
   });
 
-  it("routes the first-time household action to Households", () => {
+  it("loads app household data from the user-scoped households endpoint without localStorage restore", async () => {
+    window.localStorage.setItem("chore-helper:household-id", "stale-household");
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input.toString();
+      const method = init?.method ?? "GET";
+
+      if (url === "http://localhost:3001/api/households" && method === "GET") {
+        return {
+          ok: true,
+          json: async () => [
+            {
+              ...household,
+              structure: { householdId: household.id, floors: [] },
+              chores: [cleanBathroomsChore],
+              recommendations: []
+            }
+          ]
+        };
+      }
+
+      throw new Error(`Unhandled fetch ${method} ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
     renderAt("/today");
 
+    await waitFor(() => {
+      expect(screen.getByText("Home is ready for a first expert chore review.")).toBeTruthy();
+    });
+    expect(fetchMock).toHaveBeenCalledWith("http://localhost:3001/api/households");
+    expect(fetchMock).not.toHaveBeenCalledWith("http://localhost:3001/api/households/stale-household");
+  });
+
+  it("routes the first-time household action to Households", async () => {
+    mockEmptyAppDataFetches();
+    renderAt("/today");
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Set up household" })).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "Set up household" }));
 
     expect(screen.getByRole("heading", { name: "Households" })).toBeTruthy();
   });
 
-  it("renders the Households page", () => {
+  it("renders the Households page", async () => {
+    mockEmptyAppDataFetches();
     renderAt("/households");
 
     expect(screen.getByRole("heading", { name: "Households" })).toBeTruthy();
-    expect(screen.getByText("Create a household before editing floors and rooms.")).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Add household" })).toBeTruthy();
+    });
+  });
+
+  it("adds the first household from the no-households state", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input.toString();
+      const method = init?.method ?? "GET";
+
+      if (url === "http://localhost:3001/api/households" && method === "GET") {
+        return { ok: true, json: async () => [] };
+      }
+
+      if (url === "http://localhost:3001/api/households" && method === "POST") {
+        return { ok: true, json: async () => ({ id: "household-new", name: "New household" }) };
+      }
+
+      throw new Error(`Unhandled fetch ${method} ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderAt("/households");
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Add household" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Add household" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "New household" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Manage" })).toBeTruthy();
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/households",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ name: "New household" })
+      })
+    );
   });
 
   it("renders a compact floor selector and selects the main floor by default", async () => {
     restoreHouseholdInStorage();
-    mockHouseholdsPageFetches({
+    const fetchMock = mockHouseholdsPageFetches({
       householdId: "household-1",
       floors: [
         {
@@ -157,11 +291,19 @@ describe("App", () => {
     renderAt("/households");
 
     await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Manage" })).toBeTruthy();
+      expect(screen.getByLabelText("Home floor editor").classList.contains("panel")).toBe(true);
+      expect(screen.queryByLabelText("Select Main floor")).toBeNull();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Manage" }));
+
+    await waitFor(() => {
       expect(screen.getByLabelText("Select Main floor")).toBeTruthy();
       expect(screen.getByRole("heading", { name: "Main floor" })).toBeTruthy();
       expect(screen.getByRole("button", { name: "hardwood" }).getAttribute("aria-pressed")).toBe("true");
       expect(screen.getByRole("button", { name: "rugs" }).getAttribute("aria-pressed")).toBe("true");
     });
+    expect(fetchMock).not.toHaveBeenCalledWith("http://localhost:3001/api/households/household-1/structure");
   });
 
   it("adds and removes a basement floor with confirmation", async () => {
@@ -170,6 +312,7 @@ describe("App", () => {
 
     renderAt("/households");
 
+    await manageHomeHousehold();
     await waitFor(() => expect(screen.getByRole("button", { name: "Add basement" })).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "Add basement" }));
 
@@ -205,6 +348,7 @@ describe("App", () => {
 
     renderAt("/households");
 
+    await manageHomeHousehold();
     await waitFor(() => expect(screen.getByRole("button", { name: "hardwood" })).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "hardwood" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "rugs" }).hasAttribute("disabled")).toBe(false));
@@ -249,6 +393,7 @@ describe("App", () => {
 
     renderAt("/households");
 
+    await manageHomeHousehold();
     await waitFor(() => expect(screen.getByRole("button", { name: "hardwood" })).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "hardwood" }));
 
@@ -283,6 +428,7 @@ describe("App", () => {
 
     renderAt("/households");
 
+    await manageHomeHousehold();
     await waitFor(() => expect(screen.getByRole("button", { name: "hardwood" })).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "hardwood" }));
     fireEvent.click(screen.getByRole("button", { name: "rugs" }));
@@ -316,6 +462,7 @@ describe("App", () => {
 
     renderAt("/households");
 
+    await manageHomeHousehold();
     await waitFor(() => expect(screen.getByRole("button", { name: "Add room" })).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "Add room" }));
     fireEvent.change(screen.getByLabelText("Room name"), { target: { value: "Kitchen" } });
@@ -362,6 +509,7 @@ describe("App", () => {
 
     renderAt("/households");
 
+    await manageHomeHousehold();
     await waitFor(() => expect(screen.getByRole("button", { name: "Add room" })).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "Add room" }));
     fireEvent.change(screen.getByLabelText("Room name"), { target: { value: "Kitchen" } });
@@ -382,9 +530,24 @@ describe("App", () => {
   it("loads the Chores page with existing chores", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn()
-        .mockResolvedValueOnce({ ok: true, json: async () => [cleanBathroomsChore] })
-        .mockResolvedValueOnce({ ok: true, json: async () => [] })
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = input.toString();
+        const method = init?.method ?? "GET";
+
+        if (url === "http://localhost:3001/api/households" && method === "GET") {
+          return { ok: true, json: async () => [] };
+        }
+
+        if (url === "http://localhost:3001/api/chores" && method === "GET") {
+          return { ok: true, json: async () => [cleanBathroomsChore] };
+        }
+
+        if (url === "http://localhost:3001/api/recommendations" && method === "GET") {
+          return { ok: true, json: async () => [] };
+        }
+
+        throw new Error(`Unhandled fetch ${method} ${url}`);
+      })
     );
 
     renderAt("/chores");
@@ -398,8 +561,16 @@ describe("App", () => {
   it("loads all chores without a restored household and shows each chore household", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn()
-        .mockResolvedValueOnce({
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = input.toString();
+        const method = init?.method ?? "GET";
+
+        if (url === "http://localhost:3001/api/households" && method === "GET") {
+          return { ok: true, json: async () => [] };
+        }
+
+        if (url === "http://localhost:3001/api/chores" && method === "GET") {
+          return {
           ok: true,
           json: async () => [
             {
@@ -407,8 +578,15 @@ describe("App", () => {
               householdName: "Home"
             }
           ]
-        })
-        .mockResolvedValueOnce({ ok: true, json: async () => [] })
+          };
+        }
+
+        if (url === "http://localhost:3001/api/recommendations" && method === "GET") {
+          return { ok: true, json: async () => [] };
+        }
+
+        throw new Error(`Unhandled fetch ${method} ${url}`);
+      })
     );
 
     renderAt("/chores");
@@ -441,11 +619,14 @@ describe("App", () => {
 
   it("shows Optimize chat prompts and renders an assistant answer", async () => {
     restoreHouseholdInStorage();
-    const fetchMock = mockRestoredHouseholdFetches()
-      .mockResolvedValueOnce({
+    const fetchMock = mockRestoredHouseholdFetches({
+      chatResponses: [
+        {
         ok: true,
         json: async () => ({ answer: "Clean bathrooms may be under-scoped." })
-      });
+        }
+      ]
+    });
 
     renderAt("/optimize");
 
@@ -476,15 +657,20 @@ describe("App", () => {
 
   it("keeps Optimize chat messages visible when assistant chat fails", async () => {
     restoreHouseholdInStorage();
-    mockRestoredHouseholdFetches({ chores: [], recommendations: [] })
-      .mockResolvedValueOnce({
+    mockRestoredHouseholdFetches({
+      chores: [],
+      recommendations: [],
+      chatResponses: [
+        {
         ok: true,
         json: async () => ({ answer: "First answer." })
-      })
-      .mockResolvedValueOnce({
+        },
+        {
         ok: false,
         json: async () => ({ error: "Could not answer assistant question" })
-      });
+        }
+      ]
+    });
 
     renderAt("/optimize");
 

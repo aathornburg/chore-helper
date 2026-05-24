@@ -7,7 +7,7 @@ import { LandingPage } from "./pages/LandingPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { TodayDashboard } from "./pages/TodayDashboard";
 import { normalizePath } from "./routes";
-import { HouseholdSetupProvider, useHouseholdSetup } from "./state/HouseholdSetupProvider";
+import { AppDataProvider, useAppData } from "./state/AppDataProvider";
 
 /*
   Importing CSS directly inside a React module is a bundler feature. With
@@ -27,22 +27,22 @@ import "./App.css";
 */
 function App() {
   return (
-    <HouseholdSetupProvider>
+    <AppDataProvider>
       <AppRoutes />
-    </HouseholdSetupProvider>
+    </AppDataProvider>
   );
 }
 
 function AppRoutes() {
   const [path, setPath] = useState(() => normalizePath(window.location.pathname));
-  const { householdSetup } = useHouseholdSetup();
+  const { addHousehold, householdSetup, households, isLoading } = useAppData();
 
   /*
     `useState` is similar to component-scoped state in Angular, though
     React keeps state local to the function component. This state controls
     the current route path.
 
-    `useHouseholdSetup()` is like injecting an Angular service into a
+    `useAppData()` is like injecting an Angular service into a
     component constructor; it gives access to shared application state and
     actions managed by a provider.
 
@@ -79,7 +79,7 @@ function AppRoutes() {
         <TodayDashboard householdSetup={householdSetup} onNavigate={navigate} />
       ) : null}
       {path === "/households" ? (
-        <HouseholdsPage householdSetup={householdSetup} />
+        <HouseholdsPage households={households} isLoading={isLoading} onAddHousehold={addHousehold} />
       ) : null}
       {path === "/chores" ? (
         <ChoresPage />

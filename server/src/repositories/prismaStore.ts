@@ -183,6 +183,15 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
       return toHousehold(household);
     },
 
+    async listHouseholds() {
+      const households = await prisma.household.findMany({
+        include: { baseline: true },
+        orderBy: { createdAt: "asc" }
+      });
+
+      return households.map(toHousehold);
+    },
+
     async updateBaseline(householdId, baseline) {
       const household = await prisma.household.findUnique({
         where: { id: householdId }

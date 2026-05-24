@@ -98,3 +98,13 @@ export type Recommendation = {
   proposedEstimatedMinutes?: number;
   staleAt?: string;
 };
+
+export type ChoreAppData = Chore & {
+  recommendations: Recommendation[];
+};
+
+export type HouseholdAppData = Household & {
+  structure: HouseholdStructure;
+  chores: ChoreAppData[];
+  recommendations: Recommendation[];
+};

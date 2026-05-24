@@ -69,6 +69,74 @@ class FailingChatAgentProvider implements AgentProvider {
 }
 
 describe("household baseline flow", () => {
+  it("lists households with their initial app data", async () => {
+    const app = createTestApp();
+    const created = await request(app).post("/api/households").send({ name: "Home" }).expect(201);
+    const householdId = created.body.id as string;
+
+    await request(app)
+      .put(`/api/households/${householdId}/baseline`)
+      .send({
+        homeType: "house",
+        rooms: ["Kitchen"],
+        flooring: ["hardwood"],
+        hasPets: true,
+        hasOutdoorSpace: false,
+        notes: ""
+      })
+      .expect(200);
+    await request(app)
+      .put(`/api/households/${householdId}/structure`)
+      .send({
+        floors: [
+          {
+            id: "floor-main",
+            householdId,
+            name: "Main floor",
+            levelType: "main",
+            flooring: ["hardwood"],
+            petImpact: "medium",
+            robotVacuumCoverage: "most",
+            robotMopCoverage: "partial",
+            rooms: []
+          }
+        ]
+      })
+      .expect(200);
+    const chore = await request(app)
+      .post(`/api/households/${householdId}/chores`)
+      .send({
+        title: "Clean kitchen",
+        cadence: "weekly",
+        estimatedMinutes: 20,
+        source: "manual"
+      })
+      .expect(201);
+    await request(app)
+      .post(`/api/households/${householdId}/recommendations`)
+      .send({ selectedChoreIds: [chore.body.id] })
+      .expect(201);
+
+    const response = await request(app).get("/api/households").expect(200);
+
+    expect(response.body).toHaveLength(1);
+    expect(response.body[0]).toMatchObject({
+      id: householdId,
+      name: "Home",
+      baseline: { homeType: "house" },
+      structure: {
+        householdId,
+        floors: [{ id: "floor-main", rooms: [] }]
+      },
+      chores: [{
+        id: chore.body.id,
+        title: "Clean kitchen",
+        recommendations: [{ householdId, affectedChoreId: chore.body.id }]
+      }],
+      recommendations: [{ householdId, affectedChoreId: chore.body.id }]
+    });
+  });
+
   it("creates a household, saves baseline facts, and returns expert recommendations", async () => {
     const app = createTestApp();
 
