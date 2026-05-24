@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import type { HouseholdFloor, HouseholdStructure } from "@chore-helper/shared";
-import { getHouseholdStructure } from "../api";
+import type { FlooringSurface, HouseholdFloor, HouseholdStructure } from "@chore-helper/shared";
+import { getHouseholdStructure, saveHouseholdStructure } from "../api";
 import type { HouseholdSetupState } from "../types";
 import {
+  createBasementFloor,
   createDefaultHouseholdStructure,
+  createNewFloor,
   flooringOptions,
   sortFloors
 } from "../utils/householdStructure";
@@ -20,6 +22,7 @@ export function HouseholdsPage({ householdSetup }: HouseholdsPageProps) {
   const [structure, setStructure] = useState<HouseholdStructure>();
   const [selectedFloorId, setSelectedFloorId] = useState<string>();
   const [loadState, setLoadState] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [pendingRemoveFloorId, setPendingRemoveFloorId] = useState<string>();
 
   useEffect(() => {
     if (householdSetup.isRestoring) {
@@ -48,6 +51,7 @@ export function HouseholdsPage({ householdSetup }: HouseholdsPageProps) {
 
         setStructure(nextStructure);
         setSelectedFloorId(getMainFloorId(nextStructure.floors));
+        setPendingRemoveFloorId(undefined);
         setLoadState("ready");
       } catch {
         if (!cancelled) setLoadState("error");
@@ -61,8 +65,52 @@ export function HouseholdsPage({ householdSetup }: HouseholdsPageProps) {
     };
   }, [householdSetup.baseline, householdSetup.householdId, householdSetup.isRestoring]);
 
-  const floors = useMemo(() => sortFloors(structure?.floors ?? []), [structure]);
+  const activeStructure = structure?.householdId === householdSetup.householdId ? structure : undefined;
+  const floors = useMemo(() => sortFloors(activeStructure?.floors ?? []), [activeStructure]);
   const selectedFloor = floors.find((floor) => floor.id === selectedFloorId);
+
+  async function persist(nextStructure: HouseholdStructure) {
+    setStructure(nextStructure);
+    await saveHouseholdStructure(nextStructure.householdId, nextStructure);
+  }
+
+  async function handleToggleFlooring(flooring: FlooringSurface) {
+    if (!activeStructure || !selectedFloor) return;
+
+    const nextFloors = activeStructure.floors.map((floor) => {
+      if (floor.id !== selectedFloor.id) return floor;
+      const nextFlooring = floor.flooring.includes(flooring)
+        ? floor.flooring.filter((candidate) => candidate !== flooring)
+        : [...floor.flooring, flooring];
+      return { ...floor, flooring: nextFlooring };
+    });
+    await persist({ ...activeStructure, floors: nextFloors });
+  }
+
+  async function handleAddFloor() {
+    if (!activeStructure) return;
+    const floor = createNewFloor(activeStructure.householdId, activeStructure.floors.length);
+    const nextStructure = { ...activeStructure, floors: sortFloors([...activeStructure.floors, floor]) };
+    setSelectedFloorId(floor.id);
+    await persist(nextStructure);
+  }
+
+  async function handleAddBasement() {
+    if (!activeStructure || activeStructure.floors.some((floor) => floor.levelType === "basement")) return;
+    const basement = createBasementFloor(activeStructure.householdId);
+    const nextStructure = { ...activeStructure, floors: sortFloors([...activeStructure.floors, basement]) };
+    setSelectedFloorId(basement.id);
+    await persist(nextStructure);
+  }
+
+  async function handleConfirmRemoveFloor() {
+    if (!activeStructure || !pendingRemoveFloorId) return;
+    const nextFloors = activeStructure.floors.filter((floor) => floor.id !== pendingRemoveFloorId);
+    const nextStructure = { ...activeStructure, floors: nextFloors };
+    setPendingRemoveFloorId(undefined);
+    setSelectedFloorId(getMainFloorId(nextFloors));
+    await persist(nextStructure);
+  }
 
   if (!householdSetup.householdId && !householdSetup.isRestoring) {
     return (
@@ -117,16 +165,41 @@ export function HouseholdsPage({ householdSetup }: HouseholdsPageProps) {
                 </button>
               ))}
             </div>
+            <div className="floor-actions">
+              <button onClick={handleAddFloor} type="button">Add floor</button>
+              {!floors.some((floor) => floor.levelType === "basement") ? (
+                <button onClick={handleAddBasement} type="button">Add basement</button>
+              ) : null}
+            </div>
           </aside>
 
           <section className="floor-detail-panel">
-            <h2>{selectedFloor.name}</h2>
-            <p className="lede">Floor details</p>
+            <div className="floor-detail-heading">
+              <div>
+                <h2>{selectedFloor.name}</h2>
+                <p className="lede">Floor details</p>
+              </div>
+              {selectedFloor.levelType !== "main" ? (
+                <button onClick={() => setPendingRemoveFloorId(selectedFloor.id)} type="button">
+                  {selectedFloor.levelType === "basement" ? "Remove basement" : "Remove floor"}
+                </button>
+              ) : null}
+            </div>
+            {pendingRemoveFloorId === selectedFloor.id ? (
+              <div className="inline-confirmation">
+                <p>Remove {selectedFloor.name} and {selectedFloor.rooms.length} rooms?</p>
+                <div className="form-actions">
+                  <button onClick={handleConfirmRemoveFloor} type="button">Confirm remove floor</button>
+                  <button onClick={() => setPendingRemoveFloorId(undefined)} type="button">Cancel</button>
+                </div>
+              </div>
+            ) : null}
             <div className="chip-list" aria-label="Flooring">
               {flooringOptions.map((flooring) => (
                 <button
                   aria-pressed={selectedFloor.flooring.includes(flooring)}
                   key={flooring}
+                  onClick={() => handleToggleFlooring(flooring)}
                   type="button"
                 >
                   {flooring}

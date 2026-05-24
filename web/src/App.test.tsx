@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { HouseholdStructure } from "@chore-helper/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 
@@ -42,6 +43,35 @@ function mockRestoredHouseholdFetches({
     .mockResolvedValueOnce({ ok: true, json: async () => chores })
     .mockResolvedValueOnce({ ok: true, json: async () => chores })
     .mockResolvedValueOnce({ ok: true, json: async () => recommendations });
+
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
+function mockHouseholdsPageFetches(structure: HouseholdStructure) {
+  const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = input.toString();
+    const method = init?.method ?? "GET";
+
+    if (url === "http://localhost:3001/api/households/household-1" && method === "GET") {
+      return { ok: true, json: async () => household };
+    }
+
+    if (url === "http://localhost:3001/api/households/household-1/chores" && method === "GET") {
+      return { ok: true, json: async () => [cleanBathroomsChore] };
+    }
+
+    if (url === "http://localhost:3001/api/households/household-1/structure" && method === "GET") {
+      return { ok: true, json: async () => structure };
+    }
+
+    if (url === "http://localhost:3001/api/households/household-1/structure" && method === "PUT") {
+      const body = JSON.parse(String(init?.body)) as Pick<HouseholdStructure, "floors">;
+      return { ok: true, json: async () => ({ householdId: "household-1", floors: body.floors }) };
+    }
+
+    throw new Error(`Unhandled fetch ${method} ${url}`);
+  });
 
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
@@ -91,31 +121,22 @@ describe("App", () => {
 
   it("renders a compact floor selector and selects the main floor by default", async () => {
     restoreHouseholdInStorage();
-    vi.stubGlobal(
-      "fetch",
-      vi.fn()
-        .mockResolvedValueOnce({ ok: true, json: async () => household })
-        .mockResolvedValueOnce({ ok: true, json: async () => [cleanBathroomsChore] })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({
-            householdId: "household-1",
-            floors: [
-              {
-                id: "floor-main",
-                householdId: "household-1",
-                name: "Main floor",
-                levelType: "main",
-                flooring: ["hardwood", "rugs"],
-                petImpact: "medium",
-                robotVacuumCoverage: "most",
-                robotMopCoverage: "partial",
-                rooms: []
-              }
-            ]
-          })
-        })
-    );
+    mockHouseholdsPageFetches({
+      householdId: "household-1",
+      floors: [
+        {
+          id: "floor-main",
+          householdId: "household-1",
+          name: "Main floor",
+          levelType: "main",
+          flooring: ["hardwood", "rugs"],
+          petImpact: "medium",
+          robotVacuumCoverage: "most",
+          robotMopCoverage: "partial",
+          rooms: []
+        }
+      ]
+    });
 
     renderAt("/households");
 
@@ -125,6 +146,54 @@ describe("App", () => {
       expect(screen.getByRole("button", { name: "hardwood" }).getAttribute("aria-pressed")).toBe("true");
       expect(screen.getByRole("button", { name: "rugs" }).getAttribute("aria-pressed")).toBe("true");
     });
+  });
+
+  it("adds and removes a basement floor with confirmation", async () => {
+    restoreHouseholdInStorage();
+    mockHouseholdsPageFetches({ householdId: "household-1", floors: [] });
+
+    renderAt("/households");
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Add basement" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Add basement" }));
+
+    expect(screen.getByLabelText("Select Basement")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Basement" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove basement" }));
+    expect(screen.getByText("Remove Basement and 0 rooms?")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Confirm remove floor" }));
+
+    expect(screen.queryByLabelText("Select Basement")).toBeNull();
+  });
+
+  it("allows multiple flooring chips on a floor", async () => {
+    restoreHouseholdInStorage();
+    mockHouseholdsPageFetches({
+      householdId: "household-1",
+      floors: [
+        {
+          id: "floor-main",
+          householdId: "household-1",
+          name: "Main floor",
+          levelType: "main",
+          flooring: [],
+          petImpact: "none",
+          robotVacuumCoverage: "none",
+          robotMopCoverage: "none",
+          rooms: []
+        }
+      ]
+    });
+
+    renderAt("/households");
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "hardwood" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "hardwood" }));
+    fireEvent.click(screen.getByRole("button", { name: "rugs" }));
+
+    expect(screen.getByRole("button", { name: "hardwood" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "rugs" }).getAttribute("aria-pressed")).toBe("true");
   });
 
   it("loads the Chores page with existing chores", async () => {

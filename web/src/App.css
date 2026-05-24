@@ -1145,9 +1145,14 @@ button.chore-row-summary[aria-expanded="true"] {
 }
 
 .floor-summary-list,
+.floor-actions,
 .chip-list {
   display: grid;
   gap: 8px;
+}
+
+.floor-actions {
+  margin-top: 14px;
 }
 
 .floor-summary-list button {
@@ -1176,6 +1181,34 @@ button.chore-row-summary[aria-expanded="true"] {
   border: 1px solid #eaded1;
   color: #2f3a34;
   padding: 8px 10px;
+}
+
+.floor-detail-heading {
+  align-items: start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.floor-detail-heading h2 {
+  color: #24352e;
+  margin: 0;
+}
+
+.inline-confirmation {
+  background: #fffbeb;
+  border: 1px solid #f59e0b;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 12px;
+}
+
+.inline-confirmation p {
+  color: #3f4a43;
+  font-weight: 800;
+  margin: 0;
 }
 
 .recommendation-list {
