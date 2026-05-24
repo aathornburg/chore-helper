@@ -40,6 +40,10 @@ const flooringSurfaceSchema = z.enum([
 const roomOverrideCoverageSchema = z.union([coverageLevelSchema, z.literal("inherit")]);
 const roomOverridePetImpactSchema = z.union([petImpactSchema, z.literal("inherit")]);
 
+function hasUniqueValues<T>(values: T[]) {
+  return new Set(values).size === values.length;
+}
+
 const householdRoomSchema = z.object({
   id: z.string().min(1),
   floorId: z.string().min(1),
@@ -66,6 +70,35 @@ const householdFloorSchema = z.object({
 
 const householdStructureSchema = z.object({
   floors: z.array(householdFloorSchema)
+}).superRefine((structure, ctx) => {
+  if (!hasUniqueValues(structure.floors.map((floor) => floor.id))) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Floor ids must be unique",
+      path: ["floors"]
+    });
+  }
+
+  const roomIds = structure.floors.flatMap((floor) => floor.rooms.map((room) => room.id));
+  if (!hasUniqueValues(roomIds)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Room ids must be unique",
+      path: ["floors"]
+    });
+  }
+
+  structure.floors.forEach((floor, floorIndex) => {
+    floor.rooms.forEach((room, roomIndex) => {
+      if (room.floorId !== floor.id) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Room floorId must match containing floor id",
+          path: ["floors", floorIndex, "rooms", roomIndex, "floorId"]
+        });
+      }
+    });
+  });
 });
 
 const choreSchema = z.object({

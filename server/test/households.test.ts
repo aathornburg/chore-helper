@@ -195,6 +195,65 @@ describe("household baseline flow", () => {
       });
   });
 
+  it("rejects duplicate household structure ids", async () => {
+    const app = createTestApp();
+    const created = await request(app).post("/api/households").send({ name: "Home" }).expect(201);
+    const householdId = created.body.id;
+
+    await request(app)
+      .put(`/api/households/${householdId}/structure`)
+      .send({
+        floors: [
+          {
+            id: "floor-main",
+            householdId,
+            name: "Main floor",
+            levelType: "main",
+            flooring: ["hardwood"],
+            petImpact: "medium",
+            robotVacuumCoverage: "most",
+            robotMopCoverage: "partial",
+            rooms: [
+              {
+                id: "room-duplicate",
+                floorId: "floor-main",
+                name: "Living room",
+                flooring: ["hardwood"],
+                petImpact: "inherit",
+                robotVacuumCoverage: "inherit",
+                robotMopCoverage: "inherit"
+              }
+            ]
+          },
+          {
+            id: "floor-main",
+            householdId,
+            name: "Duplicate main floor",
+            levelType: "other",
+            flooring: ["tile"],
+            petImpact: "low",
+            robotVacuumCoverage: "partial",
+            robotMopCoverage: "none",
+            rooms: [
+              {
+                id: "room-duplicate",
+                floorId: "floor-main",
+                name: "Kitchen",
+                flooring: ["tile"],
+                petImpact: "inherit",
+                robotVacuumCoverage: "inherit",
+                robotMopCoverage: "inherit"
+              }
+            ]
+          }
+        ]
+      })
+      .expect(400)
+      .expect((response) => {
+        expect(response.body).toEqual({ error: "Invalid household structure payload" });
+      });
+  });
+
   it("flags existing chores that look under-scoped for their ask", async () => {
     const app = createTestApp();
 
