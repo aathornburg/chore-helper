@@ -10,6 +10,7 @@ model Household {
   id              String             @id
   name            String
   baseline        HouseholdBaseline?
+  floors          HouseholdFloor[]
   chores          Chore[]
   recommendations Recommendation[]
   createdAt       DateTime           @default(now())
@@ -27,6 +28,38 @@ model HouseholdBaseline {
   notes           String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+}
+
+model HouseholdFloor {
+  id                  String          @id
+  householdId         String
+  household           Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  name                String
+  levelType           String
+  flooring            String
+  petImpact           String
+  robotVacuumCoverage String
+  robotMopCoverage    String
+  notes               String?
+  sortOrder           Int
+  rooms               HouseholdRoom[]
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+}
+
+model HouseholdRoom {
+  id                  String         @id
+  floorId             String
+  floor               HouseholdFloor @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  name                String
+  flooring            String
+  petImpact           String
+  robotVacuumCoverage String
+  robotMopCoverage    String
+  notes               String?
+  sortOrder           Int
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
 }
 
 model Chore {

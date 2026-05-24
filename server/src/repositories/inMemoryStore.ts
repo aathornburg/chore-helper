@@ -2,6 +2,8 @@ import type {
   Chore,
   Household,
   HouseholdBaseline,
+  HouseholdFloor,
+  HouseholdStructure,
   Recommendation,
   RecommendationDecision
 } from "@chore-helper/shared";
@@ -28,6 +30,11 @@ export type HouseholdStore = {
   createHousehold(name: string): StoreResult<Household>;
   updateBaseline(householdId: string, baseline: HouseholdBaseline): StoreResult<Household | undefined>;
   getHousehold(householdId: string): StoreResult<Household | undefined>;
+  getHouseholdStructure(householdId: string): StoreResult<HouseholdStructure | undefined>;
+  saveHouseholdStructure(
+    householdId: string,
+    floors: HouseholdFloor[]
+  ): StoreResult<HouseholdStructure | undefined>;
   createChore(chore: Omit<Chore, "id" | "archivedAt">): StoreResult<Chore>;
   updateChore(householdId: string, choreId: string, chore: ChoreUpdate): StoreResult<Chore | undefined>;
   archiveChore(householdId: string, choreId: string): StoreResult<Chore | undefined>;
@@ -58,6 +65,7 @@ function normalizeRecommendation(recommendation: Recommendation): Recommendation
 
 export function createInMemoryStore(): HouseholdStore {
   const households = new Map<string, Household>();
+  const householdFloors = new Map<string, HouseholdFloor[]>();
   const chores = new Map<string, Chore[]>();
   const recommendations = new Map<string, Recommendation[]>();
 
@@ -104,6 +112,33 @@ export function createInMemoryStore(): HouseholdStore {
 
     getHousehold(householdId) {
       return households.get(householdId);
+    },
+
+    getHouseholdStructure(householdId) {
+      if (!households.has(householdId)) return undefined;
+      return {
+        householdId,
+        floors: householdFloors.get(householdId) ?? []
+      };
+    },
+
+    saveHouseholdStructure(householdId, floors) {
+      if (!households.has(householdId)) return undefined;
+
+      const normalized = floors.map((floor) => ({
+        ...floor,
+        householdId,
+        rooms: floor.rooms.map((room) => ({
+          ...room,
+          floorId: floor.id
+        }))
+      }));
+      householdFloors.set(householdId, normalized);
+
+      return {
+        householdId,
+        floors: normalized
+      };
     },
 
     createChore(chore) {

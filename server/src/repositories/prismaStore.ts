@@ -4,6 +4,8 @@ import type {
   FlooringType,
   Household,
   HouseholdBaseline,
+  HouseholdFloor,
+  HouseholdRoom,
   Recommendation,
   RecommendationConfidence,
   RecommendationDecision
@@ -16,6 +18,14 @@ function serializeList(values: string[]) {
 
 function deserializeList(value: string) {
   return JSON.parse(value) as string[];
+}
+
+function serializeOptionalList(values: string[]) {
+  return JSON.stringify(values);
+}
+
+function deserializeOptionalList<T extends string>(value: string) {
+  return JSON.parse(value) as T[];
 }
 
 function serializeDate(value: Date | null | undefined) {
@@ -51,6 +61,63 @@ function toHousehold(
     id: household.id,
     name: household.name,
     ...(baseline ? { baseline } : {})
+  };
+}
+
+function toHouseholdRoom(room: {
+  id: string;
+  floorId: string;
+  name: string;
+  flooring: string;
+  petImpact: string;
+  robotVacuumCoverage: string;
+  robotMopCoverage: string;
+  notes?: string | null;
+}): HouseholdRoom {
+  return {
+    id: room.id,
+    floorId: room.floorId,
+    name: room.name,
+    flooring: deserializeOptionalList(room.flooring),
+    petImpact: room.petImpact as HouseholdRoom["petImpact"],
+    robotVacuumCoverage: room.robotVacuumCoverage as HouseholdRoom["robotVacuumCoverage"],
+    robotMopCoverage: room.robotMopCoverage as HouseholdRoom["robotMopCoverage"],
+    notes: room.notes ?? undefined
+  };
+}
+
+function toHouseholdFloor(floor: {
+  id: string;
+  householdId: string;
+  name: string;
+  levelType: string;
+  flooring: string;
+  petImpact: string;
+  robotVacuumCoverage: string;
+  robotMopCoverage: string;
+  notes?: string | null;
+  rooms: Array<{
+    id: string;
+    floorId: string;
+    name: string;
+    flooring: string;
+    petImpact: string;
+    robotVacuumCoverage: string;
+    robotMopCoverage: string;
+    notes?: string | null;
+  }>;
+}): HouseholdFloor {
+  return {
+    id: floor.id,
+    householdId: floor.householdId,
+    name: floor.name,
+    levelType: floor.levelType as HouseholdFloor["levelType"],
+    flooring: deserializeOptionalList(floor.flooring),
+    petImpact: floor.petImpact as HouseholdFloor["petImpact"],
+    robotVacuumCoverage: floor.robotVacuumCoverage as HouseholdFloor["robotVacuumCoverage"],
+    robotMopCoverage: floor.robotMopCoverage as HouseholdFloor["robotMopCoverage"],
+    notes: floor.notes ?? undefined,
+    rooms: floor.rooms.map(toHouseholdRoom)
   };
 }
 
@@ -161,6 +228,66 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
       });
 
       return household ? toHousehold(household) : undefined;
+    },
+
+    async getHouseholdStructure(householdId) {
+      const household = await prisma.household.findUnique({
+        where: { id: householdId }
+      });
+      if (!household) return undefined;
+
+      const floors = await prisma.householdFloor.findMany({
+        where: { householdId },
+        include: { rooms: { orderBy: { sortOrder: "asc" } } },
+        orderBy: { sortOrder: "asc" }
+      });
+
+      return {
+        householdId,
+        floors: floors.map(toHouseholdFloor)
+      };
+    },
+
+    async saveHouseholdStructure(householdId, floors) {
+      const household = await prisma.household.findUnique({
+        where: { id: householdId }
+      });
+      if (!household) return undefined;
+
+      await prisma.$transaction(async (tx) => {
+        await tx.householdFloor.deleteMany({ where: { householdId } });
+
+        for (const [floorIndex, floor] of floors.entries()) {
+          await tx.householdFloor.create({
+            data: {
+              id: floor.id,
+              householdId,
+              name: floor.name,
+              levelType: floor.levelType,
+              flooring: serializeOptionalList(floor.flooring),
+              petImpact: floor.petImpact,
+              robotVacuumCoverage: floor.robotVacuumCoverage,
+              robotMopCoverage: floor.robotMopCoverage,
+              notes: floor.notes,
+              sortOrder: floorIndex,
+              rooms: {
+                create: floor.rooms.map((room, roomIndex) => ({
+                  id: room.id,
+                  name: room.name,
+                  flooring: serializeOptionalList(room.flooring),
+                  petImpact: room.petImpact,
+                  robotVacuumCoverage: room.robotVacuumCoverage,
+                  robotMopCoverage: room.robotMopCoverage,
+                  notes: room.notes,
+                  sortOrder: roomIndex
+                }))
+              }
+            }
+          });
+        }
+      });
+
+      return this.getHouseholdStructure(householdId);
     },
 
     async createChore(chore) {

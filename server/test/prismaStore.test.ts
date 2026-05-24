@@ -24,6 +24,8 @@ const prisma = safeConnectionString
   : undefined;
 
 async function clearDatabase() {
+  await prisma!.householdRoom.deleteMany();
+  await prisma!.householdFloor.deleteMany();
   await prisma!.recommendation.deleteMany();
   await prisma!.chore.deleteMany();
   await prisma!.householdBaseline.deleteMany();
@@ -87,6 +89,68 @@ describe.skipIf(!safeConnectionString || !prisma)(
       ]);
     });
 
+    it("persists household floor and room structure across store instances", async () => {
+      const firstStore = createPrismaStore(prisma!);
+      const household = await firstStore.createHousehold("Home");
+
+      await firstStore.saveHouseholdStructure(household.id, [
+        {
+          id: "floor-main",
+          householdId: "ignored-household",
+          name: "Main floor",
+          levelType: "main",
+          flooring: ["hardwood", "rugs"],
+          petImpact: "medium",
+          robotVacuumCoverage: "most",
+          robotMopCoverage: "partial",
+          notes: "Rugs in the living room.",
+          rooms: [
+            {
+              id: "room-living",
+              floorId: "ignored-floor",
+              name: "Living room",
+              flooring: ["hardwood", "rugs"],
+              petImpact: "high",
+              robotVacuumCoverage: "all",
+              robotMopCoverage: "inherit",
+              notes: "Dog spends most evenings here."
+            }
+          ]
+        }
+      ]);
+
+      const secondStore = createPrismaStore(prisma!);
+
+      expect(await secondStore.getHouseholdStructure(household.id)).toEqual({
+        householdId: household.id,
+        floors: [
+          {
+            id: "floor-main",
+            householdId: household.id,
+            name: "Main floor",
+            levelType: "main",
+            flooring: ["hardwood", "rugs"],
+            petImpact: "medium",
+            robotVacuumCoverage: "most",
+            robotMopCoverage: "partial",
+            notes: "Rugs in the living room.",
+            rooms: [
+              {
+                id: "room-living",
+                floorId: "floor-main",
+                name: "Living room",
+                flooring: ["hardwood", "rugs"],
+                petImpact: "high",
+                robotVacuumCoverage: "all",
+                robotMopCoverage: "inherit",
+                notes: "Dog spends most evenings here."
+              }
+            ]
+          }
+        ]
+      });
+    });
+
     it("persists recommendations for later review", async () => {
       const store = createPrismaStore(prisma!);
       const household = await store.createHousehold("Home");
@@ -109,7 +173,8 @@ describe.skipIf(!safeConnectionString || !prisma)(
           title: "Review duration for Clean bathrooms",
           rationale: "The current estimate may be too short for the scope.",
           confidence: "high",
-          status: "pending"
+          status: "pending",
+          decision: "pending"
         }
       ]);
     });

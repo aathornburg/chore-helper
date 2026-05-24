@@ -22,6 +22,52 @@ const baselineSchema = z.object({
   notes: z.string().optional()
 });
 
+const coverageLevelSchema = z.enum(["none", "partial", "most", "all"]);
+const petImpactSchema = z.enum(["none", "low", "medium", "high"]);
+const flooringSurfaceSchema = z.enum([
+  "hardwood",
+  "tile",
+  "carpet",
+  "rugs",
+  "vinyl",
+  "laminate",
+  "concrete",
+  "mats",
+  "mixed",
+  "other"
+]);
+
+const roomOverrideCoverageSchema = z.union([coverageLevelSchema, z.literal("inherit")]);
+const roomOverridePetImpactSchema = z.union([petImpactSchema, z.literal("inherit")]);
+
+const householdRoomSchema = z.object({
+  id: z.string().min(1),
+  floorId: z.string().min(1),
+  name: z.string().min(1),
+  flooring: z.array(flooringSurfaceSchema),
+  petImpact: roomOverridePetImpactSchema,
+  robotVacuumCoverage: roomOverrideCoverageSchema,
+  robotMopCoverage: roomOverrideCoverageSchema,
+  notes: z.string().optional()
+});
+
+const householdFloorSchema = z.object({
+  id: z.string().min(1),
+  householdId: z.string().min(1),
+  name: z.string().min(1),
+  levelType: z.enum(["upstairs", "main", "basement", "other"]),
+  flooring: z.array(flooringSurfaceSchema),
+  petImpact: petImpactSchema,
+  robotVacuumCoverage: coverageLevelSchema,
+  robotMopCoverage: coverageLevelSchema,
+  notes: z.string().optional(),
+  rooms: z.array(householdRoomSchema)
+});
+
+const householdStructureSchema = z.object({
+  floors: z.array(householdFloorSchema)
+});
+
 const choreSchema = z.object({
   title: z.string().min(1),
   cadence: z.string().min(1),
@@ -83,6 +129,25 @@ export function createHouseholdRouter(store: HouseholdStore, agentProvider: Agen
     if (!household) return res.status(404).json({ error: "Household not found" });
 
     return res.status(200).json(household);
+  });
+
+  router.get("/:householdId/structure", async (req, res) => {
+    const household = await store.getHousehold(req.params.householdId);
+    if (!household) return res.status(404).json({ error: "Household not found" });
+
+    return res.status(200).json(await store.getHouseholdStructure(household.id));
+  });
+
+  router.put("/:householdId/structure", async (req, res) => {
+    const household = await store.getHousehold(req.params.householdId);
+    if (!household) return res.status(404).json({ error: "Household not found" });
+
+    const parsed = householdStructureSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid household structure payload" });
+
+    return res.status(200).json(
+      await store.saveHouseholdStructure(household.id, parsed.data.floors)
+    );
   });
 
   router.put("/:householdId/baseline", async (req, res) => {

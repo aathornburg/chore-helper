@@ -106,6 +106,95 @@ describe("household baseline flow", () => {
     );
   });
 
+  it("saves and fetches household floor and room structure", async () => {
+    const app = createTestApp();
+    const created = await request(app).post("/api/households").send({ name: "Home" }).expect(201);
+    const householdId = created.body.id;
+
+    await request(app)
+      .put(`/api/households/${householdId}/structure`)
+      .send({
+        floors: [
+          {
+            id: "floor-main",
+            householdId,
+            name: "Main floor",
+            levelType: "main",
+            flooring: ["hardwood", "rugs"],
+            petImpact: "medium",
+            robotVacuumCoverage: "most",
+            robotMopCoverage: "partial",
+            notes: "Rugs in the living room.",
+            rooms: [
+              {
+                id: "room-living",
+                floorId: "floor-main",
+                name: "Living room",
+                flooring: ["hardwood", "rugs"],
+                petImpact: "high",
+                robotVacuumCoverage: "all",
+                robotMopCoverage: "inherit",
+                notes: "Dog spends most evenings here."
+              }
+            ]
+          }
+        ]
+      })
+      .expect(200);
+
+    await request(app)
+      .get(`/api/households/${householdId}/structure`)
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toEqual({
+          householdId,
+          floors: [
+            expect.objectContaining({
+              id: "floor-main",
+              householdId,
+              name: "Main floor",
+              levelType: "main",
+              flooring: ["hardwood", "rugs"],
+              rooms: [
+                expect.objectContaining({
+                  id: "room-living",
+                  floorId: "floor-main",
+                  flooring: ["hardwood", "rugs"]
+                })
+              ]
+            })
+          ]
+        });
+      });
+  });
+
+  it("rejects invalid household structure payloads", async () => {
+    const app = createTestApp();
+    const created = await request(app).post("/api/households").send({ name: "Home" }).expect(201);
+
+    await request(app)
+      .put(`/api/households/${created.body.id}/structure`)
+      .send({
+        floors: [
+          {
+            id: "floor-main",
+            householdId: created.body.id,
+            name: "Main floor",
+            levelType: "main",
+            flooring: ["marble"],
+            petImpact: "medium",
+            robotVacuumCoverage: "most",
+            robotMopCoverage: "partial",
+            rooms: []
+          }
+        ]
+      })
+      .expect(400)
+      .expect((response) => {
+        expect(response.body).toEqual({ error: "Invalid household structure payload" });
+      });
+  });
+
   it("flags existing chores that look under-scoped for their ask", async () => {
     const app = createTestApp();
 
