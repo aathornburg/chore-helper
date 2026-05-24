@@ -31,7 +31,8 @@ model HouseholdBaseline {
 }
 
 model HouseholdFloor {
-  id                  String          @id
+  dbId                String          @id @default(cuid())
+  id                  String
   householdId         String
   household           Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
   name                String
@@ -45,12 +46,15 @@ model HouseholdFloor {
   rooms               HouseholdRoom[]
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
+
+  @@unique([householdId, id])
 }
 
 model HouseholdRoom {
-  id                  String         @id
-  floorId             String
-  floor               HouseholdFloor @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  dbId                String         @id @default(cuid())
+  id                  String
+  floorDbId           String
+  floor               HouseholdFloor @relation(fields: [floorDbId], references: [dbId], onDelete: Cascade)
   name                String
   flooring            String
   petImpact           String
@@ -60,6 +64,8 @@ model HouseholdRoom {
   sortOrder           Int
   createdAt           DateTime       @default(now())
   updatedAt           DateTime       @updatedAt
+
+  @@unique([floorDbId, id])
 }
 
 model Chore {

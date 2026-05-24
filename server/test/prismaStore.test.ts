@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { readFileSync } from "node:fs";
 import { PrismaClient } from "@prisma/client";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -22,6 +23,15 @@ const safeConnectionString = (() => {
 const prisma = safeConnectionString
   ? new PrismaClient({ adapter: new PrismaPg(safeConnectionString) })
   : undefined;
+
+it("scopes household structure ids by their parent records in the Prisma schema", () => {
+  const schema = readFileSync(new URL("../prisma/schema.prisma", import.meta.url), "utf8");
+
+  expect(schema).toContain("model HouseholdFloor {\n  dbId");
+  expect(schema).toContain("@unique([householdId, id])");
+  expect(schema).toContain("model HouseholdRoom {\n  dbId");
+  expect(schema).toContain("@unique([floorDbId, id])");
+});
 
 async function clearDatabase() {
   await prisma!.householdRoom.deleteMany();

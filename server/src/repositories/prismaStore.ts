@@ -66,17 +66,16 @@ function toHousehold(
 
 function toHouseholdRoom(room: {
   id: string;
-  floorId: string;
   name: string;
   flooring: string;
   petImpact: string;
   robotVacuumCoverage: string;
   robotMopCoverage: string;
   notes?: string | null;
-}): HouseholdRoom {
+}, floorId: string): HouseholdRoom {
   return {
     id: room.id,
-    floorId: room.floorId,
+    floorId,
     name: room.name,
     flooring: deserializeOptionalList(room.flooring),
     petImpact: room.petImpact as HouseholdRoom["petImpact"],
@@ -98,7 +97,6 @@ function toHouseholdFloor(floor: {
   notes?: string | null;
   rooms: Array<{
     id: string;
-    floorId: string;
     name: string;
     flooring: string;
     petImpact: string;
@@ -117,7 +115,7 @@ function toHouseholdFloor(floor: {
     robotVacuumCoverage: floor.robotVacuumCoverage as HouseholdFloor["robotVacuumCoverage"],
     robotMopCoverage: floor.robotMopCoverage as HouseholdFloor["robotMopCoverage"],
     notes: floor.notes ?? undefined,
-    rooms: floor.rooms.map(toHouseholdRoom)
+    rooms: floor.rooms.map((room) => toHouseholdRoom(room, floor.id))
   };
 }
 
