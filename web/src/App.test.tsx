@@ -48,7 +48,21 @@ function mockRestoredHouseholdFetches({
   return fetchMock;
 }
 
-function mockHouseholdsPageFetches(structure: HouseholdStructure) {
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((nextResolve) => {
+    resolve = nextResolve;
+  });
+  return { promise, resolve };
+}
+
+function mockHouseholdsPageFetches(
+  structure: HouseholdStructure,
+  options: {
+    saveResponse?: { ok: boolean; json: () => Promise<unknown> };
+    savePromise?: Promise<{ ok: boolean; json: () => Promise<unknown> }>;
+  } = {}
+) {
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = input.toString();
     const method = init?.method ?? "GET";
@@ -66,6 +80,8 @@ function mockHouseholdsPageFetches(structure: HouseholdStructure) {
     }
 
     if (url === "http://localhost:3001/api/households/household-1/structure" && method === "PUT") {
+      if (options.savePromise) return options.savePromise;
+      if (options.saveResponse) return options.saveResponse;
       const body = JSON.parse(String(init?.body)) as Pick<HouseholdStructure, "floors">;
       return { ok: true, json: async () => ({ householdId: "household-1", floors: body.floors }) };
     }
@@ -159,6 +175,7 @@ describe("App", () => {
 
     expect(screen.getByLabelText("Select Basement")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Basement" })).toBeTruthy();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Remove basement" }).hasAttribute("disabled")).toBe(false));
 
     fireEvent.click(screen.getByRole("button", { name: "Remove basement" }));
     expect(screen.getByText("Remove Basement and 0 rooms?")).toBeTruthy();
@@ -169,7 +186,7 @@ describe("App", () => {
 
   it("allows multiple flooring chips on a floor", async () => {
     restoreHouseholdInStorage();
-    mockHouseholdsPageFetches({
+    const fetchMock = mockHouseholdsPageFetches({
       householdId: "household-1",
       floors: [
         {
@@ -190,10 +207,92 @@ describe("App", () => {
 
     await waitFor(() => expect(screen.getByRole("button", { name: "hardwood" })).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "hardwood" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "rugs" }).hasAttribute("disabled")).toBe(false));
     fireEvent.click(screen.getByRole("button", { name: "rugs" }));
 
     expect(screen.getByRole("button", { name: "hardwood" }).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByRole("button", { name: "rugs" }).getAttribute("aria-pressed")).toBe("true");
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "http://localhost:3001/api/households/household-1/structure",
+        expect.objectContaining({
+          method: "PUT",
+          body: expect.stringContaining("\"hardwood\"")
+        })
+      );
+    });
+  });
+
+  it("rolls back floor edits when saving structure fails", async () => {
+    restoreHouseholdInStorage();
+    mockHouseholdsPageFetches(
+      {
+        householdId: "household-1",
+        floors: [
+          {
+            id: "floor-main",
+            householdId: "household-1",
+            name: "Main floor",
+            levelType: "main",
+            flooring: [],
+            petImpact: "none",
+            robotVacuumCoverage: "none",
+            robotMopCoverage: "none",
+            rooms: []
+          }
+        ]
+      },
+      {
+        saveResponse: { ok: false, json: async () => ({ error: "Save failed" }) }
+      }
+    );
+
+    renderAt("/households");
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "hardwood" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "hardwood" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("status").textContent).toBe("Could not save household structure.");
+      expect(screen.getByRole("button", { name: "hardwood" }).getAttribute("aria-pressed")).toBe("false");
+    });
+  });
+
+  it("blocks additional floor edits while a structure save is pending", async () => {
+    restoreHouseholdInStorage();
+    const deferred = createDeferred<{ ok: boolean; json: () => Promise<unknown> }>();
+    const fetchMock = mockHouseholdsPageFetches(
+      {
+        householdId: "household-1",
+        floors: [
+          {
+            id: "floor-main",
+            householdId: "household-1",
+            name: "Main floor",
+            levelType: "main",
+            flooring: [],
+            petImpact: "none",
+            robotVacuumCoverage: "none",
+            robotMopCoverage: "none",
+            rooms: []
+          }
+        ]
+      },
+      { savePromise: deferred.promise }
+    );
+
+    renderAt("/households");
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "hardwood" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "hardwood" }));
+    fireEvent.click(screen.getByRole("button", { name: "rugs" }));
+
+    expect(screen.getByRole("button", { name: "rugs" }).hasAttribute("disabled")).toBe(true);
+    expect(fetchMock.mock.calls.filter(([url, init]) =>
+      url === "http://localhost:3001/api/households/household-1/structure" && init?.method === "PUT"
+    )).toHaveLength(1);
+
+    deferred.resolve({ ok: true, json: async () => ({ householdId: "household-1", floors: [] }) });
   });
 
   it("loads the Chores page with existing chores", async () => {

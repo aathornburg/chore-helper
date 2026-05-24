@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FlooringSurface, HouseholdFloor, HouseholdStructure } from "@chore-helper/shared";
 import { getHouseholdStructure, saveHouseholdStructure } from "../api";
 import type { HouseholdSetupState } from "../types";
@@ -19,10 +19,13 @@ function getMainFloorId(floors: HouseholdFloor[]) {
 }
 
 export function HouseholdsPage({ householdSetup }: HouseholdsPageProps) {
+  const saveInFlightRef = useRef(false);
   const [structure, setStructure] = useState<HouseholdStructure>();
   const [selectedFloorId, setSelectedFloorId] = useState<string>();
   const [loadState, setLoadState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [pendingRemoveFloorId, setPendingRemoveFloorId] = useState<string>();
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string>();
 
   useEffect(() => {
     if (householdSetup.isRestoring) {
@@ -52,6 +55,7 @@ export function HouseholdsPage({ householdSetup }: HouseholdsPageProps) {
         setStructure(nextStructure);
         setSelectedFloorId(getMainFloorId(nextStructure.floors));
         setPendingRemoveFloorId(undefined);
+        setSaveError(undefined);
         setLoadState("ready");
       } catch {
         if (!cancelled) setLoadState("error");
@@ -70,12 +74,30 @@ export function HouseholdsPage({ householdSetup }: HouseholdsPageProps) {
   const selectedFloor = floors.find((floor) => floor.id === selectedFloorId);
 
   async function persist(nextStructure: HouseholdStructure) {
+    if (saveInFlightRef.current) return false;
+
+    const previousStructure = activeStructure;
+    const previousSelectedFloorId = selectedFloorId;
+    saveInFlightRef.current = true;
+    setIsSaving(true);
+    setSaveError(undefined);
     setStructure(nextStructure);
-    await saveHouseholdStructure(nextStructure.householdId, nextStructure);
+    try {
+      await saveHouseholdStructure(nextStructure.householdId, nextStructure);
+      return true;
+    } catch {
+      setStructure(previousStructure);
+      setSelectedFloorId(previousSelectedFloorId);
+      setSaveError("Could not save household structure.");
+      return false;
+    } finally {
+      saveInFlightRef.current = false;
+      setIsSaving(false);
+    }
   }
 
   async function handleToggleFlooring(flooring: FlooringSurface) {
-    if (!activeStructure || !selectedFloor) return;
+    if (!activeStructure || !selectedFloor || isSaving) return;
 
     const nextFloors = activeStructure.floors.map((floor) => {
       if (floor.id !== selectedFloor.id) return floor;
@@ -88,7 +110,7 @@ export function HouseholdsPage({ householdSetup }: HouseholdsPageProps) {
   }
 
   async function handleAddFloor() {
-    if (!activeStructure) return;
+    if (!activeStructure || isSaving) return;
     const floor = createNewFloor(activeStructure.householdId, activeStructure.floors.length);
     const nextStructure = { ...activeStructure, floors: sortFloors([...activeStructure.floors, floor]) };
     setSelectedFloorId(floor.id);
@@ -96,7 +118,7 @@ export function HouseholdsPage({ householdSetup }: HouseholdsPageProps) {
   }
 
   async function handleAddBasement() {
-    if (!activeStructure || activeStructure.floors.some((floor) => floor.levelType === "basement")) return;
+    if (isSaving || !activeStructure || activeStructure.floors.some((floor) => floor.levelType === "basement")) return;
     const basement = createBasementFloor(activeStructure.householdId);
     const nextStructure = { ...activeStructure, floors: sortFloors([...activeStructure.floors, basement]) };
     setSelectedFloorId(basement.id);
@@ -104,7 +126,7 @@ export function HouseholdsPage({ householdSetup }: HouseholdsPageProps) {
   }
 
   async function handleConfirmRemoveFloor() {
-    if (!activeStructure || !pendingRemoveFloorId) return;
+    if (isSaving || !activeStructure || !pendingRemoveFloorId) return;
     const nextFloors = activeStructure.floors.filter((floor) => floor.id !== pendingRemoveFloorId);
     const nextStructure = { ...activeStructure, floors: nextFloors };
     setPendingRemoveFloorId(undefined);
@@ -132,6 +154,7 @@ export function HouseholdsPage({ householdSetup }: HouseholdsPageProps) {
 
       {loadState === "loading" ? <div className="empty-state">Loading household structure...</div> : null}
       {loadState === "error" ? <div className="empty-state">Could not load household structure.</div> : null}
+      {saveError ? <div className="empty-state" role="status">{saveError}</div> : null}
 
       {loadState === "ready" && selectedFloor ? (
         <section className="household-editor" aria-label="Household floor editor">
@@ -145,6 +168,7 @@ export function HouseholdsPage({ householdSetup }: HouseholdsPageProps) {
                   aria-label={`Select ${floor.name}`}
                   className={`compact-house-floor ${selectedFloor.id === floor.id ? "active" : ""} compact-house-floor-${floor.levelType}`}
                   key={floor.id}
+                  disabled={isSaving}
                   onClick={() => setSelectedFloorId(floor.id)}
                   type="button"
                 >
@@ -156,6 +180,7 @@ export function HouseholdsPage({ householdSetup }: HouseholdsPageProps) {
               {floors.map((floor) => (
                 <button
                   aria-pressed={selectedFloor.id === floor.id}
+                  disabled={isSaving}
                   key={floor.id}
                   onClick={() => setSelectedFloorId(floor.id)}
                   type="button"
@@ -166,9 +191,9 @@ export function HouseholdsPage({ householdSetup }: HouseholdsPageProps) {
               ))}
             </div>
             <div className="floor-actions">
-              <button onClick={handleAddFloor} type="button">Add floor</button>
+              <button disabled={isSaving} onClick={handleAddFloor} type="button">Add floor</button>
               {!floors.some((floor) => floor.levelType === "basement") ? (
-                <button onClick={handleAddBasement} type="button">Add basement</button>
+                <button disabled={isSaving} onClick={handleAddBasement} type="button">Add basement</button>
               ) : null}
             </div>
           </aside>
@@ -180,7 +205,7 @@ export function HouseholdsPage({ householdSetup }: HouseholdsPageProps) {
                 <p className="lede">Floor details</p>
               </div>
               {selectedFloor.levelType !== "main" ? (
-                <button onClick={() => setPendingRemoveFloorId(selectedFloor.id)} type="button">
+                <button disabled={isSaving} onClick={() => setPendingRemoveFloorId(selectedFloor.id)} type="button">
                   {selectedFloor.levelType === "basement" ? "Remove basement" : "Remove floor"}
                 </button>
               ) : null}
@@ -189,8 +214,8 @@ export function HouseholdsPage({ householdSetup }: HouseholdsPageProps) {
               <div className="inline-confirmation">
                 <p>Remove {selectedFloor.name} and {selectedFloor.rooms.length} rooms?</p>
                 <div className="form-actions">
-                  <button onClick={handleConfirmRemoveFloor} type="button">Confirm remove floor</button>
-                  <button onClick={() => setPendingRemoveFloorId(undefined)} type="button">Cancel</button>
+                  <button disabled={isSaving} onClick={handleConfirmRemoveFloor} type="button">Confirm remove floor</button>
+                  <button disabled={isSaving} onClick={() => setPendingRemoveFloorId(undefined)} type="button">Cancel</button>
                 </div>
               </div>
             ) : null}
@@ -198,6 +223,7 @@ export function HouseholdsPage({ householdSetup }: HouseholdsPageProps) {
               {flooringOptions.map((flooring) => (
                 <button
                   aria-pressed={selectedFloor.flooring.includes(flooring)}
+                  disabled={isSaving}
                   key={flooring}
                   onClick={() => handleToggleFlooring(flooring)}
                   type="button"
