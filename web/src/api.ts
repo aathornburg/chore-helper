@@ -1,4 +1,10 @@
-import type { Chore, Household, HouseholdBaseline, Recommendation } from "@chore-helper/shared";
+import type {
+  Chore,
+  Household,
+  HouseholdBaseline,
+  HouseholdStructure,
+  Recommendation
+} from "@chore-helper/shared";
 
 /*
   This API layer is analogous to an Angular service that wraps HttpClient.
@@ -40,6 +46,27 @@ export async function getHousehold(householdId: string): Promise<Household> {
   const response = await fetch(`${API_BASE_URL}/api/households/${householdId}`);
 
   if (!response.ok) throw new Error("Failed to fetch household");
+  return response.json();
+}
+
+export async function getHouseholdStructure(householdId: string): Promise<HouseholdStructure> {
+  const response = await fetch(`${API_BASE_URL}/api/households/${householdId}/structure`);
+
+  if (!response.ok) throw new Error("Failed to fetch household structure");
+  return response.json();
+}
+
+export async function saveHouseholdStructure(
+  householdId: string,
+  structure: HouseholdStructure
+): Promise<HouseholdStructure> {
+  const response = await fetch(`${API_BASE_URL}/api/households/${householdId}/structure`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ floors: structure.floors })
+  });
+
+  if (!response.ok) throw new Error("Failed to save household structure");
   return response.json();
 }
 
