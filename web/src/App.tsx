@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { SignInButton, SignUpButton, SignedIn, SignedOut, UserButton } from "@clerk/clerk-react";
+import { ApiAuthBridge } from "./auth/AuthProvider";
 import { OptimizePage } from "./pages/OptimizePage";
 import { HouseholdsPage } from "./pages/HouseholdsPage";
 import { ChoresPage } from "./pages/ChoresPage";
@@ -27,9 +29,43 @@ import "./App.css";
 */
 function App() {
   return (
-    <AppDataProvider>
-      <AppRoutes />
-    </AppDataProvider>
+    <>
+      <SignedOut>
+        <SignedOutWorkspace />
+      </SignedOut>
+      <SignedIn>
+        <ApiAuthBridge>
+          <AppDataProvider authReady={true}>
+            <AppRoutes />
+          </AppDataProvider>
+        </ApiAuthBridge>
+      </SignedIn>
+    </>
+  );
+}
+
+function SignedOutWorkspace() {
+  return (
+    <div className="workspace-shell signed-out-shell">
+      <header className="workspace-topbar">
+        <a className="brand-mark" href="/">
+          Cleainly
+        </a>
+      </header>
+      <main className="workspace-main">
+        <section className="workspace-hero first-time-hero">
+          <div>
+            <p className="eyebrow">Account required</p>
+            <h1>Sign in to manage your households</h1>
+            <p className="lede">Your household data loads after authentication.</p>
+            <div className="form-actions">
+              <SignInButton mode="modal">Sign in</SignInButton>
+              <SignUpButton mode="modal">Sign up</SignUpButton>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
   );
 }
 
@@ -82,13 +118,12 @@ function AppRoutes() {
         <HouseholdsPage households={households} isLoading={isLoading} onAddHousehold={addHousehold} />
       ) : null}
       {path === "/chores" ? (
-        <ChoresPage />
+        <ChoresPage households={households} householdsLoading={isLoading} />
       ) : null}
       {path === "/optimize" ? (
         <OptimizePage
-          householdId={householdSetup.householdId}
-          householdName={householdSetup.householdName}
-          baseline={householdSetup.baseline}
+          households={households}
+          isLoading={isLoading}
         />
       ) : null}
       {path === "/family" ? <FamilyPage /> : null}
@@ -146,6 +181,7 @@ function AppShell({
             </a>
           ))}
         </nav>
+        <UserButton />
       </header>
 
       <main className="workspace-main">{children}</main>

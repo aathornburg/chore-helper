@@ -6,39 +6,74 @@
 */
 import cors from "cors";
 import express from "express";
+import { clerkMiddleware } from "@clerk/express";
 import type { AgentProvider } from "./agent/AgentProvider.js";
 import { createAgentProvider } from "./agent/createAgentProvider.js";
+import type { AuthMode } from "./auth/currentUser.js";
+import { resolveCurrentUser } from "./auth/currentUser.js";
 import type { HouseholdStore } from "./repositories/inMemoryStore.js";
 import { createPrismaClient } from "./repositories/prismaClient.js";
 import { createPrismaStore } from "./repositories/prismaStore.js";
 import { createHouseholdRouter } from "./routes/households.js";
+import { createMeRouter } from "./routes/me.js";
 
 type AppDependencies = {
   store?: HouseholdStore;
   agentProvider?: AgentProvider;
+  authMode?: AuthMode;
 };
 
 export function createApp(dependencies: AppDependencies = {}) {
   const app = express();
   const store = dependencies.store ?? createPrismaStore(createPrismaClient());
   const agentProvider = dependencies.agentProvider ?? createAgentProvider();
+  const authMode = dependencies.authMode ?? "clerk";
 
   app.use(cors());
+  if (authMode === "clerk") {
+    app.use(clerkMiddleware());
+  }
   app.use(express.json());
   app.get("/api/health", (_req, res) => res.json({ ok: true }));
   app.get("/api/chores", async (req, res) => {
+    const user = await resolveCurrentUser(req, res, store, authMode);
+    if (!user) return;
+
     const includeArchived = req.query.includeArchived === "true";
     const archivedOnly = req.query.status === "archived";
+    const households = await store.listHouseholdsForUser(user.id);
+    const householdNames = new Map(households.map((household) => [household.id, household.name]));
+    const chores = (
+      await Promise.all(
+        households.map((household) =>
+          store.listChores(household.id, {
+            includeArchived,
+            archivedOnly
+          })
+        )
+      )
+    ).flat();
 
-    return res.status(200).json(await store.listAllChores({
-      includeArchived,
-      archivedOnly
-    }));
+    return res.status(200).json(
+      chores.map((chore) => ({
+        ...chore,
+        householdName: householdNames.get(chore.householdId)
+      }))
+    );
   });
-  app.get("/api/recommendations", async (_req, res) => {
-    return res.status(200).json(await store.listAllRecommendations());
+  app.get("/api/recommendations", async (req, res) => {
+    const user = await resolveCurrentUser(req, res, store, authMode);
+    if (!user) return;
+
+    const households = await store.listHouseholdsForUser(user.id);
+    const recommendations = (
+      await Promise.all(households.map((household) => store.listRecommendations(household.id)))
+    ).flat();
+
+    return res.status(200).json(recommendations);
   });
-  app.use("/api/households", createHouseholdRouter(store, agentProvider));
+  app.use("/api/me", createMeRouter(store, authMode));
+  app.use("/api/households", createHouseholdRouter(store, agentProvider, authMode));
 
   return app;
 }

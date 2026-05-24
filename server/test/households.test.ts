@@ -1,5 +1,5 @@
 import type { Recommendation } from "@chore-helper/shared";
-import request from "supertest";
+import supertest from "supertest";
 import { describe, expect, it } from "vitest";
 import type {
   AgentChatContext,
@@ -11,7 +11,17 @@ import { createApp } from "../src/app.js";
 import { createInMemoryStore } from "../src/repositories/inMemoryStore.js";
 
 function createTestApp() {
-  return createApp({ store: createInMemoryStore() });
+  return createApp({ store: createInMemoryStore(), authMode: "test" });
+}
+
+function request(app: ReturnType<typeof createApp>, userId = "test-user-a") {
+  const authorization = `Bearer ${userId}`;
+
+  return {
+    get: (url: string) => supertest(app).get(url).set("Authorization", authorization),
+    post: (url: string) => supertest(app).post(url).set("Authorization", authorization),
+    put: (url: string) => supertest(app).put(url).set("Authorization", authorization)
+  };
 }
 
 class FailingAgentProvider implements AgentProvider {
@@ -135,6 +145,64 @@ describe("household baseline flow", () => {
       }],
       recommendations: [{ householdId, affectedChoreId: chore.body.id }]
     });
+  });
+
+  it("rejects unauthenticated household API requests", async () => {
+    const app = createTestApp();
+
+    await supertest(app)
+      .get("/api/households")
+      .expect(401)
+      .expect((response) => {
+        expect(response.body).toEqual({ error: "Authentication required" });
+      });
+  });
+
+  it("rejects unauthenticated top-level aggregate API requests", async () => {
+    const app = createTestApp();
+
+    await supertest(app).get("/api/chores").expect(401);
+    await supertest(app).get("/api/recommendations").expect(401);
+  });
+
+  it("rejects unauthenticated nested household API requests", async () => {
+    const app = createTestApp();
+    const created = await request(app)
+      .post("/api/households")
+      .send({ name: "Home" })
+      .expect(201);
+
+    await supertest(app).get(`/api/households/${created.body.id}/chores`).expect(401);
+  });
+
+  it("returns 404 when an authenticated user accesses another user's household", async () => {
+    const app = createTestApp();
+    const created = await request(app)
+      .post("/api/households")
+      .send({ name: "Home" })
+      .expect(201);
+
+    await request(app, "test-user-b")
+      .get(`/api/households/${created.body.id}`)
+      .expect(404)
+      .expect((response) => {
+        expect(response.body).toEqual({ error: "Household not found" });
+      });
+  });
+
+  it("returns 404 when an authenticated nonmember accesses nested household routes", async () => {
+    const app = createTestApp();
+    const created = await request(app)
+      .post("/api/households")
+      .send({ name: "Home" })
+      .expect(201);
+
+    await request(app, "test-user-b")
+      .get(`/api/households/${created.body.id}/chores`)
+      .expect(404)
+      .expect((response) => {
+        expect(response.body).toEqual({ error: "Household not found" });
+      });
   });
 
   it("creates a household, saves baseline facts, and returns expert recommendations", async () => {
@@ -680,6 +748,69 @@ describe("household baseline flow", () => {
       });
   });
 
+  it("lists only the authenticated user's chores from the top-level chores route", async () => {
+    const app = createTestApp();
+    const first = await request(app, "test-user-a").post("/api/households").send({ name: "First" }).expect(201);
+    const second = await request(app, "test-user-b").post("/api/households").send({ name: "Second" }).expect(201);
+
+    const firstChore = await request(app, "test-user-a")
+      .post(`/api/households/${first.body.id}/chores`)
+      .send({ title: "Vacuum", cadence: "weekly", estimatedMinutes: 15, source: "manual" })
+      .expect(201);
+    await request(app, "test-user-b")
+      .post(`/api/households/${second.body.id}/chores`)
+      .send({ title: "Mop", cadence: "weekly", estimatedMinutes: 20, source: "manual" })
+      .expect(201);
+
+    await request(app, "test-user-a")
+      .get("/api/chores")
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toEqual([
+          expect.objectContaining({
+            id: firstChore.body.id,
+            householdId: first.body.id,
+            householdName: "First"
+          })
+        ]);
+      });
+  });
+
+  it("lists only the authenticated user's recommendations from the top-level recommendations route", async () => {
+    const app = createTestApp();
+    const first = await request(app, "test-user-a").post("/api/households").send({ name: "First" }).expect(201);
+    const second = await request(app, "test-user-b").post("/api/households").send({ name: "Second" }).expect(201);
+
+    await request(app, "test-user-a")
+      .post(`/api/households/${first.body.id}/chores`)
+      .send({ title: "Clean bathroom", cadence: "weekly", estimatedMinutes: 10, source: "manual" })
+      .expect(201);
+    await request(app, "test-user-b")
+      .post(`/api/households/${second.body.id}/chores`)
+      .send({ title: "Clean bathroom", cadence: "weekly", estimatedMinutes: 10, source: "manual" })
+      .expect(201);
+
+    await request(app, "test-user-a")
+      .post(`/api/households/${first.body.id}/recommendations`)
+      .send({ reviewPrompt: "Review first home." })
+      .expect(201);
+    await request(app, "test-user-b")
+      .post(`/api/households/${second.body.id}/recommendations`)
+      .send({ reviewPrompt: "Review second home." })
+      .expect(201);
+
+    await request(app, "test-user-a")
+      .get("/api/recommendations")
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toEqual([
+          expect.objectContaining({
+            householdId: first.body.id
+          })
+        ]);
+      });
+  });
+
   it("returns 404 when updating a chore through the wrong household", async () => {
     const app = createTestApp();
     const first = await request(app).post("/api/households").send({ name: "First" }).expect(201);
@@ -698,7 +829,8 @@ describe("household baseline flow", () => {
   it("returns a stable 502 when recommendation generation fails", async () => {
     const app = createApp({
       store: createInMemoryStore(),
-      agentProvider: new FailingAgentProvider()
+      agentProvider: new FailingAgentProvider(),
+      authMode: "test"
     });
     const created = await request(app).post("/api/households").send({ name: "Home" }).expect(201);
 
@@ -715,7 +847,8 @@ describe("household baseline flow", () => {
     const agentProvider = new RecordingChatAgentProvider();
     const app = createApp({
       store: createInMemoryStore(),
-      agentProvider
+      agentProvider,
+      authMode: "test"
     });
     const created = await request(app).post("/api/households").send({ name: "Home" }).expect(201);
     const householdId = created.body.id;
@@ -804,7 +937,8 @@ describe("household baseline flow", () => {
   it("returns a stable 502 when assistant chat generation fails", async () => {
     const app = createApp({
       store: createInMemoryStore(),
-      agentProvider: new FailingChatAgentProvider()
+      agentProvider: new FailingChatAgentProvider(),
+      authMode: "test"
     });
     const created = await request(app).post("/api/households").send({ name: "Home" }).expect(201);
 

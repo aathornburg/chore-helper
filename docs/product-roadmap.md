@@ -69,7 +69,7 @@ Key outcomes:
 
 - Users can sign in and sign out.
 - Households are associated with users.
-- The app replaces localStorage household ownership with authenticated household selection.
+- The app replaces localStorage household ownership with authenticated user-scoped household loading.
 - Local development remains simple while the architecture prepares for hosted deployment.
 - The backend enforces household access through authenticated ownership rather than client-provided IDs alone.
 

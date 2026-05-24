@@ -1,20 +1,22 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { HouseholdAppData, HouseholdBaseline } from "@chore-helper/shared";
-import { createChore, createHousehold, listHouseholds, saveBaseline } from "../api";
-import type { ExistingChoreFormValues, HouseholdSetupState, SetupFormValues } from "../types";
-import { parseFlooring, parseList } from "../utils/household";
+import { createHousehold, getCurrentUser, listHouseholds } from "../api";
+import type { HouseholdSetupState } from "../types";
 
 type AppDataContextValue = {
-  addExistingChore: (values: ExistingChoreFormValues) => Promise<void>;
   addHousehold: (name: string) => Promise<void>;
   householdSetup: HouseholdSetupState;
   households: HouseholdAppData[];
   isLoading: boolean;
   reloadHouseholds: () => Promise<void>;
-  saveHouseholdContext: (values: SetupFormValues) => Promise<void>;
 };
 
 const AppDataContext = createContext<AppDataContextValue | undefined>(undefined);
+
+type AppDataProviderProps = {
+  authReady: boolean;
+  children: React.ReactNode;
+};
 
 const initialHouseholdSetup: HouseholdSetupState = {
   householdName: "Home",
@@ -62,15 +64,18 @@ function createEmptyHouseholdData(
   };
 }
 
-export function AppDataProvider({ children }: { children: React.ReactNode }) {
+export function AppDataProvider({ authReady, children }: AppDataProviderProps) {
   const [households, setHouseholds] = useState<HouseholdAppData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string>();
 
   async function reloadHouseholds() {
+    if (!authReady) return;
+
     setIsLoading(true);
     setLoadError(undefined);
     try {
+      await getCurrentUser();
       setHouseholds(await listHouseholds());
     } catch {
       setLoadError("We could not load your households.");
@@ -81,12 +86,15 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
+    if (!authReady) return;
+
     let cancelled = false;
 
     async function loadInitialData() {
       setIsLoading(true);
       setLoadError(undefined);
       try {
+        await getCurrentUser();
         const loadedHouseholds = await listHouseholds();
         if (!cancelled) setHouseholds(loadedHouseholds);
       } catch {
@@ -104,54 +112,13 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [authReady]);
 
-  const activeHousehold = households[0];
+  // Compatibility bridge for pages not yet converted to all-household data.
   const householdSetup = useMemo(
-    () => toHouseholdSetup(activeHousehold, isLoading, loadError),
-    [activeHousehold, isLoading, loadError]
+    () => toHouseholdSetup(households[0], isLoading, loadError),
+    [households, isLoading, loadError]
   );
-
-  async function saveHouseholdContext(values: SetupFormValues) {
-    const baseline: HouseholdBaseline = {
-      homeType: values.homeType,
-      rooms: parseList(values.rooms),
-      flooring: parseFlooring(values.flooring),
-      hasPets: values.hasPets,
-      hasOutdoorSpace: values.hasOutdoorSpace,
-      notes: values.notes
-    };
-    const household = activeHousehold ?? createEmptyHouseholdData(await createHousehold(values.householdName));
-    const savedHousehold = await saveBaseline(household.id, baseline);
-    const nextHousehold = {
-      ...household,
-      ...savedHousehold,
-      baseline: savedHousehold.baseline ?? baseline
-    };
-
-    setHouseholds((currentHouseholds) => {
-      const exists = currentHouseholds.some((candidate) => candidate.id === nextHousehold.id);
-      if (!exists) return [nextHousehold, ...currentHouseholds];
-      return currentHouseholds.map((candidate) =>
-        candidate.id === nextHousehold.id ? nextHousehold : candidate
-      );
-    });
-  }
-
-  async function addExistingChore(values: ExistingChoreFormValues) {
-    if (!activeHousehold) {
-      throw new Error("Household context must be saved before adding chores.");
-    }
-
-    const chore = { ...(await createChore(activeHousehold.id, values)), recommendations: [] };
-    setHouseholds((currentHouseholds) =>
-      currentHouseholds.map((household) =>
-        household.id === activeHousehold.id
-          ? { ...household, chores: [...household.chores, chore] }
-          : household
-      )
-    );
-  }
 
   async function addHousehold(name: string) {
     const household = createEmptyHouseholdData(await createHousehold(name));
@@ -160,13 +127,11 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo(
     () => ({
-      addExistingChore,
       addHousehold,
       householdSetup,
       households,
       isLoading,
-      reloadHouseholds,
-      saveHouseholdContext
+      reloadHouseholds
     }),
     [householdSetup, households, isLoading]
   );

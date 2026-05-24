@@ -13,8 +13,30 @@ model Household {
   floors          HouseholdFloor[]
   chores          Chore[]
   recommendations Recommendation[]
+  members         HouseholdMember[]
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
+}
+
+model User {
+  id          String            @id @default(cuid())
+  clerkUserId String            @unique
+  memberships HouseholdMember[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+model HouseholdMember {
+  id          String    @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role        String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([householdId, userId])
 }
 
 model HouseholdBaseline {

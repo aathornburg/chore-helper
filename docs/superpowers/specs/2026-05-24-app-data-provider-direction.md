@@ -16,7 +16,7 @@ The next provider should focus on initial data loading for the authenticated use
 - Remove `localStorage` household ID reads and writes.
 - Treat `GET /api/households` as the primary initial data endpoint.
 - Plan for each household payload to include the information needed by the main app views: household details, structure, chores, and chore recommendations.
-- Until household selection/auth work is fully designed, consumers may derive a temporary default household from the loaded household list, but the provider contract should not encode “selected household from localStorage.”
+- Auth should not introduce a selected, current, or active household concept. Consumers that still require one household may derive a temporary compatibility value from the loaded household list while they are being refactored, but the provider contract should not encode household selection.
 
 ## Backend Direction
 

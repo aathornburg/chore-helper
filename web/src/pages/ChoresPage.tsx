@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { type ChoreReviewState, type Chore, type Recommendation } from "@chore-helper/shared";
+import { type ChoreReviewState, type Chore, type Household, type Recommendation } from "@chore-helper/shared";
 import {
   archiveChore,
+  createChore,
   listAllChores,
   listAllRecommendations,
   restoreChore,
@@ -89,7 +90,12 @@ function formatChoreHousehold(chore: Chore) {
   return chore.householdName ?? chore.householdId;
 }
 
-export function ChoresPage() {
+type ChoresPageProps = {
+  households: Household[];
+  householdsLoading: boolean;
+};
+
+export function ChoresPage({ households, householdsLoading }: ChoresPageProps) {
   const [chores, setChores] = useState<Chore[]>([]);
   const [archivedChores, setArchivedChores] = useState<Chore[]>([]);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
@@ -101,6 +107,12 @@ export function ChoresPage() {
   const [editTitle, setEditTitle] = useState("");
   const [editCadence, setEditCadence] = useState("");
   const [editEstimatedMinutes, setEditEstimatedMinutes] = useState("");
+  const [isAddFormOpen, setIsAddFormOpen] = useState(false);
+  const [isCreatingChore, setIsCreatingChore] = useState(false);
+  const [newHouseholdId, setNewHouseholdId] = useState("");
+  const [newTitle, setNewTitle] = useState("");
+  const [newCadence, setNewCadence] = useState("");
+  const [newEstimatedMinutes, setNewEstimatedMinutes] = useState("");
   // Like an Angular accordion item keyed by id, only the expanded row owns the edit form.
   const expandedChore = chores.find((chore) => chore.id === expandedChoreId);
   const expandedRecommendation = findRecommendationForChore(expandedChore, recommendations);
@@ -161,6 +173,46 @@ export function ChoresPage() {
 
   function handleCancelEdit() {
     setExpandedChoreId(undefined);
+  }
+
+
+  function handleOpenAddChore() {
+    setNewHouseholdId("");
+    setNewTitle("");
+    setNewCadence("");
+    setNewEstimatedMinutes("");
+    setIsAddFormOpen(true);
+  }
+
+  function handleCancelAddChore() {
+    setIsAddFormOpen(false);
+  }
+
+  async function handleCreateChore(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!newHouseholdId || isCreatingChore) return;
+
+    setIsCreatingChore(true);
+    setStatus("Adding chore...");
+    try {
+      const added = await createChore(newHouseholdId, {
+        title: newTitle.trim(),
+        cadence: newCadence.trim(),
+        estimatedMinutes: Number(newEstimatedMinutes),
+        source: "manual"
+      });
+      const householdName = households.find((household) => household.id === newHouseholdId)?.name;
+
+      setChores((currentChores) => [...currentChores, { ...added, householdName }]);
+      setRecommendations([]);
+      setActiveTab("all-active");
+      setIsAddFormOpen(false);
+      setStatus("Chore added. Run review when you are ready.");
+    } catch {
+      setStatus("Could not add chore.");
+    } finally {
+      setIsCreatingChore(false);
+    }
   }
 
   async function handleSaveSelectedChore(event: React.FormEvent<HTMLFormElement>) {
@@ -234,6 +286,87 @@ export function ChoresPage() {
           </div>
         </div>
 
+        <div className="form-actions">
+          <button
+            disabled={householdsLoading || households.length === 0 || isCreatingChore}
+            onClick={handleOpenAddChore}
+            type="button"
+          >
+            Add chore
+          </button>
+        </div>
+
+        {!householdsLoading && households.length === 0 ? (
+          <div className="empty-state">Add a household before creating chores.</div>
+        ) : null}
+
+        {isAddFormOpen ? (
+          <form className="manual-chore-form compact-chore-form" onSubmit={handleCreateChore}>
+            <div className="field-grid">
+              <label>
+                Household
+                <select
+                  disabled={isCreatingChore}
+                  required
+                  value={newHouseholdId}
+                  onChange={(event) => setNewHouseholdId(event.target.value)}
+                >
+                  <option value="">Select household</option>
+                  {households.map((household) => (
+                    <option key={household.id} value={household.id}>{household.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Chore title
+                <input
+                  disabled={isCreatingChore}
+                  required
+                  value={newTitle}
+                  onChange={(event) => setNewTitle(event.target.value)}
+                />
+              </label>
+              <label>
+                Cadence
+                <input
+                  disabled={isCreatingChore}
+                  required
+                  value={newCadence}
+                  onChange={(event) => setNewCadence(event.target.value)}
+                />
+              </label>
+              <label>
+                Estimated minutes
+                <input
+                  disabled={isCreatingChore}
+                  min="1"
+                  required
+                  type="number"
+                  value={newEstimatedMinutes}
+                  onChange={(event) => setNewEstimatedMinutes(event.target.value)}
+                />
+              </label>
+              <label>
+                Source
+                <select disabled value="manual" onChange={() => undefined}>
+                  <option value="manual">Manual</option>
+                </select>
+              </label>
+            </div>
+            <div className="form-actions">
+              <button disabled={isCreatingChore} type="submit">Save chore</button>
+              <button
+                className="secondary-action"
+                disabled={isCreatingChore}
+                onClick={handleCancelAddChore}
+                type="button"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        ) : null}
+
         {queueState === "loading" ? (
           <div className="empty-state">Loading chores...</div>
         ) : null}
@@ -242,7 +375,7 @@ export function ChoresPage() {
           <div className="empty-state">Could not load chores.</div>
         ) : null}
 
-        {queueState === "ready" ? (
+        {queueState === "ready" && !householdsLoading && households.length !== 0 ? (
           <div className="chore-list-toolbar">
             <div className="status-tabs" role="tablist" aria-label="Chore status filters">
               {ChoreStatusTabs.map(({ key, label }) => (
@@ -270,7 +403,7 @@ export function ChoresPage() {
         ) : null}
 
         {queueState === "ready" ? (
-          visibleChores.length === 0 ? (
+          !householdsLoading && households.length !== 0 && visibleChores.length === 0 ? (
             <div className="empty-state">
               {getEmptyChoreMessage(activeTab)}
             </div>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { type Chore, type HouseholdBaseline, type Recommendation } from "@chore-helper/shared";
+import { type Chore, type HouseholdAppData, type HouseholdBaseline, type Recommendation } from "@chore-helper/shared";
 import {
   applyRecommendationDecisions,
   askAssistantQuestion,
@@ -19,8 +19,13 @@ type ChatMessage = {
 };
 
 type OptimizePageProps = {
-  householdId?: string;
-  householdName?: string;
+  households: HouseholdAppData[];
+  isLoading: boolean;
+};
+
+type HouseholdOptimizePanelProps = {
+  householdId: string;
+  householdName: string;
   baseline?: HouseholdBaseline;
 };
 
@@ -61,11 +66,49 @@ function formatBaselineSummary(baseline?: HouseholdBaseline) {
   } / ${baseline.hasOutdoorSpace ? "outdoor space" : "no outdoor space"}`;
 }
 
-export function OptimizePage({
+export function OptimizePage({ households, isLoading }: OptimizePageProps) {
+  return (
+    <div className="plan-review review-page optimize-page">
+      <header className="workspace-hero compact-hero">
+        <div>
+          <h1>Optimize</h1>
+          <p className="lede">
+            Generate structured recommendations or ask the assistant free-form questions about your chore plan.
+          </p>
+        </div>
+      </header>
+
+      {isLoading ? <div className="empty-state">Loading Optimize workspace...</div> : null}
+
+      {!isLoading && households.length === 0 ? (
+        <section className="placeholder-page">
+          <p className="eyebrow">Optimize</p>
+          <h2>No households yet</h2>
+          <p className="lede">Add a household before asking the assistant to optimize chores.</p>
+        </section>
+      ) : null}
+
+      {!isLoading ? (
+        <div className="household-panel-list">
+          {households.map((household) => (
+            <HouseholdOptimizePanel
+              baseline={household.baseline}
+              householdId={household.id}
+              householdName={household.name}
+              key={household.id}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function HouseholdOptimizePanel({
   householdId,
-  householdName = "Home",
+  householdName,
   baseline
-}: OptimizePageProps) {
+}: HouseholdOptimizePanelProps) {
   const [mode, setMode] = useState<OptimizeMode>("recommendations");
   const [chores, setChores] = useState<Chore[]>([]);
   const [existingRecommendations, setExistingRecommendations] = useState<Recommendation[]>([]);
@@ -85,7 +128,7 @@ export function OptimizePage({
 
   useEffect(() => {
     if (!householdId) return;
-    const activeHouseholdId = householdId;
+    const householdContextId = householdId;
 
     let cancelled = false;
 
@@ -97,8 +140,8 @@ export function OptimizePage({
 
       try {
         const [nextChores, nextRecommendations] = await Promise.all([
-          listChores(activeHouseholdId),
-          listRecommendations(activeHouseholdId)
+          listChores(householdContextId),
+          listRecommendations(householdContextId)
         ]);
         if (cancelled) return;
 
@@ -218,29 +261,15 @@ export function OptimizePage({
     }
   }
 
-  if (!householdId) {
-    return (
-      <section className="placeholder-page">
-        <p className="eyebrow">Optimize</p>
-        <h1>Optimize</h1>
-        <p className="lede">Set up a household before asking the assistant to optimize chores.</p>
-      </section>
-    );
-  }
-
   return (
-    <div className="plan-review review-page optimize-page">
-      <header className="workspace-hero compact-hero">
+    <section className="household-instance panel" aria-label={`${householdName} optimize workspace`}>
+      <div className="section-heading">
         <div>
-          <h1>Optimize</h1>
-          <p className="lede">
-            Generate structured recommendations or ask the assistant free-form questions about your chore plan.
-          </p>
-          <p className="supporting-copy">
-            <span><strong>{householdName}</strong> / {formatBaselineSummary(baseline)}</span>
-          </p>
+          <p className="eyebrow">Household</p>
+          <h2>{householdName}</h2>
+          <p className="supporting-copy">{formatBaselineSummary(baseline)}</p>
         </div>
-      </header>
+      </div>
 
       <div className="optimize-mode-tabs" role="tablist" aria-label="Optimize mode">
         <button
@@ -443,6 +472,6 @@ export function OptimizePage({
           </div>
         </section>
       ) : null}
-    </div>
+    </section>
   );
 }

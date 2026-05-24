@@ -48,7 +48,7 @@ Reuse current backend APIs:
 - `GET /api/households/:householdId/recommendations`
 - `POST /api/households/:householdId/recommendations`
 
-No Prisma schema changes are required for this milestone. The frontend should derive setup completion from saved baseline context plus persisted chore count. `localStorage` remains the pre-auth active household pointer until the auth milestone replaces it.
+No Prisma schema changes are required for this milestone. The frontend should derive setup completion from saved baseline context plus persisted chore count. `localStorage` remains the pre-auth household pointer until the auth milestone replaces it with authenticated user-scoped household loading.
 
 ## Test Plan
 

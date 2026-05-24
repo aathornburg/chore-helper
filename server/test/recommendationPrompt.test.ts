@@ -30,16 +30,19 @@ describe("recommendation prompt context", () => {
     const agentProvider = new RecordingAgentProvider();
     const app = createApp({
       store: createInMemoryStore(),
-      agentProvider
+      agentProvider,
+      authMode: "test"
     });
 
     const created = await request(app)
       .post("/api/households")
+      .set("Authorization", "Bearer test-user-a")
       .send({ name: "Home" })
       .expect(201);
 
     await request(app)
       .post(`/api/households/${created.body.id}/recommendations`)
+      .set("Authorization", "Bearer test-user-a")
       .send({ reviewPrompt: "Please focus on cadence and duration." })
       .expect(201);
 

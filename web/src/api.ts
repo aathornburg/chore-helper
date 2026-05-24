@@ -1,4 +1,5 @@
 import type {
+  AppUserProfile,
   Chore,
   Household,
   HouseholdAppData,
@@ -18,8 +19,32 @@ import type {
 */
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3001";
 
+let getAuthToken: (() => Promise<string | null>) | undefined;
+
+export function configureApiAuth(nextGetAuthToken: () => Promise<string | null>) {
+  getAuthToken = nextGetAuthToken;
+}
+
+export async function apiFetch(input: string, init: RequestInit = {}) {
+  const token = getAuthToken ? await getAuthToken() : null;
+  const headers = Object.fromEntries(new Headers(init.headers).entries());
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  return fetch(input, {
+    ...init,
+    headers
+  });
+}
+
+export async function getCurrentUser(): Promise<AppUserProfile> {
+  const response = await apiFetch(`${API_BASE_URL}/api/me`);
+
+  if (!response.ok) throw new Error("Failed to fetch current user");
+  return response.json();
+}
+
 export async function createHousehold(name: string): Promise<Household> {
-  const response = await fetch(`${API_BASE_URL}/api/households`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/households`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name })
@@ -30,7 +55,7 @@ export async function createHousehold(name: string): Promise<Household> {
 }
 
 export async function listHouseholds(): Promise<HouseholdAppData[]> {
-  const response = await fetch(`${API_BASE_URL}/api/households`);
+  const response = await apiFetch(`${API_BASE_URL}/api/households`);
 
   if (!response.ok) throw new Error("Failed to fetch households");
   return response.json();
@@ -40,7 +65,7 @@ export async function saveBaseline(
   householdId: string,
   baseline: HouseholdBaseline
 ): Promise<Household> {
-  const response = await fetch(`${API_BASE_URL}/api/households/${householdId}/baseline`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/baseline`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(baseline)
@@ -51,14 +76,14 @@ export async function saveBaseline(
 }
 
 export async function getHousehold(householdId: string): Promise<Household> {
-  const response = await fetch(`${API_BASE_URL}/api/households/${householdId}`);
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}`);
 
   if (!response.ok) throw new Error("Failed to fetch household");
   return response.json();
 }
 
 export async function getHouseholdStructure(householdId: string): Promise<HouseholdStructure> {
-  const response = await fetch(`${API_BASE_URL}/api/households/${householdId}/structure`);
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/structure`);
 
   if (!response.ok) throw new Error("Failed to fetch household structure");
   return response.json();
@@ -68,7 +93,7 @@ export async function saveHouseholdStructure(
   householdId: string,
   structure: HouseholdStructure
 ): Promise<HouseholdStructure> {
-  const response = await fetch(`${API_BASE_URL}/api/households/${householdId}/structure`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/structure`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ floors: structure.floors })
@@ -82,7 +107,7 @@ export async function createChore(
   householdId: string,
   chore: Omit<Chore, "id" | "householdId" | "archivedAt">
 ): Promise<Chore> {
-  const response = await fetch(`${API_BASE_URL}/api/households/${householdId}/chores`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/chores`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(chore)
@@ -92,20 +117,19 @@ export async function createChore(
   return response.json();
 }
 
-
 export async function listAllChores(options: { includeArchived?: boolean; status?: "archived" } = {}): Promise<Chore[]> {
   const params = new URLSearchParams();
   if (options.includeArchived) params.set("includeArchived", "true");
   if (options.status) params.set("status", options.status);
   const queryString = params.toString();
-  const response = await fetch(`${API_BASE_URL}/api/chores${queryString ? `?${queryString}` : ""}`);
+  const response = await apiFetch(`${API_BASE_URL}/api/chores${queryString ? `?${queryString}` : ""}`);
 
   if (!response.ok) throw new Error("Failed to fetch chores");
   return response.json();
 }
 
 export async function listChores(householdId: string): Promise<Chore[]> {
-  const response = await fetch(`${API_BASE_URL}/api/households/${householdId}/chores`);
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/chores`);
 
   if (!response.ok) throw new Error("Failed to fetch chores");
   return response.json();
@@ -116,7 +140,7 @@ export async function updateChore(
   choreId: string,
   chore: Omit<Chore, "id" | "householdId" | "archivedAt">
 ): Promise<Chore> {
-  const response = await fetch(`${API_BASE_URL}/api/households/${householdId}/chores/${choreId}`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/chores/${choreId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(chore)
@@ -127,7 +151,7 @@ export async function updateChore(
 }
 
 export async function archiveChore(householdId: string, choreId: string): Promise<Chore> {
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_BASE_URL}/api/households/${householdId}/chores/${choreId}/archive`,
     { method: "POST" }
   );
@@ -137,7 +161,7 @@ export async function archiveChore(householdId: string, choreId: string): Promis
 }
 
 export async function restoreChore(householdId: string, choreId: string): Promise<Chore> {
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_BASE_URL}/api/households/${householdId}/chores/${choreId}/restore`,
     { method: "POST" }
   );
@@ -147,7 +171,7 @@ export async function restoreChore(householdId: string, choreId: string): Promis
 }
 
 export async function listArchivedChores(householdId: string): Promise<Chore[]> {
-  const response = await fetch(`${API_BASE_URL}/api/households/${householdId}/chores?status=archived`);
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/chores?status=archived`);
 
   if (!response.ok) throw new Error("Failed to fetch archived chores");
   return response.json();
@@ -158,7 +182,7 @@ export async function generateRecommendations(
   reviewPrompt?: string,
   selectedChoreIds?: string[]
 ): Promise<Recommendation[]> {
-  const response = await fetch(`${API_BASE_URL}/api/households/${householdId}/recommendations`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/recommendations`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ reviewPrompt, selectedChoreIds })
@@ -169,14 +193,14 @@ export async function generateRecommendations(
 }
 
 export async function listAllRecommendations(): Promise<Recommendation[]> {
-  const response = await fetch(`${API_BASE_URL}/api/recommendations`);
+  const response = await apiFetch(`${API_BASE_URL}/api/recommendations`);
 
   if (!response.ok) throw new Error("Failed to fetch recommendations");
   return response.json();
 }
 
 export async function listRecommendations(householdId: string): Promise<Recommendation[]> {
-  const response = await fetch(`${API_BASE_URL}/api/households/${householdId}/recommendations`);
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/recommendations`);
 
   if (!response.ok) throw new Error("Failed to fetch recommendations");
   return response.json();
@@ -187,7 +211,7 @@ export async function updateRecommendationDecision(
   recommendationId: string,
   decision: Recommendation["decision"]
 ): Promise<Recommendation> {
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_BASE_URL}/api/households/${householdId}/recommendations/${recommendationId}/decision`,
     {
       method: "PUT",
@@ -203,7 +227,7 @@ export async function updateRecommendationDecision(
 export async function applyRecommendationDecisions(
   householdId: string
 ): Promise<{ applied: Recommendation[]; declined: Recommendation[] }> {
-  const response = await fetch(`${API_BASE_URL}/api/households/${householdId}/recommendations/apply`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/recommendations/apply`, {
     method: "POST"
   });
 
@@ -220,7 +244,7 @@ export async function askAssistantQuestion(
   householdId: string,
   message: string
 ): Promise<AssistantChatResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/households/${householdId}/assistant/chat`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/assistant/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ message })

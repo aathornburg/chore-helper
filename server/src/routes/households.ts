@@ -4,9 +4,12 @@
   calls service/repository operations, and returns JSON responses.
 */
 import { Router } from "express";
+import type { Request, Response } from "express";
 import { z } from "zod";
 import type { Chore, Recommendation } from "@chore-helper/shared";
 import type { AgentProvider } from "../agent/AgentProvider.js";
+import type { AuthMode } from "../auth/currentUser.js";
+import { resolveCurrentUser } from "../auth/currentUser.js";
 import type { HouseholdStore } from "../repositories/inMemoryStore.js";
 
 const createHouseholdSchema = z.object({
@@ -146,11 +149,37 @@ function attachReviewMetadata(recommendation: Recommendation, selectedChores: Ch
   };
 }
 
-export function createHouseholdRouter(store: HouseholdStore, agentProvider: AgentProvider) {
+export function createHouseholdRouter(store: HouseholdStore, agentProvider: AgentProvider, authMode: AuthMode) {
   const router = Router();
 
-  router.get("/", async (_req, res) => {
-    const households = await store.listHouseholds();
+  async function requireUser(req: Request, res: Response) {
+    return resolveCurrentUser(req, res, store, authMode);
+  }
+
+  async function requireHouseholdAccess(req: Request, res: Response) {
+    const user = await requireUser(req, res);
+    if (!user) return undefined;
+
+    const householdId = req.params.householdId;
+    if (!(await store.userHasHouseholdAccess(user.id, householdId))) {
+      res.status(404).json({ error: "Household not found" });
+      return undefined;
+    }
+
+    const household = await store.getHousehold(householdId);
+    if (!household) {
+      res.status(404).json({ error: "Household not found" });
+      return undefined;
+    }
+
+    return { user, household };
+  }
+
+  router.get("/", async (req, res) => {
+    const user = await requireUser(req, res);
+    if (!user) return;
+
+    const households = await store.listHouseholdsForUser(user.id);
     const appData = await Promise.all(
       households.map(async (household) => {
         const recommendations = (await store.listRecommendations(household.id)).filter(
@@ -176,123 +205,130 @@ export function createHouseholdRouter(store: HouseholdStore, agentProvider: Agen
   });
 
   router.post("/", async (req, res) => {
+    const user = await requireUser(req, res);
+    if (!user) return;
+
     const parsed = createHouseholdSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid household payload" });
 
-    return res.status(201).json(await store.createHousehold(parsed.data.name));
+    return res.status(201).json(await store.createHouseholdForUser(parsed.data.name, user.id));
   });
 
   router.get("/:householdId", async (req, res) => {
-    const household = await store.getHousehold(req.params.householdId);
-    if (!household) return res.status(404).json({ error: "Household not found" });
+    const access = await requireHouseholdAccess(req, res);
+    if (!access) return;
 
-    return res.status(200).json(household);
+    return res.status(200).json(access.household);
   });
 
   router.get("/:householdId/structure", async (req, res) => {
-    const household = await store.getHousehold(req.params.householdId);
-    if (!household) return res.status(404).json({ error: "Household not found" });
+    const access = await requireHouseholdAccess(req, res);
+    if (!access) return;
 
-    return res.status(200).json(await store.getHouseholdStructure(household.id));
+    return res.status(200).json(await store.getHouseholdStructure(access.household.id));
   });
 
   router.put("/:householdId/structure", async (req, res) => {
-    const household = await store.getHousehold(req.params.householdId);
-    if (!household) return res.status(404).json({ error: "Household not found" });
+    const access = await requireHouseholdAccess(req, res);
+    if (!access) return;
 
     const parsed = householdStructureSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid household structure payload" });
 
     return res.status(200).json(
-      await store.saveHouseholdStructure(household.id, parsed.data.floors)
+      await store.saveHouseholdStructure(access.household.id, parsed.data.floors)
     );
   });
 
   router.put("/:householdId/baseline", async (req, res) => {
+    const access = await requireHouseholdAccess(req, res);
+    if (!access) return;
+
     const parsed = baselineSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid baseline payload" });
 
-    const household = await store.updateBaseline(req.params.householdId, parsed.data);
+    const household = await store.updateBaseline(access.household.id, parsed.data);
     if (!household) return res.status(404).json({ error: "Household not found" });
 
     return res.status(200).json(household);
   });
 
   router.post("/:householdId/chores", async (req, res) => {
-    const household = await store.getHousehold(req.params.householdId);
-    if (!household) return res.status(404).json({ error: "Household not found" });
+    const access = await requireHouseholdAccess(req, res);
+    if (!access) return;
 
     const parsed = choreSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid chore payload" });
 
     const chore = await store.createChore({
       ...parsed.data,
-      householdId: household.id
+      householdId: access.household.id
     });
 
     return res.status(201).json(chore);
   });
   
   router.get("/:householdId/chores", async (req, res) => {
-    const household = await store.getHousehold(req.params.householdId);
-    if (!household) return res.status(404).json({ error: "Household not found" });
+    const access = await requireHouseholdAccess(req, res);
+    if (!access) return;
 
     const status = req.query.status;
     const includeArchived = req.query.includeArchived === "true";
     const archivedOnly = status === "archived";
 
-    return res.status(200).json(await store.listChores(household.id, {
+    return res.status(200).json(await store.listChores(access.household.id, {
       includeArchived,
       archivedOnly
     }));
   });
 
   router.put("/:householdId/chores/:choreId", async (req, res) => {
-    const household = await store.getHousehold(req.params.householdId);
-    if (!household) return res.status(404).json({ error: "Household not found" });
+    const access = await requireHouseholdAccess(req, res);
+    if (!access) return;
 
     const parsed = choreSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid chore payload" });
 
-    const chore = await store.updateChore(household.id, req.params.choreId, parsed.data);
+    const chore = await store.updateChore(access.household.id, req.params.choreId, parsed.data);
     if (!chore) return res.status(404).json({ error: "Chore not found" });
 
     return res.status(200).json(chore);
   });
 
   router.post("/:householdId/chores/:choreId/archive", async (req, res) => {
-    const household = await store.getHousehold(req.params.householdId);
-    if (!household) return res.status(404).json({ error: "Household not found" });
+    const access = await requireHouseholdAccess(req, res);
+    if (!access) return;
 
-    const chore = await store.archiveChore(household.id, req.params.choreId);
+    const chore = await store.archiveChore(access.household.id, req.params.choreId);
     if (!chore) return res.status(404).json({ error: "Chore not found" });
 
     return res.status(200).json(chore);
   });
 
   router.post("/:householdId/chores/:choreId/restore", async (req, res) => {
-    const household = await store.getHousehold(req.params.householdId);
-    if (!household) return res.status(404).json({ error: "Household not found" });
+    const access = await requireHouseholdAccess(req, res);
+    if (!access) return;
 
-    const chore = await store.restoreChore(household.id, req.params.choreId);
+    const chore = await store.restoreChore(access.household.id, req.params.choreId);
     if (!chore) return res.status(404).json({ error: "Chore not found" });
 
     return res.status(200).json(chore);
   });
 
   router.get("/:householdId/recommendations", async (req, res) => {
-    const household = await store.getHousehold(req.params.householdId);
-    if (!household) return res.status(404).json({ error: "Household not found" });
+    const access = await requireHouseholdAccess(req, res);
+    if (!access) return;
 
-    const recommendations = await store.listRecommendations(household.id);
+    const recommendations = await store.listRecommendations(access.household.id);
     return res.status(200).json(
       recommendations.filter((recommendation) => !recommendation.staleAt)
     );
   });
 
   router.post("/:householdId/assistant/chat", async (req, res) => {
-    const household = await store.getHousehold(req.params.householdId);
-    if (!household) return res.status(404).json({ error: "Household not found" });
+    const access = await requireHouseholdAccess(req, res);
+    if (!access) return;
+    const { household } = access;
 
     const parsed = assistantChatRequestSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid assistant chat payload" });
@@ -318,14 +354,14 @@ export function createHouseholdRouter(store: HouseholdStore, agentProvider: Agen
   });
 
   router.put("/:householdId/recommendations/:recommendationId/decision", async (req, res) => {
-    const household = await store.getHousehold(req.params.householdId);
-    if (!household) return res.status(404).json({ error: "Household not found" });
+    const access = await requireHouseholdAccess(req, res);
+    if (!access) return;
 
     const parsed = recommendationDecisionSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid recommendation decision payload" });
 
     const recommendation = await store.updateRecommendationDecision(
-      household.id,
+      access.household.id,
       req.params.recommendationId,
       parsed.data
     );
@@ -335,15 +371,16 @@ export function createHouseholdRouter(store: HouseholdStore, agentProvider: Agen
   });
 
   router.post("/:householdId/recommendations/apply", async (req, res) => {
-    const household = await store.getHousehold(req.params.householdId);
-    if (!household) return res.status(404).json({ error: "Household not found" });
+    const access = await requireHouseholdAccess(req, res);
+    if (!access) return;
 
-    return res.status(200).json(await store.applyRecommendationDecisions(household.id));
+    return res.status(200).json(await store.applyRecommendationDecisions(access.household.id));
   });
 
   router.post("/:householdId/recommendations", async (req, res) => {
-    const household = await store.getHousehold(req.params.householdId);
-    if (!household) return res.status(404).json({ error: "Household not found" });
+    const access = await requireHouseholdAccess(req, res);
+    if (!access) return;
+    const { household } = access;
 
     const parsed = recommendationRequestSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid recommendation payload" });

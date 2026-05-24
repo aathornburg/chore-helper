@@ -26,7 +26,23 @@ export type ApplyRecommendationResult = {
   declined: Recommendation[];
 };
 
+export type AppUser = {
+  id: string;
+  clerkUserId: string;
+};
+
+export type HouseholdMembership = {
+  householdId: string;
+  userId: string;
+  role: "owner" | "member";
+};
+
 export type HouseholdStore = {
+  upsertUserByClerkId(clerkUserId: string): StoreResult<AppUser>;
+  getUserByClerkId(clerkUserId: string): StoreResult<AppUser | undefined>;
+  userHasHouseholdAccess(userId: string, householdId: string): StoreResult<boolean>;
+  listHouseholdsForUser(userId: string): StoreResult<Household[]>;
+  createHouseholdForUser(name: string, userId: string): StoreResult<Household>;
   createHousehold(name: string): StoreResult<Household>;
   listHouseholds(): StoreResult<Household[]>;
   updateBaseline(householdId: string, baseline: HouseholdBaseline): StoreResult<Household | undefined>;
@@ -65,6 +81,8 @@ function normalizeRecommendation(recommendation: Recommendation): Recommendation
 }
 
 export function createInMemoryStore(): HouseholdStore {
+  const users = new Map<string, AppUser>();
+  const memberships = new Map<string, HouseholdMembership>();
   const households = new Map<string, Household>();
   const householdFloors = new Map<string, HouseholdFloor[]>();
   const chores = new Map<string, Chore[]>();
@@ -96,6 +114,41 @@ export function createInMemoryStore(): HouseholdStore {
   }
 
   return {
+    upsertUserByClerkId(clerkUserId) {
+      const existing = Array.from(users.values()).find((user) => user.clerkUserId === clerkUserId);
+      if (existing) return existing;
+
+      const user = { id: crypto.randomUUID(), clerkUserId };
+      users.set(user.id, user);
+      return user;
+    },
+
+    getUserByClerkId(clerkUserId) {
+      return Array.from(users.values()).find((user) => user.clerkUserId === clerkUserId);
+    },
+
+    userHasHouseholdAccess(userId, householdId) {
+      return memberships.has(`${householdId}:${userId}`);
+    },
+
+    listHouseholdsForUser(userId) {
+      return Array.from(memberships.values())
+        .filter((membership) => membership.userId === userId)
+        .map((membership) => households.get(membership.householdId))
+        .filter((household): household is Household => Boolean(household));
+    },
+
+    createHouseholdForUser(name, userId) {
+      const household = { id: crypto.randomUUID(), name };
+      households.set(household.id, household);
+      memberships.set(`${household.id}:${userId}`, {
+        householdId: household.id,
+        userId,
+        role: "owner"
+      });
+      return household;
+    },
+
     createHousehold(name) {
       const household = { id: crypto.randomUUID(), name };
       households.set(household.id, household);

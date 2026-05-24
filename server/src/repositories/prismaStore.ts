@@ -10,7 +10,7 @@ import type {
   RecommendationConfidence,
   RecommendationDecision
 } from "@chore-helper/shared";
-import type { HouseholdStore } from "./inMemoryStore.js";
+import type { AppUser, HouseholdStore } from "./inMemoryStore.js";
 
 function serializeList(values: string[]) {
   return JSON.stringify(values);
@@ -61,6 +61,13 @@ function toHousehold(
     id: household.id,
     name: household.name,
     ...(baseline ? { baseline } : {})
+  };
+}
+
+function toAppUser(user: { id: string; clerkUserId: string }): AppUser {
+  return {
+    id: user.id,
+    clerkUserId: user.clerkUserId
   };
 }
 
@@ -171,6 +178,69 @@ function toRecommendation(recommendation: {
 
 export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
   return {
+    async upsertUserByClerkId(clerkUserId) {
+      const user = await prisma.user.upsert({
+        where: { clerkUserId },
+        create: { clerkUserId },
+        update: {}
+      });
+
+      return toAppUser(user);
+    },
+
+    async getUserByClerkId(clerkUserId) {
+      const user = await prisma.user.findUnique({
+        where: { clerkUserId }
+      });
+
+      return user ? toAppUser(user) : undefined;
+    },
+
+    async userHasHouseholdAccess(userId, householdId) {
+      const membershipCount = await prisma.householdMember.count({
+        where: {
+          userId,
+          householdId
+        }
+      });
+
+      return membershipCount > 0;
+    },
+
+    async listHouseholdsForUser(userId) {
+      const households = await prisma.household.findMany({
+        where: {
+          members: {
+            some: { userId }
+          }
+        },
+        include: { baseline: true },
+        orderBy: { createdAt: "asc" }
+      });
+
+      return households.map(toHousehold);
+    },
+
+    async createHouseholdForUser(name, userId) {
+      const household = await prisma.$transaction(async (tx) => {
+        return tx.household.create({
+          data: {
+            id: crypto.randomUUID(),
+            name,
+            members: {
+              create: {
+                userId,
+                role: "owner"
+              }
+            }
+          },
+          include: { baseline: true }
+        });
+      });
+
+      return toHousehold(household);
+    },
+
     async createHousehold(name) {
       const household = await prisma.household.create({
         data: {

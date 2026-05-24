@@ -6,7 +6,7 @@ Date: 2026-05-20
 
 Roadmap Step 2 focuses on making the local app durable and editable before auth or hosted deployment. The app already persists households, baseline context, chores, and recommendation rows through Prisma/Postgres. This milestone hardens that foundation by making Plan a persisted chore CRUD surface: users can add, edit, archive, view archived chores, and restore chores, with all changes saved to the local database.
 
-Auth remains future scope. The app continues using the localStorage active household pointer until the Auth + Household Ownership milestone replaces it with session-backed ownership.
+Auth remains future scope. The app continues using the localStorage household pointer until the Auth + Household Ownership milestone replaces it with authenticated user-scoped household loading.
 
 ## Product Scope
 
@@ -105,7 +105,7 @@ Recommendations:
 
 Local household behavior:
 
-- Continue reading the active household ID from `chore-helper:household-id`.
+- Continue reading the temporary pre-auth household ID from `chore-helper:household-id`.
 - Do not add household ownership, user selection, or auth dependencies in this milestone.
 
 ## Error Handling
@@ -150,7 +150,7 @@ Verification commands for the eventual implementation:
 ## Assumptions
 
 - Local Postgres via the existing Docker/Prisma setup is the source of truth for this milestone.
-- The existing localStorage active household pointer remains acceptable until Auth + Household Ownership.
+- The existing localStorage household pointer remains acceptable only until Auth + Household Ownership replaces it with authenticated user-scoped household loading.
 - Soft archive is preferred over hard delete to preserve history for future agent and recommendation features.
 - Marking recommendations stale is enough for this slice; full accept/skip decision history is deferred.
 - Plan is the right first UI surface for chore CRUD because it is already the review queue and chore management workspace.

@@ -69,6 +69,11 @@ export type Household = {
   baseline?: HouseholdBaseline;
 };
 
+export type AppUserProfile = {
+  id: string;
+  clerkUserId: string;
+};
+
 export type Chore = {
   id: string;
   householdId: string;
