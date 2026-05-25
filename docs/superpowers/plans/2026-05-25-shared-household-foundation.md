@@ -136,7 +136,7 @@ npm.cmd run typecheck -w server
 
 Expected: all listed commands pass.
 
-- [ ] **Step 5: Commit and push the usable backend increment**
+- [x] **Step 5: Commit and push the usable backend increment**
 
 ```powershell
 git add shared/src/types.ts server/prisma/schema.prisma server/src/repositories/inMemoryStore.ts server/src/repositories/prismaStore.ts server/src/routes/households.ts server/test/auth.test.ts server/test/prismaStore.test.ts
@@ -161,7 +161,7 @@ git push origin main
 - Modify: `server/.env.example`
 - Test: `server/test/invitations.test.ts`
 
-- [ ] **Step 1: Write failing invitation lifecycle tests**
+- [x] **Step 1: Write failing invitation lifecycle tests**
 
 Cover owner creation, member denial, cancellation, expiration, single-use acceptance,
 wrong recipient rejection, and deterministic delivered link capture:
@@ -179,7 +179,7 @@ const invitation = await request(app)
 expect(mailer.messages[0].acceptUrl).toContain(invitation.body.id);
 ```
 
-- [ ] **Step 2: Run the invitation tests and verify RED**
+- [x] **Step 2: Run the invitation tests and verify RED**
 
 Run:
 
@@ -189,7 +189,7 @@ npm.cmd test -w server -- invitations.test.ts
 
 Expected: failure because invitation records and mailers do not exist.
 
-- [ ] **Step 3: Implement persisted invitations and injected mail delivery**
+- [x] **Step 3: Implement persisted invitations and injected mail delivery**
 
 Extend `User` with `primaryEmail` and optional `displayName`. In Clerk mode,
 `resolveCurrentUser` loads the authenticated Backend User with
@@ -227,7 +227,7 @@ when `RESEND_API_KEY`, `INVITATION_FROM_EMAIL`, and `APP_BASE_URL` are configure
 Mount token acceptance from `server/src/routes/invitations.ts`, because it must be
 reachable before a recipient belongs to the invited household.
 
-- [ ] **Step 4: Verify invitation behavior and types**
+- [x] **Step 4: Verify invitation behavior and types**
 
 Run:
 

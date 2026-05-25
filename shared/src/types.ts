@@ -69,13 +69,33 @@ export type Household = {
 export type AppUserProfile = {
   id: string;
   clerkUserId: string;
+  primaryEmail?: string;
+  displayName?: string;
 };
 
 export type HouseholdMemberSummary = {
   householdId: string;
   userId: string;
   clerkUserId: string;
+  primaryEmail?: string;
+  displayName?: string;
   role: "owner" | "member";
+};
+
+export type HouseholdInvitationStatus = "pending" | "accepted" | "cancelled" | "expired";
+
+export type HouseholdInvitation = {
+  id: string;
+  householdId: string;
+  recipientEmail: string;
+  role: "member";
+  status: HouseholdInvitationStatus;
+  invitedByUserId: string;
+  expiresAt: string;
+  acceptedAt?: string;
+  acceptedByUserId?: string;
+  cancelledAt?: string;
+  createdAt: string;
 };
 
 export type Chore = {

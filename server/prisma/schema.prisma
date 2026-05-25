@@ -15,16 +15,20 @@ model Household {
   chores          Chore[]
   recommendations Recommendation[]
   members         HouseholdMember[]
+  invitations     HouseholdInvitation[]
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 }
 
 model User {
-  id          String            @id @default(cuid())
-  clerkUserId String            @unique
-  memberships HouseholdMember[]
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  id              String                @id @default(cuid())
+  clerkUserId     String                @unique
+  primaryEmail    String?               @unique
+  displayName     String?
+  memberships     HouseholdMember[]
+  sentInvitations HouseholdInvitation[] @relation("InvitationInviter")
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
 }
 
 model HouseholdMember {
@@ -49,6 +53,25 @@ model HouseholdProfile {
   notes           String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+}
+
+model HouseholdInvitation {
+  id               String    @id @default(cuid())
+  householdId      String
+  household        Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  recipientEmail   String
+  role             String    @default("member")
+  tokenDigest      String    @unique
+  invitedByUserId  String
+  invitedBy        User      @relation("InvitationInviter", fields: [invitedByUserId], references: [id], onDelete: Cascade)
+  expiresAt        DateTime
+  acceptedAt       DateTime?
+  acceptedByUserId String?
+  cancelledAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([householdId, recipientEmail])
 }
 
 model HouseholdFloor {

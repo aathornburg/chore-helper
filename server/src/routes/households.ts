@@ -3,6 +3,7 @@
   class. Each route handler is like a controller method that validates input,
   calls service/repository operations, and returns JSON responses.
 */
+import { createHash, randomBytes } from "node:crypto";
 import { Router } from "express";
 import type { Request, Response } from "express";
 import { z } from "zod";
@@ -10,6 +11,7 @@ import type { Chore, Recommendation } from "@chore-helper/shared";
 import type { AgentProvider } from "../agent/AgentProvider.js";
 import type { AuthMode } from "../auth/currentUser.js";
 import { resolveCurrentUser } from "../auth/currentUser.js";
+import type { InvitationMailer } from "../invitations/InvitationMailer.js";
 import type { HouseholdStore } from "../repositories/inMemoryStore.js";
 
 const createHouseholdSchema = z.object({
@@ -133,6 +135,10 @@ const assistantChatRequestSchema = z.object({
   message: z.string().trim().min(1)
 });
 
+const invitationRequestSchema = z.object({
+  email: z.string().trim().email().transform((email) => email.toLowerCase())
+});
+
 function attachReviewMetadata(recommendation: Recommendation, selectedChores: Chore[]) {
   const matchedChore =
     selectedChores.find((chore) =>
@@ -159,7 +165,12 @@ function attachReviewMetadata(recommendation: Recommendation, selectedChores: Ch
   };
 }
 
-export function createHouseholdRouter(store: HouseholdStore, agentProvider: AgentProvider, authMode: AuthMode) {
+export function createHouseholdRouter(
+  store: HouseholdStore,
+  agentProvider: AgentProvider,
+  authMode: AuthMode,
+  invitations: { mailer: InvitationMailer; baseUrl: string }
+) {
   const router = Router();
 
   async function requireUser(req: Request, res: Response) {
@@ -295,6 +306,62 @@ export function createHouseholdRouter(store: HouseholdStore, agentProvider: Agen
     if (!access) return;
 
     return res.status(200).json(await store.listHouseholdMembers(access.household.id));
+  });
+
+  router.get("/:householdId/invitations", async (req, res) => {
+    const access = await requireHouseholdAccess(req, res);
+    if (!access) return;
+
+    return res.status(200).json(await store.listInvitations(access.household.id));
+  });
+
+  router.post("/:householdId/invitations", async (req, res) => {
+    const access = await requireHouseholdOwner(req, res);
+    if (!access) return;
+
+    const parsed = invitationRequestSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid invitation payload" });
+
+    const token = randomBytes(32).toString("hex");
+    const invitation = await store.createInvitation({
+      householdId: access.household.id,
+      recipientEmail: parsed.data.email,
+      tokenDigest: createHash("sha256").update(token).digest("hex"),
+      invitedByUserId: access.user.id,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+    });
+
+    try {
+      await invitations.mailer.sendInvitation({
+        to: invitation.recipientEmail,
+        householdName: access.household.name,
+        acceptUrl: new URL(`/accept-invitation/${token}`, invitations.baseUrl).toString(),
+        idempotencyKey: invitation.id
+      });
+    } catch {
+      await store.cancelInvitation(
+        access.household.id,
+        invitation.id,
+        new Date().toISOString()
+      );
+      return res.status(502).json({ error: "Could not send household invitation" });
+    }
+
+    return res.status(201).json(invitation);
+  });
+
+  router.post("/:householdId/invitations/:invitationId/cancel", async (req, res) => {
+    const access = await requireHouseholdOwner(req, res);
+    if (!access) return;
+
+    const invitation = await store.cancelInvitation(
+      access.household.id,
+      req.params.invitationId,
+      new Date().toISOString()
+    );
+    if (!invitation) return res.status(404).json({ error: "Pending invitation not found" });
+
+    return res.status(200).json(invitation);
   });
 
   router.post("/:householdId/chores", async (req, res) => {

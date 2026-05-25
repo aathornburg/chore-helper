@@ -2,6 +2,7 @@ import type {
   Chore,
   Household,
   HouseholdFloor,
+  HouseholdInvitation,
   HouseholdMemberSummary,
   HouseholdProfile,
   HouseholdStructure,
@@ -30,6 +31,8 @@ export type ApplyRecommendationResult = {
 export type AppUser = {
   id: string;
   clerkUserId: string;
+  primaryEmail?: string;
+  displayName?: string;
 };
 
 export type HouseholdMembership = {
@@ -38,12 +41,32 @@ export type HouseholdMembership = {
   role: "owner" | "member";
 };
 
+export type NewHouseholdInvitation = {
+  householdId: string;
+  recipientEmail: string;
+  tokenDigest: string;
+  invitedByUserId: string;
+  expiresAt: string;
+};
+
+export type StoredHouseholdInvitation = HouseholdInvitation & {
+  tokenDigest: string;
+};
+
 export type HouseholdStore = {
-  upsertUserByClerkId(clerkUserId: string): StoreResult<AppUser>;
+  upsertUserByClerkId(
+    clerkUserId: string,
+    profile?: { primaryEmail?: string; displayName?: string }
+  ): StoreResult<AppUser>;
   getUserByClerkId(clerkUserId: string): StoreResult<AppUser | undefined>;
   userHasHouseholdAccess(userId: string, householdId: string): StoreResult<boolean>;
   getMembership(userId: string, householdId: string): StoreResult<HouseholdMembership | undefined>;
   listHouseholdMembers(householdId: string): StoreResult<HouseholdMemberSummary[]>;
+  createInvitation(invitation: NewHouseholdInvitation): StoreResult<HouseholdInvitation>;
+  listInvitations(householdId: string): StoreResult<HouseholdInvitation[]>;
+  cancelInvitation(householdId: string, invitationId: string, cancelledAt: string): StoreResult<HouseholdInvitation | undefined>;
+  findInvitationByTokenDigest(tokenDigest: string): StoreResult<StoredHouseholdInvitation | undefined>;
+  acceptInvitation(invitationId: string, userId: string, acceptedAt: string): StoreResult<HouseholdInvitation | undefined>;
   listHouseholdsForUser(userId: string): StoreResult<Household[]>;
   createHouseholdForUser(name: string, userId: string): StoreResult<Household>;
   createHousehold(name: string): StoreResult<Household>;
@@ -90,11 +113,23 @@ function normalizeRecommendation(recommendation: Recommendation): Recommendation
   };
 }
 
+function normalizeInvitation(invitation: StoredHouseholdInvitation): StoredHouseholdInvitation {
+  if (invitation.status !== "pending" || Date.parse(invitation.expiresAt) > Date.now()) {
+    return invitation;
+  }
+
+  return {
+    ...invitation,
+    status: "expired"
+  };
+}
+
 export function createInMemoryStore(): HouseholdStore {
   const users = new Map<string, AppUser>();
   const memberships = new Map<string, HouseholdMembership>();
   const households = new Map<string, Household>();
   const householdFloors = new Map<string, HouseholdFloor[]>();
+  const invitations = new Map<string, StoredHouseholdInvitation>();
   const chores = new Map<string, Chore[]>();
   const recommendations = new Map<string, Recommendation[]>();
 
@@ -124,11 +159,15 @@ export function createInMemoryStore(): HouseholdStore {
   }
 
   return {
-    upsertUserByClerkId(clerkUserId) {
+    upsertUserByClerkId(clerkUserId, profile = {}) {
       const existing = Array.from(users.values()).find((user) => user.clerkUserId === clerkUserId);
-      if (existing) return existing;
+      if (existing) {
+        const updated = { ...existing, ...profile };
+        users.set(updated.id, updated);
+        return updated;
+      }
 
-      const user = { id: crypto.randomUUID(), clerkUserId };
+      const user = { id: crypto.randomUUID(), clerkUserId, ...profile };
       users.set(user.id, user);
       return user;
     },
@@ -148,16 +187,84 @@ export function createInMemoryStore(): HouseholdStore {
     listHouseholdMembers(householdId) {
       return Array.from(memberships.values())
         .filter((membership) => membership.householdId === householdId)
-        .map((membership) => {
+        .flatMap((membership) => {
           const user = users.get(membership.userId);
-          if (!user) return undefined;
+          if (!user) return [];
 
-          return {
+          return [{
             ...membership,
-            clerkUserId: user.clerkUserId
-          };
-        })
-        .filter((member): member is HouseholdMemberSummary => Boolean(member));
+            clerkUserId: user.clerkUserId,
+            ...(user.primaryEmail ? { primaryEmail: user.primaryEmail } : {}),
+            ...(user.displayName ? { displayName: user.displayName } : {})
+          } satisfies HouseholdMemberSummary];
+        });
+    },
+
+    createInvitation(invitation) {
+      const created: StoredHouseholdInvitation = {
+        id: crypto.randomUUID(),
+        householdId: invitation.householdId,
+        recipientEmail: invitation.recipientEmail,
+        role: "member",
+        status: "pending",
+        invitedByUserId: invitation.invitedByUserId,
+        expiresAt: invitation.expiresAt,
+        createdAt: new Date().toISOString(),
+        tokenDigest: invitation.tokenDigest
+      };
+      invitations.set(created.id, created);
+      const { tokenDigest: _tokenDigest, ...publicInvitation } = created;
+      return publicInvitation;
+    },
+
+    listInvitations(householdId) {
+      return Array.from(invitations.values())
+        .filter((invitation) => invitation.householdId === householdId)
+        .map((invitation) => normalizeInvitation(invitation))
+        .map(({ tokenDigest: _tokenDigest, ...invitation }) => invitation);
+    },
+
+    cancelInvitation(householdId, invitationId, cancelledAt) {
+      const stored = invitations.get(invitationId);
+      const invitation = stored ? normalizeInvitation(stored) : undefined;
+      if (!invitation || invitation.householdId !== householdId || invitation.status !== "pending") {
+        return undefined;
+      }
+
+      const updated: StoredHouseholdInvitation = {
+        ...invitation,
+        status: "cancelled",
+        cancelledAt
+      };
+      invitations.set(invitationId, updated);
+      const { tokenDigest: _tokenDigest, ...publicInvitation } = updated;
+      return publicInvitation;
+    },
+
+    findInvitationByTokenDigest(tokenDigest) {
+      const invitation = Array.from(invitations.values()).find((stored) => stored.tokenDigest === tokenDigest);
+      return invitation ? normalizeInvitation(invitation) : undefined;
+    },
+
+    acceptInvitation(invitationId, userId, acceptedAt) {
+      const stored = invitations.get(invitationId);
+      const invitation = stored ? normalizeInvitation(stored) : undefined;
+      if (!invitation || invitation.status !== "pending") return undefined;
+
+      const updated: StoredHouseholdInvitation = {
+        ...invitation,
+        status: "accepted",
+        acceptedAt,
+        acceptedByUserId: userId
+      };
+      invitations.set(invitationId, updated);
+      memberships.set(`${updated.householdId}:${userId}`, {
+        householdId: updated.householdId,
+        userId,
+        role: "member"
+      });
+      const { tokenDigest: _tokenDigest, ...publicInvitation } = updated;
+      return publicInvitation;
     },
 
     listHouseholdsForUser(userId) {

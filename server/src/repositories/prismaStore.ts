@@ -3,6 +3,7 @@ import type {
   Chore,
   Household,
   HouseholdFloor,
+  HouseholdInvitation,
   HouseholdMemberSummary,
   HouseholdProfile,
   HouseholdRoom,
@@ -54,10 +55,47 @@ function toHousehold(
   };
 }
 
-function toAppUser(user: { id: string; clerkUserId: string }): AppUser {
+function toAppUser(user: { id: string; clerkUserId: string; primaryEmail?: string | null; displayName?: string | null }): AppUser {
   return {
     id: user.id,
-    clerkUserId: user.clerkUserId
+    clerkUserId: user.clerkUserId,
+    primaryEmail: user.primaryEmail ?? undefined,
+    displayName: user.displayName ?? undefined
+  };
+}
+
+function toInvitation(invitation: {
+  id: string;
+  householdId: string;
+  recipientEmail: string;
+  role: string;
+  invitedByUserId: string;
+  expiresAt: Date;
+  acceptedAt?: Date | null;
+  acceptedByUserId?: string | null;
+  cancelledAt?: Date | null;
+  createdAt: Date;
+}): HouseholdInvitation {
+  const status: HouseholdInvitation["status"] = invitation.cancelledAt
+    ? "cancelled"
+    : invitation.acceptedAt
+      ? "accepted"
+      : invitation.expiresAt.getTime() <= Date.now()
+        ? "expired"
+        : "pending";
+
+  return {
+    id: invitation.id,
+    householdId: invitation.householdId,
+    recipientEmail: invitation.recipientEmail,
+    role: invitation.role as "member",
+    status,
+    invitedByUserId: invitation.invitedByUserId,
+    expiresAt: invitation.expiresAt.toISOString(),
+    acceptedAt: serializeDate(invitation.acceptedAt),
+    acceptedByUserId: invitation.acceptedByUserId ?? undefined,
+    cancelledAt: serializeDate(invitation.cancelledAt),
+    createdAt: invitation.createdAt.toISOString()
   };
 }
 
@@ -168,11 +206,11 @@ function toRecommendation(recommendation: {
 
 export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
   return {
-    async upsertUserByClerkId(clerkUserId) {
+    async upsertUserByClerkId(clerkUserId, profile = {}) {
       const user = await prisma.user.upsert({
         where: { clerkUserId },
-        create: { clerkUserId },
-        update: {}
+        create: { clerkUserId, ...profile },
+        update: profile
       });
 
       return toAppUser(user);
@@ -227,8 +265,84 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
         householdId: membership.householdId,
         userId: membership.userId,
         clerkUserId: membership.user.clerkUserId,
+        primaryEmail: membership.user.primaryEmail ?? undefined,
+        displayName: membership.user.displayName ?? undefined,
         role: membership.role as "owner" | "member"
       }));
+    },
+
+    async createInvitation(invitation) {
+      const created = await prisma.householdInvitation.create({
+        data: {
+          householdId: invitation.householdId,
+          recipientEmail: invitation.recipientEmail,
+          tokenDigest: invitation.tokenDigest,
+          invitedByUserId: invitation.invitedByUserId,
+          expiresAt: new Date(invitation.expiresAt)
+        }
+      });
+
+      return toInvitation(created);
+    },
+
+    async listInvitations(householdId) {
+      const invitations = await prisma.householdInvitation.findMany({
+        where: { householdId },
+        orderBy: { createdAt: "desc" }
+      });
+
+      return invitations.map(toInvitation);
+    },
+
+    async cancelInvitation(householdId, invitationId, cancelledAt) {
+      const invitation = await prisma.householdInvitation.findFirst({
+        where: { id: invitationId, householdId }
+      });
+      if (!invitation || invitation.acceptedAt || invitation.cancelledAt) return undefined;
+
+      const updated = await prisma.householdInvitation.update({
+        where: { id: invitationId },
+        data: { cancelledAt: new Date(cancelledAt) }
+      });
+
+      return toInvitation(updated);
+    },
+
+    async findInvitationByTokenDigest(tokenDigest) {
+      const invitation = await prisma.householdInvitation.findUnique({
+        where: { tokenDigest }
+      });
+      if (!invitation) return undefined;
+
+      return {
+        ...toInvitation(invitation),
+        tokenDigest: invitation.tokenDigest
+      };
+    },
+
+    async acceptInvitation(invitationId, userId, acceptedAt) {
+      const invitation = await prisma.householdInvitation.findUnique({
+        where: { id: invitationId }
+      });
+      if (!invitation || invitation.acceptedAt || invitation.cancelledAt) return undefined;
+
+      const updated = await prisma.$transaction(async (tx) => {
+        const nextInvitation = await tx.householdInvitation.update({
+          where: { id: invitationId },
+          data: {
+            acceptedAt: new Date(acceptedAt),
+            acceptedByUserId: userId
+          }
+        });
+        await tx.householdMember.upsert({
+          where: { householdId_userId: { householdId: invitation.householdId, userId } },
+          create: { householdId: invitation.householdId, userId, role: "member" },
+          update: {}
+        });
+        return nextInvitation;
+      });
+
+      return toInvitation(updated);
     },
 
     async listHouseholdsForUser(userId) {
