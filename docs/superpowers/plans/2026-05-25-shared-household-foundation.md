@@ -306,7 +306,7 @@ npm.cmd run typecheck -w server
 
 Expected: all commands pass.
 
-- [ ] **Step 5: Commit and push owner administration**
+- [x] **Step 5: Commit and push owner administration**
 
 ```powershell
 git add server/src/repositories server/src/routes/households.ts server/test/members.test.ts
@@ -323,7 +323,7 @@ git push origin main
 - Modify: `web/src/App.css`
 - Test: `web/src/App.test.tsx`
 
-- [ ] **Step 1: Write failing Family UI tests**
+- [x] **Step 1: Write failing Family UI tests**
 
 Test that Family is in navigation, loads members and invitations, lets an owner submit
 an email invitation, and exposes promotion/removal actions only when owner data allows:
@@ -336,7 +336,7 @@ fireEvent.change(screen.getByLabelText("Invite by email"), { target: { value: "m
 fireEvent.click(screen.getByRole("button", { name: "Send invitation" }));
 ```
 
-- [ ] **Step 2: Run web tests and verify RED**
+- [x] **Step 2: Run web tests and verify RED**
 
 Run:
 
@@ -346,13 +346,13 @@ npm.cmd test -w web -- App.test.tsx
 
 Expected: failure because Family remains a placeholder and has no API helpers.
 
-- [ ] **Step 3: Implement Family page and API helpers**
+- [x] **Step 3: Implement Family page and API helpers**
 
 Pass household app data into `FamilyPage`, render one management section per household,
 and add API helpers corresponding to membership/invitation routes. Keep save/loading/error
 state scoped to each household card and show pending invitation expiry and cancellation.
 
-- [ ] **Step 4: Verify Family UI**
+- [x] **Step 4: Verify Family UI**
 
 Run:
 

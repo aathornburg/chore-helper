@@ -113,7 +113,7 @@ function AppRoutes() {
           isLoading={isLoading}
         />
       ) : null}
-      {path === "/family" ? <FamilyPage /> : null}
+      {path === "/family" ? <FamilyPage households={households} isLoading={isLoading} /> : null}
       {path === "/settings" ? <SettingsPage /> : null}
     </AppShell>
   );
@@ -133,6 +133,7 @@ function AppShell({
     { label: "Households", path: "/households" },
     { label: "Chores", path: "/chores" },
     { label: "Optimize", path: "/optimize" },
+    { label: "Family", path: "/family" },
     { label: "Settings", path: "/settings" }
   ];
 

@@ -1,5 +1,10 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import type { HouseholdAppData, HouseholdStructure } from "@chore-helper/shared";
+import type {
+  HouseholdAppData,
+  HouseholdInvitation,
+  HouseholdMemberSummary,
+  HouseholdStructure
+} from "@chore-helper/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 
@@ -228,6 +233,85 @@ function mockHouseholdsPageFetches(
   return fetchMock;
 }
 
+function mockFamilyPageFetches(currentRole: "owner" | "member" = "owner") {
+  let members: HouseholdMemberSummary[] = [
+    {
+      householdId: "household-1",
+      userId: "app-user-1",
+      clerkUserId: "test-user-a",
+      primaryEmail: "owner@example.com",
+      displayName: "Alex Owner",
+      role: currentRole
+    },
+    {
+      householdId: "household-1",
+      userId: "app-user-2",
+      clerkUserId: "test-user-b",
+      primaryEmail: "member@example.com",
+      displayName: "Morgan Member",
+      role: currentRole === "owner" ? "member" : "owner"
+    }
+  ];
+  let invitations: HouseholdInvitation[] = [{
+    id: "invite-1",
+    householdId: "household-1",
+    recipientEmail: "pending@example.com",
+    role: "member",
+    status: "pending",
+    invitedByUserId: "app-user-1",
+    expiresAt: "2026-06-01T12:00:00.000Z",
+    createdAt: "2026-05-25T12:00:00.000Z"
+  }];
+  const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = input.toString();
+    const method = init?.method ?? "GET";
+
+    if (url === "http://localhost:3001/api/me" && method === "GET") {
+      return { ok: true, json: async () => ({ id: "app-user-1", clerkUserId: "test-user-a" }) };
+    }
+    if (url === "http://localhost:3001/api/households" && method === "GET") {
+      return { ok: true, json: async () => [createHouseholdAppData()] };
+    }
+    if (url === "http://localhost:3001/api/households/household-1/members" && method === "GET") {
+      return { ok: true, json: async () => members };
+    }
+    if (url === "http://localhost:3001/api/households/household-1/invitations" && method === "GET") {
+      return { ok: true, json: async () => invitations };
+    }
+    if (url === "http://localhost:3001/api/households/household-1/invitations" && method === "POST") {
+      const body = JSON.parse(String(init?.body)) as { email: string };
+      const invitation: HouseholdInvitation = {
+        ...invitations[0],
+        id: "invite-2",
+        recipientEmail: body.email
+      };
+      invitations = [...invitations, invitation];
+      return { ok: true, json: async () => invitation };
+    }
+    if (url === "http://localhost:3001/api/households/household-1/invitations/invite-1/cancel" && method === "POST") {
+      invitations = invitations.map((invitation) =>
+        invitation.id === "invite-1" ? { ...invitation, status: "cancelled" } : invitation
+      );
+      return { ok: true, json: async () => invitations[0] };
+    }
+    if (url === "http://localhost:3001/api/households/household-1/members/app-user-2/role" && method === "PUT") {
+      members = members.map((member) =>
+        member.userId === "app-user-2" ? { ...member, role: "owner" } : member
+      );
+      return { ok: true, json: async () => ({ householdId: "household-1", userId: "app-user-2", role: "owner" }) };
+    }
+    if (url === "http://localhost:3001/api/households/household-1/members/app-user-2" && method === "DELETE") {
+      members = members.filter((member) => member.userId !== "app-user-2");
+      return { ok: true, json: async () => ({ householdId: "household-1", userId: "app-user-2", role: "owner" }) };
+    }
+
+    throw new Error(`Unhandled fetch ${method} ${url}`);
+  });
+
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -254,6 +338,7 @@ describe("App", () => {
     expect(screen.getByRole("link", { name: "Households" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Chores" })).toBeTruthy();
     expect(screen.getByRole("link", { name: /Optimize/ })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Family" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Settings" })).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Setup" })).toBeNull();
   });
@@ -372,6 +457,45 @@ describe("App", () => {
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Add household" })).toBeTruthy();
     });
+  });
+
+  it("loads household family management and lets an owner administer members and invitations", async () => {
+    const fetchMock = mockFamilyPageFetches();
+    renderAt("/family");
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Family" })).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Alex Owner")).toBeTruthy());
+    expect(screen.getByText("Morgan Member")).toBeTruthy();
+    expect(screen.getByText("pending@example.com")).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText("Invite by email"), { target: { value: "new@example.com" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send invitation" }));
+    await waitFor(() => expect(screen.getByText("new@example.com")).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("button", { name: "Promote Morgan Member to owner" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Make Morgan Member a member" })).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel invitation for pending@example.com" }));
+    await waitFor(() => expect(screen.getByText("Cancelled")).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove Morgan Member" }));
+    await waitFor(() => expect(screen.queryByText("Morgan Member")).toBeNull());
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/households/household-1/invitations",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+
+  it("shows family members without owner-only actions to an ordinary member", async () => {
+    mockFamilyPageFetches("member");
+    renderAt("/family");
+
+    await waitFor(() => expect(screen.getByText("Alex Owner")).toBeTruthy());
+    expect(screen.queryByLabelText("Invite by email")).toBeNull();
+    expect(screen.queryByRole("button", { name: /promote/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /remove/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /cancel invitation/i })).toBeNull();
   });
 
   it("adds the first household from the no-households state", async () => {

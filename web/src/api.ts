@@ -3,6 +3,8 @@ import type {
   Chore,
   Household,
   HouseholdAppData,
+  HouseholdInvitation,
+  HouseholdMemberSummary,
   HouseholdProfile,
   HouseholdStructure,
   Recommendation
@@ -87,6 +89,73 @@ export async function getHouseholdStructure(householdId: string): Promise<Househ
 
   if (!response.ok) throw new Error("Failed to fetch household structure");
   return response.json();
+}
+
+export async function listHouseholdMembers(householdId: string): Promise<HouseholdMemberSummary[]> {
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/members`);
+
+  if (!response.ok) throw new Error("Failed to fetch household members");
+  return response.json();
+}
+
+export async function listHouseholdInvitations(householdId: string): Promise<HouseholdInvitation[]> {
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/invitations`);
+
+  if (!response.ok) throw new Error("Failed to fetch household invitations");
+  return response.json();
+}
+
+export async function inviteHouseholdMember(
+  householdId: string,
+  email: string
+): Promise<HouseholdInvitation> {
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/invitations`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email })
+  });
+
+  if (!response.ok) throw new Error("Failed to send household invitation");
+  return response.json();
+}
+
+export async function cancelHouseholdInvitation(
+  householdId: string,
+  invitationId: string
+): Promise<HouseholdInvitation> {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/households/${householdId}/invitations/${invitationId}/cancel`,
+    { method: "POST" }
+  );
+
+  if (!response.ok) throw new Error("Failed to cancel household invitation");
+  return response.json();
+}
+
+export async function updateHouseholdMemberRole(
+  householdId: string,
+  userId: string,
+  role: HouseholdMemberSummary["role"]
+): Promise<{ householdId: string; userId: string; role: HouseholdMemberSummary["role"] }> {
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/members/${userId}/role`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ role })
+  });
+
+  if (!response.ok) throw new Error("Failed to update household member role");
+  return response.json();
+}
+
+export async function removeHouseholdMember(
+  householdId: string,
+  userId: string
+): Promise<void> {
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/members/${userId}`, {
+    method: "DELETE"
+  });
+
+  if (!response.ok) throw new Error("Failed to remove household member");
 }
 
 export async function saveHouseholdStructure(

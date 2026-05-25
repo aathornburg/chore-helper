@@ -236,6 +236,7 @@ button:hover {
 .setup-page,
 .chores-page,
 .households-page,
+.family-page,
 .settings-page {
   display: grid;
   gap: 20px;
@@ -1184,6 +1185,139 @@ button.chore-row-summary[aria-expanded="true"] {
   gap: 12px;
 }
 
+.family-household-list {
+  display: grid;
+  gap: 20px;
+}
+
+.family-household {
+  display: grid;
+  gap: 22px;
+  padding: 24px;
+}
+
+.family-panel-grid {
+  display: grid;
+  gap: 22px;
+  grid-template-columns: repeat(2, minmax(280px, 1fr));
+}
+
+.compact-heading {
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.compact-heading h3 {
+  color: #24352e;
+  margin: 0;
+}
+
+.compact-heading span {
+  background: #eef6ea;
+  border-radius: 999px;
+  color: #425447;
+  font-size: 0.84rem;
+  font-weight: 700;
+  padding: 4px 10px;
+}
+
+.family-list {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.family-row {
+  align-items: center;
+  background: #fffefa;
+  border: 1px solid #eaded1;
+  border-radius: 10px;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  padding: 12px;
+}
+
+.family-row strong,
+.family-row span {
+  display: block;
+}
+
+.family-row > div:first-child span {
+  color: #667085;
+  font-size: 0.88rem;
+  margin-top: 4px;
+}
+
+.family-row-actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.family-row-actions button {
+  font-size: 0.84rem;
+  padding: 8px 10px;
+}
+
+.role-pill {
+  background: #eef6ea;
+  border-radius: 999px;
+  color: #365243;
+  font-size: 0.78rem;
+  font-weight: 750;
+  padding: 6px 9px;
+}
+
+.role-pill.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.role-pill.accepted {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.role-pill.cancelled,
+.role-pill.expired {
+  background: #f3f4f6;
+  color: #667085;
+}
+
+.family-invite-form {
+  background: #f8fbf6;
+  border: 1px solid #d7e4d5;
+  border-radius: 10px;
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 12px;
+}
+
+.family-invite-form label {
+  color: #425447;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.family-invite-form div {
+  display: flex;
+  gap: 8px;
+}
+
+.family-invite-form input {
+  flex: 1;
+}
+
+.subtle-action {
+  background: #fffefa;
+  border: 1px solid #eaded1;
+  color: #425447;
+}
+
 .overview-stat-grid {
   display: grid;
   gap: 12px;
@@ -1486,10 +1620,20 @@ button.chore-row-summary[aria-expanded="true"] {
   .setup-stepper,
   .setup-progress-panel,
   .metric-grid,
+  .family-panel-grid,
   .week-strip,
   .chore-table article,
   .recommendation {
     grid-template-columns: 1fr;
+  }
+
+  .family-row {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .family-invite-form div {
+    display: grid;
   }
 
   .chore-list-toolbar {
