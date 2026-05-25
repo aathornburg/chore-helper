@@ -1,10 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
-import { type ChoreReviewState, type Chore, type Household, type Recommendation } from "@chore-helper/shared";
+import {
+  type ChoreReviewState,
+  type Chore,
+  type ChoreSchedule,
+  type Household,
+  type HouseholdMemberSummary,
+  type Recommendation
+} from "@chore-helper/shared";
 import {
   archiveChore,
   createChore,
+  createSchedule,
+  getCurrentUser,
   listAllChores,
   listAllRecommendations,
+  listHouseholdMembers,
+  listSchedules,
   restoreChore,
   updateChore
 } from "../api";
@@ -90,6 +101,13 @@ function formatChoreHousehold(chore: Chore) {
   return chore.householdName ?? chore.householdId;
 }
 
+function formatScheduleRecurrence(schedule: ChoreSchedule) {
+  if (schedule.recurrence.frequency === "one_time") return "Once";
+  if (schedule.recurrence.frequency === "weekly") return "Weekly";
+  if (schedule.recurrence.frequency === "monthly") return "Monthly";
+  return "Daily";
+}
+
 type ChoresPageProps = {
   households: Household[];
   householdsLoading: boolean;
@@ -108,6 +126,23 @@ export function ChoresPage({ households, householdsLoading, onNavigate }: Chores
   const [editTitle, setEditTitle] = useState("");
   const [editCadence, setEditCadence] = useState("");
   const [editEstimatedMinutes, setEditEstimatedMinutes] = useState("");
+  const [editInstructions, setEditInstructions] = useState("");
+  const [editTags, setEditTags] = useState("");
+  const [schedules, setSchedules] = useState<ChoreSchedule[]>([]);
+  const [scheduleMembers, setScheduleMembers] = useState<HouseholdMemberSummary[]>([]);
+  const [canManageSchedules, setCanManageSchedules] = useState(false);
+  const [scheduleLoadState, setScheduleLoadState] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [isScheduleFormOpen, setIsScheduleFormOpen] = useState(false);
+  const [scheduleFrequency, setScheduleFrequency] = useState<ChoreSchedule["recurrence"]["frequency"]>("daily");
+  const [scheduleInterval, setScheduleInterval] = useState("1");
+  const [scheduleWeekDays, setScheduleWeekDays] = useState("1");
+  const [scheduleMonthlyDay, setScheduleMonthlyDay] = useState("1");
+  const [scheduleStartTime, setScheduleStartTime] = useState("09:00");
+  const [schedulePlannedMinutes, setSchedulePlannedMinutes] = useState("30");
+  const [scheduleStartsOn, setScheduleStartsOn] = useState("2026-05-25");
+  const [scheduleEndsOn, setScheduleEndsOn] = useState("");
+  const [scheduleAssignmentMode, setScheduleAssignmentMode] = useState<ChoreSchedule["assignment"]["mode"]>("fixed");
+  const [scheduleAssignees, setScheduleAssignees] = useState<string[]>([]);
   const [isAddFormOpen, setIsAddFormOpen] = useState(false);
   const [isCreatingChore, setIsCreatingChore] = useState(false);
   const [newHouseholdId, setNewHouseholdId] = useState("");
@@ -158,7 +193,7 @@ export function ChoresPage({ households, householdsLoading, onNavigate }: Chores
     };
   }, []);
 
-  function handleExpandChore(chore: Chore) {
+  async function handleExpandChore(chore: Chore) {
     if (expandedChoreId === chore.id) {
       setExpandedChoreId(undefined);
       return;
@@ -167,7 +202,25 @@ export function ChoresPage({ households, householdsLoading, onNavigate }: Chores
     setEditTitle(chore.title);
     setEditCadence(chore.cadence);
     setEditEstimatedMinutes(String(chore.estimatedMinutes));
+    setEditInstructions(chore.instructions ?? "");
+    setEditTags((chore.tags ?? []).join(", "));
     setExpandedChoreId(chore.id);
+    setIsScheduleFormOpen(false);
+    setScheduleLoadState("loading");
+    try {
+      const [loadedSchedules, members, user] = await Promise.all([
+        listSchedules(chore.householdId, chore.id),
+        listHouseholdMembers(chore.householdId),
+        getCurrentUser()
+      ]);
+      setSchedules(loadedSchedules);
+      setScheduleMembers(members);
+      setCanManageSchedules(members.some((member) => member.userId === user.id && member.role === "owner"));
+      setScheduleAssignees(members[0] ? [members[0].userId] : []);
+      setScheduleLoadState("ready");
+    } catch {
+      setScheduleLoadState("error");
+    }
   }
 
   function handleCancelEdit() {
@@ -223,7 +276,9 @@ export function ChoresPage({ households, householdsLoading, onNavigate }: Chores
       title: editTitle,
       cadence: editCadence,
       estimatedMinutes: Number(editEstimatedMinutes),
-      source: "manual"
+      source: "manual",
+      instructions: editInstructions.trim() || undefined,
+      tags: editTags.split(",").map((tag) => tag.trim()).filter(Boolean)
     });
 
     setChores((currentChores) =>
@@ -232,6 +287,55 @@ export function ChoresPage({ households, householdsLoading, onNavigate }: Chores
     setRecommendations([]);
     setExpandedChoreId(undefined);
     setStatus("Chores changed. Run review again for updated recommendations.");
+  }
+
+  function handleOpenScheduleForm() {
+    setScheduleFrequency("daily");
+    setScheduleInterval("1");
+    setScheduleWeekDays("1");
+    setScheduleMonthlyDay("1");
+    setScheduleStartTime("09:00");
+    setSchedulePlannedMinutes("30");
+    setScheduleStartsOn("2026-05-25");
+    setScheduleEndsOn("");
+    setScheduleAssignmentMode("fixed");
+    setScheduleAssignees(scheduleMembers[0] ? [scheduleMembers[0].userId] : []);
+    setIsScheduleFormOpen(true);
+  }
+
+  function toggleScheduleAssignee(userId: string) {
+    if (scheduleAssignmentMode === "fixed") {
+      setScheduleAssignees([userId]);
+      return;
+    }
+    setScheduleAssignees((current) =>
+      current.includes(userId) ? current.filter((candidate) => candidate !== userId) : [...current, userId]
+    );
+  }
+
+  async function handleCreateSchedule(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!expandedChore || scheduleAssignees.length === 0) return;
+
+    const recurrence: ChoreSchedule["recurrence"] = {
+      frequency: scheduleFrequency,
+      interval: Number(scheduleInterval),
+      ...(scheduleFrequency === "weekly"
+        ? { weekDays: scheduleWeekDays.split(",").map((day) => Number(day.trim())).filter((day) => !Number.isNaN(day)) }
+        : {}),
+      ...(scheduleFrequency === "monthly" ? { monthlyDay: Number(scheduleMonthlyDay) } : {})
+    };
+    const created = await createSchedule(expandedChore.householdId, expandedChore.id, {
+      recurrence,
+      localStartTime: scheduleStartTime,
+      startsOn: scheduleStartsOn,
+      ...(scheduleEndsOn ? { endsOn: scheduleEndsOn } : {}),
+      plannedMinutes: Number(schedulePlannedMinutes),
+      assignment: { mode: scheduleAssignmentMode, memberUserIds: scheduleAssignees }
+    });
+    setSchedules((current) => [...current, created]);
+    setIsScheduleFormOpen(false);
+    setStatus("Schedule added. Open Calendar to review planned occurrences.");
   }
 
   async function handleArchiveSelectedChore() {
@@ -437,9 +541,10 @@ export function ChoresPage({ households, householdsLoading, onNavigate }: Chores
                 return (
                   <article className={`queue-card chore-row chore-card-${reviewState}`} key={chore.id}>
                     <button
+                      aria-label={`Expand ${chore.title}`}
                       aria-expanded={isExpanded}
                       className="chore-row-summary"
-                      onClick={() => handleExpandChore(chore)}
+                      onClick={() => void handleExpandChore(chore)}
                       type="button"
                     >
                       <span>{formatReviewState(reviewState)}</span>
@@ -487,6 +592,21 @@ export function ChoresPage({ households, householdsLoading, onNavigate }: Chores
                                 <option value="manual">Manual</option>
                               </select>
                             </label>
+                            <label>
+                              Instructions
+                              <textarea
+                                value={editInstructions}
+                                onChange={(event) => setEditInstructions(event.target.value)}
+                              />
+                            </label>
+                            <label>
+                              Tags
+                              <input
+                                placeholder="bathroom, weekly"
+                                value={editTags}
+                                onChange={(event) => setEditTags(event.target.value)}
+                              />
+                            </label>
                           </div>
                           <div className="form-actions">
                             <button type="submit">Save chore changes</button>
@@ -496,6 +616,108 @@ export function ChoresPage({ households, householdsLoading, onNavigate }: Chores
                             </button>
                           </div>
                         </form>
+                        <section className="schedule-editor" aria-label={`${chore.title} schedules`}>
+                          <div className="panel-heading">
+                            <div>
+                              <p className="eyebrow">Timing and assignments</p>
+                              <h3>Schedules</h3>
+                            </div>
+                            {canManageSchedules ? (
+                              <button onClick={handleOpenScheduleForm} type="button">Add schedule</button>
+                            ) : null}
+                          </div>
+                          {scheduleLoadState === "loading" ? <p>Loading schedules...</p> : null}
+                          {scheduleLoadState === "error" ? <p>Could not load schedules.</p> : null}
+                          {scheduleLoadState === "ready" && schedules.length === 0 ? <p>No schedules yet.</p> : null}
+                          <div className="schedule-card-list">
+                            {schedules.map((schedule) => (
+                              <article className="schedule-card" key={schedule.id}>
+                                <strong>{formatScheduleRecurrence(schedule)}</strong>
+                                <span>{schedule.localStartTime} / {schedule.plannedMinutes} min</span>
+                                <span>{schedule.assignment.mode === "rotation" ? "Rotates assignments" : "Fixed assignment"}</span>
+                              </article>
+                            ))}
+                          </div>
+                          {isScheduleFormOpen ? (
+                            <form className="schedule-form" onSubmit={(event) => void handleCreateSchedule(event)}>
+                              <div className="field-grid">
+                                <label>
+                                  Frequency
+                                  <select value={scheduleFrequency} onChange={(event) => setScheduleFrequency(event.target.value as ChoreSchedule["recurrence"]["frequency"])}>
+                                    <option value="one_time">One time</option>
+                                    <option value="daily">Daily</option>
+                                    <option value="weekly">Weekly</option>
+                                    <option value="monthly">Monthly</option>
+                                  </select>
+                                </label>
+                                <label>
+                                  Repeat every
+                                  <input min="1" type="number" value={scheduleInterval} onChange={(event) => setScheduleInterval(event.target.value)} />
+                                </label>
+                                {scheduleFrequency === "weekly" ? (
+                                  <label>
+                                    Weekdays (0-6)
+                                    <input value={scheduleWeekDays} onChange={(event) => setScheduleWeekDays(event.target.value)} />
+                                  </label>
+                                ) : null}
+                                {scheduleFrequency === "monthly" ? (
+                                  <label>
+                                    Day of month
+                                    <input min="1" max="31" type="number" value={scheduleMonthlyDay} onChange={(event) => setScheduleMonthlyDay(event.target.value)} />
+                                  </label>
+                                ) : null}
+                                <label>
+                                  Start time
+                                  <input type="time" value={scheduleStartTime} onChange={(event) => setScheduleStartTime(event.target.value)} />
+                                </label>
+                                <label>
+                                  Planned duration
+                                  <input min="1" type="number" value={schedulePlannedMinutes} onChange={(event) => setSchedulePlannedMinutes(event.target.value)} />
+                                </label>
+                                <label>
+                                  Starts on
+                                  <input type="date" value={scheduleStartsOn} onChange={(event) => setScheduleStartsOn(event.target.value)} />
+                                </label>
+                                <label>
+                                  Ends on
+                                  <input type="date" value={scheduleEndsOn} onChange={(event) => setScheduleEndsOn(event.target.value)} />
+                                </label>
+                                <label>
+                                  Assignment mode
+                                  <select value={scheduleAssignmentMode} onChange={(event) => {
+                                    const mode = event.target.value as ChoreSchedule["assignment"]["mode"];
+                                    setScheduleAssignmentMode(mode);
+                                    if (mode === "fixed" && scheduleAssignees[0]) setScheduleAssignees([scheduleAssignees[0]]);
+                                  }}>
+                                    <option value="fixed">Fixed</option>
+                                    <option value="rotation">Rotation</option>
+                                  </select>
+                                </label>
+                              </div>
+                              <fieldset className="schedule-assignees">
+                                <legend>Assignees</legend>
+                                {scheduleMembers.map((member) => (
+                                  <label className="checkbox-field" key={member.userId}>
+                                    <input
+                                      checked={scheduleAssignees.includes(member.userId)}
+                                      name="schedule-assignee"
+                                      onChange={() => toggleScheduleAssignee(member.userId)}
+                                      type={scheduleAssignmentMode === "fixed" ? "radio" : "checkbox"}
+                                    />
+                                    {member.displayName ?? member.primaryEmail ?? member.clerkUserId}
+                                  </label>
+                                ))}
+                              </fieldset>
+                              <div className="form-actions">
+                                <button type="submit">Save schedule</button>
+                                <button className="secondary-action" onClick={() => setIsScheduleFormOpen(false)} type="button">Cancel schedule</button>
+                              </div>
+                            </form>
+                          ) : null}
+                          {schedules.length > 0 ? (
+                            <button className="section-action" onClick={() => onNavigate("/calendar")} type="button">Open Calendar</button>
+                          ) : null}
+                        </section>
                         {expandedRecommendation ? (
                           <article className="recommendation inline-recommendation">
                             <div>

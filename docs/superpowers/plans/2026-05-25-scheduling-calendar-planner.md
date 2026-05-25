@@ -586,7 +586,7 @@ resize, and the equivalent inline edit form reach the same updated occurrence st
 - Modify: `server/test/prismaStore.test.ts`
 - Modify: `docs/local-postgres-docker-setup.md`
 
-- [ ] **Step 1: Write failing chore schedule editor tests**
+- [x] **Step 1: Write failing chore schedule editor tests**
 
 Cover definition details and a schedule form from an expanded chore row:
 
@@ -602,7 +602,7 @@ fireEvent.click(screen.getByRole("button", { name: "Save schedule" }));
 await waitFor(() => expect(screen.getByText("09:00 / 30 min")).toBeTruthy());
 ```
 
-- [ ] **Step 2: Run web tests and verify RED**
+- [x] **Step 2: Run web tests and verify RED**
 
 Run:
 
@@ -612,7 +612,7 @@ npm.cmd test -w web -- App.test.tsx
 
 Expected: missing schedule editor controls fail.
 
-- [ ] **Step 3: Implement chore definition and schedule setup UI**
+- [x] **Step 3: Implement chore definition and schedule setup UI**
 
 Extend API functions for chore instructions/tags and `createSchedule`/`listSchedules`.
 In `ChoresPage`, keep existing chore catalog behavior and add an expanded `Schedule`
@@ -627,7 +627,7 @@ section with:
 Do not add check-in controls or assistant schedule recommendations here; those belong
 to later releases.
 
-- [ ] **Step 4: Add persistent-store schedule verification**
+- [x] **Step 4: Add persistent-store schedule verification**
 
 Extend `server/test/prismaStore.test.ts` under the safe disposable-database block:
 
@@ -648,7 +648,7 @@ expect(await secondStore.listOccurrences(household.id, range)).toHaveLength(7);
 Update the Postgres setup documentation to state that schedule/occurrence persistence
 tests require the same dedicated `chore_helper_test` database.
 
-- [ ] **Step 5: Run release verification and push**
+- [x] **Step 5: Run release verification and push**
 
 Run:
 

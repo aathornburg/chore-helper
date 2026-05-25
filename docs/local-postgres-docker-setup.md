@@ -123,8 +123,9 @@ npm.cmd run test:db -w server
 ```
 
 These tests verify membership, invitation acceptance, role administration, household
-time-zone settings, chore persistence, and household structure persistence through
-the Prisma store.
+time-zone settings, chore persistence, household structure persistence, and timed
+schedule/occurrence persistence through the Prisma store. They clear scheduling rows
+as part of cleanup, so continue to run them only against `chore_helper_test`.
 
 ## Inspect the Database
 

@@ -2,6 +2,7 @@ import type {
   AppUserProfile,
   Chore,
   ChoreOccurrence,
+  ChoreSchedule,
   Household,
   HouseholdAppData,
   HouseholdInvitation,
@@ -244,6 +245,33 @@ export async function listArchivedChores(householdId: string): Promise<Chore[]> 
   const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/chores?status=archived`);
 
   if (!response.ok) throw new Error("Failed to fetch archived chores");
+  return response.json();
+}
+
+export async function listSchedules(householdId: string, choreId: string): Promise<ChoreSchedule[]> {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/households/${householdId}/chores/${choreId}/schedules`
+  );
+
+  if (!response.ok) throw new Error("Failed to fetch schedules");
+  return response.json();
+}
+
+export async function createSchedule(
+  householdId: string,
+  choreId: string,
+  schedule: Omit<ChoreSchedule, "id" | "householdId" | "choreId" | "archivedAt">
+): Promise<ChoreSchedule> {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/households/${householdId}/chores/${choreId}/schedules`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(schedule)
+    }
+  );
+
+  if (!response.ok) throw new Error("Failed to create schedule");
   return response.json();
 }
 

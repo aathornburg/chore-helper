@@ -4,6 +4,7 @@ import { PrismaClient } from "@prisma/client";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { createPrismaStore } from "../src/repositories/prismaStore.js";
+import { materializeOccurrences } from "../src/scheduling/materializeOccurrences.js";
 import { assertSafeDatabaseForCleanup } from "./databaseSafety.js";
 
 const connectionString = process.env.DATABASE_URL;
@@ -311,6 +312,48 @@ describe.skipIf(!safeConnectionString || !prisma)(
       expect(await secondStore.removeMember(household.id, member.id)).toEqual({
         outcome: "last_owner"
       });
+    });
+
+    it("persists timed schedules and their materialized occurrences across store instances", async () => {
+      const firstStore = createPrismaStore(prisma!);
+      const owner = await firstStore.upsertUserByClerkId("owner");
+      const household = await firstStore.createHouseholdForUser("Home", owner.id);
+      const chore = await firstStore.createChore({
+        householdId: household.id,
+        title: "Clean bathrooms",
+        cadence: "weekly",
+        estimatedMinutes: 30,
+        source: "manual"
+      });
+      const schedule = await firstStore.createSchedule({
+        householdId: household.id,
+        choreId: chore.id,
+        recurrence: { frequency: "daily", interval: 1 },
+        localStartTime: "09:00",
+        startsOn: "2026-05-25",
+        plannedMinutes: 30,
+        assignment: { mode: "fixed", memberUserIds: [owner.id] }
+      });
+
+      await firstStore.materializeScheduleOccurrences(
+        household.id,
+        schedule.id,
+        materializeOccurrences({
+          schedule,
+          householdTimeZone: household.timeZone,
+          rangeStart: "2026-05-25",
+          rangeEnd: "2026-05-31"
+        })
+      );
+
+      const secondStore = createPrismaStore(prisma!);
+      expect(await secondStore.listSchedules(household.id, chore.id)).toEqual([
+        expect.objectContaining({ id: schedule.id, localStartTime: "09:00" })
+      ]);
+      expect(await secondStore.listOccurrences(household.id, {
+        startAt: "2026-05-25T00:00:00.000Z",
+        endAt: "2026-06-01T00:00:00.000Z"
+      })).toHaveLength(7);
     });
   }
 );

@@ -1001,6 +1001,83 @@ describe("App", () => {
     );
   });
 
+  it("saves chore details and creates a timed schedule from the expanded chore", async () => {
+    let savedChore = cleanBathroomsChore;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input.toString();
+      const method = init?.method ?? "GET";
+
+      if (url === "http://localhost:3001/api/me" && method === "GET") {
+        return { ok: true, json: async () => ({ id: "app-user-1", clerkUserId: "test-user-a" }) };
+      }
+      if (url === "http://localhost:3001/api/households" && method === "GET") {
+        return { ok: true, json: async () => [createHouseholdAppData()] };
+      }
+      if (url === "http://localhost:3001/api/chores" && method === "GET") {
+        return { ok: true, json: async () => [savedChore] };
+      }
+      if (url === "http://localhost:3001/api/recommendations" && method === "GET") {
+        return { ok: true, json: async () => [] };
+      }
+      if (url === "http://localhost:3001/api/households/household-1/members" && method === "GET") {
+        return {
+          ok: true,
+          json: async () => [{
+            householdId: "household-1",
+            userId: "app-user-1",
+            clerkUserId: "test-user-a",
+            displayName: "Alex Owner",
+            role: "owner"
+          }]
+        };
+      }
+      if (url === "http://localhost:3001/api/households/household-1/chores/chore-1/schedules" && method === "GET") {
+        return { ok: true, json: async () => [] };
+      }
+      if (url === "http://localhost:3001/api/households/household-1/chores/chore-1" && method === "PUT") {
+        savedChore = { ...savedChore, ...JSON.parse(String(init?.body)) };
+        return { ok: true, json: async () => savedChore };
+      }
+      if (url === "http://localhost:3001/api/households/household-1/chores/chore-1/schedules" && method === "POST") {
+        const body = JSON.parse(String(init?.body));
+        return { ok: true, json: async () => ({ id: "schedule-1", householdId: "household-1", choreId: "chore-1", ...body }) };
+      }
+
+      throw new Error(`Unhandled fetch ${method} ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    renderAt("/chores");
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Expand Clean bathrooms" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Expand Clean bathrooms" }));
+    await waitFor(() => expect(screen.getByLabelText("Instructions")).toBeTruthy());
+    fireEvent.change(screen.getByLabelText("Instructions"), {
+      target: { value: "Clean sink, toilet, mirror, and floor." }
+    });
+    fireEvent.change(screen.getByLabelText("Tags"), { target: { value: "bathroom, deep clean" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save chore changes" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/households/household-1/chores/chore-1",
+      expect.objectContaining({
+        method: "PUT",
+        body: expect.stringContaining("Clean sink, toilet, mirror, and floor.")
+      })
+    ));
+
+    fireEvent.click(screen.getByRole("button", { name: "Expand Clean bathrooms" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Add schedule" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Add schedule" }));
+    fireEvent.change(screen.getByLabelText("Start time"), { target: { value: "09:00" } });
+    fireEvent.change(screen.getByLabelText("Planned duration"), { target: { value: "30" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save schedule" }));
+
+    await waitFor(() => expect(screen.getByText("09:00 / 30 min")).toBeTruthy());
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/households/household-1/chores/chore-1/schedules",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+
   it("loads all chores without a restored household and shows each chore household", async () => {
     vi.stubGlobal(
       "fetch",
