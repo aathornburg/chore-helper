@@ -16,7 +16,7 @@ const choreAgentRecommendationSchema = z.object({
   confidence: z.enum(["low", "medium", "high"]),
   affectedChoreTitle: z.string().min(1).optional(),
   proposedCadence: z.string().min(1).optional(),
-  proposedEstimatedMinutes: z.number().int().positive().optional()
+  proposedEstimatedMinutes: z.number().int().optional()
 });
 
 const choreAgentOutputSchema = z.object({
@@ -39,6 +39,7 @@ const choreReviewInstructions = [
   "Focus on cadence, duration, missing recurring work, and chore scope.",
   "Prefer recommendations tied to selected chores when selected chores are provided.",
   "Include concise rationale and confidence as low, medium, or high.",
+  "If proposing estimated minutes, provide a positive whole number only; omit it when no duration change is recommended.",
   "Do not invent household facts that are not present in the provided context.",
   "Do not recommend automatic calendar edits or automatic chore changes.",
   "Every recommendation is only a suggestion and requires manual user approval."
@@ -105,7 +106,10 @@ function mapOutputToRecommendations(
     status: "pending",
     decision: "pending",
     proposedCadence: recommendation.proposedCadence,
-    proposedEstimatedMinutes: recommendation.proposedEstimatedMinutes
+    proposedEstimatedMinutes:
+      recommendation.proposedEstimatedMinutes && recommendation.proposedEstimatedMinutes > 0
+        ? recommendation.proposedEstimatedMinutes
+        : undefined
   }));
 }
 

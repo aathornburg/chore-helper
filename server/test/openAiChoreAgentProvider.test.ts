@@ -88,4 +88,25 @@ describe("OpenAiChoreAgentProvider", () => {
 
     await expect(provider.recommendSetupImprovements(createContext())).rejects.toThrow();
   });
+
+  it("retains a recommendation while discarding a zero-minute optional proposal", async () => {
+    const provider = new OpenAiChoreAgentProvider("gpt-test", async () => ({
+      recommendations: [
+        {
+          title: "Keep the existing care routine",
+          rationale: "Daily pet care already matches the stated household need.",
+          confidence: "medium",
+          affectedChoreTitle: "Clean bathrooms",
+          proposedEstimatedMinutes: 0
+        }
+      ]
+    }));
+
+    await expect(provider.recommendSetupImprovements(createContext())).resolves.toEqual([
+      expect.objectContaining({
+        title: "Keep the existing care routine",
+        proposedEstimatedMinutes: undefined
+      })
+    ]);
+  });
 });

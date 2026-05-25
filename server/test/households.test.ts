@@ -7,11 +7,16 @@ import type {
   AgentProvider,
   AgentRecommendationContext
 } from "../src/agent/AgentProvider.js";
+import { MockChoreAgentProvider } from "../src/agent/MockChoreAgentProvider.js";
 import { createApp } from "../src/app.js";
 import { createInMemoryStore } from "../src/repositories/inMemoryStore.js";
 
 function createTestApp() {
-  return createApp({ store: createInMemoryStore(), authMode: "test" });
+  return createApp({
+    store: createInMemoryStore(),
+    agentProvider: new MockChoreAgentProvider(),
+    authMode: "test"
+  });
 }
 
 function request(app: ReturnType<typeof createApp>, userId = "test-user-a") {
