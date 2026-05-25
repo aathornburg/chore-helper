@@ -34,12 +34,15 @@ it("scopes household structure ids by their parent records in the Prisma schema"
 });
 
 async function clearDatabase() {
+  await prisma!.householdInvitation.deleteMany();
+  await prisma!.householdMember.deleteMany();
   await prisma!.householdRoom.deleteMany();
   await prisma!.householdFloor.deleteMany();
   await prisma!.recommendation.deleteMany();
   await prisma!.chore.deleteMany();
   await prisma!.householdProfile.deleteMany();
   await prisma!.household.deleteMany();
+  await prisma!.user.deleteMany();
 }
 
 describe.skipIf(!safeConnectionString || !prisma)(
@@ -242,6 +245,72 @@ describe.skipIf(!safeConnectionString || !prisma)(
       expect(await store.listChores(household.id)).toEqual([
         expect.objectContaining({ id: chore.id, archivedAt: undefined })
       ]);
+    });
+
+    it("persists household settings and invitation-created membership across store instances", async () => {
+      const firstStore = createPrismaStore(prisma!);
+      const owner = await firstStore.upsertUserByClerkId("owner", {
+        primaryEmail: "owner@example.com"
+      });
+      const member = await firstStore.upsertUserByClerkId("member", {
+        primaryEmail: "member@example.com"
+      });
+      const household = await firstStore.createHouseholdForUser("Home", owner.id);
+
+      await firstStore.updateHouseholdSettings(household.id, { timeZone: "America/Chicago" });
+      const invitation = await firstStore.createInvitation({
+        householdId: household.id,
+        recipientEmail: "member@example.com",
+        tokenDigest: "member-token-digest",
+        invitedByUserId: owner.id,
+        expiresAt: new Date(Date.now() + 60_000).toISOString()
+      });
+      await firstStore.acceptInvitation(invitation.id, member.id, new Date().toISOString());
+
+      const secondStore = createPrismaStore(prisma!);
+
+      expect(await secondStore.getHousehold(household.id)).toEqual(
+        expect.objectContaining({ timeZone: "America/Chicago" })
+      );
+      expect(await secondStore.listHouseholdMembers(household.id)).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ userId: owner.id, role: "owner" }),
+          expect.objectContaining({ userId: member.id, role: "member" })
+        ])
+      );
+      expect(await secondStore.listInvitations(household.id)).toEqual([
+        expect.objectContaining({ id: invitation.id, status: "accepted", acceptedByUserId: member.id })
+      ]);
+    });
+
+    it("persists role changes while refusing to remove the final owner", async () => {
+      const firstStore = createPrismaStore(prisma!);
+      const owner = await firstStore.upsertUserByClerkId("owner");
+      const member = await firstStore.upsertUserByClerkId("member");
+      const household = await firstStore.createHouseholdForUser("Home", owner.id);
+      const invitation = await firstStore.createInvitation({
+        householdId: household.id,
+        recipientEmail: "member@example.com",
+        tokenDigest: "role-token-digest",
+        invitedByUserId: owner.id,
+        expiresAt: new Date(Date.now() + 60_000).toISOString()
+      });
+      await firstStore.acceptInvitation(invitation.id, member.id, new Date().toISOString());
+
+      expect(await firstStore.updateMemberRole(household.id, member.id, "owner")).toEqual(
+        expect.objectContaining({ outcome: "updated" })
+      );
+      expect(await firstStore.removeMember(household.id, owner.id)).toEqual(
+        expect.objectContaining({ outcome: "updated" })
+      );
+
+      const secondStore = createPrismaStore(prisma!);
+      expect(await secondStore.getMembership(member.id, household.id)).toEqual(
+        expect.objectContaining({ role: "owner" })
+      );
+      expect(await secondStore.removeMember(household.id, member.id)).toEqual({
+        outcome: "last_owner"
+      });
     });
   }
 );

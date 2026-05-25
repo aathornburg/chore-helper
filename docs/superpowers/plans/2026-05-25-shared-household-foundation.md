@@ -363,7 +363,7 @@ npm.cmd run typecheck -w web
 
 Expected: all commands pass.
 
-- [ ] **Step 5: Commit and push Family UI**
+- [x] **Step 5: Commit and push Family UI**
 
 ```powershell
 git add web/src/api.ts web/src/pages/FamilyPage.tsx web/src/App.tsx web/src/App.css web/src/App.test.tsx
@@ -377,13 +377,17 @@ git push origin main
 - Modify: `server/test/prismaStore.test.ts`
 - Modify: `docs/local-postgres-docker-setup.md`
 
-- [ ] **Step 1: Add Prisma integration assertions for membership and invitation persistence**
+- [x] **Step 1: Add Prisma integration assertions for membership and invitation persistence**
 
 Assert settings survive store recreation, accepted invitations create membership once,
 role changes persist, and final-owner removal remains rejected through the persistent
 store.
 
 - [ ] **Step 2: Run database-backed tests with a safe local test database**
+
+Blocked on the current machine on 2026-05-25: Docker is not installed and no
+Postgres process is listening on `localhost:5432`. The assertions are committed so
+they can be executed from a machine with the documented disposable `_test` database.
 
 Run:
 
@@ -394,7 +398,7 @@ npm.cmd run test:db -w server
 
 Expected: persistence tests pass against the configured disposable development database.
 
-- [ ] **Step 3: Document configuration and local invitation behavior**
+- [x] **Step 3: Document configuration and local invitation behavior**
 
 Document:
 
@@ -407,7 +411,10 @@ APP_BASE_URL="http://localhost:5173"
 Explain that local/test mode captures acceptance links without sending outbound mail
 and that a verified Resend sender is required for deployed email delivery.
 
-- [ ] **Step 4: Run full Release 1 verification**
+- [x] **Step 4: Run full Release 1 verification**
+
+The non-database verification gate passed on 2026-05-25. Prisma persistence cases
+remain skipped until Step 2 can run against a disposable Postgres database.
 
 Run:
 

@@ -50,6 +50,19 @@ DATABASE_URL="postgresql://chore_helper:chore_helper_password@localhost:5432/cho
 
 This value should live in `server/.env`. The repo includes `server/.env.example` so future contributors know what to create.
 
+Invitation delivery settings belong in the same file:
+
+```dotenv
+RESEND_API_KEY=""
+INVITATION_FROM_EMAIL="Cleanly <invites@example.com>"
+APP_BASE_URL="http://localhost:5173"
+```
+
+When the server runs locally without Resend credentials, invitation creation logs the
+acceptance link in the server output instead of sending outbound email. In production,
+configure a verified Resend sender and `APP_BASE_URL`; without them invitation email
+delivery fails closed.
+
 ## Start the Database
 
 From the repo root:
@@ -89,6 +102,29 @@ For day-to-day development, this is the simplest command. Later, when the schema
 ```powershell
 npm run db:migrate -w server
 ```
+
+## Run Persistent Store Tests
+
+The persistent-store tests delete the records they create. Run them only against a
+dedicated database whose name ends in `_test`, never against your local app data.
+
+Create the disposable test database once after the Postgres container is running:
+
+```powershell
+docker exec chore-helper-postgres psql -U chore_helper -d chore_helper -c "CREATE DATABASE chore_helper_test OWNER chore_helper;"
+```
+
+Then run the schema setup and database-backed tests from the repo root:
+
+```powershell
+$env:DATABASE_URL="postgresql://chore_helper:chore_helper_password@localhost:5432/chore_helper_test?schema=public"
+npm.cmd run db:push -w server
+npm.cmd run test:db -w server
+```
+
+These tests verify membership, invitation acceptance, role administration, household
+time-zone settings, chore persistence, and household structure persistence through
+the Prisma store.
 
 ## Inspect the Database
 
