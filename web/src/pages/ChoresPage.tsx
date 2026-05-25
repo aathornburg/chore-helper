@@ -149,6 +149,22 @@ export function ChoresPage({ households, householdsLoading, onNavigate }: Chores
   const [newTitle, setNewTitle] = useState("");
   const [newCadence, setNewCadence] = useState("");
   const [newEstimatedMinutes, setNewEstimatedMinutes] = useState("");
+  const [newInstructions, setNewInstructions] = useState("");
+  const [newTags, setNewTags] = useState("");
+  const [newScheduleMembers, setNewScheduleMembers] = useState<HouseholdMemberSummary[]>([]);
+  const [newCanManageSchedules, setNewCanManageSchedules] = useState(false);
+  const [newScheduleLoadState, setNewScheduleLoadState] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [newHasInitialSchedule, setNewHasInitialSchedule] = useState(false);
+  const [newScheduleFrequency, setNewScheduleFrequency] = useState<ChoreSchedule["recurrence"]["frequency"]>("daily");
+  const [newScheduleInterval, setNewScheduleInterval] = useState("1");
+  const [newScheduleWeekDays, setNewScheduleWeekDays] = useState("1");
+  const [newScheduleMonthlyDay, setNewScheduleMonthlyDay] = useState("1");
+  const [newScheduleStartTime, setNewScheduleStartTime] = useState("09:00");
+  const [newSchedulePlannedMinutes, setNewSchedulePlannedMinutes] = useState("30");
+  const [newScheduleStartsOn, setNewScheduleStartsOn] = useState("2026-05-25");
+  const [newScheduleEndsOn, setNewScheduleEndsOn] = useState("");
+  const [newScheduleAssignmentMode, setNewScheduleAssignmentMode] = useState<ChoreSchedule["assignment"]["mode"]>("fixed");
+  const [newScheduleAssignees, setNewScheduleAssignees] = useState<string[]>([]);
   // Like an Angular accordion item keyed by id, only the expanded row owns the edit form.
   const expandedChore = chores.find((chore) => chore.id === expandedChoreId);
   const expandedRecommendation = findRecommendationForChore(expandedChore, recommendations);
@@ -233,11 +249,63 @@ export function ChoresPage({ households, householdsLoading, onNavigate }: Chores
     setNewTitle("");
     setNewCadence("");
     setNewEstimatedMinutes("");
+    setNewInstructions("");
+    setNewTags("");
+    setNewScheduleMembers([]);
+    setNewCanManageSchedules(false);
+    setNewScheduleLoadState("idle");
+    setNewHasInitialSchedule(false);
+    setNewScheduleFrequency("daily");
+    setNewScheduleInterval("1");
+    setNewScheduleWeekDays("1");
+    setNewScheduleMonthlyDay("1");
+    setNewScheduleStartTime("09:00");
+    setNewSchedulePlannedMinutes("30");
+    setNewScheduleStartsOn("2026-05-25");
+    setNewScheduleEndsOn("");
+    setNewScheduleAssignmentMode("fixed");
+    setNewScheduleAssignees([]);
     setIsAddFormOpen(true);
   }
 
   function handleCancelAddChore() {
     setIsAddFormOpen(false);
+  }
+
+  async function handleNewHouseholdChange(householdId: string) {
+    setNewHouseholdId(householdId);
+    setNewHasInitialSchedule(false);
+    setNewScheduleMembers([]);
+    setNewCanManageSchedules(false);
+    setNewScheduleAssignees([]);
+    if (!householdId) {
+      setNewScheduleLoadState("idle");
+      return;
+    }
+
+    setNewScheduleLoadState("loading");
+    try {
+      const [members, user] = await Promise.all([
+        listHouseholdMembers(householdId),
+        getCurrentUser()
+      ]);
+      setNewScheduleMembers(members);
+      setNewCanManageSchedules(members.some((member) => member.userId === user.id && member.role === "owner"));
+      setNewScheduleAssignees(members[0] ? [members[0].userId] : []);
+      setNewScheduleLoadState("ready");
+    } catch {
+      setNewScheduleLoadState("error");
+    }
+  }
+
+  function toggleNewScheduleAssignee(userId: string) {
+    if (newScheduleAssignmentMode === "fixed") {
+      setNewScheduleAssignees([userId]);
+      return;
+    }
+    setNewScheduleAssignees((current) =>
+      current.includes(userId) ? current.filter((candidate) => candidate !== userId) : [...current, userId]
+    );
   }
 
   async function handleCreateChore(event: React.FormEvent<HTMLFormElement>) {
@@ -246,25 +314,55 @@ export function ChoresPage({ households, householdsLoading, onNavigate }: Chores
 
     setIsCreatingChore(true);
     setStatus("Adding chore...");
+    let added: Chore;
     try {
-      const added = await createChore(newHouseholdId, {
+      added = await createChore(newHouseholdId, {
         title: newTitle.trim(),
         cadence: newCadence.trim(),
         estimatedMinutes: Number(newEstimatedMinutes),
-        source: "manual"
+        source: "manual",
+        instructions: newInstructions.trim() || undefined,
+        tags: newTags.split(",").map((tag) => tag.trim()).filter(Boolean)
       });
-      const householdName = households.find((household) => household.id === newHouseholdId)?.name;
-
-      setChores((currentChores) => [...currentChores, { ...added, householdName }]);
-      setRecommendations([]);
-      setActiveTab("all-active");
-      setIsAddFormOpen(false);
-      setStatus("Chore added. Run review when you are ready.");
     } catch {
       setStatus("Could not add chore.");
-    } finally {
       setIsCreatingChore(false);
+      return;
     }
+
+    const householdName = households.find((household) => household.id === newHouseholdId)?.name;
+    setChores((currentChores) => [...currentChores, { ...added, householdName }]);
+    setRecommendations([]);
+    setActiveTab("all-active");
+
+    if (newHasInitialSchedule) {
+      const recurrence: ChoreSchedule["recurrence"] = {
+        frequency: newScheduleFrequency,
+        interval: Number(newScheduleInterval),
+        ...(newScheduleFrequency === "weekly"
+          ? { weekDays: newScheduleWeekDays.split(",").map((day) => Number(day.trim())).filter((day) => !Number.isNaN(day)) }
+          : {}),
+        ...(newScheduleFrequency === "monthly" ? { monthlyDay: Number(newScheduleMonthlyDay) } : {})
+      };
+      try {
+        await createSchedule(newHouseholdId, added.id, {
+          recurrence,
+          localStartTime: newScheduleStartTime,
+          startsOn: newScheduleStartsOn,
+          ...(newScheduleEndsOn ? { endsOn: newScheduleEndsOn } : {}),
+          plannedMinutes: Number(newSchedulePlannedMinutes),
+          assignment: { mode: newScheduleAssignmentMode, memberUserIds: newScheduleAssignees }
+        });
+        setStatus("Chore and schedule added. Open Calendar to review planned occurrences.");
+      } catch {
+        setStatus("Chore added, but its schedule could not be saved. Open the chore to finish scheduling.");
+      }
+    } else {
+      setStatus("Chore added. Run review when you are ready.");
+    }
+
+    setIsAddFormOpen(false);
+    setIsCreatingChore(false);
   }
 
   async function handleSaveSelectedChore(event: React.FormEvent<HTMLFormElement>) {
@@ -415,7 +513,7 @@ export function ChoresPage({ households, householdsLoading, onNavigate }: Chores
                   disabled={isCreatingChore}
                   required
                   value={newHouseholdId}
-                  onChange={(event) => setNewHouseholdId(event.target.value)}
+                  onChange={(event) => void handleNewHouseholdChange(event.target.value)}
                 >
                   <option value="">Select household</option>
                   {households.map((household) => (
@@ -458,9 +556,116 @@ export function ChoresPage({ households, householdsLoading, onNavigate }: Chores
                   <option value="manual">Manual</option>
                 </select>
               </label>
+              <label>
+                Instructions
+                <textarea
+                  disabled={isCreatingChore}
+                  value={newInstructions}
+                  onChange={(event) => setNewInstructions(event.target.value)}
+                />
+              </label>
+              <label>
+                Tags
+                <input
+                  disabled={isCreatingChore}
+                  placeholder="bathroom, weekly"
+                  value={newTags}
+                  onChange={(event) => setNewTags(event.target.value)}
+                />
+              </label>
             </div>
+            {newScheduleLoadState === "loading" ? <p className="section-summary">Loading household members...</p> : null}
+            {newCanManageSchedules ? (
+              <label className="checkbox-field initial-schedule-toggle">
+                <input
+                  checked={newHasInitialSchedule}
+                  disabled={isCreatingChore}
+                  onChange={(event) => setNewHasInitialSchedule(event.target.checked)}
+                  type="checkbox"
+                />
+                Add initial schedule
+              </label>
+            ) : null}
+            {newHasInitialSchedule ? (
+              <section className="schedule-form initial-schedule-form" aria-label="Initial schedule">
+                <div className="panel-heading">
+                  <div>
+                    <p className="eyebrow">Optional timing</p>
+                    <h3>Initial schedule</h3>
+                  </div>
+                </div>
+                <div className="field-grid">
+                  <label>
+                    Frequency
+                    <select value={newScheduleFrequency} onChange={(event) => setNewScheduleFrequency(event.target.value as ChoreSchedule["recurrence"]["frequency"])}>
+                      <option value="one_time">One time</option>
+                      <option value="daily">Daily</option>
+                      <option value="weekly">Weekly</option>
+                      <option value="monthly">Monthly</option>
+                    </select>
+                  </label>
+                  <label>
+                    Repeat every
+                    <input min="1" type="number" value={newScheduleInterval} onChange={(event) => setNewScheduleInterval(event.target.value)} />
+                  </label>
+                  {newScheduleFrequency === "weekly" ? (
+                    <label>
+                      Weekdays (0-6)
+                      <input value={newScheduleWeekDays} onChange={(event) => setNewScheduleWeekDays(event.target.value)} />
+                    </label>
+                  ) : null}
+                  {newScheduleFrequency === "monthly" ? (
+                    <label>
+                      Day of month
+                      <input min="1" max="31" type="number" value={newScheduleMonthlyDay} onChange={(event) => setNewScheduleMonthlyDay(event.target.value)} />
+                    </label>
+                  ) : null}
+                  <label>
+                    Start time
+                    <input type="time" value={newScheduleStartTime} onChange={(event) => setNewScheduleStartTime(event.target.value)} />
+                  </label>
+                  <label>
+                    Planned duration
+                    <input min="1" type="number" value={newSchedulePlannedMinutes} onChange={(event) => setNewSchedulePlannedMinutes(event.target.value)} />
+                  </label>
+                  <label>
+                    Starts on
+                    <input type="date" value={newScheduleStartsOn} onChange={(event) => setNewScheduleStartsOn(event.target.value)} />
+                  </label>
+                  <label>
+                    Ends on
+                    <input type="date" value={newScheduleEndsOn} onChange={(event) => setNewScheduleEndsOn(event.target.value)} />
+                  </label>
+                  <label>
+                    Assignment mode
+                    <select value={newScheduleAssignmentMode} onChange={(event) => {
+                      const mode = event.target.value as ChoreSchedule["assignment"]["mode"];
+                      setNewScheduleAssignmentMode(mode);
+                      if (mode === "fixed" && newScheduleAssignees[0]) setNewScheduleAssignees([newScheduleAssignees[0]]);
+                    }}>
+                      <option value="fixed">Fixed</option>
+                      <option value="rotation">Rotation</option>
+                    </select>
+                  </label>
+                </div>
+                <fieldset className="schedule-assignees">
+                  <legend>Assignees</legend>
+                  {newScheduleMembers.map((member) => (
+                    <label className="checkbox-field" key={member.userId}>
+                      <input
+                        checked={newScheduleAssignees.includes(member.userId)}
+                        name="new-schedule-assignee"
+                        onChange={() => toggleNewScheduleAssignee(member.userId)}
+                        type={newScheduleAssignmentMode === "fixed" ? "radio" : "checkbox"}
+                      />
+                      {member.displayName ?? member.primaryEmail ?? member.clerkUserId}
+                    </label>
+                  ))}
+                </fieldset>
+              </section>
+            ) : null}
             <div className="form-actions">
-              <button disabled={isCreatingChore} type="submit">Save chore</button>
+              <button disabled={isCreatingChore || (newHasInitialSchedule && newScheduleAssignees.length === 0)} type="submit">Save chore</button>
               <button
                 className="secondary-action"
                 disabled={isCreatingChore}

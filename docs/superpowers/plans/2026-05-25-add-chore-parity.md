@@ -22,7 +22,7 @@
 - Modify: `web/src/App.test.tsx`
 - Modify: `web/src/pages/ChoresPage.tsx`
 
-- [ ] **Step 1: Write failing create-detail test**
+- [x] **Step 1: Write failing create-detail test**
 
 Extend the existing create-chore test to fill `Instructions` and `Tags` and assert that
 the `POST /api/households/:householdId/chores` body includes:
@@ -38,7 +38,7 @@ the `POST /api/households/:householdId/chores` body includes:
 }
 ```
 
-- [ ] **Step 2: Run the web test and verify RED**
+- [x] **Step 2: Run the web test and verify RED**
 
 Run:
 
@@ -48,7 +48,7 @@ npm.cmd test -w web -- App.test.tsx
 
 Expected: the create form does not expose `Instructions` or `Tags`.
 
-- [ ] **Step 3: Implement definition fields in the add form**
+- [x] **Step 3: Implement definition fields in the add form**
 
 Add `newInstructions` and `newTags` state, reset them in `handleOpenAddChore`, render
 the same labeled inputs used by edit, and submit:
@@ -58,7 +58,7 @@ instructions: newInstructions.trim() || undefined,
 tags: newTags.split(",").map((tag) => tag.trim()).filter(Boolean)
 ```
 
-- [ ] **Step 4: Run the web test and verify GREEN**
+- [x] **Step 4: Run the web test and verify GREEN**
 
 Run:
 
@@ -75,7 +75,7 @@ Expected: the detail payload assertion passes.
 - Modify: `web/src/pages/ChoresPage.tsx`
 - Modify: `web/src/App.css`
 
-- [ ] **Step 1: Write failing initial-schedule tests**
+- [x] **Step 1: Write failing initial-schedule tests**
 
 Add tests that:
 
@@ -85,7 +85,7 @@ Add tests that:
 - Return a failed schedule response after a successful chore create and assert the new
   chore remains visible with status text `Chore added, but its schedule could not be saved. Open the chore to finish scheduling.`
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 Run:
 
@@ -95,7 +95,7 @@ npm.cmd test -w web -- App.test.tsx
 
 Expected: initial schedule controls are absent.
 
-- [ ] **Step 3: Implement initial schedule form state and submission**
+- [x] **Step 3: Implement initial schedule form state and submission**
 
 On household selection, load members via `listHouseholdMembers`. When scheduling is
 enabled, render fields for recurrence, interval, conditional weekday/monthly input,
@@ -110,7 +110,7 @@ Only close the form after full success. When schedule creation fails after the c
 was stored, add the chore to the list, close the create form, and display the
 recoverable partial-success status.
 
-- [ ] **Step 4: Run focused checks and verify GREEN**
+- [x] **Step 4: Run focused checks and verify GREEN**
 
 Run:
 
@@ -127,13 +127,13 @@ Expected: add/edit parity and partial-success tests pass; typecheck and build su
 **Files:**
 - Modify: `docs/superpowers/plans/2026-05-25-add-chore-parity.md`
 
-- [ ] **Step 1: Inspect the add form locally**
+- [x] **Step 1: Inspect the add form locally**
 
 Use the Browser workflow on `/chores` to verify desktop and narrow-width rendering of
 definition inputs plus the optional schedule form, without submitting new persistent
 data.
 
-- [ ] **Step 2: Mark plan progress and verify repository changes**
+- [x] **Step 2: Mark plan progress and verify repository changes**
 
 Mark completed plan checkboxes, then run:
 
@@ -142,7 +142,7 @@ git diff --check
 git status --short --branch
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```powershell
 git add docs/superpowers/plans/2026-05-25-add-chore-parity.md web/src/pages/ChoresPage.tsx web/src/App.test.tsx web/src/App.css

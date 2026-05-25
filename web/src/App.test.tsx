@@ -1174,6 +1174,8 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Chore title"), { target: { value: "Sweep porch" } });
     fireEvent.change(screen.getByLabelText("Cadence"), { target: { value: "weekly" } });
     fireEvent.change(screen.getByLabelText("Estimated minutes"), { target: { value: "15" } });
+    fireEvent.change(screen.getByLabelText("Instructions"), { target: { value: "Sweep steps and shake the mat." } });
+    fireEvent.change(screen.getByLabelText("Tags"), { target: { value: "outdoor, weekly" } });
     fireEvent.click(screen.getByRole("button", { name: "Save chore" }));
 
     await waitFor(() => expect(screen.getByRole("button", { name: /Sweep porch/ })).toBeTruthy());
@@ -1186,10 +1188,163 @@ describe("App", () => {
           title: "Sweep porch",
           cadence: "weekly",
           estimatedMinutes: 15,
-          source: "manual"
+          source: "manual",
+          instructions: "Sweep steps and shake the mat.",
+          tags: ["outdoor", "weekly"]
         })
       })
     );
+  });
+
+  it("creates an optional initial schedule while adding a chore", async () => {
+    let finishScheduleRequest: (() => void) | undefined;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input.toString();
+      const method = init?.method ?? "GET";
+
+      if (url === "http://localhost:3001/api/me" && method === "GET") {
+        return { ok: true, json: async () => ({ id: "app-user-1", clerkUserId: "test-user-a" }) };
+      }
+      if (url === "http://localhost:3001/api/households" && method === "GET") {
+        return { ok: true, json: async () => [createHouseholdAppData({ chores: [] })] };
+      }
+      if (url === "http://localhost:3001/api/chores" && method === "GET") {
+        return { ok: true, json: async () => [] };
+      }
+      if (url === "http://localhost:3001/api/recommendations" && method === "GET") {
+        return { ok: true, json: async () => [] };
+      }
+      if (url === "http://localhost:3001/api/households/household-1/members" && method === "GET") {
+        return {
+          ok: true,
+          json: async () => [{
+            householdId: "household-1",
+            userId: "app-user-1",
+            clerkUserId: "test-user-a",
+            displayName: "Alex Owner",
+            role: "owner"
+          }]
+        };
+      }
+      if (url === "http://localhost:3001/api/households/household-1/chores" && method === "POST") {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "chore-2",
+            householdId: "household-1",
+            title: "Reset kitchen",
+            cadence: "daily",
+            estimatedMinutes: 20,
+            source: "manual"
+          })
+        };
+      }
+      if (url === "http://localhost:3001/api/households/household-1/chores/chore-2/schedules" && method === "POST") {
+        await new Promise<void>((resolve) => {
+          finishScheduleRequest = resolve;
+        });
+        return { ok: true, json: async () => ({ id: "schedule-2" }) };
+      }
+
+      throw new Error(`Unhandled fetch ${method} ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    renderAt("/chores");
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Add chore" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Add chore" }));
+    fireEvent.change(screen.getByLabelText("Household"), { target: { value: "household-1" } });
+    await waitFor(() => expect(screen.getByLabelText("Add initial schedule")).toBeTruthy());
+    fireEvent.click(screen.getByLabelText("Add initial schedule"));
+    fireEvent.change(screen.getByLabelText("Chore title"), { target: { value: "Reset kitchen" } });
+    fireEvent.change(screen.getByLabelText("Cadence"), { target: { value: "daily" } });
+    fireEvent.change(screen.getByLabelText("Estimated minutes"), { target: { value: "20" } });
+    fireEvent.change(screen.getByLabelText("Start time"), { target: { value: "09:00" } });
+    fireEvent.change(screen.getByLabelText("Planned duration"), { target: { value: "30" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save chore" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/households/household-1/chores/chore-2/schedules",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          recurrence: { frequency: "daily", interval: 1 },
+          localStartTime: "09:00",
+          startsOn: "2026-05-25",
+          plannedMinutes: 30,
+          assignment: { mode: "fixed", memberUserIds: ["app-user-1"] }
+        })
+      })
+    ));
+    expect(screen.getByLabelText("Add initial schedule")).toBeTruthy();
+
+    finishScheduleRequest?.();
+    await waitFor(() => expect(screen.queryByLabelText("Add initial schedule")).toBeNull());
+  });
+
+  it("keeps a created chore visible when its initial schedule fails to save", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input.toString();
+      const method = init?.method ?? "GET";
+
+      if (url === "http://localhost:3001/api/me" && method === "GET") {
+        return { ok: true, json: async () => ({ id: "app-user-1", clerkUserId: "test-user-a" }) };
+      }
+      if (url === "http://localhost:3001/api/households" && method === "GET") {
+        return { ok: true, json: async () => [createHouseholdAppData({ chores: [] })] };
+      }
+      if (url === "http://localhost:3001/api/chores" && method === "GET") {
+        return { ok: true, json: async () => [] };
+      }
+      if (url === "http://localhost:3001/api/recommendations" && method === "GET") {
+        return { ok: true, json: async () => [] };
+      }
+      if (url === "http://localhost:3001/api/households/household-1/members" && method === "GET") {
+        return {
+          ok: true,
+          json: async () => [{
+            householdId: "household-1",
+            userId: "app-user-1",
+            clerkUserId: "test-user-a",
+            displayName: "Alex Owner",
+            role: "owner"
+          }]
+        };
+      }
+      if (url === "http://localhost:3001/api/households/household-1/chores" && method === "POST") {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "chore-3",
+            householdId: "household-1",
+            title: "Clean entry",
+            cadence: "weekly",
+            estimatedMinutes: 15,
+            source: "manual"
+          })
+        };
+      }
+      if (url === "http://localhost:3001/api/households/household-1/chores/chore-3/schedules" && method === "POST") {
+        return { ok: false, json: async () => ({ error: "Schedule failed" }) };
+      }
+
+      throw new Error(`Unhandled fetch ${method} ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    renderAt("/chores");
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Add chore" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Add chore" }));
+    fireEvent.change(screen.getByLabelText("Household"), { target: { value: "household-1" } });
+    await waitFor(() => expect(screen.getByLabelText("Add initial schedule")).toBeTruthy());
+    fireEvent.click(screen.getByLabelText("Add initial schedule"));
+    fireEvent.change(screen.getByLabelText("Chore title"), { target: { value: "Clean entry" } });
+    fireEvent.change(screen.getByLabelText("Cadence"), { target: { value: "weekly" } });
+    fireEvent.change(screen.getByLabelText("Estimated minutes"), { target: { value: "15" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save chore" }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Expand Clean entry" })).toBeTruthy());
+    expect(screen.getByText("Chore added, but its schedule could not be saved. Open the chore to finish scheduling.")).toBeTruthy();
   });
 
   it("requires a household before a chore can be added", async () => {

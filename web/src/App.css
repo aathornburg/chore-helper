@@ -418,6 +418,14 @@ button:hover {
   width: 100%;
 }
 
+.initial-schedule-toggle {
+  justify-self: start;
+}
+
+.initial-schedule-form {
+  margin-top: 6px;
+}
+
 .today-household-grid {
   display: grid;
   gap: 20px;
