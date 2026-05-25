@@ -2,6 +2,7 @@ import type {
   Chore,
   Household,
   HouseholdFloor,
+  HouseholdMemberSummary,
   HouseholdProfile,
   HouseholdStructure,
   Recommendation,
@@ -41,6 +42,8 @@ export type HouseholdStore = {
   upsertUserByClerkId(clerkUserId: string): StoreResult<AppUser>;
   getUserByClerkId(clerkUserId: string): StoreResult<AppUser | undefined>;
   userHasHouseholdAccess(userId: string, householdId: string): StoreResult<boolean>;
+  getMembership(userId: string, householdId: string): StoreResult<HouseholdMembership | undefined>;
+  listHouseholdMembers(householdId: string): StoreResult<HouseholdMemberSummary[]>;
   listHouseholdsForUser(userId: string): StoreResult<Household[]>;
   createHouseholdForUser(name: string, userId: string): StoreResult<Household>;
   createHousehold(name: string): StoreResult<Household>;
@@ -48,6 +51,10 @@ export type HouseholdStore = {
   updateProfile(
     householdId: string,
     update: { name: string; profile: HouseholdProfile }
+  ): StoreResult<Household | undefined>;
+  updateHouseholdSettings(
+    householdId: string,
+    update: { timeZone: string }
   ): StoreResult<Household | undefined>;
   getHousehold(householdId: string): StoreResult<Household | undefined>;
   getHouseholdStructure(householdId: string): StoreResult<HouseholdStructure | undefined>;
@@ -134,6 +141,25 @@ export function createInMemoryStore(): HouseholdStore {
       return memberships.has(`${householdId}:${userId}`);
     },
 
+    getMembership(userId, householdId) {
+      return memberships.get(`${householdId}:${userId}`);
+    },
+
+    listHouseholdMembers(householdId) {
+      return Array.from(memberships.values())
+        .filter((membership) => membership.householdId === householdId)
+        .map((membership) => {
+          const user = users.get(membership.userId);
+          if (!user) return undefined;
+
+          return {
+            ...membership,
+            clerkUserId: user.clerkUserId
+          };
+        })
+        .filter((member): member is HouseholdMemberSummary => Boolean(member));
+    },
+
     listHouseholdsForUser(userId) {
       return Array.from(memberships.values())
         .filter((membership) => membership.userId === userId)
@@ -142,7 +168,7 @@ export function createInMemoryStore(): HouseholdStore {
     },
 
     createHouseholdForUser(name, userId) {
-      const household = { id: crypto.randomUUID(), name };
+      const household = { id: crypto.randomUUID(), name, timeZone: "America/New_York" };
       households.set(household.id, household);
       memberships.set(`${household.id}:${userId}`, {
         householdId: household.id,
@@ -153,7 +179,7 @@ export function createInMemoryStore(): HouseholdStore {
     },
 
     createHousehold(name) {
-      const household = { id: crypto.randomUUID(), name };
+      const household = { id: crypto.randomUUID(), name, timeZone: "America/New_York" };
       households.set(household.id, household);
       return household;
     },
@@ -167,6 +193,15 @@ export function createInMemoryStore(): HouseholdStore {
       if (!household) return undefined;
 
       const updated = { ...household, name: update.name, profile: update.profile };
+      households.set(householdId, updated);
+      return updated;
+    },
+
+    updateHouseholdSettings(householdId, update) {
+      const household = households.get(householdId);
+      if (!household) return undefined;
+
+      const updated = { ...household, timeZone: update.timeZone };
       households.set(householdId, updated);
       return updated;
     },

@@ -9,6 +9,7 @@ datasource db {
 model Household {
   id              String             @id
   name            String
+  timeZone        String             @default("America/New_York")
   profile         HouseholdProfile?
   floors          HouseholdFloor[]
   chores          Chore[]

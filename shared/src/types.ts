@@ -62,12 +62,20 @@ export type HouseholdStructure = {
 export type Household = {
   id: string;
   name: string;
+  timeZone: string;
   profile?: HouseholdProfile;
 };
 
 export type AppUserProfile = {
   id: string;
   clerkUserId: string;
+};
+
+export type HouseholdMemberSummary = {
+  householdId: string;
+  userId: string;
+  clerkUserId: string;
+  role: "owner" | "member";
 };
 
 export type Chore = {

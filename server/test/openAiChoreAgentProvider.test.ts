@@ -7,6 +7,7 @@ function createContext(): AgentRecommendationContext {
     household: {
       id: "household-1",
       name: "Home",
+      timeZone: "America/New_York",
       profile: {
         homeType: "house",
         hasPets: true,

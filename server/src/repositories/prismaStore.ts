@@ -3,6 +3,7 @@ import type {
   Chore,
   Household,
   HouseholdFloor,
+  HouseholdMemberSummary,
   HouseholdProfile,
   HouseholdRoom,
   Recommendation,
@@ -27,6 +28,7 @@ function toHousehold(
   household: {
     id: string;
     name: string;
+    timeZone: string;
     profile?: {
       homeType: string;
       hasPets: boolean;
@@ -47,6 +49,7 @@ function toHousehold(
   return {
     id: household.id,
     name: household.name,
+    timeZone: household.timeZone,
     ...(profile ? { profile } : {})
   };
 }
@@ -194,6 +197,40 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
       return membershipCount > 0;
     },
 
+    async getMembership(userId, householdId) {
+      const membership = await prisma.householdMember.findUnique({
+        where: {
+          householdId_userId: {
+            householdId,
+            userId
+          }
+        }
+      });
+
+      return membership
+        ? {
+            householdId: membership.householdId,
+            userId: membership.userId,
+            role: membership.role as "owner" | "member"
+          }
+        : undefined;
+    },
+
+    async listHouseholdMembers(householdId) {
+      const memberships = await prisma.householdMember.findMany({
+        where: { householdId },
+        include: { user: true },
+        orderBy: { createdAt: "asc" }
+      });
+
+      return memberships.map((membership): HouseholdMemberSummary => ({
+        householdId: membership.householdId,
+        userId: membership.userId,
+        clerkUserId: membership.user.clerkUserId,
+        role: membership.role as "owner" | "member"
+      }));
+    },
+
     async listHouseholdsForUser(userId) {
       const households = await prisma.household.findMany({
         where: {
@@ -276,6 +313,21 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
             }
           }
         },
+        include: { profile: true }
+      });
+
+      return toHousehold(updated);
+    },
+
+    async updateHouseholdSettings(householdId, update) {
+      const household = await prisma.household.findUnique({
+        where: { id: householdId }
+      });
+      if (!household) return undefined;
+
+      const updated = await prisma.household.update({
+        where: { id: householdId },
+        data: { timeZone: update.timeZone },
         include: { profile: true }
       });
 

@@ -28,8 +28,10 @@
 - Modify: `server/src/repositories/prismaStore.ts`
 - Modify: `server/src/routes/households.ts`
 - Test: `server/test/auth.test.ts`
+- Modify: `web/src/state/AppDataProvider.tsx`
+- Test: `web/src/App.test.tsx`
 
-- [ ] **Step 1: Write failing API tests for default time zone, owner updates, and member listing**
+- [x] **Step 1: Write failing API tests for default time zone, owner updates, and member listing**
 
 Add tests expressing the intended route contract:
 
@@ -68,7 +70,7 @@ it("lists an owner as the first household member", async () => {
 });
 ```
 
-- [ ] **Step 2: Run the backend tests and verify RED**
+- [x] **Step 2: Run the backend tests and verify RED**
 
 Run:
 
@@ -78,7 +80,7 @@ npm.cmd test -w server -- auth.test.ts
 
 Expected: failures because `Household.timeZone`, `/settings`, and `/members` are not implemented.
 
-- [ ] **Step 3: Extend types, schema, stores, and authenticated routes**
+- [x] **Step 3: Extend types, schema, stores, and authenticated routes**
 
 Use the shared DTO shape:
 
@@ -122,7 +124,7 @@ const householdSettingsSchema = z.object({
 
 Add member-accessible `GET /api/households/:householdId/members`.
 
-- [ ] **Step 4: Run verification for the first increment**
+- [x] **Step 4: Run verification for the first increment**
 
 Run:
 

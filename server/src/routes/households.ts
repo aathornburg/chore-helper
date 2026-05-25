@@ -16,6 +16,17 @@ const createHouseholdSchema = z.object({
   name: z.string().min(1)
 });
 
+const householdSettingsSchema = z.object({
+  timeZone: z.string().trim().min(1).refine((timeZone) => {
+    try {
+      Intl.DateTimeFormat(undefined, { timeZone });
+      return true;
+    } catch {
+      return false;
+    }
+  })
+});
+
 const profileSchema = z.object({
   name: z.string().trim().min(1),
   homeType: z.enum(["house", "apartment", "condo", "townhouse", "other"]),
@@ -174,6 +185,19 @@ export function createHouseholdRouter(store: HouseholdStore, agentProvider: Agen
     return { user, household };
   }
 
+  async function requireHouseholdOwner(req: Request, res: Response) {
+    const access = await requireHouseholdAccess(req, res);
+    if (!access) return undefined;
+
+    const membership = await store.getMembership(access.user.id, access.household.id);
+    if (membership?.role !== "owner") {
+      res.status(403).json({ error: "Household owner access required" });
+      return undefined;
+    }
+
+    return access;
+  }
+
   router.get("/", async (req, res) => {
     const user = await requireUser(req, res);
     if (!user) return;
@@ -251,6 +275,26 @@ export function createHouseholdRouter(store: HouseholdStore, agentProvider: Agen
     if (!household) return res.status(404).json({ error: "Household not found" });
 
     return res.status(200).json(household);
+  });
+
+  router.put("/:householdId/settings", async (req, res) => {
+    const access = await requireHouseholdOwner(req, res);
+    if (!access) return;
+
+    const parsed = householdSettingsSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid household settings payload" });
+
+    const household = await store.updateHouseholdSettings(access.household.id, parsed.data);
+    if (!household) return res.status(404).json({ error: "Household not found" });
+
+    return res.status(200).json(household);
+  });
+
+  router.get("/:householdId/members", async (req, res) => {
+    const access = await requireHouseholdAccess(req, res);
+    if (!access) return;
+
+    return res.status(200).json(await store.listHouseholdMembers(access.household.id));
   });
 
   router.post("/:householdId/chores", async (req, res) => {

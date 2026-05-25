@@ -25,7 +25,7 @@ const prisma = safeConnectionString
   : undefined;
 
 it("scopes household structure ids by their parent records in the Prisma schema", () => {
-  const schema = readFileSync(new URL("../prisma/schema.prisma", import.meta.url), "utf8");
+  const schema = readFileSync(new URL("../prisma/schema.prisma", import.meta.url), "utf8").replaceAll("\r\n", "\n");
 
   expect(schema).toContain("model HouseholdFloor {\n  dbId");
   expect(schema).toContain("@unique([householdId, id])");
@@ -80,6 +80,7 @@ describe.skipIf(!safeConnectionString || !prisma)(
       expect(await secondStore.getHousehold(household.id)).toEqual({
         id: household.id,
         name: "Home base",
+        timeZone: "America/New_York",
         profile: {
           homeType: "house",
           hasPets: true,

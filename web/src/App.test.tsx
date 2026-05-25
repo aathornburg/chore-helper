@@ -63,6 +63,7 @@ function restoreHouseholdInStorage() {
 const household = {
   id: "household-1",
   name: "Home",
+  timeZone: "America/New_York",
   profile: {
     homeType: "house",
     hasPets: true,
@@ -240,8 +241,8 @@ describe("App", () => {
     mockRestoredHouseholdFetches();
     renderAt("/");
 
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Today" })).toBeTruthy());
-    expect(screen.getByText("Ready to optimize")).toBeTruthy();
+    await waitFor(() => expect(screen.getByText("Ready to optimize")).toBeTruthy());
+    expect(screen.getByRole("heading", { name: "Today" })).toBeTruthy();
     expect(screen.queryByText("Make household work visible, fair, and easier to adjust.")).toBeNull();
   });
 
@@ -918,8 +919,8 @@ describe("App", () => {
 
     renderAt("/chores");
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "Add chore" }).hasAttribute("disabled")).toBe(true));
-    expect(screen.getByText("Add a household before creating chores.")).toBeTruthy();
+    await waitFor(() => expect(screen.getByText("Add a household before creating chores.")).toBeTruthy());
+    expect(screen.getByRole("button", { name: "Add chore" }).hasAttribute("disabled")).toBe(true);
     expect(screen.queryByLabelText("Chore title")).toBeNull();
   });
 

@@ -102,6 +102,7 @@ describe("household profile flow", () => {
         expect(response.body).toEqual({
           id: created.body.id,
           name: "Lake House",
+          timeZone: "America/New_York",
           profile: {
             homeType: "house",
             hasPets: true,
@@ -639,6 +640,7 @@ describe("household profile flow", () => {
     expect(fetched.body).toEqual({
       id: created.body.id,
       name: "Home",
+      timeZone: "America/New_York",
       profile: {
         homeType: "house",
         hasPets: true,

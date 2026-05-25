@@ -17,7 +17,7 @@ type AppDataProviderProps = {
 };
 
 function createEmptyHouseholdData(
-  household: { id: string; name: string }
+  household: { id: string; name: string; timeZone: string }
 ): HouseholdAppData {
   return {
     ...household,
