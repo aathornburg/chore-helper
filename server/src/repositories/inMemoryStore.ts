@@ -1,5 +1,6 @@
 import type {
   Chore,
+  ChoreSchedule,
   Household,
   HouseholdFloor,
   HouseholdInvitation,
@@ -18,6 +19,7 @@ export type ChoreListOptions = {
 };
 
 export type ChoreUpdate = Omit<Chore, "id" | "householdId" | "archivedAt">;
+export type ChoreScheduleUpdate = Omit<ChoreSchedule, "id" | "householdId" | "choreId" | "archivedAt">;
 
 export type RecommendationDecisionUpdate = {
   decision: Exclude<RecommendationDecision, "applied">;
@@ -102,6 +104,14 @@ export type HouseholdStore = {
   restoreChore(householdId: string, choreId: string): StoreResult<Chore | undefined>;
   listChores(householdId: string, options?: ChoreListOptions): StoreResult<Chore[]>;
   listAllChores(options?: ChoreListOptions): StoreResult<Chore[]>;
+  createSchedule(schedule: Omit<ChoreSchedule, "id" | "archivedAt">): StoreResult<ChoreSchedule>;
+  listSchedules(householdId: string, choreId?: string): StoreResult<ChoreSchedule[]>;
+  updateSchedule(
+    householdId: string,
+    scheduleId: string,
+    update: ChoreScheduleUpdate
+  ): StoreResult<ChoreSchedule | undefined>;
+  archiveSchedule(householdId: string, scheduleId: string): StoreResult<ChoreSchedule | undefined>;
   saveRecommendations(
     householdId: string,
     recommendations: Recommendation[]
@@ -142,6 +152,7 @@ export function createInMemoryStore(): HouseholdStore {
   const householdFloors = new Map<string, HouseholdFloor[]>();
   const invitations = new Map<string, StoredHouseholdInvitation>();
   const chores = new Map<string, Chore[]>();
+  const schedules = new Map<string, ChoreSchedule>();
   const recommendations = new Map<string, Recommendation[]>();
 
   function markStale(householdId: string) {
@@ -434,6 +445,43 @@ export function createInMemoryStore(): HouseholdStore {
       if (options.archivedOnly) return allChores.filter((chore) => chore.archivedAt);
       if (options.includeArchived) return allChores;
       return allChores.filter((chore) => !chore.archivedAt);
+    },
+
+    createSchedule(schedule) {
+      const created = { ...schedule, id: crypto.randomUUID() };
+      schedules.set(created.id, created);
+      return created;
+    },
+
+    listSchedules(householdId, choreId) {
+      return Array.from(schedules.values()).filter(
+        (schedule) =>
+          schedule.householdId === householdId &&
+          (!choreId || schedule.choreId === choreId) &&
+          !schedule.archivedAt
+      );
+    },
+
+    updateSchedule(householdId, scheduleId, update) {
+      const schedule = schedules.get(scheduleId);
+      if (!schedule || schedule.householdId !== householdId || schedule.archivedAt) {
+        return undefined;
+      }
+
+      const updated = { ...schedule, ...update };
+      schedules.set(scheduleId, updated);
+      return updated;
+    },
+
+    archiveSchedule(householdId, scheduleId) {
+      const schedule = schedules.get(scheduleId);
+      if (!schedule || schedule.householdId !== householdId || schedule.archivedAt) {
+        return undefined;
+      }
+
+      const updated = { ...schedule, archivedAt: new Date().toISOString() };
+      schedules.set(scheduleId, updated);
+      return updated;
     },
 
     saveRecommendations(householdId, nextRecommendations) {

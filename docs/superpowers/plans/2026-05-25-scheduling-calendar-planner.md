@@ -39,7 +39,7 @@
 - Modify: `server/package.json`
 - Modify: `package-lock.json`
 
-- [ ] **Step 1: Write failing schedule creation and authorization tests**
+- [x] **Step 1: Write failing schedule creation and authorization tests**
 
 Create `server/test/schedules.test.ts` using the invitation helper pattern from
 `server/test/members.test.ts`. Cover an owner creating two schedules for one chore,
@@ -79,7 +79,7 @@ expect((await request(app)
 ]);
 ```
 
-- [ ] **Step 2: Run schedule tests and verify RED**
+- [x] **Step 2: Run schedule tests and verify RED**
 
 Run:
 
@@ -89,7 +89,7 @@ npm.cmd test -w server -- schedules.test.ts
 
 Expected: route-not-found failures for `/schedules`, proving no schedule API exists yet.
 
-- [ ] **Step 3: Add shared schedule and occurrence types**
+- [x] **Step 3: Add shared schedule and occurrence types**
 
 Extend `shared/src/types.ts` with this public contract:
 
@@ -136,13 +136,7 @@ Extend `Chore` with `instructions?: string` and `tags?: string[]`. Keep `cadence
 and `estimatedMinutes` through this release for existing assistant screens, but do not
 use `cadence` to create occurrences.
 
-- [ ] **Step 4: Add Prisma schedule persistence and dependencies**
-
-Install the time-zone utilities:
-
-```powershell
-npm.cmd install date-fns date-fns-tz -w server
-```
+- [x] **Step 4: Add Prisma schedule persistence**
 
 Add the Prisma relations and records:
 
@@ -214,7 +208,7 @@ model ChoreOccurrence {
 Add reciprocal `schedules`/`occurrences` relations to `Household` and assigned schedule
 and occurrence relations to `User`.
 
-- [ ] **Step 5: Add schedule store methods and create/list routes**
+- [x] **Step 5: Add schedule store methods and create/list routes**
 
 Add store methods with the same signatures in both stores:
 
@@ -326,6 +320,12 @@ npm.cmd test -w server -- materializeOccurrences.test.ts
 Expected: import failure because the pure generator module does not exist.
 
 - [ ] **Step 3: Implement pure occurrence expansion**
+
+Install the time-zone utilities before creating the generator:
+
+```powershell
+npm.cmd install date-fns date-fns-tz -w server
+```
 
 Create `materializeOccurrences.ts` exporting:
 

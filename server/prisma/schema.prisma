@@ -13,6 +13,8 @@ model Household {
   profile         HouseholdProfile?
   floors          HouseholdFloor[]
   chores          Chore[]
+  schedules       ChoreSchedule[]
+  occurrences     ChoreOccurrence[]
   recommendations Recommendation[]
   members         HouseholdMember[]
   invitations     HouseholdInvitation[]
@@ -27,6 +29,8 @@ model User {
   displayName     String?
   memberships     HouseholdMember[]
   sentInvitations HouseholdInvitation[] @relation("InvitationInviter")
+  scheduleAssignees ChoreScheduleAssignee[]
+  assignedOccurrences ChoreOccurrence[] @relation("OccurrenceAssignee")
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
 }
@@ -120,9 +124,70 @@ model Chore {
   cadence          String
   estimatedMinutes Int
   source           String
+  instructions     String?
+  tags             String    @default("[]")
   archivedAt       DateTime?
+  schedules        ChoreSchedule[]
+  occurrences      ChoreOccurrence[]
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+}
+
+model ChoreSchedule {
+  id             String                   @id @default(cuid())
+  householdId    String
+  household      Household                @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  choreId        String
+  chore          Chore                    @relation(fields: [choreId], references: [id], onDelete: Cascade)
+  frequency      String
+  interval       Int
+  weekDays       String                   @default("[]")
+  monthlyDay     Int?
+  localStartTime String
+  startsOn       String
+  endsOn         String?
+  plannedMinutes Int
+  assignmentMode String
+  assignees      ChoreScheduleAssignee[]
+  occurrences    ChoreOccurrence[]
+  archivedAt     DateTime?
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  @@index([householdId, choreId])
+}
+
+model ChoreScheduleAssignee {
+  scheduleId String
+  schedule   ChoreSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  position   Int
+
+  @@id([scheduleId, userId])
+  @@unique([scheduleId, position])
+}
+
+model ChoreOccurrence {
+  id             String        @id @default(cuid())
+  householdId    String
+  household      Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  choreId        String
+  chore          Chore         @relation(fields: [choreId], references: [id], onDelete: Cascade)
+  scheduleId     String
+  schedule       ChoreSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  sequence       Int
+  plannedStartAt DateTime
+  plannedEndAt   DateTime
+  assignedUserId String
+  assignedUser   User          @relation("OccurrenceAssignee", fields: [assignedUserId], references: [id], onDelete: Restrict)
+  exceptionType  String        @default("none")
+  status         String        @default("planned")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@unique([scheduleId, sequence])
+  @@index([householdId, plannedStartAt])
 }
 
 model Recommendation {

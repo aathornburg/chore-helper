@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import type {
   Chore,
+  ChoreSchedule,
   Household,
   HouseholdFloor,
   HouseholdInvitation,
@@ -13,11 +14,11 @@ import type {
 } from "@chore-helper/shared";
 import type { AppUser, HouseholdStore } from "./inMemoryStore.js";
 
-function serializeOptionalList(values: string[]) {
+function serializeOptionalList<T>(values: T[]) {
   return JSON.stringify(values);
 }
 
-function deserializeOptionalList<T extends string>(value: string) {
+function deserializeOptionalList<T>(value: string) {
   return JSON.parse(value) as T[];
 }
 
@@ -162,8 +163,11 @@ function toChore(chore: {
   cadence: string;
   estimatedMinutes: number;
   source: string;
+  instructions?: string | null;
+  tags?: string;
   archivedAt?: Date | null;
 }): Chore {
+  const tags = chore.tags ? deserializeOptionalList<string>(chore.tags) : [];
   return {
     id: chore.id,
     householdId: chore.householdId,
@@ -172,7 +176,50 @@ function toChore(chore: {
     cadence: chore.cadence,
     estimatedMinutes: chore.estimatedMinutes,
     source: chore.source as Chore["source"],
+    ...(chore.instructions ? { instructions: chore.instructions } : {}),
+    ...(tags.length ? { tags } : {}),
     archivedAt: serializeDate(chore.archivedAt)
+  };
+}
+
+function toSchedule(schedule: {
+  id: string;
+  householdId: string;
+  choreId: string;
+  frequency: string;
+  interval: number;
+  weekDays: string;
+  monthlyDay?: number | null;
+  localStartTime: string;
+  startsOn: string;
+  endsOn?: string | null;
+  plannedMinutes: number;
+  assignmentMode: string;
+  archivedAt?: Date | null;
+  assignees: Array<{ userId: string; position: number }>;
+}): ChoreSchedule {
+  const weekDays = deserializeOptionalList<number>(schedule.weekDays);
+  return {
+    id: schedule.id,
+    householdId: schedule.householdId,
+    choreId: schedule.choreId,
+    recurrence: {
+      frequency: schedule.frequency as ChoreSchedule["recurrence"]["frequency"],
+      interval: schedule.interval,
+      ...(weekDays.length ? { weekDays } : {}),
+      ...(schedule.monthlyDay ? { monthlyDay: schedule.monthlyDay } : {})
+    },
+    localStartTime: schedule.localStartTime,
+    startsOn: schedule.startsOn,
+    ...(schedule.endsOn ? { endsOn: schedule.endsOn } : {}),
+    plannedMinutes: schedule.plannedMinutes,
+    assignment: {
+      mode: schedule.assignmentMode as ChoreSchedule["assignment"]["mode"],
+      memberUserIds: schedule.assignees
+        .sort((first, second) => first.position - second.position)
+        .map((assignee) => assignee.userId)
+    },
+    archivedAt: serializeDate(schedule.archivedAt)
   };
 }
 
@@ -585,7 +632,9 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
             title: chore.title,
             cadence: chore.cadence,
             estimatedMinutes: chore.estimatedMinutes,
-            source: chore.source
+            source: chore.source,
+            instructions: chore.instructions,
+            tags: serializeOptionalList(chore.tags ?? [])
           }
         });
         await tx.recommendation.updateMany({
@@ -607,7 +656,14 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
       const updated = await prisma.$transaction(async (tx) => {
         const nextChore = await tx.chore.update({
           where: { id: choreId },
-          data: chore
+          data: {
+            title: chore.title,
+            cadence: chore.cadence,
+            estimatedMinutes: chore.estimatedMinutes,
+            source: chore.source,
+            instructions: chore.instructions,
+            tags: serializeOptionalList(chore.tags ?? [])
+          }
         });
         await tx.recommendation.updateMany({
           where: { householdId, staleAt: null },
@@ -690,6 +746,88 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
       });
 
       return chores.map(toChore);
+    },
+
+    async createSchedule(schedule) {
+      const created = await prisma.choreSchedule.create({
+        data: {
+          householdId: schedule.householdId,
+          choreId: schedule.choreId,
+          frequency: schedule.recurrence.frequency,
+          interval: schedule.recurrence.interval,
+          weekDays: serializeOptionalList(schedule.recurrence.weekDays ?? []),
+          monthlyDay: schedule.recurrence.monthlyDay,
+          localStartTime: schedule.localStartTime,
+          startsOn: schedule.startsOn,
+          endsOn: schedule.endsOn,
+          plannedMinutes: schedule.plannedMinutes,
+          assignmentMode: schedule.assignment.mode,
+          assignees: {
+            create: schedule.assignment.memberUserIds.map((userId, position) => ({ userId, position }))
+          }
+        },
+        include: { assignees: true }
+      });
+
+      return toSchedule(created);
+    },
+
+    async listSchedules(householdId, choreId) {
+      const schedules = await prisma.choreSchedule.findMany({
+        where: {
+          householdId,
+          archivedAt: null,
+          ...(choreId ? { choreId } : {})
+        },
+        include: { assignees: true },
+        orderBy: { createdAt: "asc" }
+      });
+
+      return schedules.map(toSchedule);
+    },
+
+    async updateSchedule(householdId, scheduleId, update) {
+      const existing = await prisma.choreSchedule.findFirst({
+        where: { id: scheduleId, householdId, archivedAt: null }
+      });
+      if (!existing) return undefined;
+
+      const updated = await prisma.choreSchedule.update({
+        where: { id: scheduleId },
+        data: {
+          frequency: update.recurrence.frequency,
+          interval: update.recurrence.interval,
+          weekDays: serializeOptionalList(update.recurrence.weekDays ?? []),
+          monthlyDay: update.recurrence.monthlyDay,
+          localStartTime: update.localStartTime,
+          startsOn: update.startsOn,
+          endsOn: update.endsOn,
+          plannedMinutes: update.plannedMinutes,
+          assignmentMode: update.assignment.mode,
+          assignees: {
+            deleteMany: {},
+            create: update.assignment.memberUserIds.map((userId, position) => ({ userId, position }))
+          }
+        },
+        include: { assignees: true }
+      });
+
+      return toSchedule(updated);
+    },
+
+    async archiveSchedule(householdId, scheduleId) {
+      const existing = await prisma.choreSchedule.findFirst({
+        where: { id: scheduleId, householdId, archivedAt: null }
+      });
+      if (!existing) return undefined;
+
+      const updated = await prisma.choreSchedule.update({
+        where: { id: scheduleId },
+        data: { archivedAt: new Date() },
+        include: { assignees: true }
+      });
+
+      return toSchedule(updated);
     },
 
     async saveRecommendations(householdId, recommendations) {

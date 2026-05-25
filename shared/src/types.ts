@@ -98,6 +98,48 @@ export type HouseholdInvitation = {
   createdAt: string;
 };
 
+export type RecurrenceFrequency = "one_time" | "daily" | "weekly" | "monthly";
+
+export type ChoreScheduleRecurrence = {
+  frequency: RecurrenceFrequency;
+  interval: number;
+  weekDays?: number[];
+  monthlyDay?: number;
+};
+
+export type ChoreScheduleAssignment = {
+  mode: "fixed" | "rotation";
+  memberUserIds: string[];
+};
+
+export type ChoreSchedule = {
+  id: string;
+  householdId: string;
+  choreId: string;
+  recurrence: ChoreScheduleRecurrence;
+  localStartTime: string;
+  startsOn: string;
+  endsOn?: string;
+  plannedMinutes: number;
+  assignment: ChoreScheduleAssignment;
+  archivedAt?: string;
+};
+
+export type OccurrenceExceptionType = "none" | "rescheduled" | "resized" | "reassigned" | "skipped";
+
+export type ChoreOccurrence = {
+  id: string;
+  householdId: string;
+  choreId: string;
+  scheduleId: string;
+  sequence: number;
+  plannedStartAt: string;
+  plannedEndAt: string;
+  assignedUserId: string;
+  exceptionType: OccurrenceExceptionType;
+  status: "planned" | "skipped";
+};
+
 export type Chore = {
   id: string;
   householdId: string;
@@ -106,6 +148,8 @@ export type Chore = {
   cadence: string;
   estimatedMinutes: number;
   source: "manual" | "google-calendar";
+  instructions?: string;
+  tags?: string[];
   archivedAt?: string;
 };
 

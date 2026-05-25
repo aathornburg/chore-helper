@@ -119,7 +119,36 @@ const choreSchema = z.object({
   title: z.string().min(1),
   cadence: z.string().min(1),
   estimatedMinutes: z.number().int().positive(),
-  source: z.enum(["manual"])
+  source: z.enum(["manual"]),
+  instructions: z.string().trim().optional(),
+  tags: z.array(z.string().trim().min(1)).optional()
+});
+
+const scheduleSchema = z.object({
+  recurrence: z.object({
+    frequency: z.enum(["one_time", "daily", "weekly", "monthly"]),
+    interval: z.number().int().positive(),
+    weekDays: z.array(z.number().int().min(0).max(6)).optional(),
+    monthlyDay: z.number().int().min(1).max(31).optional()
+  }),
+  localStartTime: z.string().regex(/^\d{2}:\d{2}$/),
+  startsOn: z.string().date(),
+  endsOn: z.string().date().optional(),
+  plannedMinutes: z.number().int().positive(),
+  assignment: z.object({
+    mode: z.enum(["fixed", "rotation"]),
+    memberUserIds: z.array(z.string().min(1)).min(1)
+  })
+}).superRefine((schedule, ctx) => {
+  if (schedule.assignment.mode === "fixed" && schedule.assignment.memberUserIds.length !== 1) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Fixed schedules need one assignee", path: ["assignment"] });
+  }
+  if (schedule.recurrence.frequency === "weekly" && !schedule.recurrence.weekDays?.length) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Weekly schedules need weekdays", path: ["recurrence"] });
+  }
+  if (schedule.recurrence.frequency === "monthly" && !schedule.recurrence.monthlyDay) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Monthly schedules need a day", path: ["recurrence"] });
+  }
 });
 
 const recommendationRequestSchema = z.object({
@@ -211,6 +240,13 @@ export function createHouseholdRouter(
     }
 
     return access;
+  }
+
+  async function hasValidScheduleAssignees(householdId: string, memberUserIds: string[]) {
+    const memberships = await Promise.all(
+      memberUserIds.map((userId) => store.getMembership(userId, householdId))
+    );
+    return memberships.every(Boolean);
   }
 
   router.get("/", async (req, res) => {
@@ -432,6 +468,61 @@ export function createHouseholdRouter(
       includeArchived,
       archivedOnly
     }));
+  });
+
+  router.get("/:householdId/chores/:choreId/schedules", async (req, res) => {
+    const access = await requireHouseholdAccess(req, res);
+    if (!access) return;
+
+    return res.status(200).json(await store.listSchedules(access.household.id, req.params.choreId));
+  });
+
+  router.post("/:householdId/chores/:choreId/schedules", async (req, res) => {
+    const access = await requireHouseholdOwner(req, res);
+    if (!access) return;
+
+    const parsed = scheduleSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid schedule payload" });
+
+    const chore = (await store.listChores(access.household.id)).find(
+      (candidate) => candidate.id === req.params.choreId
+    );
+    if (!chore) return res.status(404).json({ error: "Chore not found" });
+    if (!await hasValidScheduleAssignees(access.household.id, parsed.data.assignment.memberUserIds)) {
+      return res.status(400).json({ error: "Schedule assignee must be a household member" });
+    }
+
+    return res.status(201).json(await store.createSchedule({
+      householdId: access.household.id,
+      choreId: chore.id,
+      ...parsed.data
+    }));
+  });
+
+  router.put("/:householdId/schedules/:scheduleId", async (req, res) => {
+    const access = await requireHouseholdOwner(req, res);
+    if (!access) return;
+
+    const parsed = scheduleSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid schedule payload" });
+    if (!await hasValidScheduleAssignees(access.household.id, parsed.data.assignment.memberUserIds)) {
+      return res.status(400).json({ error: "Schedule assignee must be a household member" });
+    }
+
+    const schedule = await store.updateSchedule(access.household.id, req.params.scheduleId, parsed.data);
+    if (!schedule) return res.status(404).json({ error: "Schedule not found" });
+
+    return res.status(200).json(schedule);
+  });
+
+  router.post("/:householdId/schedules/:scheduleId/archive", async (req, res) => {
+    const access = await requireHouseholdOwner(req, res);
+    if (!access) return;
+
+    const schedule = await store.archiveSchedule(access.household.id, req.params.scheduleId);
+    if (!schedule) return res.status(404).json({ error: "Schedule not found" });
+
+    return res.status(200).json(schedule);
   });
 
   router.put("/:householdId/chores/:choreId", async (req, res) => {
