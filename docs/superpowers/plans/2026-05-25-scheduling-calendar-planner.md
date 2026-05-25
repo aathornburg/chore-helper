@@ -256,7 +256,7 @@ POST /api/households/:householdId/schedules/:scheduleId/archive
 Before saving, confirm every assignee has household membership and reject an unknown
 assignee with `400 { error: "Schedule assignee must be a household member" }`.
 
-- [ ] **Step 6: Verify and commit schedule records**
+- [x] **Step 6: Verify and commit schedule records**
 
 Run:
 
