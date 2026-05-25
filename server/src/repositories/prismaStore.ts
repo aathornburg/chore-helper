@@ -1,24 +1,15 @@
 import type { PrismaClient } from "@prisma/client";
 import type {
   Chore,
-  FlooringType,
   Household,
-  HouseholdBaseline,
   HouseholdFloor,
+  HouseholdProfile,
   HouseholdRoom,
   Recommendation,
   RecommendationConfidence,
   RecommendationDecision
 } from "@chore-helper/shared";
 import type { AppUser, HouseholdStore } from "./inMemoryStore.js";
-
-function serializeList(values: string[]) {
-  return JSON.stringify(values);
-}
-
-function deserializeList(value: string) {
-  return JSON.parse(value) as string[];
-}
 
 function serializeOptionalList(values: string[]) {
   return JSON.stringify(values);
@@ -36,31 +27,27 @@ function toHousehold(
   household: {
     id: string;
     name: string;
-    baseline?: {
+    profile?: {
       homeType: string;
-      rooms: string;
-      flooring: string;
       hasPets: boolean;
       hasOutdoorSpace: boolean;
       notes: string | null;
     } | null;
   }
 ): Household {
-  const baseline = household.baseline
+  const profile = household.profile
     ? {
-        homeType: household.baseline.homeType as HouseholdBaseline["homeType"],
-        rooms: deserializeList(household.baseline.rooms),
-        flooring: deserializeList(household.baseline.flooring) as FlooringType[],
-        hasPets: household.baseline.hasPets,
-        hasOutdoorSpace: household.baseline.hasOutdoorSpace,
-        notes: household.baseline.notes ?? undefined
+        homeType: household.profile.homeType as HouseholdProfile["homeType"],
+        hasPets: household.profile.hasPets,
+        hasOutdoorSpace: household.profile.hasOutdoorSpace,
+        notes: household.profile.notes ?? undefined
       }
     : undefined;
 
   return {
     id: household.id,
     name: household.name,
-    ...(baseline ? { baseline } : {})
+    ...(profile ? { profile } : {})
   };
 }
 
@@ -214,7 +201,7 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
             some: { userId }
           }
         },
-        include: { baseline: true },
+        include: { profile: true },
         orderBy: { createdAt: "asc" }
       });
 
@@ -234,7 +221,7 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
               }
             }
           },
-          include: { baseline: true }
+          include: { profile: true }
         });
       });
 
@@ -247,7 +234,7 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
           id: crypto.randomUUID(),
           name
         },
-        include: { baseline: true }
+        include: { profile: true }
       });
 
       return toHousehold(household);
@@ -255,14 +242,14 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
 
     async listHouseholds() {
       const households = await prisma.household.findMany({
-        include: { baseline: true },
+        include: { profile: true },
         orderBy: { createdAt: "asc" }
       });
 
       return households.map(toHousehold);
     },
 
-    async updateBaseline(householdId, baseline) {
+    async updateProfile(householdId, update) {
       const household = await prisma.household.findUnique({
         where: { id: householdId }
       });
@@ -271,28 +258,25 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
       const updated = await prisma.household.update({
         where: { id: householdId },
         data: {
-          baseline: {
+          name: update.name,
+          profile: {
             upsert: {
               create: {
-                homeType: baseline.homeType,
-                rooms: serializeList(baseline.rooms),
-                flooring: serializeList(baseline.flooring),
-                hasPets: baseline.hasPets,
-                hasOutdoorSpace: baseline.hasOutdoorSpace,
-                notes: baseline.notes
+                homeType: update.profile.homeType,
+                hasPets: update.profile.hasPets,
+                hasOutdoorSpace: update.profile.hasOutdoorSpace,
+                notes: update.profile.notes
               },
               update: {
-                homeType: baseline.homeType,
-                rooms: serializeList(baseline.rooms),
-                flooring: serializeList(baseline.flooring),
-                hasPets: baseline.hasPets,
-                hasOutdoorSpace: baseline.hasOutdoorSpace,
-                notes: baseline.notes
+                homeType: update.profile.homeType,
+                hasPets: update.profile.hasPets,
+                hasOutdoorSpace: update.profile.hasOutdoorSpace,
+                notes: update.profile.notes
               }
             }
           }
         },
-        include: { baseline: true }
+        include: { profile: true }
       });
 
       return toHousehold(updated);
@@ -301,7 +285,7 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
     async getHousehold(householdId) {
       const household = await prisma.household.findUnique({
         where: { id: householdId },
-        include: { baseline: true }
+        include: { profile: true }
       });
 
       return household ? toHousehold(household) : undefined;

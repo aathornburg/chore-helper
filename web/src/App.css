@@ -26,6 +26,12 @@
   text-decoration: none;
 }
 
+.landing-nav-note {
+  color: #687167;
+  font-size: 0.9rem;
+  font-weight: 750;
+}
+
 .landing-hero {
   align-items: center;
   display: grid;
@@ -229,11 +235,44 @@ button:hover {
 .dashboard-page,
 .setup-page,
 .chores-page,
-.households-page {
+.households-page,
+.settings-page {
   display: grid;
   gap: 20px;
   margin: 0 auto;
   max-width: 1180px;
+}
+
+.today-household-grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+}
+
+.today-household-card {
+  display: grid;
+  gap: 20px;
+  padding: 24px;
+}
+
+.integration-callout {
+  align-items: center;
+  background: #f8fbf6;
+  border-color: #d7e4d5;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  padding: 24px;
+}
+
+.integration-callout h2,
+.integration-card h2 {
+  color: #24352e;
+  margin: 0;
+}
+
+.integration-callout p:not(.eyebrow) {
+  margin: 8px 0 0;
 }
 
 .workspace-hero {
@@ -678,6 +717,16 @@ button:hover {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.household-profile-form {
+  background: #fffefa;
+  border: 1px solid #eaded1;
+  border-radius: 12px;
+  display: grid;
+  gap: 16px;
+  margin-top: 18px;
+  padding: 18px;
+}
+
 label {
   color: #2f3a34;
   display: grid;
@@ -761,6 +810,25 @@ textarea {
   background: #e8f0e4;
   border-color: #b8d1af;
   color: #24352e;
+}
+
+.integration-card {
+  background: #fffefa;
+  border: 1px solid #eaded1;
+  border-radius: 16px;
+  display: grid;
+  gap: 16px;
+  margin-top: 18px;
+  padding: 22px;
+}
+
+.integration-card.highlighted {
+  border-color: #b8d1af;
+  box-shadow: 0 0 0 4px rgba(47, 105, 77, 0.1);
+}
+
+.integration-card button {
+  justify-self: start;
 }
 
 .chore-list-toolbar {
@@ -1365,9 +1433,15 @@ button.chore-row-summary[aria-expanded="true"] {
   .landing-hero,
   .workspace-hero,
   .dashboard-grid,
+  .integration-callout,
   .household-editor,
   .first-time-grid {
     grid-template-columns: 1fr;
+  }
+
+  .integration-callout {
+    align-items: start;
+    display: grid;
   }
 
   .workspace-nav {

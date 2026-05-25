@@ -1,15 +1,15 @@
 type LandingPageProps = {
-  onGetStarted: () => void;
+  actions: React.ReactNode;
 };
 
-export function LandingPage({ onGetStarted }: LandingPageProps) {
+export function LandingPage({ actions }: LandingPageProps) {
   return (
     <main className="landing-page">
       <nav className="landing-nav" aria-label="Landing">
         <a href="/" onClick={(event) => event.preventDefault()}>
           Cleanly
         </a>
-        <button onClick={onGetStarted} type="button">Open app</button>
+        <span className="landing-nav-note">Household planning made clear</span>
       </nav>
 
       <section className="landing-hero">
@@ -24,16 +24,16 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
             clearer home operating rhythm.
           </p>
           <div className="hero-actions">
-            <button onClick={onGetStarted} type="button">Get Started</button>
-            <span>Demo household included for this first slice.</span>
+            {actions}
+            <span>Build routines now. Connect calendars and balance workload as your home plan grows.</span>
           </div>
         </div>
 
         <div className="hero-preview" aria-label="Cleanly dashboard preview">
           <div className="preview-toolbar">
             <span>Today</span>
-            <span>Plan</span>
-            <span>Family</span>
+            <span>Optimize</span>
+            <span>Calendar</span>
           </div>
           <div className="preview-grid">
             <div className="preview-card wide">

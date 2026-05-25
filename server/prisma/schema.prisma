@@ -9,7 +9,7 @@ datasource db {
 model Household {
   id              String             @id
   name            String
-  baseline        HouseholdBaseline?
+  profile         HouseholdProfile?
   floors          HouseholdFloor[]
   chores          Chore[]
   recommendations Recommendation[]
@@ -39,12 +39,10 @@ model HouseholdMember {
   @@unique([householdId, userId])
 }
 
-model HouseholdBaseline {
+model HouseholdProfile {
   householdId     String    @id
   household       Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
   homeType        String
-  rooms           String
-  flooring        String
   hasPets         Boolean
   hasOutdoorSpace Boolean
   notes           String?

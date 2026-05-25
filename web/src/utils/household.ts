@@ -1,25 +1,10 @@
-import type { FlooringType, HouseholdBaseline } from "@chore-helper/shared";
+import type { HouseholdAppData } from "@chore-helper/shared";
 
-const allowedFlooringTypes: FlooringType[] = ["carpet", "hardwood", "tile", "mixed", "unknown"];
+export function formatHouseholdSummary(household: HouseholdAppData) {
+  if (!household.profile) return "Household profile details are not set yet.";
 
-export function parseList(value: string) {
-  return value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-export function parseFlooring(value: string): FlooringType[] {
-  const requestedTypes = parseList(value).map((item) => item.toLowerCase());
-  const validTypes = requestedTypes.filter((item): item is FlooringType =>
-    allowedFlooringTypes.includes(item as FlooringType)
-  );
-
-  return validTypes.length > 0 ? validTypes : ["unknown"];
-}
-
-export function formatBaselineSummary(baseline: HouseholdBaseline) {
-  return `${baseline.homeType} / ${baseline.rooms.length} rooms / ${baseline.flooring.join(", ")} / ${
-    baseline.hasPets ? "pets" : "no pets"
-  } / ${baseline.hasOutdoorSpace ? "outdoor space" : "no outdoor space"}`;
+  const roomCount = household.structure.floors.reduce((total, floor) => total + floor.rooms.length, 0);
+  return `${household.profile.homeType} / ${household.structure.floors.length} floor${household.structure.floors.length === 1 ? "" : "s"} / ${roomCount} room${roomCount === 1 ? "" : "s"} / ${
+    household.profile.hasPets ? "pets" : "no pets"
+  } / ${household.profile.hasOutdoorSpace ? "outdoor space" : "no outdoor space"}`;
 }

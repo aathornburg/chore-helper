@@ -9,7 +9,8 @@ import { LandingPage } from "./pages/LandingPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { TodayDashboard } from "./pages/TodayDashboard";
 import { normalizePath } from "./routes";
-import { AppDataProvider, useAppData } from "./state/AppDataProvider";
+import { AppDataProvider } from "./state/AppDataProvider";
+import { useAppData } from "./state/useAppData";
 
 /*
   Importing CSS directly inside a React module is a bundler feature. With
@@ -31,7 +32,14 @@ function App() {
   return (
     <>
       <SignedOut>
-        <SignedOutWorkspace />
+        <LandingPage
+          actions={(
+            <>
+              <SignUpButton mode="modal">Sign up</SignUpButton>
+              <SignInButton mode="modal">Sign in</SignInButton>
+            </>
+          )}
+        />
       </SignedOut>
       <SignedIn>
         <ApiAuthBridge>
@@ -44,34 +52,9 @@ function App() {
   );
 }
 
-function SignedOutWorkspace() {
-  return (
-    <div className="workspace-shell signed-out-shell">
-      <header className="workspace-topbar">
-        <a className="brand-mark" href="/">
-          Cleanly
-        </a>
-      </header>
-      <main className="workspace-main">
-        <section className="workspace-hero first-time-hero">
-          <div>
-            <p className="eyebrow">Account required</p>
-            <h1>Sign in to manage your households</h1>
-            <p className="lede">Your household data loads after authentication.</p>
-            <div className="form-actions">
-              <SignInButton mode="modal">Sign in</SignInButton>
-              <SignUpButton mode="modal">Sign up</SignUpButton>
-            </div>
-          </div>
-        </section>
-      </main>
-    </div>
-  );
-}
-
 function AppRoutes() {
   const [path, setPath] = useState(() => normalizePath(window.location.pathname));
-  const { addHousehold, householdSetup, households, isLoading } = useAppData();
+  const { addHousehold, households, isLoading, loadError, reloadHouseholds } = useAppData();
 
   /*
     `useState` is similar to component-scoped state in Angular, though
@@ -97,7 +80,7 @@ function AppRoutes() {
 
   function navigate(nextPath: string) {
     window.history.pushState({}, "", nextPath);
-    setPath(normalizePath(nextPath));
+    setPath(normalizePath(window.location.pathname));
   }
 
   /*
@@ -106,19 +89,23 @@ function AppRoutes() {
     state to control which child component is rendered.
   */
   if (path === "/") {
-    return <LandingPage onGetStarted={() => navigate("/today")} />;
+    return (
+      <AppShell currentPath="/today" onNavigate={navigate}>
+        <TodayDashboard households={households} isLoading={isLoading} loadError={loadError} onNavigate={navigate} />
+      </AppShell>
+    );
   }
 
   return (
     <AppShell currentPath={path} onNavigate={navigate}>
       {path === "/today" ? (
-        <TodayDashboard householdSetup={householdSetup} onNavigate={navigate} />
+        <TodayDashboard households={households} isLoading={isLoading} loadError={loadError} onNavigate={navigate} />
       ) : null}
       {path === "/households" ? (
-        <HouseholdsPage households={households} isLoading={isLoading} onAddHousehold={addHousehold} />
+        <HouseholdsPage households={households} isLoading={isLoading} onAddHousehold={addHousehold} onReload={reloadHouseholds} />
       ) : null}
       {path === "/chores" ? (
-        <ChoresPage households={households} householdsLoading={isLoading} />
+        <ChoresPage households={households} householdsLoading={isLoading} onNavigate={navigate} />
       ) : null}
       {path === "/optimize" ? (
         <OptimizePage
@@ -145,7 +132,7 @@ function AppShell({
     { label: "Today", path: "/today" },
     { label: "Households", path: "/households" },
     { label: "Chores", path: "/chores" },
-    { label: "Optimize ✨", path: "/optimize" },
+    { label: "Optimize", path: "/optimize" },
     { label: "Settings", path: "/settings" }
   ];
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { type Chore, type HouseholdAppData, type HouseholdBaseline, type Recommendation } from "@chore-helper/shared";
+import { type Chore, type HouseholdAppData, type HouseholdProfile, type HouseholdStructure, type Recommendation } from "@chore-helper/shared";
 import {
   applyRecommendationDecisions,
   askAssistantQuestion,
@@ -26,7 +26,8 @@ type OptimizePageProps = {
 type HouseholdOptimizePanelProps = {
   householdId: string;
   householdName: string;
-  baseline?: HouseholdBaseline;
+  profile?: HouseholdProfile;
+  structure: HouseholdStructure;
 };
 
 const chatPrompts = [
@@ -58,12 +59,13 @@ function createMessageId() {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
 }
 
-function formatBaselineSummary(baseline?: HouseholdBaseline) {
-  if (!baseline) return "Household context is not complete yet.";
+function formatProfileSummary(profile: HouseholdProfile | undefined, structure: HouseholdStructure) {
+  if (!profile) return "Household context is not complete yet.";
 
-  return `${baseline.homeType} / ${baseline.rooms.length} rooms / ${baseline.flooring.join(", ")} / ${
-    baseline.hasPets ? "pets" : "no pets"
-  } / ${baseline.hasOutdoorSpace ? "outdoor space" : "no outdoor space"}`;
+  const rooms = structure.floors.reduce((total, floor) => total + floor.rooms.length, 0);
+  return `${profile.homeType} / ${structure.floors.length} floors / ${rooms} rooms / ${
+    profile.hasPets ? "pets" : "no pets"
+  } / ${profile.hasOutdoorSpace ? "outdoor space" : "no outdoor space"}`;
 }
 
 export function OptimizePage({ households, isLoading }: OptimizePageProps) {
@@ -92,7 +94,8 @@ export function OptimizePage({ households, isLoading }: OptimizePageProps) {
         <div className="household-panel-list">
           {households.map((household) => (
             <HouseholdOptimizePanel
-              baseline={household.baseline}
+              profile={household.profile}
+              structure={household.structure}
               householdId={household.id}
               householdName={household.name}
               key={household.id}
@@ -107,7 +110,8 @@ export function OptimizePage({ households, isLoading }: OptimizePageProps) {
 function HouseholdOptimizePanel({
   householdId,
   householdName,
-  baseline
+  profile,
+  structure
 }: HouseholdOptimizePanelProps) {
   const [mode, setMode] = useState<OptimizeMode>("recommendations");
   const [chores, setChores] = useState<Chore[]>([]);
@@ -267,7 +271,7 @@ function HouseholdOptimizePanel({
         <div>
           <p className="eyebrow">Household</p>
           <h2>{householdName}</h2>
-          <p className="supporting-copy">{formatBaselineSummary(baseline)}</p>
+          <p className="supporting-copy">{formatProfileSummary(profile, structure)}</p>
         </div>
       </div>
 

@@ -76,7 +76,7 @@ function formatChores(chores: Chore[]) {
 function formatPrompt({ household, chores, reviewPrompt }: AgentRecommendationContext) {
   return [
     `Household: ${household.name}`,
-    `Baseline: ${JSON.stringify(household.baseline ?? null)}`,
+    `Profile: ${JSON.stringify(household.profile ?? null)}`,
     "Selected chores:",
     formatChores(chores),
     `User review prompt: ${reviewPrompt?.trim() || "Review the selected chores for practical improvements."}`,
@@ -122,9 +122,9 @@ function formatDeterministicChatResponse({
   const shortestChore = chores
     .slice()
     .sort((first, second) => first.estimatedMinutes - second.estimatedMinutes)[0];
-  const baselineSummary = household.baseline
-    ? `Baseline: ${household.baseline.homeType} with ${household.baseline.rooms.length} tracked room${household.baseline.rooms.length === 1 ? "" : "s"}, pets=${household.baseline.hasPets}, outdoorSpace=${household.baseline.hasOutdoorSpace}.`
-    : "Baseline details are not set yet.";
+  const profileSummary = household.profile
+    ? `Profile: ${household.profile.homeType}, pets=${household.profile.hasPets}, outdoorSpace=${household.profile.hasOutdoorSpace}.`
+    : "Profile details are not set yet.";
   const choreSummary = shortestChore
     ? `${shortestChore.title} has the shortest estimate at ${shortestChore.estimatedMinutes} minutes, so it is a practical first chore to review.`
     : "There are no active chores to inspect yet.";
@@ -134,7 +134,7 @@ function formatDeterministicChatResponse({
       : "There are no pending recommendations right now.";
 
   return {
-    answer: `For "${message}", ${choreSummary} ${baselineSummary} ${recommendationSummary}`,
+    answer: `For "${message}", ${choreSummary} ${profileSummary} ${recommendationSummary}`,
     ...(pendingRecommendations.length > 0
       ? { relatedRecommendationIds: pendingRecommendations.map((recommendation) => recommendation.id) }
       : {})

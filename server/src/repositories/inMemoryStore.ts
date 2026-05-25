@@ -1,8 +1,8 @@
 import type {
   Chore,
   Household,
-  HouseholdBaseline,
   HouseholdFloor,
+  HouseholdProfile,
   HouseholdStructure,
   Recommendation,
   RecommendationDecision
@@ -45,7 +45,10 @@ export type HouseholdStore = {
   createHouseholdForUser(name: string, userId: string): StoreResult<Household>;
   createHousehold(name: string): StoreResult<Household>;
   listHouseholds(): StoreResult<Household[]>;
-  updateBaseline(householdId: string, baseline: HouseholdBaseline): StoreResult<Household | undefined>;
+  updateProfile(
+    householdId: string,
+    update: { name: string; profile: HouseholdProfile }
+  ): StoreResult<Household | undefined>;
   getHousehold(householdId: string): StoreResult<Household | undefined>;
   getHouseholdStructure(householdId: string): StoreResult<HouseholdStructure | undefined>;
   saveHouseholdStructure(
@@ -159,11 +162,11 @@ export function createInMemoryStore(): HouseholdStore {
       return Array.from(households.values());
     },
 
-    updateBaseline(householdId, baseline) {
+    updateProfile(householdId, update) {
       const household = households.get(householdId);
       if (!household) return undefined;
 
-      const updated = { ...household, baseline };
+      const updated = { ...household, name: update.name, profile: update.profile };
       households.set(householdId, updated);
       return updated;
     },

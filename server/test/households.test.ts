@@ -78,18 +78,45 @@ class FailingChatAgentProvider implements AgentProvider {
   }
 }
 
-describe("household baseline flow", () => {
+describe("household profile flow", () => {
+  it("saves an editable household profile with the household name", async () => {
+    const app = createTestApp();
+    const created = await request(app).post("/api/households").send({ name: "Home" }).expect(201);
+
+    await request(app)
+      .put(`/api/households/${created.body.id}/profile`)
+      .send({
+        name: "Lake House",
+        homeType: "house",
+        hasPets: true,
+        hasOutdoorSpace: true,
+        notes: "Track seasonal porch cleanup."
+      })
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toEqual({
+          id: created.body.id,
+          name: "Lake House",
+          profile: {
+            homeType: "house",
+            hasPets: true,
+            hasOutdoorSpace: true,
+            notes: "Track seasonal porch cleanup."
+          }
+        });
+      });
+  });
+
   it("lists households with their initial app data", async () => {
     const app = createTestApp();
     const created = await request(app).post("/api/households").send({ name: "Home" }).expect(201);
     const householdId = created.body.id as string;
 
     await request(app)
-      .put(`/api/households/${householdId}/baseline`)
+      .put(`/api/households/${householdId}/profile`)
       .send({
+        name: "Home",
         homeType: "house",
-        rooms: ["Kitchen"],
-        flooring: ["hardwood"],
         hasPets: true,
         hasOutdoorSpace: false,
         notes: ""
@@ -133,7 +160,7 @@ describe("household baseline flow", () => {
     expect(response.body[0]).toMatchObject({
       id: householdId,
       name: "Home",
-      baseline: { homeType: "house" },
+      profile: { homeType: "house" },
       structure: {
         householdId,
         floors: [{ id: "floor-main", rooms: [] }]
@@ -205,7 +232,7 @@ describe("household baseline flow", () => {
       });
   });
 
-  it("creates a household, saves baseline facts, and returns expert recommendations", async () => {
+  it("creates a household, saves profile facts, and returns expert recommendations", async () => {
     const app = createTestApp();
 
     const created = await request(app)
@@ -216,11 +243,10 @@ describe("household baseline flow", () => {
     const householdId = created.body.id;
 
     await request(app)
-      .put(`/api/households/${householdId}/baseline`)
+      .put(`/api/households/${householdId}/profile`)
       .send({
+        name: "Home",
         homeType: "house",
-        rooms: ["kitchen", "bathroom"],
-        flooring: ["hardwood", "tile"],
         hasPets: true,
         hasOutdoorSpace: true,
         notes: "We already have recurring chores in Google Calendar."
@@ -582,7 +608,7 @@ describe("household baseline flow", () => {
       });
   });
 
-  it("fetches a saved household with its baseline for frontend restore", async () => {
+  it("fetches a saved household with its profile for frontend restore", async () => {
     const app = createTestApp();
 
     const created = await request(app)
@@ -591,11 +617,10 @@ describe("household baseline flow", () => {
       .expect(201);
 
     await request(app)
-      .put(`/api/households/${created.body.id}/baseline`)
+      .put(`/api/households/${created.body.id}/profile`)
       .send({
+        name: "Home",
         homeType: "house",
-        rooms: ["kitchen", "bathrooms", "bedrooms"],
-        flooring: ["hardwood", "tile", "carpet"],
         hasPets: true,
         hasOutdoorSpace: true,
         notes: "Setup survives refresh."
@@ -609,10 +634,8 @@ describe("household baseline flow", () => {
     expect(fetched.body).toEqual({
       id: created.body.id,
       name: "Home",
-      baseline: {
+      profile: {
         homeType: "house",
-        rooms: ["kitchen", "bathrooms", "bedrooms"],
-        flooring: ["hardwood", "tile", "carpet"],
         hasPets: true,
         hasOutdoorSpace: true,
         notes: "Setup survives refresh."
@@ -629,11 +652,10 @@ describe("household baseline flow", () => {
       .expect(201);
 
     await request(app)
-      .put(`/api/households/${created.body.id}/baseline`)
+      .put(`/api/households/${created.body.id}/profile`)
       .send({
+        name: "Home",
         homeType: "house",
-        rooms: ["living room"],
-        flooring: ["carpet"],
         hasPets: true,
         hasOutdoorSpace: false
       })
@@ -854,11 +876,10 @@ describe("household baseline flow", () => {
     const householdId = created.body.id;
 
     await request(app)
-      .put(`/api/households/${householdId}/baseline`)
+      .put(`/api/households/${householdId}/profile`)
       .send({
+        name: "Home",
         homeType: "house",
-        rooms: ["kitchen", "bathroom"],
-        flooring: ["tile"],
         hasPets: true,
         hasOutdoorSpace: false,
         notes: "One dog."

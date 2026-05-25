@@ -93,9 +93,10 @@ function formatChoreHousehold(chore: Chore) {
 type ChoresPageProps = {
   households: Household[];
   householdsLoading: boolean;
+  onNavigate: (path: string) => void;
 };
 
-export function ChoresPage({ households, householdsLoading }: ChoresPageProps) {
+export function ChoresPage({ households, householdsLoading, onNavigate }: ChoresPageProps) {
   const [chores, setChores] = useState<Chore[]>([]);
   const [archivedChores, setArchivedChores] = useState<Chore[]>([]);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
@@ -157,18 +158,16 @@ export function ChoresPage({ households, householdsLoading }: ChoresPageProps) {
     };
   }, []);
 
-  useEffect(() => {
-    if (!expandedChore) return;
-
-    // Similar to Angular ngOnChanges for an @Input, this copies the expanded chore
-    // into local edit fields so typing can be cancelled or saved explicitly.
-    setEditTitle(expandedChore.title);
-    setEditCadence(expandedChore.cadence);
-    setEditEstimatedMinutes(String(expandedChore.estimatedMinutes));
-  }, [expandedChore]);
-
   function handleExpandChore(chore: Chore) {
-    setExpandedChoreId((currentId) => (currentId === chore.id ? undefined : chore.id));
+    if (expandedChoreId === chore.id) {
+      setExpandedChoreId(undefined);
+      return;
+    }
+
+    setEditTitle(chore.title);
+    setEditCadence(chore.cadence);
+    setEditEstimatedMinutes(String(chore.estimatedMinutes));
+    setExpandedChoreId(chore.id);
   }
 
   function handleCancelEdit() {
@@ -274,6 +273,9 @@ export function ChoresPage({ households, householdsLoading }: ChoresPageProps) {
             Add, edit, archive, and track your chores all in one place.
           </p>
         </div>
+        <button className="secondary-action" onClick={() => onNavigate("/settings#calendar")} type="button">
+          Import calendar events
+        </button>
       </header>
 
       <section className="dashboard-section plan-queue-section" aria-labelledby="review-queue-heading">

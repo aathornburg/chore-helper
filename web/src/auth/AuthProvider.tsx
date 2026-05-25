@@ -7,12 +7,15 @@ export function ApiAuthBridge({ children }: { children: React.ReactNode }) {
   const [apiAuthReady, setApiAuthReady] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     configureApiAuth(() => getToken());
-    setApiAuthReady(true);
+    queueMicrotask(() => {
+      if (!cancelled) setApiAuthReady(true);
+    });
 
     return () => {
+      cancelled = true;
       configureApiAuth(async () => null);
-      setApiAuthReady(false);
     };
   }, [getToken]);
 

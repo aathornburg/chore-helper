@@ -17,10 +17,10 @@ export class MockChoreAgentProvider implements AgentProvider {
     household,
     chores
   }: AgentRecommendationContext): Promise<Recommendation[]> {
-    const baseline = household.baseline;
+    const profile = household.profile;
     const recommendations: Recommendation[] = [];
 
-    if (baseline?.hasPets) {
+    if (profile?.hasPets) {
       recommendations.push({
         id: crypto.randomUUID(),
         householdId: household.id,
@@ -32,7 +32,7 @@ export class MockChoreAgentProvider implements AgentProvider {
       });
     }
 
-    if (baseline?.hasOutdoorSpace) {
+    if (profile?.hasOutdoorSpace) {
       recommendations.push({
         id: crypto.randomUUID(),
         householdId: household.id,
@@ -75,18 +75,15 @@ export class MockChoreAgentProvider implements AgentProvider {
         recommendation.status === "pending" && (recommendation.decision ?? "pending") === "pending"
     );
     const underScopedChore = chores.find((chore) => chore.estimatedMinutes < 15);
-    const baselineNotes = [
-      household.baseline?.homeType ? `home type: ${household.baseline.homeType}` : undefined,
-      household.baseline?.rooms.length
-        ? `rooms: ${household.baseline.rooms.join(", ")}`
-        : undefined,
-      household.baseline?.hasPets ? "pets are present" : undefined,
-      household.baseline?.hasOutdoorSpace ? "outdoor space is present" : undefined
+    const profileNotes = [
+      household.profile?.homeType ? `home type: ${household.profile.homeType}` : undefined,
+      household.profile?.hasPets ? "pets are present" : undefined,
+      household.profile?.hasOutdoorSpace ? "outdoor space is present" : undefined
     ].filter(Boolean);
-    const baselineSummary =
-      baselineNotes.length > 0
-        ? ` Household context includes ${baselineNotes.join("; ")}.`
-        : " Household baseline details are not set yet.";
+    const profileSummary =
+      profileNotes.length > 0
+        ? ` Household context includes ${profileNotes.join("; ")}.`
+        : " Household profile details are not set yet.";
     const recommendationSummary =
       pendingRecommendations.length > 0
         ? ` There ${pendingRecommendations.length === 1 ? "is" : "are"} ${pendingRecommendations.length} pending recommendation${pendingRecommendations.length === 1 ? "" : "s"} to consider: ${pendingRecommendations.map((recommendation) => recommendation.title).join("; ")}.`
@@ -94,7 +91,7 @@ export class MockChoreAgentProvider implements AgentProvider {
 
     if (chores.length === 0) {
       return {
-        answer: `For "${message}", there are no active chores to review yet.${baselineSummary}${recommendationSummary}`,
+        answer: `For "${message}", there are no active chores to review yet.${profileSummary}${recommendationSummary}`,
         ...(pendingRecommendations.length > 0
           ? { relatedRecommendationIds: pendingRecommendations.map((recommendation) => recommendation.id) }
           : {})
@@ -109,7 +106,7 @@ export class MockChoreAgentProvider implements AgentProvider {
       : ` Active chores in scope are ${choreSummary}.`;
 
     return {
-      answer: `For "${message}", review ${chores.length} active chore${chores.length === 1 ? "" : "s"}.${focus}${baselineSummary}${recommendationSummary}`,
+      answer: `For "${message}", review ${chores.length} active chore${chores.length === 1 ? "" : "s"}.${focus}${profileSummary}${recommendationSummary}`,
       ...(pendingRecommendations.length > 0
         ? { relatedRecommendationIds: pendingRecommendations.map((recommendation) => recommendation.id) }
         : {})

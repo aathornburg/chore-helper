@@ -5,12 +5,8 @@
 */
 export type HomeType = "house" | "apartment" | "condo" | "townhouse" | "other";
 
-export type FlooringType = "carpet" | "hardwood" | "tile" | "mixed" | "unknown";
-
-export type HouseholdBaseline = {
+export type HouseholdProfile = {
   homeType: HomeType;
-  rooms: string[];
-  flooring: FlooringType[];
   hasPets: boolean;
   hasOutdoorSpace: boolean;
   notes?: string;
@@ -66,7 +62,7 @@ export type HouseholdStructure = {
 export type Household = {
   id: string;
   name: string;
-  baseline?: HouseholdBaseline;
+  profile?: HouseholdProfile;
 };
 
 export type AppUserProfile = {

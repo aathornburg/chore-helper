@@ -1,175 +1,112 @@
-import type { HouseholdSetupState, Navigate } from "../types";
-import { formatBaselineSummary } from "../utils/household";
+import type { HouseholdAppData } from "@chore-helper/shared";
+import type { Navigate } from "../types";
+import { formatHouseholdSummary } from "../utils/household";
 
 type TodayDashboardProps = {
-  householdSetup: HouseholdSetupState;
+  households: HouseholdAppData[];
+  isLoading: boolean;
+  loadError?: string;
   onNavigate: Navigate;
 };
 
-export function TodayDashboard({ householdSetup, onNavigate }: TodayDashboardProps) {
-  /*
-    This component receives `householdSetup` and `onNavigate` as props,
-    which is analogous to Angular's `@Input() householdSetup` and
-    `@Output() navigate = new EventEmitter()` patterns.
-  */
-  if (householdSetup.isRestoring) {
+function isProfileComplete(household: HouseholdAppData) {
+  return Boolean(household.profile) && household.structure.floors.length > 0;
+}
+
+export function TodayDashboard({ households, isLoading, loadError, onNavigate }: TodayDashboardProps) {
+  if (isLoading) {
     return (
-      <div className="dashboard-page first-time-dashboard">
+      <div className="dashboard-page">
         <header className="workspace-hero first-time-hero">
           <div>
-            <p className="eyebrow">Household</p>
+            <p className="eyebrow">Your home overview</p>
             <h1>Today</h1>
-            <p className="lede">Loading household context...</p>
-            <p className="supporting-copy">
-              Chore Helper is checking your saved household before showing the next best action.
-            </p>
+            <p className="lede">Loading your households and chore plans...</p>
           </div>
         </header>
       </div>
     );
   }
 
-  if (householdSetup.setupComplete && householdSetup.baseline) {
+  if (loadError) {
     return (
-      <div className="dashboard-page first-time-dashboard">
+      <div className="dashboard-page">
         <header className="workspace-hero first-time-hero">
           <div>
-            <p className="eyebrow">Household ready</p>
+            <p className="eyebrow">Could not load</p>
             <h1>Today</h1>
-            <p className="lede">
-              {householdSetup.householdName} is ready for a first expert chore review.
-            </p>
-            <p className="supporting-copy">{formatBaselineSummary(householdSetup.baseline)}</p>
-            <p className="section-summary">
-              {householdSetup.choreCount} existing chore{householdSetup.choreCount === 1 ? "" : "s"} ready for review
-            </p>
+            <p className="lede">{loadError}</p>
           </div>
-          <button onClick={() => onNavigate("/chores")} type="button">Review existing chores</button>
         </header>
-
-        <div className="first-time-grid">
-          <section className="panel setup-focus-panel" aria-labelledby="setup-complete-heading">
-            <p className="eyebrow">Next best action</p>
-            <h2 id="setup-complete-heading">Review the current chore plan</h2>
-            <p>
-              Open Chores to manage saved chores and start a separate review flow when needed.
-              Recommendations remain manual until you accept them in a later milestone.
-            </p>
-          </section>
-
-          <section className="panel" aria-labelledby="saved-context-heading">
-            <div className="panel-heading">
-              <h2 id="saved-context-heading">Household context</h2>
-              <span>Saved</span>
-            </div>
-            <div className="preview-health-list">
-              <article>
-                <strong>Home</strong>
-                <p>{householdSetup.baseline.homeType}</p>
-              </article>
-              <article>
-                <strong>Rooms</strong>
-                <p>{householdSetup.baseline.rooms.join(", ")}</p>
-              </article>
-              <article>
-                <strong>Floors</strong>
-                <p>{householdSetup.baseline.flooring.join(", ")}</p>
-              </article>
-            </div>
-          </section>
-        </div>
       </div>
     );
   }
 
   return (
-    <div className="dashboard-page first-time-dashboard">
+    <div className="dashboard-page today-page">
       <header className="workspace-hero first-time-hero">
         <div>
-          <p className="eyebrow">
-            {householdSetup.baseline ? "Household in progress" : "First household"}
-          </p>
+          <p className="eyebrow">Home command center</p>
           <h1>Today</h1>
           <p className="lede">
-            {householdSetup.baseline
-              ? "Add an existing chore to make the assistant recommendations useful."
-              : "Let's get your household context set up."}
-          </p>
-          {householdSetup.restoreError ? (
-            <p className="section-summary">{householdSetup.restoreError}</p>
-          ) : null}
-          <p className="supporting-copy">
-            {householdSetup.baseline
-              ? formatBaselineSummary(householdSetup.baseline)
-              : "A few home details give the assistant enough context to review chores with better cadence, effort, and coverage recommendations."}
+            {households.length === 0
+              ? "Set up your first household to start organizing routines."
+              : `Keep ${households.length} household${households.length === 1 ? "" : "s"} moving with clear next actions.`}
           </p>
         </div>
-        <button onClick={() => onNavigate("/households")} type="button">
-          {householdSetup.baseline ? "Review household" : "Set up household"}
-        </button>
+        {households.length === 0 ? (
+          <button onClick={() => onNavigate("/households")} type="button">Set up household</button>
+        ) : (
+          <button onClick={() => onNavigate("/chores")} type="button">Manage chores</button>
+        )}
       </header>
 
-      <div className="first-time-grid">
-        <section className="panel setup-focus-panel" aria-labelledby="next-step-heading">
-          <p className="eyebrow">Next best action</p>
-          <h2 id="next-step-heading">
-            {householdSetup.baseline ? "Add one existing chore" : "Start with household basics"}
-          </h2>
-          <p>
-            {householdSetup.baseline
-              ? "Chore Helper needs at least one real chore before it can review the plan."
-              : "Tell Chore Helper about the home type, rooms, floors, pets, outdoor space, and any notes that affect recurring work."}
-          </p>
-          <button onClick={() => onNavigate("/households")} type="button">
-            {householdSetup.baseline ? "Review household" : "Continue setup"}
-          </button>
+      {households.length === 0 ? (
+        <section className="panel setup-focus-panel">
+          <p className="eyebrow">Start here</p>
+          <h2>Create a home profile</h2>
+          <p>Add floors, rooms, pets, and notes so Cleanly can make useful chore recommendations.</p>
         </section>
-
-        <section className="panel" aria-labelledby="plan-preview-heading">
-          <div className="panel-heading">
-            <h2 id="plan-preview-heading">Plan health preview</h2>
-            <span>Unlocks after setup</span>
-          </div>
-          <div className="preview-health-list">
-            <article>
-              <strong>Coverage gaps</strong>
-              <p>Spot chores missing from your current routine.</p>
-            </article>
-            <article>
-              <strong>Cadence risks</strong>
-              <p>Review chores that may be too frequent or too rare.</p>
-            </article>
-            <article>
-              <strong>Duration concerns</strong>
-              <p>Catch estimates that may be too short to be realistic.</p>
-            </article>
-          </div>
+      ) : (
+        <section className="today-household-grid" aria-label="Household overview">
+          {households.map((household) => {
+            const profileComplete = isProfileComplete(household);
+            const reviewReady = profileComplete && household.chores.length > 0;
+            return (
+              <article className="panel today-household-card" key={household.id}>
+                <div className="panel-heading">
+                  <h2>{household.name}</h2>
+                  <span>{reviewReady ? "Ready to optimize" : profileComplete ? "Ready for chores" : "Needs setup"}</span>
+                </div>
+                <p>{formatHouseholdSummary(household)}</p>
+                <div className="overview-stat-grid">
+                  <div><span>Chores</span><strong>{household.chores.length}</strong></div>
+                  <div><span>Recommendations</span><strong>{household.recommendations.length}</strong></div>
+                </div>
+                <div className="form-actions">
+                  {!profileComplete ? (
+                    <button onClick={() => onNavigate("/households")} type="button">Complete profile</button>
+                  ) : household.chores.length === 0 ? (
+                    <button onClick={() => onNavigate("/chores")} type="button">Add chores</button>
+                  ) : (
+                    <button onClick={() => onNavigate("/optimize")} type="button">Optimize plan</button>
+                  )}
+                </div>
+              </article>
+            );
+          })}
         </section>
-      </div>
+      )}
 
-      <section className="panel" aria-labelledby="what-next-heading">
-        <div className="panel-heading">
-          <h2 id="what-next-heading">What comes next</h2>
-          <span>MVP 1</span>
+      <section className="panel integration-callout" aria-labelledby="today-calendar-heading">
+        <div>
+          <p className="eyebrow">Next integration</p>
+          <h2 id="today-calendar-heading">Google Calendar</h2>
+          <p>Connect your calendar to import routines and review approved schedule changes.</p>
         </div>
-        <ol className="next-step-list">
-          <li>
-            <span>{householdSetup.baseline ? "Ready" : "Next"}</span>
-            Confirm household context
-          </li>
-          <li>
-            <span>{householdSetup.choreCount > 0 ? "Ready" : "Next"}</span>
-            Add one existing chore
-          </li>
-          <li>
-            <span>Later</span>
-            Connect Google Calendar
-          </li>
-          <li>
-            <span>{householdSetup.setupComplete ? "Ready" : "Later"}</span>
-            Review first recommendation set
-          </li>
-        </ol>
+        <button className="secondary-action" onClick={() => onNavigate("/settings#calendar")} type="button">
+          Set up Calendar
+        </button>
       </section>
     </div>
   );

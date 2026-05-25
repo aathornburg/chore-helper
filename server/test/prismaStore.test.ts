@@ -38,7 +38,7 @@ async function clearDatabase() {
   await prisma!.householdFloor.deleteMany();
   await prisma!.recommendation.deleteMany();
   await prisma!.chore.deleteMany();
-  await prisma!.householdBaseline.deleteMany();
+  await prisma!.householdProfile.deleteMany();
   await prisma!.household.deleteMany();
 }
 
@@ -54,17 +54,18 @@ describe.skipIf(!safeConnectionString || !prisma)(
       await prisma!.$disconnect();
     });
 
-    it("persists household baseline and chores across store instances", async () => {
+    it("persists household profile and chores across store instances", async () => {
       const firstStore = createPrismaStore(prisma!);
       const household = await firstStore.createHousehold("Home");
 
-      await firstStore.updateBaseline(household.id, {
-        homeType: "house",
-        rooms: ["kitchen", "bathrooms"],
-        flooring: ["hardwood", "tile"],
-        hasPets: true,
-        hasOutdoorSpace: true,
-        notes: "Persistent setup"
+      await firstStore.updateProfile(household.id, {
+        name: "Home base",
+        profile: {
+          homeType: "house",
+          hasPets: true,
+          hasOutdoorSpace: true,
+          notes: "Persistent setup"
+        }
       });
       await firstStore.createChore({
         householdId: household.id,
@@ -78,11 +79,9 @@ describe.skipIf(!safeConnectionString || !prisma)(
 
       expect(await secondStore.getHousehold(household.id)).toEqual({
         id: household.id,
-        name: "Home",
-        baseline: {
+        name: "Home base",
+        profile: {
           homeType: "house",
-          rooms: ["kitchen", "bathrooms"],
-          flooring: ["hardwood", "tile"],
           hasPets: true,
           hasOutdoorSpace: true,
           notes: "Persistent setup"

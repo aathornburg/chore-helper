@@ -2,8 +2,8 @@ import type {
   CoverageLevel,
   FloorLevelType,
   FlooringSurface,
-  HouseholdBaseline,
   HouseholdFloor,
+  HouseholdProfile,
   HouseholdStructure,
   PetImpact
 } from "@chore-helper/shared";
@@ -25,18 +25,11 @@ export const coverageOptions: CoverageLevel[] = ["none", "partial", "most", "all
 export const petImpactOptions: PetImpact[] = ["none", "low", "medium", "high"];
 export const floorLevelOptions: FloorLevelType[] = ["upstairs", "main", "basement", "other"];
 
-function normalizeFlooring(value: string): FlooringSurface {
-  if (flooringOptions.includes(value as FlooringSurface)) return value as FlooringSurface;
-  if (value === "unknown") return "other";
-  return "mixed";
-}
-
 export function createDefaultHouseholdStructure(
   householdId: string,
-  baseline?: HouseholdBaseline
+  profile?: HouseholdProfile
 ): HouseholdStructure {
   const mainFloorId = "floor-main";
-  const flooring = baseline?.flooring.map(normalizeFlooring) ?? [];
 
   return {
     householdId,
@@ -46,20 +39,12 @@ export function createDefaultHouseholdStructure(
         householdId,
         name: "Main floor",
         levelType: "main",
-        flooring,
-        petImpact: baseline?.hasPets ? "medium" : "none",
+        flooring: [],
+        petImpact: profile?.hasPets ? "medium" : "none",
         robotVacuumCoverage: "none",
         robotMopCoverage: "none",
-        notes: baseline?.notes,
-        rooms: (baseline?.rooms ?? []).map((roomName, index) => ({
-          id: `room-${index + 1}`,
-          floorId: mainFloorId,
-          name: roomName,
-          flooring: [],
-          petImpact: "inherit",
-          robotVacuumCoverage: "inherit",
-          robotMopCoverage: "inherit"
-        }))
+        notes: profile?.notes,
+        rooms: []
       }
     ]
   };

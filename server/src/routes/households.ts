@@ -16,10 +16,9 @@ const createHouseholdSchema = z.object({
   name: z.string().min(1)
 });
 
-const baselineSchema = z.object({
+const profileSchema = z.object({
+  name: z.string().trim().min(1),
   homeType: z.enum(["house", "apartment", "condo", "townhouse", "other"]),
-  rooms: z.array(z.string().min(1)),
-  flooring: z.array(z.enum(["carpet", "hardwood", "tile", "mixed", "unknown"])),
   hasPets: z.boolean(),
   hasOutdoorSpace: z.boolean(),
   notes: z.string().optional()
@@ -240,14 +239,15 @@ export function createHouseholdRouter(store: HouseholdStore, agentProvider: Agen
     );
   });
 
-  router.put("/:householdId/baseline", async (req, res) => {
+  router.put("/:householdId/profile", async (req, res) => {
     const access = await requireHouseholdAccess(req, res);
     if (!access) return;
 
-    const parsed = baselineSchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: "Invalid baseline payload" });
+    const parsed = profileSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid profile payload" });
 
-    const household = await store.updateBaseline(access.household.id, parsed.data);
+    const { name, ...profile } = parsed.data;
+    const household = await store.updateProfile(access.household.id, { name, profile });
     if (!household) return res.status(404).json({ error: "Household not found" });
 
     return res.status(200).json(household);

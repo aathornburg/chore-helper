@@ -1,17 +1,21 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type {
   FlooringSurface,
   HouseholdAppData,
   HouseholdFloor,
+  HouseholdProfile,
   HouseholdRoom,
   HouseholdStructure
 } from "@chore-helper/shared";
-import { saveHouseholdStructure } from "../api";
+import { saveHouseholdProfile, saveHouseholdStructure } from "../api";
 import {
   createBasementFloor,
   createDefaultHouseholdStructure,
   createNewFloor,
+  coverageOptions,
   flooringOptions,
+  floorLevelOptions,
+  petImpactOptions,
   sortFloors
 } from "../utils/householdStructure";
 
@@ -19,6 +23,7 @@ type HouseholdsPageProps = {
   households: HouseholdAppData[];
   isLoading: boolean;
   onAddHousehold: (name: string) => Promise<void>;
+  onReload: () => Promise<void>;
 };
 
 type ManageTab = "overview" | "floors" | "rooms";
@@ -27,7 +32,7 @@ function getMainFloorId(floors: HouseholdFloor[]) {
   return floors.find((floor) => floor.levelType === "main")?.id ?? floors[0]?.id;
 }
 
-export function HouseholdsPage({ households, isLoading, onAddHousehold }: HouseholdsPageProps) {
+export function HouseholdsPage({ households, isLoading, onAddHousehold, onReload }: HouseholdsPageProps) {
   const [isAddingHousehold, setIsAddingHousehold] = useState(false);
 
   async function handleAddHousehold() {
@@ -69,7 +74,7 @@ export function HouseholdsPage({ households, isLoading, onAddHousehold }: Househ
           </div>
         </section>
         { households.length > 0 ? ( households.map((household) => (
-          <HouseholdEditor household={household} key={household.id} />
+          <HouseholdEditor household={household} key={household.id} onReload={onReload} />
         ))) : null}
         </>
       )}
@@ -77,30 +82,29 @@ export function HouseholdsPage({ households, isLoading, onAddHousehold }: Househ
   );
 }
 
-function HouseholdEditor({ household }: { household: HouseholdAppData }) {
+function HouseholdEditor({ household, onReload }: { household: HouseholdAppData; onReload: () => Promise<void> }) {
   const saveInFlightRef = useRef(false);
   const [isManaging, setIsManaging] = useState(false);
   const [manageTab, setManageTab] = useState<ManageTab>("overview");
   const [isEditingSurfaces, setIsEditingSurfaces] = useState(false);
   const initialStructure = household.structure.floors.length > 0
     ? household.structure
-    : createDefaultHouseholdStructure(household.id, household.baseline);
+    : createDefaultHouseholdStructure(household.id, household.profile);
   const [structure, setStructure] = useState<HouseholdStructure>(initialStructure);
-  const [selectedFloorId, setSelectedFloorId] = useState<string>();
+  const [selectedFloorId, setSelectedFloorId] = useState<string | undefined>(() => getMainFloorId(initialStructure.floors));
   const [pendingRemoveFloorId, setPendingRemoveFloorId] = useState<string>();
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string>();
   const [editingRoom, setEditingRoom] = useState<HouseholdRoom>();
-
-  useEffect(() => {
-    setStructure(initialStructure);
-    setSelectedFloorId(getMainFloorId(initialStructure.floors));
-    setPendingRemoveFloorId(undefined);
-    setEditingRoom(undefined);
-    setManageTab("overview");
-    setIsEditingSurfaces(false);
-    setSaveError(undefined);
-  }, [household.id]);
+  const [profileName, setProfileName] = useState(household.name);
+  const [profile, setProfile] = useState<HouseholdProfile>(household.profile ?? {
+    homeType: "house",
+    hasPets: false,
+    hasOutdoorSpace: false,
+    notes: ""
+  });
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [profileError, setProfileError] = useState<string>();
 
   const activeStructure = structure;
   const floors = useMemo(() => sortFloors(activeStructure.floors), [activeStructure]);
@@ -238,6 +242,49 @@ function HouseholdEditor({ household }: { household: HouseholdAppData }) {
                 </button>
               ))}
             </div>
+            <div className="field-grid">
+              <label>
+                Pet impact
+                <select
+                  disabled={isSaving}
+                  value={editingRoom.petImpact}
+                  onChange={(event) => setEditingRoom({ ...editingRoom, petImpact: event.target.value as HouseholdRoom["petImpact"] })}
+                >
+                  <option value="inherit">Inherit from floor</option>
+                  {petImpactOptions.map((value) => <option key={value} value={value}>{value}</option>)}
+                </select>
+              </label>
+              <label>
+                Vacuum coverage
+                <select
+                  disabled={isSaving}
+                  value={editingRoom.robotVacuumCoverage}
+                  onChange={(event) => setEditingRoom({ ...editingRoom, robotVacuumCoverage: event.target.value as HouseholdRoom["robotVacuumCoverage"] })}
+                >
+                  <option value="inherit">Inherit from floor</option>
+                  {coverageOptions.map((value) => <option key={value} value={value}>{value}</option>)}
+                </select>
+              </label>
+              <label>
+                Mop coverage
+                <select
+                  disabled={isSaving}
+                  value={editingRoom.robotMopCoverage}
+                  onChange={(event) => setEditingRoom({ ...editingRoom, robotMopCoverage: event.target.value as HouseholdRoom["robotMopCoverage"] })}
+                >
+                  <option value="inherit">Inherit from floor</option>
+                  {coverageOptions.map((value) => <option key={value} value={value}>{value}</option>)}
+                </select>
+              </label>
+              <label>
+                Room notes
+                <textarea
+                  disabled={isSaving}
+                  value={editingRoom.notes ?? ""}
+                  onChange={(event) => setEditingRoom({ ...editingRoom, notes: event.target.value })}
+                />
+              </label>
+            </div>
             <div className="form-actions">
               <button disabled={isSaving} type="submit">Save room</button>
               <button disabled={isSaving} onClick={() => setEditingRoom(undefined)} type="button">Cancel</button>
@@ -259,6 +306,7 @@ function HouseholdEditor({ household }: { household: HouseholdAppData }) {
     setStructure(nextStructure);
     try {
       await saveHouseholdStructure(nextStructure.householdId, nextStructure);
+      await onReload();
       return true;
     } catch {
       setStructure(previousStructure);
@@ -269,6 +317,38 @@ function HouseholdEditor({ household }: { household: HouseholdAppData }) {
       saveInFlightRef.current = false;
       setIsSaving(false);
     }
+  }
+
+  async function handleSaveProfile(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!profileName.trim() || isSavingProfile) return;
+
+    setIsSavingProfile(true);
+    setProfileError(undefined);
+    try {
+      await saveHouseholdProfile(household.id, { name: profileName.trim(), ...profile });
+      await onReload();
+    } catch {
+      setProfileError("Could not save household profile.");
+    } finally {
+      setIsSavingProfile(false);
+    }
+  }
+
+  async function handleSaveFloor(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedFloor || isSaving) return;
+    await persist(activeStructure);
+  }
+
+  function updateSelectedFloor(update: Partial<HouseholdFloor>) {
+    if (!selectedFloor) return;
+    setStructure({
+      ...activeStructure,
+      floors: activeStructure.floors.map((floor) =>
+        floor.id === selectedFloor.id ? { ...floor, ...update } : floor
+      )
+    });
   }
 
   async function handleToggleFlooring(flooring: FlooringSurface) {
@@ -371,6 +451,7 @@ function HouseholdEditor({ household }: { household: HouseholdAppData }) {
         </div>
       ) : null}
       {saveError ? <div className="empty-state" role="status">{saveError}</div> : null}
+      {profileError ? <div className="empty-state" role="status">{profileError}</div> : null}
 
       {isManaging && selectedFloor ? (
         <>
@@ -427,13 +508,65 @@ function HouseholdEditor({ household }: { household: HouseholdAppData }) {
                   <strong>{selectedFloor.flooring.length > 0 ? selectedFloor.flooring.join(", ") : "None set"}</strong>
                 </div>
               </div>
+              <form className="manual-chore-form household-profile-form" onSubmit={handleSaveProfile}>
+                <div className="field-grid">
+                  <label>
+                    Household name
+                    <input
+                      disabled={isSavingProfile}
+                      required
+                      value={profileName}
+                      onChange={(event) => setProfileName(event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Home type
+                    <select
+                      disabled={isSavingProfile}
+                      value={profile.homeType}
+                      onChange={(event) => setProfile({ ...profile, homeType: event.target.value as HouseholdProfile["homeType"] })}
+                    >
+                      {["house", "apartment", "condo", "townhouse", "other"].map((value) => (
+                        <option key={value} value={value}>{value}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="checkbox-field">
+                    <input
+                      checked={profile.hasPets}
+                      disabled={isSavingProfile}
+                      onChange={(event) => setProfile({ ...profile, hasPets: event.target.checked })}
+                      type="checkbox"
+                    />
+                    Pets live here
+                  </label>
+                  <label className="checkbox-field">
+                    <input
+                      checked={profile.hasOutdoorSpace}
+                      disabled={isSavingProfile}
+                      onChange={(event) => setProfile({ ...profile, hasOutdoorSpace: event.target.checked })}
+                      type="checkbox"
+                    />
+                    Outdoor space
+                  </label>
+                </div>
+                <label>
+                  Household notes
+                  <textarea
+                    disabled={isSavingProfile}
+                    value={profile.notes ?? ""}
+                    onChange={(event) => setProfile({ ...profile, notes: event.target.value })}
+                  />
+                </label>
+                <button disabled={isSavingProfile} type="submit">Save household profile</button>
+              </form>
             </section>
           ) : null}
 
           {manageTab === "floors" ? (
             <section className="household-editor" aria-label="Household floor editor">
               {renderFloorSelector(true)}
-              <section className="floor-detail-panel">
+              <form className="floor-detail-panel" onSubmit={handleSaveFloor}>
                 <div className="floor-detail-heading">
                   <div>
                     <h2>{selectedFloor.name}</h2>
@@ -454,6 +587,65 @@ function HouseholdEditor({ household }: { household: HouseholdAppData }) {
                     </div>
                   </div>
                 ) : null}
+                <div className="field-grid">
+                  <label>
+                    Floor name
+                    <input
+                      disabled={isSaving}
+                      required
+                      value={selectedFloor.name}
+                      onChange={(event) => updateSelectedFloor({ name: event.target.value })}
+                    />
+                  </label>
+                  <label>
+                    Level type
+                    <select
+                      disabled={isSaving || selectedFloor.levelType === "main"}
+                      value={selectedFloor.levelType}
+                      onChange={(event) => updateSelectedFloor({ levelType: event.target.value as HouseholdFloor["levelType"] })}
+                    >
+                      {floorLevelOptions.map((value) => <option key={value} value={value}>{value}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    Pet impact
+                    <select
+                      disabled={isSaving}
+                      value={selectedFloor.petImpact}
+                      onChange={(event) => updateSelectedFloor({ petImpact: event.target.value as HouseholdFloor["petImpact"] })}
+                    >
+                      {petImpactOptions.map((value) => <option key={value} value={value}>{value}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    Vacuum coverage
+                    <select
+                      disabled={isSaving}
+                      value={selectedFloor.robotVacuumCoverage}
+                      onChange={(event) => updateSelectedFloor({ robotVacuumCoverage: event.target.value as HouseholdFloor["robotVacuumCoverage"] })}
+                    >
+                      {coverageOptions.map((value) => <option key={value} value={value}>{value}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    Mop coverage
+                    <select
+                      disabled={isSaving}
+                      value={selectedFloor.robotMopCoverage}
+                      onChange={(event) => updateSelectedFloor({ robotMopCoverage: event.target.value as HouseholdFloor["robotMopCoverage"] })}
+                    >
+                      {coverageOptions.map((value) => <option key={value} value={value}>{value}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    Floor notes
+                    <textarea
+                      disabled={isSaving}
+                      value={selectedFloor.notes ?? ""}
+                      onChange={(event) => updateSelectedFloor({ notes: event.target.value })}
+                    />
+                  </label>
+                </div>
                 <div className="floor-surface-summary">
                   <div>
                     <span>Flooring</span>
@@ -478,7 +670,10 @@ function HouseholdEditor({ household }: { household: HouseholdAppData }) {
                     ))}
                   </div>
                 ) : null}
-              </section>
+                <div className="form-actions">
+                  <button disabled={isSaving} type="submit">Save floor details</button>
+                </div>
+              </form>
             </section>
           ) : null}
 

@@ -63,10 +63,8 @@ function restoreHouseholdInStorage() {
 const household = {
   id: "household-1",
   name: "Home",
-  baseline: {
+  profile: {
     homeType: "house",
-    rooms: ["bathroom"],
-    flooring: ["tile"],
     hasPets: true,
     hasOutdoorSpace: false,
     notes: ""
@@ -85,7 +83,20 @@ const cleanBathroomsChore = {
 function createHouseholdAppData({
   chores = [cleanBathroomsChore],
   recommendations = [],
-  structure = { householdId: "household-1", floors: [] }
+  structure = {
+    householdId: "household-1",
+    floors: [{
+      id: "floor-main",
+      householdId: "household-1",
+      name: "Main floor",
+      levelType: "main",
+      flooring: ["tile"],
+      petImpact: "medium",
+      robotVacuumCoverage: "none",
+      robotMopCoverage: "none",
+      rooms: []
+    }]
+  }
 }: {
   chores?: typeof cleanBathroomsChore[];
   recommendations?: unknown[];
@@ -176,6 +187,7 @@ function mockHouseholdsPageFetches(
     savePromise?: Promise<{ ok: boolean; json: () => Promise<unknown> }>;
   } = {}
 ) {
+  let storedStructure = structure;
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = input.toString();
     const method = init?.method ?? "GET";
@@ -187,19 +199,25 @@ function mockHouseholdsPageFetches(
     if (url === "http://localhost:3001/api/households" && method === "GET") {
       return {
         ok: true,
-        json: async () => [createHouseholdAppData({ structure })]
+        json: async () => [createHouseholdAppData({ structure: storedStructure })]
       };
     }
 
     if (url === "http://localhost:3001/api/households/household-1/structure" && method === "GET") {
-      return { ok: true, json: async () => structure };
+      return { ok: true, json: async () => storedStructure };
     }
 
     if (url === "http://localhost:3001/api/households/household-1/structure" && method === "PUT") {
       if (options.savePromise) return options.savePromise;
       if (options.saveResponse) return options.saveResponse;
       const body = JSON.parse(String(init?.body)) as Pick<HouseholdStructure, "floors">;
-      return { ok: true, json: async () => ({ householdId: "household-1", floors: body.floors }) };
+      storedStructure = { householdId: "household-1", floors: body.floors };
+      return { ok: true, json: async () => storedStructure };
+    }
+
+    if (url === "http://localhost:3001/api/households/household-1/profile" && method === "PUT") {
+      const body = JSON.parse(String(init?.body));
+      return { ok: true, json: async () => ({ ...household, name: body.name, profile: body }) };
     }
 
     throw new Error(`Unhandled fetch ${method} ${url}`);
@@ -218,19 +236,20 @@ afterEach(() => {
 });
 
 describe("App", () => {
-  it("renders the landing hero with a get started action", () => {
+  it("routes signed-in root visits to Today", async () => {
+    mockRestoredHouseholdFetches();
     renderAt("/");
 
-    expect(screen.getByRole("heading", { name: "Cleanly" })).toBeTruthy();
-    expect(screen.getByText("Make household work visible, fair, and easier to adjust.")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Get Started" })).toBeTruthy();
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Today" })).toBeTruthy());
+    expect(screen.getByText("Ready to optimize")).toBeTruthy();
+    expect(screen.queryByText("Make household work visible, fair, and easier to adjust.")).toBeNull();
   });
 
-  it("renders the current primary navigation without setup", () => {
+  it("renders the current primary navigation without setup", async () => {
     mockEmptyAppDataFetches();
     renderAt("/today");
 
-    expect(screen.getByRole("link", { name: "Today" })).toBeTruthy();
+    await waitFor(() => expect(screen.getByRole("link", { name: "Today" })).toBeTruthy());
     expect(screen.getByRole("link", { name: "Households" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Chores" })).toBeTruthy();
     expect(screen.getByRole("link", { name: /Optimize/ })).toBeTruthy();
@@ -269,7 +288,7 @@ describe("App", () => {
     renderAt("/today");
 
     await waitFor(() => {
-      expect(screen.getByText("Home is ready for a first expert chore review.")).toBeTruthy();
+      expect(screen.getByRole("heading", { name: "Home" })).toBeTruthy();
     });
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:3001/api/me",
@@ -293,6 +312,8 @@ describe("App", () => {
 
     renderAt("/today");
 
+    expect(screen.getByRole("heading", { name: "Cleanly" })).toBeTruthy();
+    expect(screen.getByText("Make household work visible, fair, and easier to adjust.")).toBeTruthy();
     expect(screen.getByRole("button", { name: /sign in/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: /sign up/i })).toBeTruthy();
     expect(fetchMock).not.toHaveBeenCalled();
@@ -339,14 +360,14 @@ describe("App", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Set up household" })).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "Set up household" }));
 
-    expect(screen.getByRole("heading", { name: "Households" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Households", level: 1 })).toBeTruthy();
   });
 
   it("renders the Households page", async () => {
     mockEmptyAppDataFetches();
     renderAt("/households");
 
-    expect(screen.getByRole("heading", { name: "Households" })).toBeTruthy();
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Households", level: 1 })).toBeTruthy());
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Add household" })).toBeTruthy();
     });
@@ -436,6 +457,44 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "hardwood" }).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByRole("button", { name: "rugs" }).getAttribute("aria-pressed")).toBe("true");
     expect(fetchMock).not.toHaveBeenCalledWith("http://localhost:3001/api/households/household-1/structure");
+  });
+
+  it("saves household profile details from Manage overview", async () => {
+    const fetchMock = mockHouseholdsPageFetches({
+      householdId: "household-1",
+      floors: [{
+        id: "floor-main",
+        householdId: "household-1",
+        name: "Main floor",
+        levelType: "main",
+        flooring: [],
+        petImpact: "medium",
+        robotVacuumCoverage: "none",
+        robotMopCoverage: "none",
+        rooms: []
+      }]
+    });
+
+    renderAt("/households");
+    await manageHomeHousehold();
+    fireEvent.change(screen.getByLabelText("Household name"), { target: { value: "Lake House" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save household profile" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "http://localhost:3001/api/households/household-1/profile",
+        expect.objectContaining({
+          method: "PUT",
+          body: JSON.stringify({
+            name: "Lake House",
+            homeType: "house",
+            hasPets: true,
+            hasOutdoorSpace: false,
+            notes: ""
+          })
+        })
+      );
+    });
   });
 
   it("adds and removes a basement floor with confirmation", async () => {
@@ -864,6 +923,28 @@ describe("App", () => {
     expect(screen.queryByLabelText("Chore title")).toBeNull();
   });
 
+  it("shows the Google Calendar connection shell in Settings", async () => {
+    mockEmptyAppDataFetches();
+    renderAt("/settings#calendar");
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Settings" })).toBeTruthy());
+    expect(screen.getByRole("heading", { name: "Google Calendar" })).toBeTruthy();
+    expect(screen.getByText("Not connected")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Connect Google Calendar" }));
+    expect(screen.getByText(/connection flow is coming next/i)).toBeTruthy();
+  });
+
+  it("routes calendar import from Chores to the Settings connection shell", async () => {
+    mockEmptyAppDataFetches();
+    renderAt("/chores");
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Import calendar events" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Import calendar events" }));
+
+    expect(screen.getByRole("heading", { name: "Google Calendar" })).toBeTruthy();
+    expect(window.location.hash).toBe("#calendar");
+  });
+
   it("shows the Optimize recommendation selection flow", async () => {
     restoreHouseholdInStorage();
     mockRestoredHouseholdFetches();
@@ -894,7 +975,7 @@ describe("App", () => {
     renderAt("/optimize");
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Optimize" })).toBeTruthy();
+      expect(screen.getByRole("tab", { name: "Chat" })).toBeTruthy();
     });
 
     fireEvent.click(screen.getByRole("tab", { name: "Chat" }));
@@ -938,7 +1019,7 @@ describe("App", () => {
     renderAt("/optimize");
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Optimize" })).toBeTruthy();
+      expect(screen.getByRole("tab", { name: "Chat" })).toBeTruthy();
     });
 
     fireEvent.click(screen.getByRole("tab", { name: "Chat" }));

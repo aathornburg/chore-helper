@@ -3,7 +3,7 @@ import type {
   Chore,
   Household,
   HouseholdAppData,
-  HouseholdBaseline,
+  HouseholdProfile,
   HouseholdStructure,
   Recommendation
 } from "@chore-helper/shared";
@@ -61,17 +61,17 @@ export async function listHouseholds(): Promise<HouseholdAppData[]> {
   return response.json();
 }
 
-export async function saveBaseline(
+export async function saveHouseholdProfile(
   householdId: string,
-  baseline: HouseholdBaseline
+  update: { name: string } & HouseholdProfile
 ): Promise<Household> {
-  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/baseline`, {
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/profile`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(baseline)
+    body: JSON.stringify(update)
   });
 
-  if (!response.ok) throw new Error("Failed to save baseline");
+  if (!response.ok) throw new Error("Failed to save household profile");
   return response.json();
 }
 

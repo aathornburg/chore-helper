@@ -7,10 +7,8 @@ function createContext(): AgentRecommendationContext {
     household: {
       id: "household-1",
       name: "Home",
-      baseline: {
+      profile: {
         homeType: "house",
-        rooms: ["kitchen", "bathroom"],
-        flooring: ["hardwood", "tile"],
         hasPets: true,
         hasOutdoorSpace: false,
         notes: "Two adults and one dog."

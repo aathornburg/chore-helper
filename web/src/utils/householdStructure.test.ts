@@ -7,11 +7,9 @@ import {
 } from "./householdStructure";
 
 describe("household structure utilities", () => {
-  it("creates a default main floor from household baseline details", () => {
+  it("creates a default main floor for a new household profile", () => {
     const structure = createDefaultHouseholdStructure("household-1", {
       homeType: "house",
-      rooms: ["kitchen", "bathroom"],
-      flooring: ["hardwood", "tile", "unknown"],
       hasPets: true,
       hasOutdoorSpace: false,
       notes: "Pet hair gathers near rugs."
@@ -25,25 +23,12 @@ describe("household structure utilities", () => {
           householdId: "household-1",
           name: "Main floor",
           levelType: "main",
-          flooring: ["hardwood", "tile", "other"],
+          flooring: [],
           petImpact: "medium",
           robotVacuumCoverage: "none",
           robotMopCoverage: "none",
           notes: "Pet hair gathers near rugs.",
-          rooms: [
-            expect.objectContaining({
-              id: "room-1",
-              floorId: "floor-main",
-              name: "kitchen",
-              flooring: []
-            }),
-            expect.objectContaining({
-              id: "room-2",
-              floorId: "floor-main",
-              name: "bathroom",
-              flooring: []
-            })
-          ]
+          rooms: []
         }
       ]
     });
