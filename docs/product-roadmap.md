@@ -1,6 +1,6 @@
 # Chore Helper Product Roadmap
 
-Date: 2026-05-20
+Date: 2026-05-24
 
 ## Summary
 
@@ -77,7 +77,24 @@ Suggested child doc:
 
 - `docs/superpowers/specs/2026-05-20-auth-household-ownership-design.md`
 
-### 5. Google Calendar Import + Export
+### 5. Pre-Calendar UX Foundation
+
+Revamp the signed-out entry experience and authenticated working pages before calendar integration adds another product workflow.
+
+Key outcomes:
+
+- Signed-out visitors see a polished public landing page with Clerk sign-in and sign-up actions; signed-in visits to `/` open Today.
+- Today becomes a unified multi-household home overview based on real stored household, chore, and recommendation data.
+- Households becomes fully editable by replacing the duplicate legacy baseline shape with general profile facts plus floor/room structure.
+- Settings contains a Google Calendar connection shell, while Today and Chores provide clear entry actions before OAuth/import functionality lands.
+- The warm home-oriented visual style becomes consistent across public and authenticated surfaces.
+
+Suggested child docs:
+
+- `docs/superpowers/specs/2026-05-24-pre-calendar-ux-foundation-design.md`
+- `docs/superpowers/plans/2026-05-24-pre-calendar-ux-foundation.md`
+
+### 6. Google Calendar Import + Export
 
 Connect Google Calendar as the first external chore source.
 
@@ -93,7 +110,7 @@ Suggested child doc:
 
 - `docs/superpowers/specs/YYYY-MM-DD-google-calendar-integration-design.md`
 
-### 6. Tech Debt
+### 7. Tech Debt
 
 Implementation changes that won't change the experience of using the application.
 
