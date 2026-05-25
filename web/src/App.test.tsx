@@ -221,7 +221,7 @@ describe("App", () => {
   it("renders the landing hero with a get started action", () => {
     renderAt("/");
 
-    expect(screen.getByRole("heading", { name: "Cleainly" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Cleanly" })).toBeTruthy();
     expect(screen.getByText("Make household work visible, fair, and easier to adjust.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Get Started" })).toBeTruthy();
   });

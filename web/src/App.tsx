@@ -49,7 +49,7 @@ function SignedOutWorkspace() {
     <div className="workspace-shell signed-out-shell">
       <header className="workspace-topbar">
         <a className="brand-mark" href="/">
-          Cleainly
+          Cleanly
         </a>
       </header>
       <main className="workspace-main">
@@ -164,7 +164,7 @@ function AppShell({
           event.preventDefault();
           onNavigate("/");
         }}>
-          Cleainly
+          Cleanly
         </a>
         <nav className="workspace-nav" aria-label="Primary">
           {navItems.map((item) => (
