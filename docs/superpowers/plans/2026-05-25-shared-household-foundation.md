@@ -426,7 +426,7 @@ npm.cmd run build -w web
 
 Expected: all tests, type checks, and the production web build pass.
 
-- [ ] **Step 5: Commit and push Release 1 documentation and persistence verification**
+- [x] **Step 5: Commit and push Release 1 documentation and persistence assertions**
 
 ```powershell
 git add server/test/prismaStore.test.ts docs/local-postgres-docker-setup.md
