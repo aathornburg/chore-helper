@@ -1,5 +1,5 @@
 import request from "supertest";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createApp } from "../src/app.js";
 import { createInMemoryStore } from "../src/repositories/inMemoryStore.js";
 
@@ -197,6 +197,159 @@ describe("chore schedules", () => {
         expect(response.body.every((occurrence: { assignedUserId: string }) =>
           occurrence.assignedUserId === household.memberId
         )).toBe(true);
+      });
+  });
+
+  it("records occurrence exceptions and regenerates only untouched future occurrences", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-05-25T12:00:00.000Z"));
+
+    try {
+      const { app, links } = createScheduleTestApp();
+      const household = await prepareHousehold(app, links);
+      const schedule = await request(app)
+        .post(`/api/households/${household.householdId}/chores/${household.choreId}/schedules`)
+        .set(auth("owner@example.com"))
+        .send(dailySchedule(household.memberId))
+        .expect(201);
+
+      const initial = await request(app)
+        .get(`/api/households/${household.householdId}/occurrences`)
+        .query({
+          startAt: "2026-05-25T00:00:00.000Z",
+          endAt: "2026-05-28T23:59:59.999Z"
+        })
+        .set(auth("owner@example.com"))
+        .expect(200);
+
+      await request(app)
+        .put(`/api/households/${household.householdId}/occurrences/${initial.body[1].id}`)
+        .set(auth("owner@example.com"))
+        .send({
+          plannedStartAt: "2026-05-26T14:00:00.000Z",
+          plannedEndAt: "2026-05-26T14:45:00.000Z",
+          assignedUserId: household.ownerId
+        })
+        .expect(200)
+        .expect((response) => {
+          expect(response.body).toEqual(expect.objectContaining({
+            exceptionType: "rescheduled",
+            assignedUserId: household.ownerId
+          }));
+        });
+
+      await request(app)
+        .post(`/api/households/${household.householdId}/occurrences/${initial.body[2].id}/skip`)
+        .set(auth("owner@example.com"))
+        .expect(200)
+        .expect((response) => {
+          expect(response.body).toEqual(expect.objectContaining({
+            exceptionType: "skipped",
+            status: "skipped"
+          }));
+        });
+
+      await request(app)
+        .put(`/api/households/${household.householdId}/schedules/${schedule.body.id}`)
+        .set(auth("owner@example.com"))
+        .send({
+          ...dailySchedule(household.ownerId),
+          localStartTime: "09:00",
+          plannedMinutes: 30
+        })
+        .expect(200);
+
+      await request(app)
+        .get(`/api/households/${household.householdId}/occurrences`)
+        .query({
+          startAt: "2026-05-25T00:00:00.000Z",
+          endAt: "2026-05-28T23:59:59.999Z"
+        })
+        .set(auth("member@example.com"))
+        .expect(200)
+        .expect((response) => {
+          expect(response.body).toEqual([
+            expect.objectContaining({
+              plannedStartAt: "2026-05-25T11:00:00.000Z",
+              assignedUserId: household.memberId,
+              exceptionType: "none"
+            }),
+            expect.objectContaining({
+              plannedStartAt: "2026-05-26T14:00:00.000Z",
+              assignedUserId: household.ownerId,
+              exceptionType: "rescheduled"
+            }),
+            expect.objectContaining({
+              plannedStartAt: "2026-05-27T11:00:00.000Z",
+              assignedUserId: household.memberId,
+              exceptionType: "skipped",
+              status: "skipped"
+            }),
+            expect.objectContaining({
+              plannedStartAt: "2026-05-28T13:00:00.000Z",
+              plannedEndAt: "2026-05-28T13:30:00.000Z",
+              assignedUserId: household.ownerId,
+              exceptionType: "none"
+            })
+          ]);
+        });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("limits occurrence edits to owners and classifies resize and reassignment exceptions", async () => {
+    const { app, links } = createScheduleTestApp();
+    const household = await prepareHousehold(app, links);
+    await request(app)
+      .post(`/api/households/${household.householdId}/chores/${household.choreId}/schedules`)
+      .set(auth("owner@example.com"))
+      .send(dailySchedule(household.memberId))
+      .expect(201);
+
+    const occurrence = (await request(app)
+      .get(`/api/households/${household.householdId}/occurrences`)
+      .query({
+        startAt: "2026-05-26T00:00:00.000Z",
+        endAt: "2026-05-26T23:59:59.999Z"
+      })
+      .set(auth("owner@example.com"))
+      .expect(200)).body[0];
+
+    await request(app)
+      .put(`/api/households/${household.householdId}/occurrences/${occurrence.id}`)
+      .set(auth("member@example.com"))
+      .send({
+        plannedStartAt: occurrence.plannedStartAt,
+        plannedEndAt: "2026-05-26T11:45:00.000Z",
+        assignedUserId: household.memberId
+      })
+      .expect(403);
+
+    await request(app)
+      .put(`/api/households/${household.householdId}/occurrences/${occurrence.id}`)
+      .set(auth("owner@example.com"))
+      .send({
+        plannedStartAt: occurrence.plannedStartAt,
+        plannedEndAt: "2026-05-26T11:45:00.000Z",
+        assignedUserId: household.memberId
+      })
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.exceptionType).toBe("resized");
+      });
+
+    await request(app)
+      .put(`/api/households/${household.householdId}/occurrences/${occurrence.id}`)
+      .set(auth("owner@example.com"))
+      .send({
+        plannedStartAt: occurrence.plannedStartAt,
+        plannedEndAt: "2026-05-26T11:45:00.000Z",
+        assignedUserId: household.ownerId
+      })
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.exceptionType).toBe("reassigned");
       });
   });
 });

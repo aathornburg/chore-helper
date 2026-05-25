@@ -903,6 +903,58 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
       return occurrences.map(toOccurrence);
     },
 
+    async updateOccurrenceException(householdId, occurrenceId, update) {
+      const existing = await prisma.choreOccurrence.findFirst({
+        where: { id: occurrenceId, householdId }
+      });
+      if (!existing) return undefined;
+
+      const exceptionType =
+        update.plannedStartAt !== existing.plannedStartAt.toISOString()
+          ? "rescheduled"
+          : update.plannedEndAt !== existing.plannedEndAt.toISOString()
+            ? "resized"
+            : update.assignedUserId !== existing.assignedUserId
+              ? "reassigned"
+              : existing.exceptionType;
+      const updated = await prisma.choreOccurrence.update({
+        where: { id: occurrenceId },
+        data: {
+          plannedStartAt: new Date(update.plannedStartAt),
+          plannedEndAt: new Date(update.plannedEndAt),
+          assignedUserId: update.assignedUserId,
+          exceptionType
+        }
+      });
+
+      return toOccurrence(updated);
+    },
+
+    async skipOccurrence(householdId, occurrenceId) {
+      const existing = await prisma.choreOccurrence.findFirst({
+        where: { id: occurrenceId, householdId }
+      });
+      if (!existing) return undefined;
+
+      const updated = await prisma.choreOccurrence.update({
+        where: { id: occurrenceId },
+        data: { exceptionType: "skipped", status: "skipped" }
+      });
+
+      return toOccurrence(updated);
+    },
+
+    async clearFutureUntouchedOccurrences(householdId, scheduleId, fromAt) {
+      await prisma.choreOccurrence.deleteMany({
+        where: {
+          householdId,
+          scheduleId,
+          plannedStartAt: { gte: new Date(fromAt) },
+          exceptionType: "none"
+        }
+      });
+    },
+
     async saveRecommendations(householdId, recommendations) {
       await prisma.$transaction([
         prisma.recommendation.deleteMany({ where: { householdId } }),

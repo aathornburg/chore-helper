@@ -167,6 +167,20 @@ const occurrenceRangeSchema = z.object({
   }
 });
 
+const occurrenceUpdateSchema = z.object({
+  plannedStartAt: z.string().datetime(),
+  plannedEndAt: z.string().datetime(),
+  assignedUserId: z.string().min(1)
+}).superRefine((occurrence, ctx) => {
+  if (Date.parse(occurrence.plannedEndAt) <= Date.parse(occurrence.plannedStartAt)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Occurrence end must be after its start",
+      path: ["plannedEndAt"]
+    });
+  }
+});
+
 const recommendationRequestSchema = z.object({
   reviewPrompt: z.string().trim().optional(),
   selectedChoreIds: z.array(z.string()).optional()
@@ -513,6 +527,36 @@ export function createHouseholdRouter(
     return res.status(200).json(await store.listOccurrences(access.household.id, parsed.data));
   });
 
+  router.put("/:householdId/occurrences/:occurrenceId", async (req, res) => {
+    const access = await requireHouseholdOwner(req, res);
+    if (!access) return;
+
+    const parsed = occurrenceUpdateSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid occurrence payload" });
+    if (!await hasValidScheduleAssignees(access.household.id, [parsed.data.assignedUserId])) {
+      return res.status(400).json({ error: "Occurrence assignee must be a household member" });
+    }
+
+    const occurrence = await store.updateOccurrenceException(
+      access.household.id,
+      req.params.occurrenceId,
+      parsed.data
+    );
+    if (!occurrence) return res.status(404).json({ error: "Occurrence not found" });
+
+    return res.status(200).json(occurrence);
+  });
+
+  router.post("/:householdId/occurrences/:occurrenceId/skip", async (req, res) => {
+    const access = await requireHouseholdOwner(req, res);
+    if (!access) return;
+
+    const occurrence = await store.skipOccurrence(access.household.id, req.params.occurrenceId);
+    if (!occurrence) return res.status(404).json({ error: "Occurrence not found" });
+
+    return res.status(200).json(occurrence);
+  });
+
   router.post("/:householdId/chores/:choreId/schedules", async (req, res) => {
     const access = await requireHouseholdOwner(req, res);
     if (!access) return;
@@ -550,6 +594,11 @@ export function createHouseholdRouter(
 
     const schedule = await store.updateSchedule(access.household.id, req.params.scheduleId, parsed.data);
     if (!schedule) return res.status(404).json({ error: "Schedule not found" });
+    await store.clearFutureUntouchedOccurrences(
+      access.household.id,
+      schedule.id,
+      new Date().toISOString()
+    );
     await materializeInitialScheduleOccurrences(schedule, access.household.timeZone);
 
     return res.status(200).json(schedule);

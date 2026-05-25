@@ -395,7 +395,7 @@ Expected: recurrence, DST, rotation, and range-query assertions pass.
 - Modify: `server/src/routes/households.ts`
 - Modify: `server/test/schedules.test.ts`
 
-- [ ] **Step 1: Write failing exception and history tests**
+- [x] **Step 1: Write failing exception and history tests**
 
 Cover reschedule, resize, reassignment, skip, and a series update preserving elapsed
 occurrences:
@@ -423,7 +423,7 @@ await request(app)
   });
 ```
 
-- [ ] **Step 2: Run schedule tests and verify RED**
+- [x] **Step 2: Run schedule tests and verify RED**
 
 Run:
 
@@ -433,7 +433,7 @@ npm.cmd test -w server -- schedules.test.ts
 
 Expected: missing exception endpoints fail.
 
-- [ ] **Step 3: Implement exception mutations and future-only series regeneration**
+- [x] **Step 3: Implement exception mutations and future-only series regeneration**
 
 Add:
 
@@ -457,7 +457,7 @@ For schedule series updates, retain occurrences whose `plannedStartAt` is before
 request instant or whose `exceptionType` is not `none`; delete and rematerialize only
 future untouched occurrences for that schedule.
 
-- [ ] **Step 4: Verify and commit exception support**
+- [x] **Step 4: Verify and commit exception support**
 
 Run:
 

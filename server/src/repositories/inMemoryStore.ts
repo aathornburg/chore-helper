@@ -21,6 +21,7 @@ export type ChoreListOptions = {
 
 export type ChoreUpdate = Omit<Chore, "id" | "householdId" | "archivedAt">;
 export type ChoreScheduleUpdate = Omit<ChoreSchedule, "id" | "householdId" | "choreId" | "archivedAt">;
+export type OccurrenceUpdate = Pick<ChoreOccurrence, "plannedStartAt" | "plannedEndAt" | "assignedUserId">;
 
 export type RecommendationDecisionUpdate = {
   decision: Exclude<RecommendationDecision, "applied">;
@@ -122,6 +123,13 @@ export type HouseholdStore = {
     householdId: string,
     range: { startAt: string; endAt: string; assignedUserId?: string }
   ): StoreResult<ChoreOccurrence[]>;
+  updateOccurrenceException(
+    householdId: string,
+    occurrenceId: string,
+    update: OccurrenceUpdate
+  ): StoreResult<ChoreOccurrence | undefined>;
+  skipOccurrence(householdId: string, occurrenceId: string): StoreResult<ChoreOccurrence | undefined>;
+  clearFutureUntouchedOccurrences(householdId: string, scheduleId: string, fromAt: string): StoreResult<void>;
   saveRecommendations(
     householdId: string,
     recommendations: Recommendation[]
@@ -519,6 +527,49 @@ export function createInMemoryStore(): HouseholdStore {
           (!range.assignedUserId || occurrence.assignedUserId === range.assignedUserId)
         )
         .sort((first, second) => first.plannedStartAt.localeCompare(second.plannedStartAt));
+    },
+
+    updateOccurrenceException(householdId, occurrenceId, update) {
+      const occurrence = Array.from(occurrences.values()).find(
+        (candidate) => candidate.id === occurrenceId && candidate.householdId === householdId
+      );
+      if (!occurrence) return undefined;
+
+      const exceptionType: ChoreOccurrence["exceptionType"] =
+        update.plannedStartAt !== occurrence.plannedStartAt
+          ? "rescheduled"
+          : update.plannedEndAt !== occurrence.plannedEndAt
+            ? "resized"
+            : update.assignedUserId !== occurrence.assignedUserId
+              ? "reassigned"
+              : occurrence.exceptionType;
+      const updated = { ...occurrence, ...update, exceptionType };
+      occurrences.set(`${occurrence.scheduleId}:${occurrence.sequence}`, updated);
+      return updated;
+    },
+
+    skipOccurrence(householdId, occurrenceId) {
+      const occurrence = Array.from(occurrences.values()).find(
+        (candidate) => candidate.id === occurrenceId && candidate.householdId === householdId
+      );
+      if (!occurrence) return undefined;
+
+      const updated: ChoreOccurrence = { ...occurrence, exceptionType: "skipped", status: "skipped" };
+      occurrences.set(`${occurrence.scheduleId}:${occurrence.sequence}`, updated);
+      return updated;
+    },
+
+    clearFutureUntouchedOccurrences(householdId, scheduleId, fromAt) {
+      for (const [key, occurrence] of occurrences.entries()) {
+        if (
+          occurrence.householdId === householdId &&
+          occurrence.scheduleId === scheduleId &&
+          occurrence.plannedStartAt >= fromAt &&
+          occurrence.exceptionType === "none"
+        ) {
+          occurrences.delete(key);
+        }
+      }
     },
 
     saveRecommendations(householdId, nextRecommendations) {
