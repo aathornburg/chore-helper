@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import type {
   Chore,
+  ChoreOccurrence,
   ChoreSchedule,
   Household,
   HouseholdFloor,
@@ -220,6 +221,32 @@ function toSchedule(schedule: {
         .map((assignee) => assignee.userId)
     },
     archivedAt: serializeDate(schedule.archivedAt)
+  };
+}
+
+function toOccurrence(occurrence: {
+  id: string;
+  householdId: string;
+  choreId: string;
+  scheduleId: string;
+  sequence: number;
+  plannedStartAt: Date;
+  plannedEndAt: Date;
+  assignedUserId: string;
+  exceptionType: string;
+  status: string;
+}): ChoreOccurrence {
+  return {
+    id: occurrence.id,
+    householdId: occurrence.householdId,
+    choreId: occurrence.choreId,
+    scheduleId: occurrence.scheduleId,
+    sequence: occurrence.sequence,
+    plannedStartAt: occurrence.plannedStartAt.toISOString(),
+    plannedEndAt: occurrence.plannedEndAt.toISOString(),
+    assignedUserId: occurrence.assignedUserId,
+    exceptionType: occurrence.exceptionType as ChoreOccurrence["exceptionType"],
+    status: occurrence.status as ChoreOccurrence["status"]
   };
 }
 
@@ -828,6 +855,52 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
       });
 
       return toSchedule(updated);
+    },
+
+    async materializeScheduleOccurrences(householdId, scheduleId, occurrences) {
+      const storedOccurrences = await Promise.all(
+        occurrences.map((occurrence) =>
+          prisma.choreOccurrence.upsert({
+            where: {
+              scheduleId_sequence: {
+                scheduleId,
+                sequence: occurrence.sequence
+              }
+            },
+            update: {},
+            create: {
+              id: occurrence.id,
+              householdId,
+              choreId: occurrence.choreId,
+              scheduleId,
+              sequence: occurrence.sequence,
+              plannedStartAt: new Date(occurrence.plannedStartAt),
+              plannedEndAt: new Date(occurrence.plannedEndAt),
+              assignedUserId: occurrence.assignedUserId,
+              exceptionType: occurrence.exceptionType,
+              status: occurrence.status
+            }
+          })
+        )
+      );
+
+      return storedOccurrences.map(toOccurrence);
+    },
+
+    async listOccurrences(householdId, range) {
+      const occurrences = await prisma.choreOccurrence.findMany({
+        where: {
+          householdId,
+          plannedStartAt: {
+            gte: new Date(range.startAt),
+            lte: new Date(range.endAt)
+          },
+          ...(range.assignedUserId ? { assignedUserId: range.assignedUserId } : {})
+        },
+        orderBy: { plannedStartAt: "asc" }
+      });
+
+      return occurrences.map(toOccurrence);
     },
 
     async saveRecommendations(householdId, recommendations) {

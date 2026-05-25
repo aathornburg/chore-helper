@@ -4,15 +4,17 @@
   calls service/repository operations, and returns JSON responses.
 */
 import { createHash, randomBytes } from "node:crypto";
+import { addDays, format, parseISO } from "date-fns";
 import { Router } from "express";
 import type { Request, Response } from "express";
 import { z } from "zod";
-import type { Chore, Recommendation } from "@chore-helper/shared";
+import type { Chore, ChoreSchedule, Recommendation } from "@chore-helper/shared";
 import type { AgentProvider } from "../agent/AgentProvider.js";
 import type { AuthMode } from "../auth/currentUser.js";
 import { resolveCurrentUser } from "../auth/currentUser.js";
 import type { InvitationMailer } from "../invitations/InvitationMailer.js";
 import type { HouseholdStore } from "../repositories/inMemoryStore.js";
+import { materializeOccurrences } from "../scheduling/materializeOccurrences.js";
 
 const createHouseholdSchema = z.object({
   name: z.string().min(1)
@@ -151,6 +153,20 @@ const scheduleSchema = z.object({
   }
 });
 
+const occurrenceRangeSchema = z.object({
+  startAt: z.string().datetime(),
+  endAt: z.string().datetime(),
+  assignedUserId: z.string().min(1).optional()
+}).superRefine((range, ctx) => {
+  if (Date.parse(range.endAt) < Date.parse(range.startAt)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Occurrence range must end after it starts",
+      path: ["endAt"]
+    });
+  }
+});
+
 const recommendationRequestSchema = z.object({
   reviewPrompt: z.string().trim().optional(),
   selectedChoreIds: z.array(z.string()).optional()
@@ -247,6 +263,16 @@ export function createHouseholdRouter(
       memberUserIds.map((userId) => store.getMembership(userId, householdId))
     );
     return memberships.every(Boolean);
+  }
+
+  async function materializeInitialScheduleOccurrences(schedule: ChoreSchedule, householdTimeZone: string) {
+    const rangeStart = schedule.startsOn;
+    const rangeEnd = format(addDays(parseISO(rangeStart), 89), "yyyy-MM-dd");
+    await store.materializeScheduleOccurrences(
+      schedule.householdId,
+      schedule.id,
+      materializeOccurrences({ schedule, householdTimeZone, rangeStart, rangeEnd })
+    );
   }
 
   router.get("/", async (req, res) => {
@@ -477,6 +503,16 @@ export function createHouseholdRouter(
     return res.status(200).json(await store.listSchedules(access.household.id, req.params.choreId));
   });
 
+  router.get("/:householdId/occurrences", async (req, res) => {
+    const access = await requireHouseholdAccess(req, res);
+    if (!access) return;
+
+    const parsed = occurrenceRangeSchema.safeParse(req.query);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid occurrence range query" });
+
+    return res.status(200).json(await store.listOccurrences(access.household.id, parsed.data));
+  });
+
   router.post("/:householdId/chores/:choreId/schedules", async (req, res) => {
     const access = await requireHouseholdOwner(req, res);
     if (!access) return;
@@ -492,11 +528,14 @@ export function createHouseholdRouter(
       return res.status(400).json({ error: "Schedule assignee must be a household member" });
     }
 
-    return res.status(201).json(await store.createSchedule({
+    const schedule = await store.createSchedule({
       householdId: access.household.id,
       choreId: chore.id,
       ...parsed.data
-    }));
+    });
+    await materializeInitialScheduleOccurrences(schedule, access.household.timeZone);
+
+    return res.status(201).json(schedule);
   });
 
   router.put("/:householdId/schedules/:scheduleId", async (req, res) => {
@@ -511,6 +550,7 @@ export function createHouseholdRouter(
 
     const schedule = await store.updateSchedule(access.household.id, req.params.scheduleId, parsed.data);
     if (!schedule) return res.status(404).json({ error: "Schedule not found" });
+    await materializeInitialScheduleOccurrences(schedule, access.household.timeZone);
 
     return res.status(200).json(schedule);
   });

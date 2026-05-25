@@ -282,7 +282,7 @@ Expected: tests and typechecks pass; the first Release 2 backend checkpoint is o
 - Modify: `server/src/routes/households.ts`
 - Modify: `server/test/schedules.test.ts`
 
-- [ ] **Step 1: Write failing recurrence and rotation unit tests**
+- [x] **Step 1: Write failing recurrence and rotation unit tests**
 
 Test one-time, daily, weekday weekly, monthly, DST, and alternating rotation:
 
@@ -309,7 +309,7 @@ expect(occurrences.map((occurrence) => occurrence.assignedUserId)).toEqual([
 expect(occurrences[1].plannedStartAt).toBe("2026-03-08T11:00:00.000Z");
 ```
 
-- [ ] **Step 2: Run unit tests and verify RED**
+- [x] **Step 2: Run unit tests and verify RED**
 
 Run:
 
@@ -319,7 +319,7 @@ npm.cmd test -w server -- materializeOccurrences.test.ts
 
 Expected: import failure because the pure generator module does not exist.
 
-- [ ] **Step 3: Implement pure occurrence expansion**
+- [x] **Step 3: Implement pure occurrence expansion**
 
 Install the time-zone utilities before creating the generator:
 
@@ -348,7 +348,7 @@ Use `date-fns` local date iteration and `fromZonedTime` from `date-fns-tz`. Dete
 rotation does not reset when a caller requests a later range. For a monthly rule whose
 day does not exist in a month, emit no occurrence in that month.
 
-- [ ] **Step 4: Persist materialized occurrences idempotently**
+- [x] **Step 4: Persist materialized occurrences idempotently**
 
 Add:
 
@@ -373,7 +373,7 @@ existing exception. In the schedule creation and update route, materialize the n
 GET /api/households/:householdId/occurrences?startAt=<ISO>&endAt=<ISO>&assignedUserId=<optional>
 ```
 
-- [ ] **Step 5: Verify occurrence behavior and commit**
+- [x] **Step 5: Verify occurrence behavior and commit**
 
 Run:
 

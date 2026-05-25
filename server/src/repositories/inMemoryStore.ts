@@ -1,5 +1,6 @@
 import type {
   Chore,
+  ChoreOccurrence,
   ChoreSchedule,
   Household,
   HouseholdFloor,
@@ -112,6 +113,15 @@ export type HouseholdStore = {
     update: ChoreScheduleUpdate
   ): StoreResult<ChoreSchedule | undefined>;
   archiveSchedule(householdId: string, scheduleId: string): StoreResult<ChoreSchedule | undefined>;
+  materializeScheduleOccurrences(
+    householdId: string,
+    scheduleId: string,
+    occurrences: ChoreOccurrence[]
+  ): StoreResult<ChoreOccurrence[]>;
+  listOccurrences(
+    householdId: string,
+    range: { startAt: string; endAt: string; assignedUserId?: string }
+  ): StoreResult<ChoreOccurrence[]>;
   saveRecommendations(
     householdId: string,
     recommendations: Recommendation[]
@@ -153,6 +163,7 @@ export function createInMemoryStore(): HouseholdStore {
   const invitations = new Map<string, StoredHouseholdInvitation>();
   const chores = new Map<string, Chore[]>();
   const schedules = new Map<string, ChoreSchedule>();
+  const occurrences = new Map<string, ChoreOccurrence>();
   const recommendations = new Map<string, Recommendation[]>();
 
   function markStale(householdId: string) {
@@ -482,6 +493,32 @@ export function createInMemoryStore(): HouseholdStore {
       const updated = { ...schedule, archivedAt: new Date().toISOString() };
       schedules.set(scheduleId, updated);
       return updated;
+    },
+
+    materializeScheduleOccurrences(householdId, scheduleId, nextOccurrences) {
+      return nextOccurrences.map((occurrence) => {
+        const key = `${scheduleId}:${occurrence.sequence}`;
+        const existing = occurrences.get(key);
+        if (existing) return existing;
+
+        if (occurrence.householdId !== householdId || occurrence.scheduleId !== scheduleId) {
+          return occurrence;
+        }
+
+        occurrences.set(key, occurrence);
+        return occurrence;
+      });
+    },
+
+    listOccurrences(householdId, range) {
+      return Array.from(occurrences.values())
+        .filter((occurrence) =>
+          occurrence.householdId === householdId &&
+          occurrence.plannedStartAt >= range.startAt &&
+          occurrence.plannedStartAt <= range.endAt &&
+          (!range.assignedUserId || occurrence.assignedUserId === range.assignedUserId)
+        )
+        .sort((first, second) => first.plannedStartAt.localeCompare(second.plannedStartAt));
     },
 
     saveRecommendations(householdId, nextRecommendations) {

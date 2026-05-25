@@ -152,4 +152,51 @@ describe("chore schedules", () => {
         expect(response.body.archivedAt).toEqual(expect.any(String));
       });
   });
+
+  it("materializes occurrences for a new schedule and filters the range by assignee", async () => {
+    const { app, links } = createScheduleTestApp();
+    const household = await prepareHousehold(app, links);
+
+    await request(app)
+      .post(`/api/households/${household.householdId}/chores/${household.choreId}/schedules`)
+      .set(auth("owner@example.com"))
+      .send({
+        ...dailySchedule(household.memberId),
+        assignment: { mode: "rotation", memberUserIds: [household.ownerId, household.memberId] }
+      })
+      .expect(201);
+
+    await request(app)
+      .get(`/api/households/${household.householdId}/occurrences`)
+      .query({
+        startAt: "2026-05-25T00:00:00.000Z",
+        endAt: "2026-05-28T23:59:59.999Z"
+      })
+      .set(auth("member@example.com"))
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.map((occurrence: { assignedUserId: string }) => occurrence.assignedUserId)).toEqual([
+          household.ownerId,
+          household.memberId,
+          household.ownerId,
+          household.memberId
+        ]);
+      });
+
+    await request(app)
+      .get(`/api/households/${household.householdId}/occurrences`)
+      .query({
+        startAt: "2026-05-25T00:00:00.000Z",
+        endAt: "2026-05-28T23:59:59.999Z",
+        assignedUserId: household.memberId
+      })
+      .set(auth("member@example.com"))
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toHaveLength(2);
+        expect(response.body.every((occurrence: { assignedUserId: string }) =>
+          occurrence.assignedUserId === household.memberId
+        )).toBe(true);
+      });
+  });
 });
