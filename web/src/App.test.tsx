@@ -312,6 +312,70 @@ function mockFamilyPageFetches(currentRole: "owner" | "member" = "owner") {
   return fetchMock;
 }
 
+function mockCalendarPageFetches() {
+  let occurrences = [{
+    id: "occurrence-1",
+    householdId: "household-1",
+    choreId: "chore-1",
+    scheduleId: "schedule-1",
+    sequence: 0,
+    plannedStartAt: "2026-05-25T14:00:00.000Z",
+    plannedEndAt: "2026-05-25T14:30:00.000Z",
+    assignedUserId: "app-user-2",
+    exceptionType: "none",
+    status: "planned"
+  }];
+  const members: HouseholdMemberSummary[] = [
+    {
+      householdId: "household-1",
+      userId: "app-user-1",
+      clerkUserId: "test-user-a",
+      primaryEmail: "owner@example.com",
+      displayName: "Alex Owner",
+      role: "owner"
+    },
+    {
+      householdId: "household-1",
+      userId: "app-user-2",
+      clerkUserId: "test-user-b",
+      primaryEmail: "member@example.com",
+      displayName: "Morgan Member",
+      role: "member"
+    }
+  ];
+  const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = input.toString();
+    const method = init?.method ?? "GET";
+
+    if (url === "http://localhost:3001/api/me" && method === "GET") {
+      return { ok: true, json: async () => ({ id: "app-user-1", clerkUserId: "test-user-a" }) };
+    }
+    if (url === "http://localhost:3001/api/households" && method === "GET") {
+      return { ok: true, json: async () => [createHouseholdAppData()] };
+    }
+    if (url === "http://localhost:3001/api/households/household-1/members" && method === "GET") {
+      return { ok: true, json: async () => members };
+    }
+    if (url.startsWith("http://localhost:3001/api/households/household-1/occurrences?") && method === "GET") {
+      return { ok: true, json: async () => occurrences };
+    }
+    if (url === "http://localhost:3001/api/households/household-1/occurrences/occurrence-1" && method === "PUT") {
+      const body = JSON.parse(String(init?.body));
+      occurrences = [{ ...occurrences[0], ...body, exceptionType: "rescheduled" }];
+      return { ok: true, json: async () => occurrences[0] };
+    }
+    if (url === "http://localhost:3001/api/households/household-1/occurrences/occurrence-1/skip" && method === "POST") {
+      occurrences = [{ ...occurrences[0], status: "skipped", exceptionType: "skipped" }];
+      return { ok: true, json: async () => occurrences[0] };
+    }
+
+    throw new Error(`Unhandled fetch ${method} ${url}`);
+  });
+
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -335,6 +399,7 @@ describe("App", () => {
     renderAt("/today");
 
     await waitFor(() => expect(screen.getByRole("link", { name: "Today" })).toBeTruthy());
+    expect(screen.getByRole("link", { name: "Calendar" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Households" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Chores" })).toBeTruthy();
     expect(screen.getByRole("link", { name: /Optimize/ })).toBeTruthy();
@@ -496,6 +561,39 @@ describe("App", () => {
     expect(screen.queryByRole("button", { name: /promote/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /remove/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /cancel invitation/i })).toBeNull();
+  });
+
+  it("loads Calendar occurrences and provides equivalent planner edit actions", async () => {
+    const fetchMock = mockCalendarPageFetches();
+    renderAt("/calendar");
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Calendar" })).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Clean bathrooms")).toBeTruthy());
+    expect(screen.getByRole("button", { name: "Month" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Week" }));
+
+    fireEvent.change(screen.getByLabelText("Member"), { target: { value: "app-user-2" } });
+    await waitFor(() => expect(fetchMock.mock.calls.some(([url]) =>
+      String(url).includes("assignedUserId=app-user-2")
+    )).toBe(true));
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Clean bathrooms" }));
+    fireEvent.change(screen.getByLabelText("Planned duration"), { target: { value: "45" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save occurrence" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/households/household-1/occurrences/occurrence-1",
+      expect.objectContaining({ method: "PUT" })
+    ));
+
+    fireEvent.dragStart(screen.getByLabelText("Scheduled Clean bathrooms"));
+    fireEvent.drop(screen.getByLabelText("10:00 time slot"));
+    await waitFor(() => expect(fetchMock.mock.calls.filter(([url, init]) =>
+      url === "http://localhost:3001/api/households/household-1/occurrences/occurrence-1" &&
+      init?.method === "PUT"
+    )).toHaveLength(2));
+
+    fireEvent.click(screen.getByRole("button", { name: "Skip occurrence" }));
+    await waitFor(() => expect(screen.getByText("Skipped")).toBeTruthy());
   });
 
   it("adds the first household from the no-households state", async () => {

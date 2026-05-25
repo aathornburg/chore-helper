@@ -481,7 +481,7 @@ Expected: owners can alter planned future work without mutating historical occur
 - Modify: `web/src/App.css`
 - Modify: `web/src/App.test.tsx`
 
-- [ ] **Step 1: Write failing Calendar UI tests**
+- [x] **Step 1: Write failing Calendar UI tests**
 
 Add tests that Calendar is primary navigation, loads occurrences for a visible date
 range, switches view and member filter, gives owners form-based edit controls, and
@@ -504,7 +504,7 @@ await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
 ));
 ```
 
-- [ ] **Step 2: Run web tests and verify RED**
+- [x] **Step 2: Run web tests and verify RED**
 
 Run:
 
@@ -514,7 +514,7 @@ npm.cmd test -w web -- App.test.tsx
 
 Expected: missing Calendar navigation/page/API failures.
 
-- [ ] **Step 3: Add calendar API helpers and route**
+- [x] **Step 3: Add calendar API helpers and route**
 
 In `web/src/api.ts`, add:
 
@@ -535,7 +535,7 @@ Add `"/calendar"` to `web/src/routes.ts`; add `{ label: "Calendar", path: "/cale
 after Today in the primary navigation; render `<CalendarPage households={households}
 isLoading={isLoading} />` from `AppRoutes`.
 
-- [ ] **Step 4: Implement the calendar planner**
+- [x] **Step 4: Implement the calendar planner**
 
 Create `CalendarPage.tsx` with:
 
@@ -559,7 +559,7 @@ Render:
 Use `Intl.DateTimeFormat` with each household’s `timeZone` for displayed times. The
 inline form is the keyboard/mobile alternative for every drag/resize operation.
 
-- [ ] **Step 5: Style, verify, and commit Calendar**
+- [x] **Step 5: Style, verify, and commit Calendar**
 
 Run:
 

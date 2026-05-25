@@ -237,11 +237,123 @@ button:hover {
 .chores-page,
 .households-page,
 .family-page,
+.calendar-page,
 .settings-page {
   display: grid;
   gap: 20px;
   margin: 0 auto;
   max-width: 1180px;
+}
+
+.calendar-view-toggle {
+  background: #f4f0e9;
+  border-radius: 999px;
+  display: flex;
+  gap: 5px;
+  padding: 5px;
+}
+
+.calendar-view-toggle button {
+  background: transparent;
+  color: #3f4a43;
+  padding: 10px 16px;
+}
+
+.calendar-view-toggle button[aria-pressed="true"] {
+  background: #2f694d;
+  color: #fff;
+}
+
+.calendar-toolbar {
+  align-items: end;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(3, minmax(140px, 1fr)) auto;
+}
+
+.calendar-period-controls {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.calendar-period-controls strong {
+  color: #24352e;
+  min-width: 118px;
+  text-align: center;
+}
+
+.calendar-month-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(245px, 1fr));
+}
+
+.calendar-event {
+  background: #fffefa;
+  border: 1px solid #d7e4d5;
+  border-radius: 14px;
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+}
+
+.calendar-event strong {
+  color: #24352e;
+}
+
+.calendar-event span {
+  color: #5e625b;
+  font-size: 0.92rem;
+}
+
+.calendar-event.is-skipped {
+  background: #f6f1ea;
+  border-color: #d8cabd;
+}
+
+.calendar-status {
+  color: #9a4f3f !important;
+  font-weight: 800;
+}
+
+.calendar-agenda {
+  display: grid;
+  gap: 0;
+  padding: 0;
+}
+
+.calendar-time-slot {
+  align-items: start;
+  border-bottom: 1px solid #eaded1;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 62px 1fr;
+  min-height: 64px;
+  padding: 12px 18px;
+}
+
+.calendar-time-slot:last-child {
+  border-bottom: 0;
+}
+
+.calendar-time-slot > span {
+  color: #687167;
+  font-size: 0.86rem;
+  font-weight: 800;
+  padding-top: 12px;
+}
+
+.calendar-edit-form {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.calendar-edit-form h2,
+.calendar-edit-form .form-actions {
+  grid-column: 1 / -1;
 }
 
 .today-household-grid {
@@ -1617,6 +1729,8 @@ button.chore-row-summary[aria-expanded="true"] {
 
   .preview-grid,
   .field-grid,
+  .calendar-toolbar,
+  .calendar-edit-form,
   .setup-stepper,
   .setup-progress-panel,
   .metric-grid,
@@ -1624,6 +1738,14 @@ button.chore-row-summary[aria-expanded="true"] {
   .week-strip,
   .chore-table article,
   .recommendation {
+    grid-template-columns: 1fr;
+  }
+
+  .calendar-period-controls {
+    justify-content: start;
+  }
+
+  .calendar-time-slot {
     grid-template-columns: 1fr;
   }
 

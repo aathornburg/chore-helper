@@ -4,6 +4,7 @@ import { ApiAuthBridge } from "./auth/AuthProvider";
 import { OptimizePage } from "./pages/OptimizePage";
 import { HouseholdsPage } from "./pages/HouseholdsPage";
 import { ChoresPage } from "./pages/ChoresPage";
+import { CalendarPage } from "./pages/CalendarPage";
 import { FamilyPage } from "./pages/FamilyPage";
 import { LandingPage } from "./pages/LandingPage";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -101,6 +102,9 @@ function AppRoutes() {
       {path === "/today" ? (
         <TodayDashboard households={households} isLoading={isLoading} loadError={loadError} onNavigate={navigate} />
       ) : null}
+      {path === "/calendar" ? (
+        <CalendarPage households={households} isLoading={isLoading} />
+      ) : null}
       {path === "/households" ? (
         <HouseholdsPage households={households} isLoading={isLoading} onAddHousehold={addHousehold} onReload={reloadHouseholds} />
       ) : null}
@@ -130,6 +134,7 @@ function AppShell({
 }) {
   const navItems = [
     { label: "Today", path: "/today" },
+    { label: "Calendar", path: "/calendar" },
     { label: "Households", path: "/households" },
     { label: "Chores", path: "/chores" },
     { label: "Optimize", path: "/optimize" },

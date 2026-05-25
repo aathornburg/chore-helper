@@ -1,6 +1,7 @@
 import type {
   AppUserProfile,
   Chore,
+  ChoreOccurrence,
   Household,
   HouseholdAppData,
   HouseholdInvitation,
@@ -243,6 +244,48 @@ export async function listArchivedChores(householdId: string): Promise<Chore[]> 
   const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/chores?status=archived`);
 
   if (!response.ok) throw new Error("Failed to fetch archived chores");
+  return response.json();
+}
+
+export async function listOccurrences(
+  householdId: string,
+  range: { startAt: string; endAt: string; assignedUserId?: string }
+): Promise<ChoreOccurrence[]> {
+  const params = new URLSearchParams({ startAt: range.startAt, endAt: range.endAt });
+  if (range.assignedUserId) params.set("assignedUserId", range.assignedUserId);
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/households/${householdId}/occurrences?${params.toString()}`
+  );
+
+  if (!response.ok) throw new Error("Failed to fetch occurrences");
+  return response.json();
+}
+
+export async function updateOccurrence(
+  householdId: string,
+  occurrenceId: string,
+  update: { plannedStartAt: string; plannedEndAt: string; assignedUserId: string }
+): Promise<ChoreOccurrence> {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/households/${householdId}/occurrences/${occurrenceId}`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(update)
+    }
+  );
+
+  if (!response.ok) throw new Error("Failed to update occurrence");
+  return response.json();
+}
+
+export async function skipOccurrence(householdId: string, occurrenceId: string): Promise<ChoreOccurrence> {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/households/${householdId}/occurrences/${occurrenceId}/skip`,
+    { method: "POST" }
+  );
+
+  if (!response.ok) throw new Error("Failed to skip occurrence");
   return response.json();
 }
 
