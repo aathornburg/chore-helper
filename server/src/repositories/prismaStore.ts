@@ -271,6 +271,65 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
       }));
     },
 
+    async updateMemberRole(householdId, userId, role) {
+      return prisma.$transaction(async (tx) => {
+        const membership = await tx.householdMember.findUnique({
+          where: { householdId_userId: { householdId, userId } }
+        });
+        if (!membership) return { outcome: "not_found" as const };
+
+        if (membership.role === "owner" && role === "member") {
+          const ownerCount = await tx.householdMember.count({
+            where: { householdId, role: "owner" }
+          });
+          if (ownerCount <= 1) return { outcome: "last_owner" as const };
+        }
+
+        const updated = await tx.householdMember.update({
+          where: { householdId_userId: { householdId, userId } },
+          data: { role }
+        });
+
+        return {
+          outcome: "updated" as const,
+          membership: {
+            householdId: updated.householdId,
+            userId: updated.userId,
+            role: updated.role as "owner" | "member"
+          }
+        };
+      }, { isolationLevel: "Serializable" });
+    },
+
+    async removeMember(householdId, userId) {
+      return prisma.$transaction(async (tx) => {
+        const membership = await tx.householdMember.findUnique({
+          where: { householdId_userId: { householdId, userId } }
+        });
+        if (!membership) return { outcome: "not_found" as const };
+
+        if (membership.role === "owner") {
+          const ownerCount = await tx.householdMember.count({
+            where: { householdId, role: "owner" }
+          });
+          if (ownerCount <= 1) return { outcome: "last_owner" as const };
+        }
+
+        const removed = await tx.householdMember.delete({
+          where: { householdId_userId: { householdId, userId } }
+        });
+
+        return {
+          outcome: "updated" as const,
+          membership: {
+            householdId: removed.householdId,
+            userId: removed.userId,
+            role: removed.role as "owner" | "member"
+          }
+        };
+      }, { isolationLevel: "Serializable" });
+    },
+
     async createInvitation(invitation) {
       const created = await prisma.householdInvitation.create({
         data: {

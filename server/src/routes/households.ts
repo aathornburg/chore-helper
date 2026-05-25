@@ -139,6 +139,10 @@ const invitationRequestSchema = z.object({
   email: z.string().trim().email().transform((email) => email.toLowerCase())
 });
 
+const memberRoleSchema = z.object({
+  role: z.enum(["owner", "member"])
+});
+
 function attachReviewMetadata(recommendation: Recommendation, selectedChores: Chore[]) {
   const matchedChore =
     selectedChores.find((chore) =>
@@ -306,6 +310,43 @@ export function createHouseholdRouter(
     if (!access) return;
 
     return res.status(200).json(await store.listHouseholdMembers(access.household.id));
+  });
+
+  router.put("/:householdId/members/:userId/role", async (req, res) => {
+    const access = await requireHouseholdOwner(req, res);
+    if (!access) return;
+
+    const parsed = memberRoleSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid member role payload" });
+
+    const result = await store.updateMemberRole(
+      access.household.id,
+      req.params.userId,
+      parsed.data.role
+    );
+    if (result.outcome === "not_found") {
+      return res.status(404).json({ error: "Household member not found" });
+    }
+    if (result.outcome === "last_owner") {
+      return res.status(409).json({ error: "Household must keep at least one owner" });
+    }
+
+    return res.status(200).json(result.membership);
+  });
+
+  router.delete("/:householdId/members/:userId", async (req, res) => {
+    const access = await requireHouseholdOwner(req, res);
+    if (!access) return;
+
+    const result = await store.removeMember(access.household.id, req.params.userId);
+    if (result.outcome === "not_found") {
+      return res.status(404).json({ error: "Household member not found" });
+    }
+    if (result.outcome === "last_owner") {
+      return res.status(409).json({ error: "Household must keep at least one owner" });
+    }
+
+    return res.status(200).json(result.membership);
   });
 
   router.get("/:householdId/invitations", async (req, res) => {

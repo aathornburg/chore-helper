@@ -41,6 +41,11 @@ export type HouseholdMembership = {
   role: "owner" | "member";
 };
 
+export type HouseholdMemberMutationResult =
+  | { outcome: "updated"; membership: HouseholdMembership }
+  | { outcome: "not_found" }
+  | { outcome: "last_owner" };
+
 export type NewHouseholdInvitation = {
   householdId: string;
   recipientEmail: string;
@@ -62,6 +67,12 @@ export type HouseholdStore = {
   userHasHouseholdAccess(userId: string, householdId: string): StoreResult<boolean>;
   getMembership(userId: string, householdId: string): StoreResult<HouseholdMembership | undefined>;
   listHouseholdMembers(householdId: string): StoreResult<HouseholdMemberSummary[]>;
+  updateMemberRole(
+    householdId: string,
+    userId: string,
+    role: HouseholdMembership["role"]
+  ): StoreResult<HouseholdMemberMutationResult>;
+  removeMember(householdId: string, userId: string): StoreResult<HouseholdMemberMutationResult>;
   createInvitation(invitation: NewHouseholdInvitation): StoreResult<HouseholdInvitation>;
   listInvitations(householdId: string): StoreResult<HouseholdInvitation[]>;
   cancelInvitation(householdId: string, invitationId: string, cancelledAt: string): StoreResult<HouseholdInvitation | undefined>;
@@ -198,6 +209,39 @@ export function createInMemoryStore(): HouseholdStore {
             ...(user.displayName ? { displayName: user.displayName } : {})
           } satisfies HouseholdMemberSummary];
         });
+    },
+
+    updateMemberRole(householdId, userId, role) {
+      const key = `${householdId}:${userId}`;
+      const membership = memberships.get(key);
+      if (!membership) return { outcome: "not_found" };
+
+      if (membership.role === "owner" && role === "member") {
+        const ownerCount = Array.from(memberships.values()).filter(
+          (candidate) => candidate.householdId === householdId && candidate.role === "owner"
+        ).length;
+        if (ownerCount <= 1) return { outcome: "last_owner" };
+      }
+
+      const updated = { ...membership, role };
+      memberships.set(key, updated);
+      return { outcome: "updated", membership: updated };
+    },
+
+    removeMember(householdId, userId) {
+      const key = `${householdId}:${userId}`;
+      const membership = memberships.get(key);
+      if (!membership) return { outcome: "not_found" };
+
+      if (membership.role === "owner") {
+        const ownerCount = Array.from(memberships.values()).filter(
+          (candidate) => candidate.householdId === householdId && candidate.role === "owner"
+        ).length;
+        if (ownerCount <= 1) return { outcome: "last_owner" };
+      }
+
+      memberships.delete(key);
+      return { outcome: "updated", membership };
     },
 
     createInvitation(invitation) {

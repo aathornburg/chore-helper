@@ -239,7 +239,7 @@ npm.cmd run typecheck -w server
 
 Expected: all commands pass.
 
-- [ ] **Step 5: Commit and push invitations**
+- [x] **Step 5: Commit and push invitations**
 
 ```powershell
 git add shared/src/types.ts server/prisma/schema.prisma server/src/auth/currentUser.ts server/src/invitations server/src/repositories server/src/routes/households.ts server/src/routes/invitations.ts server/src/app.ts server/package.json package-lock.json server/.env.example server/test/invitations.test.ts
@@ -255,9 +255,10 @@ git push origin main
 - Modify: `server/src/routes/households.ts`
 - Test: `server/test/members.test.ts`
 
-- [ ] **Step 1: Write failing role and removal authorization tests**
+- [x] **Step 1: Write failing role and removal authorization tests**
 
-Specify promotion, ordinary member denial, removal, and last-owner rejection:
+Specify promotion, ordinary member denial, removal, missing-member handling, and
+last-owner rejection for both removal and demotion:
 
 ```ts
 await request(app)
@@ -272,7 +273,7 @@ await request(app)
   .expect(409);
 ```
 
-- [ ] **Step 2: Run member tests and verify RED**
+- [x] **Step 2: Run member tests and verify RED**
 
 Run:
 
@@ -282,7 +283,7 @@ npm.cmd test -w server -- members.test.ts
 
 Expected: route-not-found or missing-operation failures.
 
-- [ ] **Step 3: Implement owner-only role and removal endpoints**
+- [x] **Step 3: Implement owner-only role and removal endpoints**
 
 Add:
 
@@ -292,9 +293,9 @@ DELETE /api/households/:householdId/members/:userId
 ```
 
 Return `403` for non-owner actions, `404` for inaccessible/missing members, and
-`409` when a requested removal would remove the final owner.
+`409` when a requested removal or role change would remove the final owner.
 
-- [ ] **Step 4: Verify backend member administration**
+- [x] **Step 4: Verify backend member administration**
 
 Run:
 
