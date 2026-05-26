@@ -156,8 +156,13 @@ const scheduleSchema = z.discriminatedUnion("planningMode", [
     flexibleWindowRule: z.enum(["once_within_selected_days", "each_selected_day"])
   })
 ]).superRefine((schedule, ctx) => {
+  const distinctWeekDays = new Set(schedule.recurrence.weekDays ?? []).size;
+
   if (schedule.endsOn && schedule.endsOn < schedule.startsOn) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Schedule end date must not precede start date", path: ["endsOn"] });
+  }
+  if (schedule.recurrence.weekDays && distinctWeekDays !== schedule.recurrence.weekDays.length) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Schedule weekdays must be unique", path: ["recurrence", "weekDays"] });
   }
   if (!hasUniqueValues(schedule.assignment.memberUserIds)) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Schedule assignees must be unique", path: ["assignment"] });
@@ -177,7 +182,7 @@ const scheduleSchema = z.discriminatedUnion("planningMode", [
   if (
     schedule.planningMode === "flexible" &&
     schedule.flexibleWindowRule === "once_within_selected_days" &&
-    (schedule.recurrence.frequency !== "weekly" || (schedule.recurrence.weekDays?.length ?? 0) < 2)
+    (schedule.recurrence.frequency !== "weekly" || distinctWeekDays < 2)
   ) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Flexible windows need two or more selected weekdays", path: ["flexibleWindowRule"] });
   }

@@ -130,6 +130,27 @@ describe("chore schedules", () => {
       .expect(400);
   });
 
+  it("rejects a flexible once-within-selected-days schedule with duplicate weekdays", async () => {
+    const { app, links } = createScheduleTestApp();
+    const household = await prepareHousehold(app, links);
+
+    await request(app)
+      .post(`/api/households/${household.householdId}/chores`)
+      .set(auth("owner@example.com"))
+      .send({
+        chore: { title: "Duplicate-day chore", source: "manual" },
+        schedules: [{
+          planningMode: "flexible",
+          recurrence: { frequency: "weekly", interval: 1, weekDays: [6, 6] },
+          startsOn: "2026-05-30",
+          estimatedMinutes: 60,
+          flexibleWindowRule: "once_within_selected_days",
+          assignment: { mode: "fixed", memberUserIds: [household.memberId] }
+        }]
+      })
+      .expect(400);
+  });
+
   it("prevents an ordinary member from creating a chore definition and schedule", async () => {
     const { app, links } = createScheduleTestApp();
     const household = await prepareHousehold(app, links);
