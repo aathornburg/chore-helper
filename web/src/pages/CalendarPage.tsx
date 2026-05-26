@@ -264,9 +264,11 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                   onDrop={() => void handleDrop(slot)}
                 >
                   <span>{slot}</span>
+                  <div>
                   {visibleOccurrences.filter((occurrence) =>
                     formatInTimeZone(occurrence.plannedStartAt, timeZone, "HH:mm").startsWith(slot.slice(0, 2))
                   ).map(renderOccurrence)}
+                  </div>
                 </div>
               ))}
             </section>

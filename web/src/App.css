@@ -297,6 +297,7 @@ button:hover {
   display: grid;
   gap: 8px;
   padding: 14px;
+  margin-bottom: 8px;
 }
 
 .calendar-event strong {
