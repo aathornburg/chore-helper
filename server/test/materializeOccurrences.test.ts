@@ -1,16 +1,17 @@
 import { describe, expect, it } from "vitest";
-import type { ChoreSchedule } from "@chore-helper/shared";
+import type { TimedChoreSchedule } from "@chore-helper/shared";
 import { materializeOccurrences } from "../src/scheduling/materializeOccurrences.js";
 
-function createSchedule(update: Partial<ChoreSchedule> = {}): ChoreSchedule {
+function createSchedule(update: Partial<TimedChoreSchedule> = {}): TimedChoreSchedule {
   return {
     id: "schedule-1",
     householdId: "household-1",
     choreId: "chore-1",
+    planningMode: "timed",
     recurrence: { frequency: "daily", interval: 1 },
     localStartTime: "07:00",
+    localEndTime: "07:30",
     startsOn: "2026-03-07",
-    plannedMinutes: 30,
     assignment: { mode: "rotation", memberUserIds: ["user-a", "user-b"] },
     ...update
   };
@@ -35,6 +36,8 @@ describe("materializeOccurrences", () => {
     expect(occurrences[0].plannedStartAt).toBe("2026-03-07T12:00:00.000Z");
     expect(occurrences[1].plannedStartAt).toBe("2026-03-08T11:00:00.000Z");
     expect(occurrences[1].plannedEndAt).toBe("2026-03-08T11:30:00.000Z");
+    expect(occurrences[1].estimatedMinutes).toBe(30);
+    expect(occurrences[1].planningMode).toBe("timed");
   });
 
   it("emits one fixed-assignee occurrence only when its date is in range", () => {

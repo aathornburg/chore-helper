@@ -1,5 +1,6 @@
 import type {
   Chore,
+  ChoreDefinitionInput,
   ChoreOccurrence,
   ChoreSchedule,
   Household,
@@ -9,7 +10,9 @@ import type {
   HouseholdProfile,
   HouseholdStructure,
   Recommendation,
-  RecommendationDecision
+  RecommendationDecision,
+  ScheduleInput,
+  ScheduledChore
 } from "@chore-helper/shared";
 
 export type StoreResult<T> = T | Promise<T>;
@@ -19,9 +22,15 @@ export type ChoreListOptions = {
   archivedOnly?: boolean;
 };
 
-export type ChoreUpdate = Omit<Chore, "id" | "householdId" | "archivedAt">;
-export type ChoreScheduleUpdate = Omit<ChoreSchedule, "id" | "householdId" | "choreId" | "archivedAt">;
-export type OccurrenceUpdate = Pick<ChoreOccurrence, "plannedStartAt" | "plannedEndAt" | "assignedUserId">;
+export type ChoreUpdate = ChoreDefinitionInput;
+export type ChoreScheduleUpdate = ScheduleInput;
+export type OccurrenceUpdate = Required<Pick<ChoreOccurrence, "plannedStartAt" | "plannedEndAt" | "assignedUserId">>;
+
+export type NewScheduledChore = {
+  householdId: string;
+  chore: ChoreDefinitionInput;
+  schedules: ScheduleInput[];
+};
 
 export type RecommendationDecisionUpdate = {
   decision: Exclude<RecommendationDecision, "applied">;
@@ -30,6 +39,7 @@ export type RecommendationDecisionUpdate = {
 export type ApplyRecommendationResult = {
   applied: Recommendation[];
   declined: Recommendation[];
+  requiresScheduleDraftDesign: boolean;
 };
 
 export type AppUser = {
@@ -100,13 +110,13 @@ export type HouseholdStore = {
     householdId: string,
     floors: HouseholdFloor[]
   ): StoreResult<HouseholdStructure | undefined>;
-  createChore(chore: Omit<Chore, "id" | "archivedAt">): StoreResult<Chore>;
+  createChoreWithSchedules(input: NewScheduledChore): StoreResult<ScheduledChore>;
   updateChore(householdId: string, choreId: string, chore: ChoreUpdate): StoreResult<Chore | undefined>;
   archiveChore(householdId: string, choreId: string): StoreResult<Chore | undefined>;
   restoreChore(householdId: string, choreId: string): StoreResult<Chore | undefined>;
   listChores(householdId: string, options?: ChoreListOptions): StoreResult<Chore[]>;
   listAllChores(options?: ChoreListOptions): StoreResult<Chore[]>;
-  createSchedule(schedule: Omit<ChoreSchedule, "id" | "archivedAt">): StoreResult<ChoreSchedule>;
+  createSchedule(schedule: ScheduleInput & { householdId: string; choreId: string }): StoreResult<ChoreSchedule>;
   listSchedules(householdId: string, choreId?: string): StoreResult<ChoreSchedule[]>;
   updateSchedule(
     householdId: string,
@@ -418,12 +428,18 @@ export function createInMemoryStore(): HouseholdStore {
       };
     },
 
-    createChore(chore) {
-      const created = { ...chore, id: crypto.randomUUID() };
-      const existingChores = chores.get(chore.householdId) ?? [];
-      chores.set(chore.householdId, [...existingChores, created]);
-      markStale(chore.householdId);
-      return created;
+    createChoreWithSchedules({ householdId, chore, schedules: inputs }) {
+      const createdChore: Chore = { ...chore, householdId, id: crypto.randomUUID() };
+      const createdSchedules: ChoreSchedule[] = inputs.map((schedule) => ({
+        ...schedule,
+        householdId,
+        choreId: createdChore.id,
+        id: crypto.randomUUID()
+      }));
+      chores.set(householdId, [...(chores.get(householdId) ?? []), createdChore]);
+      createdSchedules.forEach((schedule) => schedules.set(schedule.id, schedule));
+      markStale(householdId);
+      return { chore: createdChore, schedules: createdSchedules };
     },
 
     updateChore(householdId, choreId, chore) {
@@ -522,11 +538,12 @@ export function createInMemoryStore(): HouseholdStore {
       return Array.from(occurrences.values())
         .filter((occurrence) =>
           occurrence.householdId === householdId &&
-          occurrence.plannedStartAt >= range.startAt &&
-          occurrence.plannedStartAt <= range.endAt &&
+          Boolean(occurrence.plannedStartAt) &&
+          occurrence.plannedStartAt! >= range.startAt &&
+          occurrence.plannedStartAt! <= range.endAt &&
           (!range.assignedUserId || occurrence.assignedUserId === range.assignedUserId)
         )
-        .sort((first, second) => first.plannedStartAt.localeCompare(second.plannedStartAt));
+        .sort((first, second) => first.plannedStartAt!.localeCompare(second.plannedStartAt!));
     },
 
     updateOccurrenceException(householdId, occurrenceId, update) {
@@ -564,6 +581,7 @@ export function createInMemoryStore(): HouseholdStore {
         if (
           occurrence.householdId === householdId &&
           occurrence.scheduleId === scheduleId &&
+          occurrence.plannedStartAt &&
           occurrence.plannedStartAt >= fromAt &&
           occurrence.exceptionType === "none"
         ) {
@@ -607,36 +625,21 @@ export function createInMemoryStore(): HouseholdStore {
 
     applyRecommendationDecisions(householdId) {
       const householdRecommendations = recommendations.get(householdId) ?? [];
-      let nextChores = chores.get(householdId) ?? [];
-      const applied: Recommendation[] = [];
       const declined: Recommendation[] = [];
-
-      const nextRecommendations = householdRecommendations.map((recommendation) => {
+      const accepted = householdRecommendations.filter(
+        (recommendation) => !recommendation.staleAt && recommendation.decision === "accepted"
+      );
+      householdRecommendations.forEach((recommendation) => {
         if (recommendation.staleAt) return recommendation;
         if (recommendation.decision === "declined") {
           declined.push(recommendation);
-          return recommendation;
         }
-        if (recommendation.decision !== "accepted") return recommendation;
-
-        const affectedChore = nextChores.find((chore) => chore.id === recommendation.affectedChoreId);
-        if (!affectedChore) return recommendation;
-
-        const updatedChore = {
-          ...affectedChore,
-          cadence: recommendation.proposedCadence ?? affectedChore.cadence,
-          estimatedMinutes: recommendation.proposedEstimatedMinutes ?? affectedChore.estimatedMinutes
-        };
-        nextChores = nextChores.map((chore) => (chore.id === updatedChore.id ? updatedChore : chore));
-
-        const appliedRecommendation = { ...recommendation, decision: "applied" as const };
-        applied.push(appliedRecommendation);
-        return appliedRecommendation;
       });
-
-      chores.set(householdId, nextChores);
-      recommendations.set(householdId, nextRecommendations);
-      return { applied, declined };
+      return {
+        applied: [],
+        declined,
+        requiresScheduleDraftDesign: accepted.length > 0
+      };
     }
   };
 }

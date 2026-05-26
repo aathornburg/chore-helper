@@ -97,6 +97,15 @@ npm run db:push
 
 This creates or updates the local database tables from the Prisma schema.
 
+The unified Calendar schedule schema intentionally replaces the earlier development
+chore, schedule, and occurrence shape. Existing local development rows in those
+tables may be reset rather than migrated. When applying this schema change, run:
+
+```powershell
+npm.cmd run db:generate -w server
+npm.cmd run db:push -w server -- --accept-data-loss
+```
+
 For day-to-day development, this is the simplest command. Later, when the schema stabilizes, we can use migration files with:
 
 ```powershell

@@ -20,9 +20,8 @@ function createContext(): AgentRecommendationContext {
         id: "chore-1",
         householdId: "household-1",
         title: "Clean bathrooms",
-        cadence: "weekly",
-        estimatedMinutes: 10,
-        source: "manual"
+        source: "manual",
+        instructions: "Sink, toilet, mirror and floor."
       }
     ],
     reviewPrompt: "Focus on duration and cadence."
@@ -36,6 +35,8 @@ describe("OpenAiChoreAgentProvider", () => {
       expect(input.prompt).toContain("Home");
       expect(input.prompt).toContain("Clean bathrooms");
       expect(input.prompt).toContain("Focus on duration and cadence.");
+      expect(input.prompt).not.toContain("cadence=");
+      expect(input.prompt).not.toContain("estimatedMinutes=");
 
       return {
         recommendations: [

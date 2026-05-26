@@ -1,5 +1,4 @@
 import {
-  addMinutes,
   differenceInCalendarDays,
   differenceInCalendarMonths,
   differenceInCalendarWeeks,
@@ -50,6 +49,8 @@ export function materializeOccurrences({
   rangeStart,
   rangeEnd
 }: MaterializeInput): ChoreOccurrence[] {
+  if (schedule.planningMode !== "timed") return [];
+
   const lastDate = schedule.endsOn && schedule.endsOn < rangeEnd ? schedule.endsOn : rangeEnd;
   if (lastDate < schedule.startsOn || rangeEnd < rangeStart) return [];
 
@@ -66,6 +67,11 @@ export function materializeOccurrences({
         `${localDate}T${schedule.localStartTime}:00`,
         householdTimeZone
       );
+      const plannedEnd = fromZonedTime(
+        `${localDate}T${schedule.localEndTime}:00`,
+        householdTimeZone
+      );
+      const estimatedMinutes = Math.round((plannedEnd.getTime() - plannedStart.getTime()) / 60_000);
 
       occurrences.push({
         id: `${schedule.id}:${sequence}`,
@@ -73,8 +79,12 @@ export function materializeOccurrences({
         choreId: schedule.choreId,
         scheduleId: schedule.id,
         sequence,
+        planningMode: "timed",
         plannedStartAt: plannedStart.toISOString(),
-        plannedEndAt: addMinutes(plannedStart, schedule.plannedMinutes).toISOString(),
+        plannedEndAt: plannedEnd.toISOString(),
+        estimatedMinutes,
+        eligibleStartOn: localDate,
+        eligibleEndOn: localDate,
         assignedUserId: schedule.assignment.mode === "fixed"
           ? schedule.assignment.memberUserIds[0]
           : schedule.assignment.memberUserIds[sequence % schedule.assignment.memberUserIds.length],

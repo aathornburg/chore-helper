@@ -118,30 +118,50 @@ const householdStructureSchema = z.object({
 });
 
 const choreSchema = z.object({
-  title: z.string().min(1),
-  cadence: z.string().min(1),
-  estimatedMinutes: z.number().int().positive(),
+  title: z.string().trim().min(1),
   source: z.enum(["manual"]),
   instructions: z.string().trim().optional(),
   tags: z.array(z.string().trim().min(1)).optional()
 });
 
-const scheduleSchema = z.object({
-  recurrence: z.object({
-    frequency: z.enum(["one_time", "daily", "weekly", "monthly"]),
-    interval: z.number().int().positive(),
-    weekDays: z.array(z.number().int().min(0).max(6)).optional(),
-    monthlyDay: z.number().int().min(1).max(31).optional()
-  }),
-  localStartTime: z.string().regex(/^\d{2}:\d{2}$/),
+const recurrenceSchema = z.object({
+  frequency: z.enum(["one_time", "daily", "weekly", "monthly"]),
+  interval: z.number().int().positive(),
+  weekDays: z.array(z.number().int().min(0).max(6)).optional(),
+  monthlyDay: z.number().int().min(1).max(31).optional()
+});
+
+const assignmentSchema = z.object({
+  mode: z.enum(["fixed", "rotation"]),
+  memberUserIds: z.array(z.string().min(1)).min(1)
+});
+
+const scheduleBaseSchema = z.object({
+  recurrence: recurrenceSchema,
   startsOn: z.string().date(),
   endsOn: z.string().date().optional(),
-  plannedMinutes: z.number().int().positive(),
-  assignment: z.object({
-    mode: z.enum(["fixed", "rotation"]),
-    memberUserIds: z.array(z.string().min(1)).min(1)
+  assignment: assignmentSchema
+});
+
+const localTimeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+const scheduleSchema = z.discriminatedUnion("planningMode", [
+  scheduleBaseSchema.extend({
+    planningMode: z.literal("timed"),
+    localStartTime: localTimeSchema,
+    localEndTime: localTimeSchema
+  }),
+  scheduleBaseSchema.extend({
+    planningMode: z.literal("flexible"),
+    estimatedMinutes: z.number().int().positive(),
+    flexibleWindowRule: z.enum(["once_within_selected_days", "each_selected_day"])
   })
-}).superRefine((schedule, ctx) => {
+]).superRefine((schedule, ctx) => {
+  if (schedule.endsOn && schedule.endsOn < schedule.startsOn) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Schedule end date must not precede start date", path: ["endsOn"] });
+  }
+  if (!hasUniqueValues(schedule.assignment.memberUserIds)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Schedule assignees must be unique", path: ["assignment"] });
+  }
   if (schedule.assignment.mode === "fixed" && schedule.assignment.memberUserIds.length !== 1) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Fixed schedules need one assignee", path: ["assignment"] });
   }
@@ -151,6 +171,21 @@ const scheduleSchema = z.object({
   if (schedule.recurrence.frequency === "monthly" && !schedule.recurrence.monthlyDay) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Monthly schedules need a day", path: ["recurrence"] });
   }
+  if (schedule.planningMode === "timed" && schedule.localEndTime <= schedule.localStartTime) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Timed schedule end must be after start", path: ["localEndTime"] });
+  }
+  if (
+    schedule.planningMode === "flexible" &&
+    schedule.flexibleWindowRule === "once_within_selected_days" &&
+    (schedule.recurrence.frequency !== "weekly" || (schedule.recurrence.weekDays?.length ?? 0) < 2)
+  ) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Flexible windows need two or more selected weekdays", path: ["flexibleWindowRule"] });
+  }
+});
+
+const createScheduledChoreSchema = z.object({
+  chore: choreSchema,
+  schedules: z.array(scheduleSchema).min(1)
 });
 
 const occurrenceRangeSchema = z.object({
@@ -218,13 +253,7 @@ function attachReviewMetadata(recommendation: Recommendation, selectedChores: Ch
   return {
     ...recommendation,
     affectedChoreId: recommendation.affectedChoreId ?? matchedChore.id,
-    decision: recommendation.decision ?? "pending",
-    // Like an Angular smart component enriching DTOs before binding, the
-    // controller records the concrete proposed change so the final Apply
-    // action can be deterministic instead of asking the agent again.
-    proposedCadence: recommendation.proposedCadence ?? matchedChore.cadence,
-    proposedEstimatedMinutes:
-      recommendation.proposedEstimatedMinutes ?? (matchedChore.estimatedMinutes < 15 ? 30 : matchedChore.estimatedMinutes)
+    decision: recommendation.decision ?? "pending"
   };
 }
 
@@ -280,6 +309,8 @@ export function createHouseholdRouter(
   }
 
   async function materializeInitialScheduleOccurrences(schedule: ChoreSchedule, householdTimeZone: string) {
+    if (schedule.planningMode !== "timed") return;
+
     const rangeStart = schedule.startsOn;
     const rangeEnd = format(addDays(parseISO(rangeStart), 89), "yyyy-MM-dd");
     await store.materializeScheduleOccurrences(
@@ -482,18 +513,27 @@ export function createHouseholdRouter(
   });
 
   router.post("/:householdId/chores", async (req, res) => {
-    const access = await requireHouseholdAccess(req, res);
+    const access = await requireHouseholdOwner(req, res);
     if (!access) return;
 
-    const parsed = choreSchema.safeParse(req.body);
+    const parsed = createScheduledChoreSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid chore payload" });
+    const memberUserIds = parsed.data.schedules.flatMap((schedule) => schedule.assignment.memberUserIds);
+    if (!await hasValidScheduleAssignees(access.household.id, memberUserIds)) {
+      return res.status(400).json({ error: "Schedule assignee must be a household member" });
+    }
 
-    const chore = await store.createChore({
-      ...parsed.data,
-      householdId: access.household.id
+    const scheduledChore = await store.createChoreWithSchedules({
+      householdId: access.household.id,
+      ...parsed.data
     });
+    await Promise.all(
+      scheduledChore.schedules.map((schedule) =>
+        materializeInitialScheduleOccurrences(schedule, access.household.timeZone)
+      )
+    );
 
-    return res.status(201).json(chore);
+    return res.status(201).json(scheduledChore);
   });
   
   router.get("/:householdId/chores", async (req, res) => {
@@ -615,7 +655,7 @@ export function createHouseholdRouter(
   });
 
   router.put("/:householdId/chores/:choreId", async (req, res) => {
-    const access = await requireHouseholdAccess(req, res);
+    const access = await requireHouseholdOwner(req, res);
     if (!access) return;
 
     const parsed = choreSchema.safeParse(req.body);
@@ -628,7 +668,7 @@ export function createHouseholdRouter(
   });
 
   router.post("/:householdId/chores/:choreId/archive", async (req, res) => {
-    const access = await requireHouseholdAccess(req, res);
+    const access = await requireHouseholdOwner(req, res);
     if (!access) return;
 
     const chore = await store.archiveChore(access.household.id, req.params.choreId);
@@ -638,7 +678,7 @@ export function createHouseholdRouter(
   });
 
   router.post("/:householdId/chores/:choreId/restore", async (req, res) => {
-    const access = await requireHouseholdAccess(req, res);
+    const access = await requireHouseholdOwner(req, res);
     if (!access) return;
 
     const chore = await store.restoreChore(access.household.id, req.params.choreId);

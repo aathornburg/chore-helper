@@ -121,8 +121,6 @@ model Chore {
   householdId      String
   household        Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
   title            String
-  cadence          String
-  estimatedMinutes Int
   source           String
   instructions     String?
   tags             String    @default("[]")
@@ -134,25 +132,28 @@ model Chore {
 }
 
 model ChoreSchedule {
-  id             String                   @id @default(cuid())
-  householdId    String
-  household      Household                @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  choreId        String
-  chore          Chore                    @relation(fields: [choreId], references: [id], onDelete: Cascade)
-  frequency      String
-  interval       Int
-  weekDays       String                   @default("[]")
-  monthlyDay     Int?
-  localStartTime String
-  startsOn       String
-  endsOn         String?
-  plannedMinutes Int
-  assignmentMode String
-  assignees      ChoreScheduleAssignee[]
-  occurrences    ChoreOccurrence[]
-  archivedAt     DateTime?
-  createdAt      DateTime                 @default(now())
-  updatedAt      DateTime                 @updatedAt
+  id                 String                   @id @default(cuid())
+  householdId        String
+  household          Household                @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  choreId            String
+  chore              Chore                    @relation(fields: [choreId], references: [id], onDelete: Cascade)
+  planningMode       String
+  frequency          String
+  interval           Int
+  weekDays           String                   @default("[]")
+  monthlyDay         Int?
+  localStartTime     String?
+  localEndTime       String?
+  estimatedMinutes   Int?
+  flexibleWindowRule String?
+  startsOn           String
+  endsOn             String?
+  assignmentMode     String
+  assignees          ChoreScheduleAssignee[]
+  occurrences        ChoreOccurrence[]
+  archivedAt         DateTime?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
 
   @@index([householdId, choreId])
 }
@@ -169,25 +170,31 @@ model ChoreScheduleAssignee {
 }
 
 model ChoreOccurrence {
-  id             String        @id @default(cuid())
-  householdId    String
-  household      Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  choreId        String
-  chore          Chore         @relation(fields: [choreId], references: [id], onDelete: Cascade)
-  scheduleId     String
-  schedule       ChoreSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
-  sequence       Int
-  plannedStartAt DateTime
-  plannedEndAt   DateTime
-  assignedUserId String
-  assignedUser   User          @relation("OccurrenceAssignee", fields: [assignedUserId], references: [id], onDelete: Restrict)
-  exceptionType  String        @default("none")
-  status         String        @default("planned")
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  id                String        @id @default(cuid())
+  householdId       String
+  household         Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  choreId           String
+  chore             Chore         @relation(fields: [choreId], references: [id], onDelete: Cascade)
+  scheduleId        String
+  schedule          ChoreSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  sequence          Int
+  planningMode      String
+  plannedStartAt    DateTime?
+  plannedEndAt      DateTime?
+  estimatedMinutes  Int
+  eligibleStartOn   String
+  eligibleEndOn     String
+  assignedUserId    String
+  assignedUser      User          @relation("OccurrenceAssignee", fields: [assignedUserId], references: [id], onDelete: Restrict)
+  exceptionType     String        @default("none")
+  status            String        @default("planned")
+  completedAt       DateTime?
+  completedByUserId String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
   @@unique([scheduleId, sequence])
-  @@index([householdId, plannedStartAt])
+  @@index([householdId, eligibleStartOn, eligibleEndOn])
 }
 
 model Recommendation {

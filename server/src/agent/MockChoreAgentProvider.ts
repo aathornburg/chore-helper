@@ -46,15 +46,14 @@ export class MockChoreAgentProvider implements AgentProvider {
 
     for (const chore of chores) {
       const looksLikeBathroomCleaning = chore.title.toLowerCase().includes("bathroom");
-      const looksUnderScoped = looksLikeBathroomCleaning && chore.estimatedMinutes < 15;
 
-      if (looksUnderScoped) {
+      if (looksLikeBathroomCleaning) {
         recommendations.push({
           id: crypto.randomUUID(),
           householdId: household.id,
-          title: `Review duration for ${chore.title}`,
+          title: `Review scheduling for ${chore.title}`,
           rationale:
-            "Bathroom cleaning usually includes several surfaces and reset steps. A very short estimate may cause the chore to be rushed or repeatedly deferred.",
+            "Bathroom cleaning usually includes several surfaces and reset steps. Confirm that its schedule provides practical time and frequency.",
           confidence: "high",
           status: "pending"
         });
@@ -74,7 +73,6 @@ export class MockChoreAgentProvider implements AgentProvider {
       (recommendation) =>
         recommendation.status === "pending" && (recommendation.decision ?? "pending") === "pending"
     );
-    const underScopedChore = chores.find((chore) => chore.estimatedMinutes < 15);
     const profileNotes = [
       household.profile?.homeType ? `home type: ${household.profile.homeType}` : undefined,
       household.profile?.hasPets ? "pets are present" : undefined,
@@ -99,11 +97,9 @@ export class MockChoreAgentProvider implements AgentProvider {
     }
 
     const choreSummary = chores
-      .map((chore) => `${chore.title} (${chore.cadence}, ${chore.estimatedMinutes} min)`)
+      .map((chore) => chore.title)
       .join("; ");
-    const focus = underScopedChore
-      ? ` Start with ${underScopedChore.title}; its ${underScopedChore.estimatedMinutes}-minute estimate may be under-scoped.`
-      : ` Active chores in scope are ${choreSummary}.`;
+    const focus = ` Active chores in scope are ${choreSummary}.`;
 
     return {
       answer: `For "${message}", review ${chores.length} active chore${chores.length === 1 ? "" : "s"}.${focus}${profileSummary}${recommendationSummary}`,

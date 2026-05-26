@@ -69,7 +69,7 @@ function formatChores(chores: Chore[]) {
   return chores
     .map(
       (chore) =>
-        `- ${chore.title}: cadence=${chore.cadence}, estimatedMinutes=${chore.estimatedMinutes}, source=${chore.source}`
+        `- ${chore.title}: source=${chore.source}, instructions=${chore.instructions ?? "none"}, tags=${chore.tags?.join(", ") || "none"}`
     )
     .join("\n");
 }
@@ -123,14 +123,12 @@ function formatDeterministicChatResponse({
     (recommendation) =>
       recommendation.status === "pending" && (recommendation.decision ?? "pending") === "pending"
   );
-  const shortestChore = chores
-    .slice()
-    .sort((first, second) => first.estimatedMinutes - second.estimatedMinutes)[0];
+  const firstChore = chores[0];
   const profileSummary = household.profile
     ? `Profile: ${household.profile.homeType}, pets=${household.profile.hasPets}, outdoorSpace=${household.profile.hasOutdoorSpace}.`
     : "Profile details are not set yet.";
-  const choreSummary = shortestChore
-    ? `${shortestChore.title} has the shortest estimate at ${shortestChore.estimatedMinutes} minutes, so it is a practical first chore to review.`
+  const choreSummary = firstChore
+    ? `${firstChore.title} is an active chore available for review.`
     : "There are no active chores to inspect yet.";
   const recommendationSummary =
     pendingRecommendations.length > 0

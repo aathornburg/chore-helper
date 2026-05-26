@@ -161,8 +161,6 @@ function toChore(chore: {
   householdId: string;
   household?: { name: string } | null;
   title: string;
-  cadence: string;
-  estimatedMinutes: number;
   source: string;
   instructions?: string | null;
   tags?: string;
@@ -174,8 +172,6 @@ function toChore(chore: {
     householdId: chore.householdId,
     householdName: chore.household?.name,
     title: chore.title,
-    cadence: chore.cadence,
-    estimatedMinutes: chore.estimatedMinutes,
     source: chore.source as Chore["source"],
     ...(chore.instructions ? { instructions: chore.instructions } : {}),
     ...(tags.length ? { tags } : {}),
@@ -187,20 +183,23 @@ function toSchedule(schedule: {
   id: string;
   householdId: string;
   choreId: string;
+  planningMode: string;
   frequency: string;
   interval: number;
   weekDays: string;
   monthlyDay?: number | null;
-  localStartTime: string;
+  localStartTime?: string | null;
+  localEndTime?: string | null;
+  estimatedMinutes?: number | null;
+  flexibleWindowRule?: string | null;
   startsOn: string;
   endsOn?: string | null;
-  plannedMinutes: number;
   assignmentMode: string;
   archivedAt?: Date | null;
   assignees: Array<{ userId: string; position: number }>;
 }): ChoreSchedule {
   const weekDays = deserializeOptionalList<number>(schedule.weekDays);
-  return {
+  const base = {
     id: schedule.id,
     householdId: schedule.householdId,
     choreId: schedule.choreId,
@@ -210,10 +209,8 @@ function toSchedule(schedule: {
       ...(weekDays.length ? { weekDays } : {}),
       ...(schedule.monthlyDay ? { monthlyDay: schedule.monthlyDay } : {})
     },
-    localStartTime: schedule.localStartTime,
     startsOn: schedule.startsOn,
     ...(schedule.endsOn ? { endsOn: schedule.endsOn } : {}),
-    plannedMinutes: schedule.plannedMinutes,
     assignment: {
       mode: schedule.assignmentMode as ChoreSchedule["assignment"]["mode"],
       memberUserIds: schedule.assignees
@@ -222,6 +219,20 @@ function toSchedule(schedule: {
     },
     archivedAt: serializeDate(schedule.archivedAt)
   };
+
+  return schedule.planningMode === "timed"
+    ? {
+        ...base,
+        planningMode: "timed",
+        localStartTime: schedule.localStartTime!,
+        localEndTime: schedule.localEndTime!
+      }
+    : {
+        ...base,
+        planningMode: "flexible",
+        estimatedMinutes: schedule.estimatedMinutes!,
+        flexibleWindowRule: schedule.flexibleWindowRule as "once_within_selected_days" | "each_selected_day"
+      };
 }
 
 function toOccurrence(occurrence: {
@@ -230,11 +241,17 @@ function toOccurrence(occurrence: {
   choreId: string;
   scheduleId: string;
   sequence: number;
-  plannedStartAt: Date;
-  plannedEndAt: Date;
+  planningMode: string;
+  plannedStartAt?: Date | null;
+  plannedEndAt?: Date | null;
+  estimatedMinutes: number;
+  eligibleStartOn: string;
+  eligibleEndOn: string;
   assignedUserId: string;
   exceptionType: string;
   status: string;
+  completedAt?: Date | null;
+  completedByUserId?: string | null;
 }): ChoreOccurrence {
   return {
     id: occurrence.id,
@@ -242,11 +259,17 @@ function toOccurrence(occurrence: {
     choreId: occurrence.choreId,
     scheduleId: occurrence.scheduleId,
     sequence: occurrence.sequence,
-    plannedStartAt: occurrence.plannedStartAt.toISOString(),
-    plannedEndAt: occurrence.plannedEndAt.toISOString(),
+    planningMode: occurrence.planningMode as ChoreOccurrence["planningMode"],
+    plannedStartAt: serializeDate(occurrence.plannedStartAt),
+    plannedEndAt: serializeDate(occurrence.plannedEndAt),
+    estimatedMinutes: occurrence.estimatedMinutes,
+    eligibleStartOn: occurrence.eligibleStartOn,
+    eligibleEndOn: occurrence.eligibleEndOn,
     assignedUserId: occurrence.assignedUserId,
     exceptionType: occurrence.exceptionType as ChoreOccurrence["exceptionType"],
-    status: occurrence.status as ChoreOccurrence["status"]
+    status: occurrence.status as ChoreOccurrence["status"],
+    completedAt: serializeDate(occurrence.completedAt),
+    completedByUserId: occurrence.completedByUserId ?? undefined
   };
 }
 
@@ -650,28 +673,50 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
       return this.getHouseholdStructure(householdId);
     },
 
-    async createChore(chore) {
+    async createChoreWithSchedules({ householdId, chore, schedules }) {
       const created = await prisma.$transaction(async (tx) => {
         const nextChore = await tx.chore.create({
           data: {
             id: crypto.randomUUID(),
-            householdId: chore.householdId,
+            householdId,
             title: chore.title,
-            cadence: chore.cadence,
-            estimatedMinutes: chore.estimatedMinutes,
             source: chore.source,
             instructions: chore.instructions,
-            tags: serializeOptionalList(chore.tags ?? [])
-          }
+            tags: serializeOptionalList(chore.tags ?? []),
+            schedules: {
+              create: schedules.map((schedule) => ({
+                household: { connect: { id: householdId } },
+                planningMode: schedule.planningMode,
+                frequency: schedule.recurrence.frequency,
+                interval: schedule.recurrence.interval,
+                weekDays: serializeOptionalList(schedule.recurrence.weekDays ?? []),
+                monthlyDay: schedule.recurrence.monthlyDay,
+                localStartTime: schedule.planningMode === "timed" ? schedule.localStartTime : null,
+                localEndTime: schedule.planningMode === "timed" ? schedule.localEndTime : null,
+                estimatedMinutes: schedule.planningMode === "flexible" ? schedule.estimatedMinutes : null,
+                flexibleWindowRule: schedule.planningMode === "flexible" ? schedule.flexibleWindowRule : null,
+                startsOn: schedule.startsOn,
+                endsOn: schedule.endsOn,
+                assignmentMode: schedule.assignment.mode,
+                assignees: {
+                  create: schedule.assignment.memberUserIds.map((userId, position) => ({ userId, position }))
+                }
+              }))
+            }
+          },
+          include: { schedules: { include: { assignees: true } } }
         });
         await tx.recommendation.updateMany({
-          where: { householdId: chore.householdId, staleAt: null },
+          where: { householdId, staleAt: null },
           data: { staleAt: new Date() }
         });
         return nextChore;
       });
 
-      return toChore(created);
+      return {
+        chore: toChore(created),
+        schedules: created.schedules.map(toSchedule)
+      };
     },
 
     async updateChore(householdId, choreId, chore) {
@@ -685,8 +730,6 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
           where: { id: choreId },
           data: {
             title: chore.title,
-            cadence: chore.cadence,
-            estimatedMinutes: chore.estimatedMinutes,
             source: chore.source,
             instructions: chore.instructions,
             tags: serializeOptionalList(chore.tags ?? [])
@@ -780,14 +823,17 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
         data: {
           householdId: schedule.householdId,
           choreId: schedule.choreId,
+          planningMode: schedule.planningMode,
           frequency: schedule.recurrence.frequency,
           interval: schedule.recurrence.interval,
           weekDays: serializeOptionalList(schedule.recurrence.weekDays ?? []),
           monthlyDay: schedule.recurrence.monthlyDay,
-          localStartTime: schedule.localStartTime,
+          localStartTime: schedule.planningMode === "timed" ? schedule.localStartTime : null,
+          localEndTime: schedule.planningMode === "timed" ? schedule.localEndTime : null,
+          estimatedMinutes: schedule.planningMode === "flexible" ? schedule.estimatedMinutes : null,
+          flexibleWindowRule: schedule.planningMode === "flexible" ? schedule.flexibleWindowRule : null,
           startsOn: schedule.startsOn,
           endsOn: schedule.endsOn,
-          plannedMinutes: schedule.plannedMinutes,
           assignmentMode: schedule.assignment.mode,
           assignees: {
             create: schedule.assignment.memberUserIds.map((userId, position) => ({ userId, position }))
@@ -822,14 +868,17 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
       const updated = await prisma.choreSchedule.update({
         where: { id: scheduleId },
         data: {
+          planningMode: update.planningMode,
           frequency: update.recurrence.frequency,
           interval: update.recurrence.interval,
           weekDays: serializeOptionalList(update.recurrence.weekDays ?? []),
           monthlyDay: update.recurrence.monthlyDay,
-          localStartTime: update.localStartTime,
+          localStartTime: update.planningMode === "timed" ? update.localStartTime : null,
+          localEndTime: update.planningMode === "timed" ? update.localEndTime : null,
+          estimatedMinutes: update.planningMode === "flexible" ? update.estimatedMinutes : null,
+          flexibleWindowRule: update.planningMode === "flexible" ? update.flexibleWindowRule : null,
           startsOn: update.startsOn,
           endsOn: update.endsOn,
-          plannedMinutes: update.plannedMinutes,
           assignmentMode: update.assignment.mode,
           assignees: {
             deleteMany: {},
@@ -874,11 +923,17 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
               choreId: occurrence.choreId,
               scheduleId,
               sequence: occurrence.sequence,
-              plannedStartAt: new Date(occurrence.plannedStartAt),
-              plannedEndAt: new Date(occurrence.plannedEndAt),
+              planningMode: occurrence.planningMode,
+              plannedStartAt: occurrence.plannedStartAt ? new Date(occurrence.plannedStartAt) : null,
+              plannedEndAt: occurrence.plannedEndAt ? new Date(occurrence.plannedEndAt) : null,
+              estimatedMinutes: occurrence.estimatedMinutes,
+              eligibleStartOn: occurrence.eligibleStartOn,
+              eligibleEndOn: occurrence.eligibleEndOn,
               assignedUserId: occurrence.assignedUserId,
               exceptionType: occurrence.exceptionType,
-              status: occurrence.status
+              status: occurrence.status,
+              completedAt: occurrence.completedAt ? new Date(occurrence.completedAt) : null,
+              completedByUserId: occurrence.completedByUserId
             }
           })
         )
@@ -910,9 +965,9 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
       if (!existing) return undefined;
 
       const exceptionType =
-        update.plannedStartAt !== existing.plannedStartAt.toISOString()
+        update.plannedStartAt !== existing.plannedStartAt?.toISOString()
           ? "rescheduled"
-          : update.plannedEndAt !== existing.plannedEndAt.toISOString()
+          : update.plannedEndAt !== existing.plannedEndAt?.toISOString()
             ? "resized"
             : update.assignedUserId !== existing.assignedUserId
               ? "reassigned"
@@ -1037,37 +1092,10 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
           },
           orderBy: { createdAt: "asc" }
         });
-        const applied: Recommendation[] = [];
-
-        for (const recommendation of accepted) {
-          if (!recommendation.affectedChoreId) continue;
-
-          const chore = await tx.chore.findFirst({
-            where: {
-              id: recommendation.affectedChoreId,
-              householdId
-            }
-          });
-          if (!chore) continue;
-
-          await tx.chore.update({
-            where: { id: chore.id },
-            data: {
-              cadence: recommendation.proposedCadence ?? chore.cadence,
-              estimatedMinutes: recommendation.proposedEstimatedMinutes ?? chore.estimatedMinutes
-            }
-          });
-
-          const appliedRecommendation = await tx.recommendation.update({
-            where: { id: recommendation.id },
-            data: { decision: "applied" }
-          });
-          applied.push(toRecommendation(appliedRecommendation));
-        }
-
         return {
-          applied,
-          declined: declined.map(toRecommendation)
+          applied: [],
+          declined: declined.map(toRecommendation),
+          requiresScheduleDraftDesign: accepted.length > 0
         };
       });
     }

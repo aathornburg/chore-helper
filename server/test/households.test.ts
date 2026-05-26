@@ -29,6 +29,34 @@ function request(app: ReturnType<typeof createApp>, userId = "test-user-a") {
   };
 }
 
+async function createScheduledChore(
+  app: ReturnType<typeof createApp>,
+  householdId: string,
+  title: string,
+  userId = "test-user-a"
+) {
+  const members = await request(app, userId)
+    .get(`/api/households/${householdId}/members`)
+    .expect(200);
+  const assigneeId = members.body[0].userId as string;
+  const response = await request(app, userId)
+    .post(`/api/households/${householdId}/chores`)
+    .send({
+      chore: { title, source: "manual" },
+      schedules: [{
+        planningMode: "timed",
+        recurrence: { frequency: "weekly", interval: 1, weekDays: [1] },
+        localStartTime: "09:00",
+        localEndTime: "09:30",
+        startsOn: "2026-05-25",
+        assignment: { mode: "fixed", memberUserIds: [assigneeId] }
+      }]
+    })
+    .expect(201);
+
+  return { ...response, body: response.body.chore };
+}
+
 class FailingAgentProvider implements AgentProvider {
   async recommendSetupImprovements(
     _context: AgentRecommendationContext
@@ -146,15 +174,7 @@ describe("household profile flow", () => {
         ]
       })
       .expect(200);
-    const chore = await request(app)
-      .post(`/api/households/${householdId}/chores`)
-      .send({
-        title: "Clean kitchen",
-        cadence: "weekly",
-        estimatedMinutes: 20,
-        source: "manual"
-      })
-      .expect(201);
+    const chore = await createScheduledChore(app, householdId, "Clean kitchen");
     await request(app)
       .post(`/api/households/${householdId}/recommendations`)
       .send({ selectedChoreIds: [chore.body.id] })
@@ -488,15 +508,7 @@ describe("household profile flow", () => {
 
     const householdId = created.body.id;
 
-    await request(app)
-      .post(`/api/households/${householdId}/chores`)
-      .send({
-        title: "Clean bathrooms",
-        cadence: "weekly",
-        estimatedMinutes: 5,
-        source: "manual"
-      })
-      .expect(201);
+    await createScheduledChore(app, householdId, "Clean bathrooms");
 
     const recommendations = await request(app)
       .post(`/api/households/${householdId}/recommendations`)
@@ -506,7 +518,7 @@ describe("household profile flow", () => {
     expect(recommendations.body).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          title: "Review duration for Clean bathrooms",
+          title: "Review scheduling for Clean bathrooms",
           confidence: "high",
           status: "pending"
         })
@@ -518,15 +530,7 @@ describe("household profile flow", () => {
     const app = createTestApp();
     const created = await request(app).post("/api/households").send({ name: "Home" }).expect(201);
     const householdId = created.body.id;
-    const chore = await request(app)
-      .post(`/api/households/${householdId}/chores`)
-      .send({
-        title: "Clean bathrooms",
-        cadence: "weekly",
-        estimatedMinutes: 5,
-        source: "manual"
-      })
-      .expect(201);
+    const chore = await createScheduledChore(app, householdId, "Clean bathrooms");
 
     const recommendations = await request(app)
       .post(`/api/households/${householdId}/recommendations`)
@@ -557,10 +561,10 @@ describe("household profile flow", () => {
       .expect((response) => {
         expect(response.body).toEqual([
           expect.objectContaining({
-            id: chore.body.id,
-            estimatedMinutes: 5
+            id: chore.body.id
           })
         ]);
+        expect(response.body[0]).not.toHaveProperty("estimatedMinutes");
       });
   });
 
@@ -568,15 +572,7 @@ describe("household profile flow", () => {
     const app = createTestApp();
     const created = await request(app).post("/api/households").send({ name: "Home" }).expect(201);
     const householdId = created.body.id;
-    const chore = await request(app)
-      .post(`/api/households/${householdId}/chores`)
-      .send({
-        title: "Clean bathrooms",
-        cadence: "weekly",
-        estimatedMinutes: 5,
-        source: "manual"
-      })
-      .expect(201);
+    const chore = await createScheduledChore(app, householdId, "Clean bathrooms");
 
     const recommendations = await request(app)
       .post(`/api/households/${householdId}/recommendations`)
@@ -593,12 +589,8 @@ describe("household profile flow", () => {
       .post(`/api/households/${householdId}/recommendations/apply`)
       .expect(200)
       .expect((response) => {
-        expect(response.body.applied).toEqual([
-          expect.objectContaining({
-            id: recommendation.id,
-            decision: "applied"
-          })
-        ]);
+        expect(response.body.applied).toEqual([]);
+        expect(response.body.requiresScheduleDraftDesign).toBe(true);
       });
 
     await request(app)
@@ -607,10 +599,10 @@ describe("household profile flow", () => {
       .expect((response) => {
         expect(response.body).toEqual([
           expect.objectContaining({
-            id: chore.body.id,
-            estimatedMinutes: 30
+            id: chore.body.id
           })
         ]);
+        expect(response.body[0]).not.toHaveProperty("estimatedMinutes");
       });
   });
 
@@ -690,10 +682,7 @@ describe("household profile flow", () => {
     const app = createTestApp();
     const created = await request(app).post("/api/households").send({ name: "Home" }).expect(201);
     const householdId = created.body.id;
-    const chore = await request(app)
-      .post(`/api/households/${householdId}/chores`)
-      .send({ title: "Clean bathrooms", cadence: "weekly", estimatedMinutes: 20, source: "manual" })
-      .expect(201);
+    const chore = await createScheduledChore(app, householdId, "Clean bathrooms");
 
     await request(app)
       .post(`/api/households/${householdId}/recommendations`)
@@ -702,7 +691,7 @@ describe("household profile flow", () => {
 
     await request(app)
       .put(`/api/households/${householdId}/chores/${chore.body.id}`)
-      .send({ title: "Clean main bathroom", cadence: "biweekly", estimatedMinutes: 30, source: "manual" })
+      .send({ title: "Clean main bathroom", source: "manual" })
       .expect(200)
       .expect((response) => {
         expect(response.body).toEqual(expect.objectContaining({ title: "Clean main bathroom" }));
@@ -749,14 +738,8 @@ describe("household profile flow", () => {
     const first = await request(app).post("/api/households").send({ name: "First" }).expect(201);
     const second = await request(app).post("/api/households").send({ name: "Second" }).expect(201);
 
-    const firstChore = await request(app)
-      .post(`/api/households/${first.body.id}/chores`)
-      .send({ title: "Vacuum", cadence: "weekly", estimatedMinutes: 15, source: "manual" })
-      .expect(201);
-    const secondChore = await request(app)
-      .post(`/api/households/${second.body.id}/chores`)
-      .send({ title: "Mop", cadence: "weekly", estimatedMinutes: 20, source: "manual" })
-      .expect(201);
+    const firstChore = await createScheduledChore(app, first.body.id, "Vacuum");
+    const secondChore = await createScheduledChore(app, second.body.id, "Mop");
 
     await request(app)
       .get("/api/chores")
@@ -782,14 +765,8 @@ describe("household profile flow", () => {
     const first = await request(app, "test-user-a").post("/api/households").send({ name: "First" }).expect(201);
     const second = await request(app, "test-user-b").post("/api/households").send({ name: "Second" }).expect(201);
 
-    const firstChore = await request(app, "test-user-a")
-      .post(`/api/households/${first.body.id}/chores`)
-      .send({ title: "Vacuum", cadence: "weekly", estimatedMinutes: 15, source: "manual" })
-      .expect(201);
-    await request(app, "test-user-b")
-      .post(`/api/households/${second.body.id}/chores`)
-      .send({ title: "Mop", cadence: "weekly", estimatedMinutes: 20, source: "manual" })
-      .expect(201);
+    const firstChore = await createScheduledChore(app, first.body.id, "Vacuum", "test-user-a");
+    await createScheduledChore(app, second.body.id, "Mop", "test-user-b");
 
     await request(app, "test-user-a")
       .get("/api/chores")
@@ -810,14 +787,8 @@ describe("household profile flow", () => {
     const first = await request(app, "test-user-a").post("/api/households").send({ name: "First" }).expect(201);
     const second = await request(app, "test-user-b").post("/api/households").send({ name: "Second" }).expect(201);
 
-    await request(app, "test-user-a")
-      .post(`/api/households/${first.body.id}/chores`)
-      .send({ title: "Clean bathroom", cadence: "weekly", estimatedMinutes: 10, source: "manual" })
-      .expect(201);
-    await request(app, "test-user-b")
-      .post(`/api/households/${second.body.id}/chores`)
-      .send({ title: "Clean bathroom", cadence: "weekly", estimatedMinutes: 10, source: "manual" })
-      .expect(201);
+    await createScheduledChore(app, first.body.id, "Clean bathroom", "test-user-a");
+    await createScheduledChore(app, second.body.id, "Clean bathroom", "test-user-b");
 
     await request(app, "test-user-a")
       .post(`/api/households/${first.body.id}/recommendations`)
@@ -844,14 +815,11 @@ describe("household profile flow", () => {
     const app = createTestApp();
     const first = await request(app).post("/api/households").send({ name: "First" }).expect(201);
     const second = await request(app).post("/api/households").send({ name: "Second" }).expect(201);
-    const chore = await request(app)
-      .post(`/api/households/${first.body.id}/chores`)
-      .send({ title: "Vacuum", cadence: "weekly", estimatedMinutes: 15, source: "manual" })
-      .expect(201);
+    const chore = await createScheduledChore(app, first.body.id, "Vacuum");
 
     await request(app)
       .put(`/api/households/${second.body.id}/chores/${chore.body.id}`)
-      .send({ title: "Vacuum", cadence: "weekly", estimatedMinutes: 20, source: "manual" })
+      .send({ title: "Vacuum", source: "manual" })
       .expect(404);
   });
 
@@ -893,15 +861,7 @@ describe("household profile flow", () => {
       })
       .expect(200);
 
-    const chore = await request(app)
-      .post(`/api/households/${householdId}/chores`)
-      .send({
-        title: "Clean bathrooms",
-        cadence: "weekly",
-        estimatedMinutes: 10,
-        source: "manual"
-      })
-      .expect(201);
+    const chore = await createScheduledChore(app, householdId, "Clean bathrooms");
 
     const recommendations = await request(app)
       .post(`/api/households/${householdId}/recommendations`)

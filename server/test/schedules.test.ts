@@ -28,11 +28,6 @@ async function prepareHousehold(app: ReturnType<typeof createApp>, links: string
     .set(auth("owner@example.com"))
     .send({ name: "Home" })
     .expect(201);
-  const chore = await request(app)
-    .post(`/api/households/${household.body.id}/chores`)
-    .set(auth("owner@example.com"))
-    .send({ title: "Kitchen reset", cadence: "daily", estimatedMinutes: 15, source: "manual" })
-    .expect(201);
 
   await request(app)
     .post(`/api/households/${household.body.id}/invitations`)
@@ -48,26 +43,107 @@ async function prepareHousehold(app: ReturnType<typeof createApp>, links: string
     .get(`/api/households/${household.body.id}/members`)
     .set(auth("owner@example.com"))
     .expect(200);
+  const ownerId = members.body.find((member: { primaryEmail: string }) => member.primaryEmail === "owner@example.com").userId as string;
+  const memberId = members.body.find((member: { primaryEmail: string }) => member.primaryEmail === "member@example.com").userId as string;
+  const scheduledChore = await request(app)
+    .post(`/api/households/${household.body.id}/chores`)
+    .set(auth("owner@example.com"))
+    .send({
+      chore: { title: "Kitchen reset", source: "manual" },
+      schedules: [{
+        planningMode: "timed",
+        recurrence: { frequency: "one_time", interval: 1 },
+        localStartTime: "07:00",
+        localEndTime: "07:15",
+        startsOn: "2026-01-01",
+        assignment: { mode: "fixed", memberUserIds: [memberId] }
+      }]
+    })
+    .expect(201);
 
   return {
     householdId: household.body.id as string,
-    choreId: chore.body.id as string,
-    ownerId: members.body.find((member: { primaryEmail: string }) => member.primaryEmail === "owner@example.com").userId as string,
-    memberId: members.body.find((member: { primaryEmail: string }) => member.primaryEmail === "member@example.com").userId as string
+    choreId: scheduledChore.body.chore.id as string,
+    ownerId,
+    memberId
   };
 }
 
 function dailySchedule(memberId: string) {
   return {
+    planningMode: "timed",
     recurrence: { frequency: "daily", interval: 1 },
     localStartTime: "07:00",
+    localEndTime: "07:15",
     startsOn: "2026-05-25",
-    plannedMinutes: 15,
     assignment: { mode: "fixed", memberUserIds: [memberId] }
   };
 }
 
 describe("chore schedules", () => {
+  it("creates a chore and multiple initial schedules atomically", async () => {
+    const { app, links } = createScheduleTestApp();
+    const household = await prepareHousehold(app, links);
+
+    const created = await request(app)
+      .post(`/api/households/${household.householdId}/chores`)
+      .set(auth("owner@example.com"))
+      .send({
+        chore: { title: "Laundry", source: "manual", tags: ["clothing"] },
+        schedules: [
+          {
+            planningMode: "timed",
+            recurrence: { frequency: "daily", interval: 1 },
+            localStartTime: "07:00",
+            localEndTime: "07:20",
+            startsOn: "2026-05-25",
+            assignment: { mode: "fixed", memberUserIds: [household.memberId] }
+          },
+          {
+            planningMode: "flexible",
+            recurrence: { frequency: "weekly", interval: 1, weekDays: [0, 6] },
+            startsOn: "2026-05-30",
+            estimatedMinutes: 60,
+            flexibleWindowRule: "once_within_selected_days",
+            assignment: { mode: "fixed", memberUserIds: [household.memberId] }
+          }
+        ]
+      })
+      .expect(201);
+
+    expect(created.body.chore).toEqual(expect.objectContaining({ title: "Laundry", tags: ["clothing"] }));
+    expect(created.body.schedules).toHaveLength(2);
+    expect(created.body.schedules).toEqual(expect.arrayContaining([
+      expect.objectContaining({ planningMode: "timed", localEndTime: "07:20" }),
+      expect.objectContaining({ planningMode: "flexible", estimatedMinutes: 60 })
+    ]));
+  });
+
+  it("rejects a new chore without an initial schedule", async () => {
+    const { app, links } = createScheduleTestApp();
+    const household = await prepareHousehold(app, links);
+
+    await request(app)
+      .post(`/api/households/${household.householdId}/chores`)
+      .set(auth("owner@example.com"))
+      .send({ chore: { title: "Invalid", source: "manual" }, schedules: [] })
+      .expect(400);
+  });
+
+  it("prevents an ordinary member from creating a chore definition and schedule", async () => {
+    const { app, links } = createScheduleTestApp();
+    const household = await prepareHousehold(app, links);
+
+    await request(app)
+      .post(`/api/households/${household.householdId}/chores`)
+      .set(auth("member@example.com"))
+      .send({
+        chore: { title: "Member-created chore", source: "manual" },
+        schedules: [dailySchedule(household.memberId)]
+      })
+      .expect(403);
+  });
+
   it("allows an owner to create multiple schedules and a member to read them", async () => {
     const { app, links } = createScheduleTestApp();
     const household = await prepareHousehold(app, links);
@@ -81,10 +157,11 @@ describe("chore schedules", () => {
       .post(`/api/households/${household.householdId}/chores/${household.choreId}/schedules`)
       .set(auth("owner@example.com"))
       .send({
+        planningMode: "timed",
         recurrence: { frequency: "weekly", interval: 1, weekDays: [1, 3, 5] },
         localStartTime: "19:00",
+        localEndTime: "19:20",
         startsOn: "2026-05-25",
-        plannedMinutes: 20,
         assignment: { mode: "rotation", memberUserIds: [household.ownerId, household.memberId] }
       })
       .expect(201);
@@ -94,10 +171,10 @@ describe("chore schedules", () => {
       .set(auth("member@example.com"))
       .expect(200)
       .expect((response) => {
-        expect(response.body).toEqual([
+        expect(response.body).toEqual(expect.arrayContaining([
           expect.objectContaining({ id: morning.body.id, localStartTime: "07:00" }),
           expect.objectContaining({ id: evening.body.id, localStartTime: "19:00" })
-        ]);
+        ]));
       });
   });
 
@@ -109,6 +186,21 @@ describe("chore schedules", () => {
       .post(`/api/households/${household.householdId}/chores/${household.choreId}/schedules`)
       .set(auth("member@example.com"))
       .send(dailySchedule(household.memberId))
+      .expect(403);
+  });
+
+  it("prevents an ordinary member from editing or archiving a chore definition", async () => {
+    const { app, links } = createScheduleTestApp();
+    const household = await prepareHousehold(app, links);
+
+    await request(app)
+      .put(`/api/households/${household.householdId}/chores/${household.choreId}`)
+      .set(auth("member@example.com"))
+      .send({ title: "Changed by member", source: "manual" })
+      .expect(403);
+    await request(app)
+      .post(`/api/households/${household.householdId}/chores/${household.choreId}/archive`)
+      .set(auth("member@example.com"))
       .expect(403);
   });
 
@@ -138,10 +230,10 @@ describe("chore schedules", () => {
     await request(app)
       .put(`/api/households/${household.householdId}/schedules/${created.body.id}`)
       .set(auth("owner@example.com"))
-      .send({ ...dailySchedule(household.memberId), localStartTime: "08:30", plannedMinutes: 25 })
+      .send({ ...dailySchedule(household.memberId), localStartTime: "08:30", localEndTime: "08:55" })
       .expect(200)
       .expect((response) => {
-        expect(response.body).toEqual(expect.objectContaining({ localStartTime: "08:30", plannedMinutes: 25 }));
+        expect(response.body).toEqual(expect.objectContaining({ localStartTime: "08:30", localEndTime: "08:55" }));
       });
 
     await request(app)
@@ -255,7 +347,7 @@ describe("chore schedules", () => {
         .send({
           ...dailySchedule(household.ownerId),
           localStartTime: "09:00",
-          plannedMinutes: 30
+          localEndTime: "09:30"
         })
         .expect(200);
 

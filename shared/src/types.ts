@@ -112,18 +112,34 @@ export type ChoreScheduleAssignment = {
   memberUserIds: string[];
 };
 
-export type ChoreSchedule = {
+export type SchedulePlanningMode = "timed" | "flexible";
+export type FlexibleWindowRule = "once_within_selected_days" | "each_selected_day";
+
+export type ChoreScheduleBase = {
   id: string;
   householdId: string;
   choreId: string;
+  planningMode: SchedulePlanningMode;
   recurrence: ChoreScheduleRecurrence;
-  localStartTime: string;
   startsOn: string;
   endsOn?: string;
-  plannedMinutes: number;
   assignment: ChoreScheduleAssignment;
   archivedAt?: string;
 };
+
+export type TimedChoreSchedule = ChoreScheduleBase & {
+  planningMode: "timed";
+  localStartTime: string;
+  localEndTime: string;
+};
+
+export type FlexibleChoreSchedule = ChoreScheduleBase & {
+  planningMode: "flexible";
+  estimatedMinutes: number;
+  flexibleWindowRule: FlexibleWindowRule;
+};
+
+export type ChoreSchedule = TimedChoreSchedule | FlexibleChoreSchedule;
 
 export type OccurrenceExceptionType = "none" | "rescheduled" | "resized" | "reassigned" | "skipped";
 
@@ -133,11 +149,17 @@ export type ChoreOccurrence = {
   choreId: string;
   scheduleId: string;
   sequence: number;
-  plannedStartAt: string;
-  plannedEndAt: string;
+  planningMode: SchedulePlanningMode;
+  plannedStartAt?: string;
+  plannedEndAt?: string;
+  estimatedMinutes: number;
+  eligibleStartOn: string;
+  eligibleEndOn: string;
   assignedUserId: string;
   exceptionType: OccurrenceExceptionType;
-  status: "planned" | "skipped";
+  status: "planned" | "completed" | "skipped";
+  completedAt?: string;
+  completedByUserId?: string;
 };
 
 export type Chore = {
@@ -145,12 +167,23 @@ export type Chore = {
   householdId: string;
   householdName?: string;
   title: string;
-  cadence: string;
-  estimatedMinutes: number;
   source: "manual" | "google-calendar";
   instructions?: string;
   tags?: string[];
   archivedAt?: string;
+};
+
+export type ChoreDefinitionInput = Omit<Chore, "id" | "householdId" | "householdName" | "archivedAt">;
+export type ScheduleInput =
+  | Omit<TimedChoreSchedule, "id" | "householdId" | "choreId" | "archivedAt">
+  | Omit<FlexibleChoreSchedule, "id" | "householdId" | "choreId" | "archivedAt">;
+export type CreateScheduledChoreInput = {
+  chore: ChoreDefinitionInput;
+  schedules: ScheduleInput[];
+};
+export type ScheduledChore = {
+  chore: Chore;
+  schedules: ChoreSchedule[];
 };
 
 export type ChoreReviewState = "unreviewed" | "recommendation-pending" | "reviewed";
