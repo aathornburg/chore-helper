@@ -377,7 +377,9 @@ describe.skipIf(!safeConnectionString || !prisma)(
       ]);
       expect(await secondStore.listOccurrences(household.id, {
         startAt: "2026-05-25T00:00:00.000Z",
-        endAt: "2026-06-01T00:00:00.000Z"
+        endAt: "2026-06-01T00:00:00.000Z",
+        startOn: "2026-05-25",
+        endOn: "2026-06-01"
       })).toHaveLength(7);
     });
 

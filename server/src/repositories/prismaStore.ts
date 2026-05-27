@@ -946,13 +946,26 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
       const occurrences = await prisma.choreOccurrence.findMany({
         where: {
           householdId,
-          plannedStartAt: {
-            gte: new Date(range.startAt),
-            lte: new Date(range.endAt)
-          },
+          OR: [
+            {
+              planningMode: "timed",
+              plannedStartAt: {
+                gte: new Date(range.startAt),
+                lte: new Date(range.endAt)
+              }
+            },
+            {
+              planningMode: "flexible",
+              eligibleEndOn: { gte: range.startOn },
+              eligibleStartOn: { lte: range.endOn }
+            }
+          ],
           ...(range.assignedUserId ? { assignedUserId: range.assignedUserId } : {})
         },
-        orderBy: { plannedStartAt: "asc" }
+        orderBy: [
+          { eligibleStartOn: "asc" },
+          { plannedStartAt: "asc" }
+        ]
       });
 
       return occurrences.map(toOccurrence);

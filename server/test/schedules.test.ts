@@ -283,7 +283,9 @@ describe("chore schedules", () => {
       .get(`/api/households/${household.householdId}/occurrences`)
       .query({
         startAt: "2026-05-25T00:00:00.000Z",
-        endAt: "2026-05-28T23:59:59.999Z"
+        endAt: "2026-05-28T23:59:59.999Z",
+        startOn: "2026-05-25",
+        endOn: "2026-05-28"
       })
       .set(auth("member@example.com"))
       .expect(200)
@@ -301,6 +303,8 @@ describe("chore schedules", () => {
       .query({
         startAt: "2026-05-25T00:00:00.000Z",
         endAt: "2026-05-28T23:59:59.999Z",
+        startOn: "2026-05-25",
+        endOn: "2026-05-28",
         assignedUserId: household.memberId
       })
       .set(auth("member@example.com"))
@@ -311,6 +315,62 @@ describe("chore schedules", () => {
           occurrence.assignedUserId === household.memberId
         )).toBe(true);
       });
+  });
+
+  it("returns the same flexible once-window occurrence for overlapping Saturday and Sunday ranges", async () => {
+    const { app, links } = createScheduleTestApp();
+    const household = await prepareHousehold(app, links);
+
+    const created = await request(app)
+      .post(`/api/households/${household.householdId}/chores`)
+      .set(auth("owner@example.com"))
+      .send({
+        chore: { title: "Clean bathrooms", source: "manual" },
+        schedules: [{
+          planningMode: "flexible",
+          recurrence: { frequency: "weekly", interval: 1, weekDays: [6, 0] },
+          startsOn: "2026-05-30",
+          estimatedMinutes: 60,
+          flexibleWindowRule: "once_within_selected_days",
+          assignment: { mode: "fixed", memberUserIds: [household.memberId] }
+        }]
+      })
+      .expect(201);
+    const scheduleId = created.body.schedules[0].id as string;
+
+    const saturday = await request(app)
+      .get(`/api/households/${household.householdId}/occurrences`)
+      .query({
+        startAt: "2026-05-30T00:00:00.000Z",
+        endAt: "2026-05-30T23:59:59.999Z",
+        startOn: "2026-05-30",
+        endOn: "2026-05-30"
+      })
+      .set(auth("owner@example.com"))
+      .expect(200);
+    const sunday = await request(app)
+      .get(`/api/households/${household.householdId}/occurrences`)
+      .query({
+        startAt: "2026-05-31T00:00:00.000Z",
+        endAt: "2026-05-31T23:59:59.999Z",
+        startOn: "2026-05-31",
+        endOn: "2026-05-31"
+      })
+      .set(auth("owner@example.com"))
+      .expect(200);
+
+    const saturdayFlexible = saturday.body.filter((occurrence: { scheduleId: string }) => occurrence.scheduleId === scheduleId);
+    const sundayFlexible = sunday.body.filter((occurrence: { scheduleId: string }) => occurrence.scheduleId === scheduleId);
+
+    expect(saturdayFlexible).toHaveLength(1);
+    expect(sundayFlexible).toHaveLength(1);
+    expect(saturdayFlexible[0]).toEqual(expect.objectContaining({
+      id: sundayFlexible[0].id,
+      planningMode: "flexible",
+      eligibleStartOn: "2026-05-30",
+      eligibleEndOn: "2026-05-31"
+    }));
+    expect(saturdayFlexible[0]).not.toHaveProperty("plannedStartAt");
   });
 
   it("records occurrence exceptions and regenerates only untouched future occurrences", async () => {
@@ -330,7 +390,9 @@ describe("chore schedules", () => {
         .get(`/api/households/${household.householdId}/occurrences`)
         .query({
           startAt: "2026-05-25T00:00:00.000Z",
-          endAt: "2026-05-28T23:59:59.999Z"
+          endAt: "2026-05-28T23:59:59.999Z",
+          startOn: "2026-05-25",
+          endOn: "2026-05-28"
         })
         .set(auth("owner@example.com"))
         .expect(200);
@@ -376,7 +438,9 @@ describe("chore schedules", () => {
         .get(`/api/households/${household.householdId}/occurrences`)
         .query({
           startAt: "2026-05-25T00:00:00.000Z",
-          endAt: "2026-05-28T23:59:59.999Z"
+          endAt: "2026-05-28T23:59:59.999Z",
+          startOn: "2026-05-25",
+          endOn: "2026-05-28"
         })
         .set(auth("member@example.com"))
         .expect(200)
@@ -424,7 +488,9 @@ describe("chore schedules", () => {
       .get(`/api/households/${household.householdId}/occurrences`)
       .query({
         startAt: "2026-05-26T00:00:00.000Z",
-        endAt: "2026-05-26T23:59:59.999Z"
+        endAt: "2026-05-26T23:59:59.999Z",
+        startOn: "2026-05-26",
+        endOn: "2026-05-26"
       })
       .set(auth("owner@example.com"))
       .expect(200)).body[0];

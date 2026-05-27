@@ -196,6 +196,8 @@ const createScheduledChoreSchema = z.object({
 const occurrenceRangeSchema = z.object({
   startAt: z.string().datetime(),
   endAt: z.string().datetime(),
+  startOn: z.string().date(),
+  endOn: z.string().date(),
   assignedUserId: z.string().min(1).optional()
 }).superRefine((range, ctx) => {
   if (Date.parse(range.endAt) < Date.parse(range.startAt)) {
@@ -203,6 +205,13 @@ const occurrenceRangeSchema = z.object({
       code: z.ZodIssueCode.custom,
       message: "Occurrence range must end after it starts",
       path: ["endAt"]
+    });
+  }
+  if (range.endOn < range.startOn) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Occurrence date range must end after it starts",
+      path: ["endOn"]
     });
   }
 });
@@ -314,8 +323,6 @@ export function createHouseholdRouter(
   }
 
   async function materializeInitialScheduleOccurrences(schedule: ChoreSchedule, householdTimeZone: string) {
-    if (schedule.planningMode !== "timed") return;
-
     const rangeStart = schedule.startsOn;
     const rangeEnd = format(addDays(parseISO(rangeStart), 89), "yyyy-MM-dd");
     await store.materializeScheduleOccurrences(

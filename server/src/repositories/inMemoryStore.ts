@@ -26,6 +26,14 @@ export type ChoreUpdate = ChoreDefinitionInput;
 export type ChoreScheduleUpdate = ScheduleInput;
 export type OccurrenceUpdate = Required<Pick<ChoreOccurrence, "plannedStartAt" | "plannedEndAt" | "assignedUserId">>;
 
+export type OccurrenceRange = {
+  startAt: string;
+  endAt: string;
+  startOn: string;
+  endOn: string;
+  assignedUserId?: string;
+};
+
 export type NewScheduledChore = {
   householdId: string;
   chore: ChoreDefinitionInput;
@@ -131,7 +139,7 @@ export type HouseholdStore = {
   ): StoreResult<ChoreOccurrence[]>;
   listOccurrences(
     householdId: string,
-    range: { startAt: string; endAt: string; assignedUserId?: string }
+    range: OccurrenceRange
   ): StoreResult<ChoreOccurrence[]>;
   updateOccurrenceException(
     householdId: string,
@@ -536,14 +544,24 @@ export function createInMemoryStore(): HouseholdStore {
 
     listOccurrences(householdId, range) {
       return Array.from(occurrences.values())
-        .filter((occurrence) =>
-          occurrence.householdId === householdId &&
-          Boolean(occurrence.plannedStartAt) &&
-          occurrence.plannedStartAt! >= range.startAt &&
-          occurrence.plannedStartAt! <= range.endAt &&
-          (!range.assignedUserId || occurrence.assignedUserId === range.assignedUserId)
-        )
-        .sort((first, second) => first.plannedStartAt!.localeCompare(second.plannedStartAt!));
+        .filter((occurrence) => {
+          const inRange = occurrence.planningMode === "timed"
+            ? Boolean(
+                occurrence.plannedStartAt &&
+                occurrence.plannedStartAt >= range.startAt &&
+                occurrence.plannedStartAt <= range.endAt
+              )
+            : occurrence.eligibleEndOn >= range.startOn && occurrence.eligibleStartOn <= range.endOn;
+
+          return (
+            occurrence.householdId === householdId &&
+            inRange &&
+            (!range.assignedUserId || occurrence.assignedUserId === range.assignedUserId)
+          );
+        })
+        .sort((first, second) =>
+          (first.plannedStartAt ?? first.eligibleStartOn).localeCompare(second.plannedStartAt ?? second.eligibleStartOn)
+        );
     },
 
     updateOccurrenceException(householdId, occurrenceId, update) {
