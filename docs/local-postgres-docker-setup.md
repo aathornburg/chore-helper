@@ -123,18 +123,29 @@ Create the disposable test database once after the Postgres container is running
 docker exec chore-helper-postgres psql -U chore_helper -d chore_helper -c "CREATE DATABASE chore_helper_test OWNER chore_helper;"
 ```
 
-Then run the schema setup and database-backed tests from the repo root:
+Then run the database-backed tests from the repo root:
 
 ```powershell
 $env:DATABASE_URL="postgresql://chore_helper:chore_helper_password@localhost:5432/chore_helper_test?schema=public"
-npm.cmd run db:push -w server
 npm.cmd run test:db -w server
+```
+
+`test:db` first verifies that `DATABASE_URL` points at a database whose name ends in
+`_test`, then runs a forced Prisma schema reset with accepted data loss. This keeps
+the persistent test workflow compatible with intentional local schema breaks while
+refusing to reset the normal `chore_helper` development database.
+
+To reset only the persistent test schema without running the tests:
+
+```powershell
+$env:DATABASE_URL="postgresql://chore_helper:chore_helper_password@localhost:5432/chore_helper_test?schema=public"
+npm.cmd run test:db:reset -w server
 ```
 
 These tests verify membership, invitation acceptance, role administration, household
 time-zone settings, chore persistence, household structure persistence, and timed
-schedule/occurrence persistence through the Prisma store. They clear scheduling rows
-as part of cleanup, so continue to run them only against `chore_helper_test`.
+schedule/occurrence persistence through the Prisma store. They reset and clear data,
+so continue to run them only against `chore_helper_test`.
 
 ## Inspect the Database
 

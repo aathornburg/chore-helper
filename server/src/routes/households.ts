@@ -379,7 +379,7 @@ export function createHouseholdRouter(
   });
 
   router.put("/:householdId/structure", async (req, res) => {
-    const access = await requireHouseholdAccess(req, res);
+    const access = await requireHouseholdOwner(req, res);
     if (!access) return;
 
     const parsed = householdStructureSchema.safeParse(req.body);

@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "test": "vitest run",
-    "test:db": "prisma db push && vitest run test/prismaStore.test.ts",
+    "test:db": "npm run test:db:reset && vitest run test/prismaStore.test.ts",
+    "test:db:reset": "tsx test/verifyTestDatabase.ts && prisma db push --force-reset --accept-data-loss",
     "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",

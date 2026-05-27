@@ -19,6 +19,23 @@ function createTestApp() {
   });
 }
 
+function createInvitationTestApp() {
+  const invitationLinks: string[] = [];
+  const app = createApp({
+    store: createInMemoryStore(),
+    agentProvider: new MockChoreAgentProvider(),
+    authMode: "test",
+    invitationBaseUrl: "http://localhost:5173",
+    invitationMailer: {
+      async sendInvitation(message) {
+        invitationLinks.push(message.acceptUrl);
+      }
+    }
+  });
+
+  return { app, invitationLinks };
+}
+
 function request(app: ReturnType<typeof createApp>, userId = "test-user-a") {
   const authorization = `Bearer ${userId}`;
 
@@ -55,6 +72,23 @@ async function createScheduledChore(
     .expect(201);
 
   return { ...response, body: response.body.chore };
+}
+
+async function joinHouseholdMember(
+  app: ReturnType<typeof createApp>,
+  invitationLinks: string[],
+  householdId: string,
+  email: string
+) {
+  await request(app, "owner@example.com")
+    .post(`/api/households/${householdId}/invitations`)
+    .send({ email })
+    .expect(201);
+
+  const token = invitationLinks.at(-1)!.split("/").at(-1)!;
+  await request(app, email)
+    .post(`/api/invitations/${token}/accept`)
+    .expect(200);
 }
 
 class FailingAgentProvider implements AgentProvider {
@@ -353,6 +387,24 @@ describe("household profile flow", () => {
             })
           ]
         });
+      });
+  });
+
+  it("prevents an ordinary member from updating household structure", async () => {
+    const { app, invitationLinks } = createInvitationTestApp();
+    const created = await request(app, "owner@example.com")
+      .post("/api/households")
+      .send({ name: "Home" })
+      .expect(201);
+    const householdId = created.body.id as string;
+    await joinHouseholdMember(app, invitationLinks, householdId, "member@example.com");
+
+    await request(app, "member@example.com")
+      .put(`/api/households/${householdId}/structure`)
+      .send({ floors: [] })
+      .expect(403)
+      .expect((response) => {
+        expect(response.body).toEqual({ error: "Household owner access required" });
       });
   });
 
