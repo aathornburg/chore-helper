@@ -11,6 +11,7 @@
     "db:logs": "docker compose logs -f postgres",
     "db:push": "npm run db:push -w server",
     "db:studio": "npm run db:studio -w server",
+    "db:dev:reset": "npm run db:up && npm run db:generate -w server && npm run db:push -w server -- --force-reset",
     "test": "npm run test -ws",
     "typecheck": "npm run typecheck -ws"
   }
