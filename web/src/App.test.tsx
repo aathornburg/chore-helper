@@ -1,11 +1,13 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type {
+  CreateScheduledChoreInput,
   HouseholdAppData,
   HouseholdInvitation,
   HouseholdMemberSummary,
   HouseholdStructure
 } from "@chore-helper/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { completeOccurrence, createScheduledChore, listOccurrences } from "./api";
 import App from "./App";
 
 const clerkState = vi.hoisted(() => ({
@@ -385,6 +387,98 @@ afterEach(() => {
 });
 
 describe("App", () => {
+  it("posts scheduled chore creation and occurrence completion through the unified API", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input.toString();
+      const method = init?.method ?? "GET";
+
+      if (url === "http://localhost:3001/api/households/household-1/chores" && method === "POST") {
+        return {
+          ok: true,
+          json: async () => ({
+            chore: {
+              id: "chore-1",
+              householdId: "household-1",
+              title: "Clean bathrooms",
+              source: "manual"
+            },
+            schedules: []
+          })
+        };
+      }
+
+      if (
+        url === "http://localhost:3001/api/households/household-1/occurrences/occurrence-1/complete" &&
+        method === "POST"
+      ) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "occurrence-1",
+            householdId: "household-1",
+            choreId: "chore-1",
+            scheduleId: "schedule-1",
+            sequence: 0,
+            planningMode: "timed",
+            plannedStartAt: "2026-05-25T14:00:00.000Z",
+            plannedEndAt: "2026-05-25T14:30:00.000Z",
+            estimatedMinutes: 30,
+            eligibleStartOn: "2026-05-25",
+            eligibleEndOn: "2026-05-25",
+            assignedUserId: "app-user-1",
+            exceptionType: "none",
+            status: "completed",
+            completedAt: "2026-05-25T14:20:00.000Z",
+            completedByUserId: "app-user-1"
+          })
+        };
+      }
+
+      if (url.startsWith("http://localhost:3001/api/households/household-1/occurrences?") && method === "GET") {
+        return { ok: true, json: async () => [] };
+      }
+
+      throw new Error(`Unhandled fetch ${method} ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const input: CreateScheduledChoreInput = {
+      chore: { title: "Clean bathrooms", source: "manual" },
+      schedules: [{
+        planningMode: "timed",
+        recurrence: { frequency: "daily", interval: 1 },
+        localStartTime: "09:00",
+        localEndTime: "09:30",
+        startsOn: "2026-05-25",
+        assignment: { mode: "fixed", memberUserIds: ["app-user-1"] }
+      }]
+    };
+
+    await createScheduledChore("household-1", input);
+    await listOccurrences("household-1", {
+      startAt: "2026-05-25T04:00:00.000Z",
+      endAt: "2026-05-26T03:59:59.000Z",
+      startOn: "2026-05-25",
+      endOn: "2026-05-25"
+    });
+    await completeOccurrence("household-1", "occurrence-1");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/households/household-1/chores",
+      expect.objectContaining({
+        method: "POST",
+        body: expect.stringContaining('"schedules"')
+      })
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/households/household-1/occurrences?startAt=2026-05-25T04%3A00%3A00.000Z&endAt=2026-05-26T03%3A59%3A59.000Z&startOn=2026-05-25&endOn=2026-05-25",
+      expect.anything()
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/households/household-1/occurrences/occurrence-1/complete",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+
   it("routes signed-in root visits to Today", async () => {
     mockRestoredHouseholdFetches();
     renderAt("/");
@@ -1251,7 +1345,7 @@ describe("App", () => {
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/chores");
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "Add chore" })).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Add chore" }).hasAttribute("disabled")).toBe(false));
     fireEvent.click(screen.getByRole("button", { name: "Add chore" }));
     fireEvent.change(screen.getByLabelText("Household"), { target: { value: "household-1" } });
     await waitFor(() => expect(screen.getByLabelText("Add initial schedule")).toBeTruthy());
@@ -1333,7 +1427,7 @@ describe("App", () => {
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/chores");
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "Add chore" })).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Add chore" }).hasAttribute("disabled")).toBe(false));
     fireEvent.click(screen.getByRole("button", { name: "Add chore" }));
     fireEvent.change(screen.getByLabelText("Household"), { target: { value: "household-1" } });
     await waitFor(() => expect(screen.getByLabelText("Add initial schedule")).toBeTruthy());

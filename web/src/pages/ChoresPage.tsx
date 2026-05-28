@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   type ChoreReviewState,
   type Chore,
+  type ChoreDefinitionInput,
   type ChoreSchedule,
   type Household,
   type HouseholdMemberSummary,
@@ -26,6 +27,8 @@ import {
 // Go through transpiling
 type QueueSignal = "Duration concern" | "Cadence review" | "Ready";
 type ChoreStatusTab = "all-active" | "unreviewed" | "recommendation-pending" | "reviewed" | "archived";
+type LegacyChore = Chore & { cadence?: string; estimatedMinutes?: number };
+type LegacyChoreSchedule = ChoreSchedule & { localStartTime?: string; plannedMinutes?: number };
 
 const ChoreStatusTabs: { key: ChoreStatusTab; label: string }[] = [
   { key: "all-active", label: "All active" },
@@ -42,23 +45,25 @@ const ChoreStatusTabs: { key: ChoreStatusTab; label: string }[] = [
   performing HTTP logic directly.
 */
 
-function getQueueSignal(chore: Chore): QueueSignal {
+function getQueueSignal(chore: LegacyChore): QueueSignal {
   const title = chore.title.toLowerCase();
+  const cadence = chore.cadence ?? "";
+  const estimatedMinutes = chore.estimatedMinutes ?? 0;
   const broadCleaningAsk =
     title.includes("bathroom") ||
     title.includes("floor") ||
     title.includes("vacuum") ||
     title.includes("mop");
 
-  if (broadCleaningAsk && chore.estimatedMinutes < 15) return "Duration concern";
-  if (!["daily", "weekly", "biweekly", "monthly"].includes(chore.cadence.toLowerCase())) {
+  if (broadCleaningAsk && estimatedMinutes < 15) return "Duration concern";
+  if (!["daily", "weekly", "biweekly", "monthly"].includes(cadence.toLowerCase())) {
     return "Cadence review";
   }
 
   return "Ready";
 }
 
-function findRecommendationForChore(chore: Chore | undefined, recommendations: Recommendation[]) {
+function findRecommendationForChore(chore: LegacyChore | undefined, recommendations: Recommendation[]) {
   if (!chore) return undefined;
 
   return recommendations.find((recommendation) =>
@@ -67,7 +72,7 @@ function findRecommendationForChore(chore: Chore | undefined, recommendations: R
   );
 }
 
-function getChoreReviewState(chore: Chore, recommendations: Recommendation[]): ChoreReviewState {
+function getChoreReviewState(chore: LegacyChore, recommendations: Recommendation[]): ChoreReviewState {
   const recommendation = findRecommendationForChore(chore, recommendations);
   if (!recommendation) return "unreviewed";
   if (recommendation.decision === "applied") return "reviewed";
@@ -97,7 +102,7 @@ function getEmptyChoreMessage(activeTab: ChoreStatusTab) {
   return "No active chores yet. Add a chore to start building the household routine.";
 }
 
-function formatChoreHousehold(chore: Chore) {
+function formatChoreHousehold(chore: LegacyChore) {
   return chore.householdName ?? chore.householdId;
 }
 
@@ -108,6 +113,14 @@ function formatScheduleRecurrence(schedule: ChoreSchedule) {
   return "Daily";
 }
 
+function formatLegacyCadence(chore: LegacyChore) {
+  return chore.cadence ?? "scheduled";
+}
+
+function formatLegacyEstimatedMinutes(chore: LegacyChore) {
+  return chore.estimatedMinutes ?? 0;
+}
+
 type ChoresPageProps = {
   households: Household[];
   householdsLoading: boolean;
@@ -115,8 +128,8 @@ type ChoresPageProps = {
 };
 
 export function ChoresPage({ households, householdsLoading, onNavigate }: ChoresPageProps) {
-  const [chores, setChores] = useState<Chore[]>([]);
-  const [archivedChores, setArchivedChores] = useState<Chore[]>([]);
+  const [chores, setChores] = useState<LegacyChore[]>([]);
+  const [archivedChores, setArchivedChores] = useState<LegacyChore[]>([]);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [expandedChoreId, setExpandedChoreId] = useState<string>();
   const [queueState, setQueueState] = useState<"idle" | "loading" | "ready" | "error">("idle");
@@ -128,7 +141,7 @@ export function ChoresPage({ households, householdsLoading, onNavigate }: Chores
   const [editEstimatedMinutes, setEditEstimatedMinutes] = useState("");
   const [editInstructions, setEditInstructions] = useState("");
   const [editTags, setEditTags] = useState("");
-  const [schedules, setSchedules] = useState<ChoreSchedule[]>([]);
+  const [schedules, setSchedules] = useState<LegacyChoreSchedule[]>([]);
   const [scheduleMembers, setScheduleMembers] = useState<HouseholdMemberSummary[]>([]);
   const [canManageSchedules, setCanManageSchedules] = useState(false);
   const [scheduleLoadState, setScheduleLoadState] = useState<"idle" | "loading" | "ready" | "error">("idle");
@@ -216,8 +229,8 @@ export function ChoresPage({ households, householdsLoading, onNavigate }: Chores
     }
 
     setEditTitle(chore.title);
-    setEditCadence(chore.cadence);
-    setEditEstimatedMinutes(String(chore.estimatedMinutes));
+    setEditCadence(formatLegacyCadence(chore));
+    setEditEstimatedMinutes(String(formatLegacyEstimatedMinutes(chore)));
     setEditInstructions(chore.instructions ?? "");
     setEditTags((chore.tags ?? []).join(", "));
     setExpandedChoreId(chore.id);
@@ -314,7 +327,7 @@ export function ChoresPage({ households, householdsLoading, onNavigate }: Chores
 
     setIsCreatingChore(true);
     setStatus("Adding chore...");
-    let added: Chore;
+    let added: LegacyChore;
     try {
       added = await createChore(newHouseholdId, {
         title: newTitle.trim(),
@@ -370,14 +383,13 @@ export function ChoresPage({ households, householdsLoading, onNavigate }: Chores
     if (!expandedChore) return;
 
     setStatus("Saving chore changes...");
-    const updated = await updateChore(expandedChore.householdId, expandedChore.id, {
+    const update: ChoreDefinitionInput = {
       title: editTitle,
-      cadence: editCadence,
-      estimatedMinutes: Number(editEstimatedMinutes),
       source: "manual",
       instructions: editInstructions.trim() || undefined,
       tags: editTags.split(",").map((tag) => tag.trim()).filter(Boolean)
-    });
+    };
+    const updated = await updateChore(expandedChore.householdId, expandedChore.id, update);
 
     setChores((currentChores) =>
       currentChores.map((chore) => (chore.id === updated.id ? updated : chore))
@@ -453,7 +465,7 @@ export function ChoresPage({ households, householdsLoading, onNavigate }: Chores
     setArchivedLoaded(true);
   }
 
-  async function handleRestoreChore(chore: Chore) {
+  async function handleRestoreChore(chore: LegacyChore) {
     setStatus("Restoring chore...");
     const restored = await restoreChore(chore.householdId, chore.id);
     setArchivedChores((currentChores) =>
@@ -731,7 +743,7 @@ export function ChoresPage({ households, householdsLoading, onNavigate }: Chores
                         <span>Archived</span>
                         <strong>{chore.title}</strong>
                         <small>
-                          {formatChoreHousehold(chore)} / {chore.cadence} / {chore.estimatedMinutes} min / {chore.source}
+                          {formatChoreHousehold(chore)} / {formatLegacyCadence(chore)} / {formatLegacyEstimatedMinutes(chore)} min / {chore.source}
                         </small>
                       </div>
                       <div className="archived-chore-actions">
@@ -755,7 +767,7 @@ export function ChoresPage({ households, householdsLoading, onNavigate }: Chores
                       <span>{formatReviewState(reviewState)}</span>
                       <strong>{chore.title}</strong>
                       <small>
-                        {formatChoreHousehold(chore)} / {chore.cadence} / {chore.estimatedMinutes} min / {chore.source}
+                        {formatChoreHousehold(chore)} / {formatLegacyCadence(chore)} / {formatLegacyEstimatedMinutes(chore)} min / {chore.source}
                       </small>
                     </button>
 

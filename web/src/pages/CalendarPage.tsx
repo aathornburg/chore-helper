@@ -31,6 +31,7 @@ function capitalize(value: string) {
 }
 
 function durationInMinutes(occurrence: ChoreOccurrence) {
+  if (!occurrence.plannedStartAt || !occurrence.plannedEndAt) return occurrence.estimatedMinutes;
   return Math.round((Date.parse(occurrence.plannedEndAt) - Date.parse(occurrence.plannedStartAt)) / 60000);
 }
 
@@ -45,14 +46,22 @@ function rangeForView(date: Date, view: CalendarView, timeZone: string) {
     : view === "week"
       ? endOfWeek(date, { weekStartsOn: 0 })
       : date;
+  const startOn = format(startDate, "yyyy-MM-dd");
+  const endOn = format(endDate, "yyyy-MM-dd");
   return {
-    startAt: fromZonedTime(`${format(startDate, "yyyy-MM-dd")}T00:00:00`, timeZone).toISOString(),
-    endAt: fromZonedTime(`${format(endDate, "yyyy-MM-dd")}T23:59:59`, timeZone).toISOString()
+    startAt: fromZonedTime(`${startOn}T00:00:00`, timeZone).toISOString(),
+    endAt: fromZonedTime(`${endOn}T23:59:59`, timeZone).toISOString(),
+    startOn,
+    endOn
   };
 }
 
 function localInputValue(instant: string, timeZone: string) {
   return formatInTimeZone(instant, timeZone, "yyyy-MM-dd'T'HH:mm");
+}
+
+function displayStart(occurrence: ChoreOccurrence) {
+  return occurrence.plannedStartAt ?? `${occurrence.eligibleStartOn}T00:00:00.000Z`;
 }
 
 export function CalendarPage({ households, isLoading }: CalendarPageProps) {
@@ -126,6 +135,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   }
 
   function openEditor(occurrence: ChoreOccurrence) {
+    if (!occurrence.plannedStartAt) return;
     setEditState({
       occurrenceId: occurrence.id,
       localStart: localInputValue(occurrence.plannedStartAt, timeZone),
@@ -145,7 +155,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     setOccurrences((current) => current.map((item) => item.id === updated.id ? updated : item));
     setEditState((current) => current?.occurrenceId === updated.id ? {
       occurrenceId: updated.id,
-      localStart: localInputValue(updated.plannedStartAt, timeZone),
+      localStart: updated.plannedStartAt ? localInputValue(updated.plannedStartAt, timeZone) : current.localStart,
       plannedMinutes: String(durationInMinutes(updated)),
       assignedUserId: updated.assignedUserId
     } : current);
@@ -167,7 +177,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
 
   async function handleDrop(slot: string) {
     const occurrence = occurrences.find((item) => item.id === draggingId);
-    if (!occurrence) return;
+    if (!occurrence?.plannedStartAt) return;
     const date = formatInTimeZone(occurrence.plannedStartAt, timeZone, "yyyy-MM-dd");
     await saveUpdate(occurrence, `${date}T${slot}`, durationInMinutes(occurrence), occurrence.assignedUserId);
     setDraggingId(undefined);
@@ -184,7 +194,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
         onDragStart={() => setDraggingId(occurrence.id)}
       >
         <strong>{title}</strong>
-        <span>{formatInTimeZone(occurrence.plannedStartAt, timeZone, "EEE, MMM d / h:mm a")} / {durationInMinutes(occurrence)} min</span>
+        <span>{formatInTimeZone(displayStart(occurrence), timeZone, "EEE, MMM d / h:mm a")} / {durationInMinutes(occurrence)} min</span>
         <span>{members.find((member) => member.userId === occurrence.assignedUserId)?.displayName ?? "Assigned member"}</span>
         {occurrence.status === "skipped" ? <span className="calendar-status">Skipped</span> : null}
         {isOwner ? (
@@ -266,6 +276,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                   <span>{slot}</span>
                   <div>
                   {visibleOccurrences.filter((occurrence) =>
+                    occurrence.plannedStartAt &&
                     formatInTimeZone(occurrence.plannedStartAt, timeZone, "HH:mm").startsWith(slot.slice(0, 2))
                   ).map(renderOccurrence)}
                   </div>

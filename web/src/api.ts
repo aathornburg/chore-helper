@@ -1,15 +1,19 @@
 import type {
   AppUserProfile,
   Chore,
+  ChoreDefinitionInput,
   ChoreOccurrence,
   ChoreSchedule,
+  CreateScheduledChoreInput,
   Household,
   HouseholdAppData,
   HouseholdInvitation,
   HouseholdMemberSummary,
   HouseholdProfile,
   HouseholdStructure,
-  Recommendation
+  Recommendation,
+  ScheduleInput,
+  ScheduledChore
 } from "@chore-helper/shared";
 
 /*
@@ -22,6 +26,19 @@ import type {
   `DefinePlugin` or a similar replacement strategy.
 */
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3001";
+
+type LegacyCreateChoreInput = ChoreDefinitionInput & {
+  cadence?: string;
+  estimatedMinutes?: number;
+};
+
+type LegacyCreateScheduleInput = Partial<ScheduleInput> & {
+  recurrence: ChoreSchedule["recurrence"];
+  localStartTime?: string;
+  plannedMinutes?: number;
+  startsOn: string;
+  assignment: ChoreSchedule["assignment"];
+};
 
 let getAuthToken: (() => Promise<string | null>) | undefined;
 
@@ -176,7 +193,7 @@ export async function saveHouseholdStructure(
 
 export async function createChore(
   householdId: string,
-  chore: Omit<Chore, "id" | "householdId" | "archivedAt">
+  chore: LegacyCreateChoreInput
 ): Promise<Chore> {
   const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/chores`, {
     method: "POST",
@@ -185,6 +202,20 @@ export async function createChore(
   });
 
   if (!response.ok) throw new Error("Failed to create chore");
+  return response.json();
+}
+
+export async function createScheduledChore(
+  householdId: string,
+  input: CreateScheduledChoreInput
+): Promise<ScheduledChore> {
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/chores`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input)
+  });
+
+  if (!response.ok) throw new Error("Failed to create scheduled chore");
   return response.json();
 }
 
@@ -209,7 +240,7 @@ export async function listChores(householdId: string): Promise<Chore[]> {
 export async function updateChore(
   householdId: string,
   choreId: string,
-  chore: Omit<Chore, "id" | "householdId" | "archivedAt">
+  chore: ChoreDefinitionInput
 ): Promise<Chore> {
   const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/chores/${choreId}`, {
     method: "PUT",
@@ -260,7 +291,7 @@ export async function listSchedules(householdId: string, choreId: string): Promi
 export async function createSchedule(
   householdId: string,
   choreId: string,
-  schedule: Omit<ChoreSchedule, "id" | "householdId" | "choreId" | "archivedAt">
+  schedule: LegacyCreateScheduleInput
 ): Promise<ChoreSchedule> {
   const response = await apiFetch(
     `${API_BASE_URL}/api/households/${householdId}/chores/${choreId}/schedules`,
@@ -277,15 +308,33 @@ export async function createSchedule(
 
 export async function listOccurrences(
   householdId: string,
-  range: { startAt: string; endAt: string; assignedUserId?: string }
+  range: { startAt: string; endAt: string; startOn: string; endOn: string; assignedUserId?: string }
 ): Promise<ChoreOccurrence[]> {
-  const params = new URLSearchParams({ startAt: range.startAt, endAt: range.endAt });
+  const params = new URLSearchParams({
+    startAt: range.startAt,
+    endAt: range.endAt,
+    startOn: range.startOn,
+    endOn: range.endOn
+  });
   if (range.assignedUserId) params.set("assignedUserId", range.assignedUserId);
   const response = await apiFetch(
     `${API_BASE_URL}/api/households/${householdId}/occurrences?${params.toString()}`
   );
 
   if (!response.ok) throw new Error("Failed to fetch occurrences");
+  return response.json();
+}
+
+export async function completeOccurrence(
+  householdId: string,
+  occurrenceId: string
+): Promise<ChoreOccurrence> {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/households/${householdId}/occurrences/${occurrenceId}/complete`,
+    { method: "POST" }
+  );
+
+  if (!response.ok) throw new Error("Failed to complete occurrence");
   return response.json();
 }
 
