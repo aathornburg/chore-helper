@@ -973,6 +973,35 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
       return occurrences.map(toOccurrence);
     },
 
+    async getOccurrence(householdId, occurrenceId) {
+      const occurrence = await prisma.choreOccurrence.findFirst({
+        where: { id: occurrenceId, householdId }
+      });
+
+      return occurrence ? toOccurrence(occurrence) : undefined;
+    },
+
+    async completeOccurrence(householdId, occurrenceId, completedByUserId, completedAt) {
+      const updated = await prisma.choreOccurrence.updateMany({
+        where: {
+          id: occurrenceId,
+          householdId,
+          status: "planned"
+        },
+        data: {
+          status: "completed",
+          completedAt: new Date(completedAt),
+          completedByUserId
+        }
+      });
+      if (updated.count === 0) return undefined;
+
+      const occurrence = await prisma.choreOccurrence.findFirst({
+        where: { id: occurrenceId, householdId }
+      });
+      return occurrence ? toOccurrence(occurrence) : undefined;
+    },
+
     async updateOccurrenceException(householdId, occurrenceId, update) {
       const existing = await prisma.choreOccurrence.findFirst({
         where: { id: occurrenceId, householdId }

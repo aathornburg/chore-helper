@@ -143,6 +143,13 @@ export type HouseholdStore = {
     householdId: string,
     range: OccurrenceRange
   ): StoreResult<ChoreOccurrence[]>;
+  getOccurrence(householdId: string, occurrenceId: string): StoreResult<ChoreOccurrence | undefined>;
+  completeOccurrence(
+    householdId: string,
+    occurrenceId: string,
+    completedByUserId: string,
+    completedAt: string
+  ): StoreResult<ChoreOccurrence | undefined>;
   updateOccurrenceException(
     householdId: string,
     occurrenceId: string,
@@ -576,6 +583,31 @@ export function createInMemoryStore(): HouseholdStore {
           );
         })
         .sort(compareOccurrences);
+    },
+
+    getOccurrence(householdId, occurrenceId) {
+      return Array.from(occurrences.values()).find(
+        (candidate) => candidate.id === occurrenceId && candidate.householdId === householdId
+      );
+    },
+
+    completeOccurrence(householdId, occurrenceId, completedByUserId, completedAt) {
+      const occurrence = Array.from(occurrences.values()).find(
+        (candidate) =>
+          candidate.id === occurrenceId &&
+          candidate.householdId === householdId &&
+          candidate.status === "planned"
+      );
+      if (!occurrence) return undefined;
+
+      const updated: ChoreOccurrence = {
+        ...occurrence,
+        status: "completed",
+        completedAt,
+        completedByUserId
+      };
+      occurrences.set(`${occurrence.scheduleId}:${occurrence.sequence}`, updated);
+      return updated;
     },
 
     updateOccurrenceException(householdId, occurrenceId, update) {

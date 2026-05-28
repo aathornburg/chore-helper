@@ -610,6 +610,27 @@ export function createHouseholdRouter(
     return res.status(200).json(occurrence);
   });
 
+  router.post("/:householdId/occurrences/:occurrenceId/complete", async (req, res) => {
+    const access = await requireHouseholdAccess(req, res);
+    if (!access) return;
+
+    const occurrence = await store.getOccurrence(access.household.id, req.params.occurrenceId);
+    if (!occurrence) return res.status(404).json({ error: "Occurrence not found" });
+    if (occurrence.assignedUserId !== access.user.id) {
+      return res.status(403).json({ error: "Only the assigned member can complete this occurrence" });
+    }
+
+    const completed = await store.completeOccurrence(
+      access.household.id,
+      occurrence.id,
+      access.user.id,
+      new Date().toISOString()
+    );
+    if (!completed) return res.status(409).json({ error: "Occurrence is no longer planned" });
+
+    return res.status(200).json(completed);
+  });
+
   router.post("/:householdId/chores/:choreId/schedules", async (req, res) => {
     const access = await requireHouseholdOwner(req, res);
     if (!access) return;

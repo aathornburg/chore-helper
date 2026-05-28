@@ -1,5 +1,6 @@
 import request from "supertest";
 import { describe, expect, it, vi } from "vitest";
+import type { ChoreOccurrence } from "@chore-helper/shared";
 import { createApp } from "../src/app.js";
 import { createInMemoryStore } from "../src/repositories/inMemoryStore.js";
 
@@ -69,6 +70,62 @@ async function prepareHousehold(app: ReturnType<typeof createApp>, links: string
   };
 }
 
+async function addMember(
+  app: ReturnType<typeof createApp>,
+  links: string[],
+  householdId: string,
+  email: string
+) {
+  await request(app)
+    .post(`/api/households/${householdId}/invitations`)
+    .set(auth("owner@example.com"))
+    .send({ email })
+    .expect(201);
+  await request(app)
+    .post(`/api/invitations/${links.at(-1)!.split("/").at(-1)!}/accept`)
+    .set(auth(email))
+    .expect(200);
+
+  const members = await request(app)
+    .get(`/api/households/${householdId}/members`)
+    .set(auth("owner@example.com"))
+    .expect(200);
+  return members.body.find((member: { primaryEmail: string }) => member.primaryEmail === email).userId as string;
+}
+
+async function createAssignedFlexibleOccurrence(
+  app: ReturnType<typeof createApp>,
+  household: Awaited<ReturnType<typeof prepareHousehold>>
+) {
+  const response = await request(app)
+    .post(`/api/households/${household.householdId}/chores`)
+    .set(auth("owner@example.com"))
+    .send({
+      chore: { title: "Clean bathrooms", source: "manual" },
+      schedules: [{
+        planningMode: "flexible",
+        recurrence: { frequency: "weekly", interval: 1, weekDays: [6, 0] },
+        estimatedMinutes: 60,
+        flexibleWindowRule: "once_within_selected_days",
+        startsOn: "2026-05-30",
+        assignment: { mode: "fixed", memberUserIds: [household.memberId] }
+      }]
+    })
+    .expect(201);
+  const scheduleId = response.body.schedules[0].id as string;
+  const occurrences = await request(app)
+    .get(`/api/households/${household.householdId}/occurrences`)
+    .query({
+      startAt: "2026-05-30T00:00:00.000Z",
+      endAt: "2026-05-31T23:59:59.999Z",
+      startOn: "2026-05-30",
+      endOn: "2026-05-31"
+    })
+    .set(auth("owner@example.com"))
+    .expect(200);
+  return occurrences.body.find((occurrence: ChoreOccurrence) => occurrence.scheduleId === scheduleId) as ChoreOccurrence;
+}
+
 function dailySchedule(memberId: string) {
   return {
     planningMode: "timed",
@@ -81,6 +138,71 @@ function dailySchedule(memberId: string) {
 }
 
 describe("chore schedules", () => {
+  it("lets the assigned member complete planned work with audit identity and timestamp", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-30T16:00:00.000Z"));
+
+    try {
+      const { app, links } = createScheduleTestApp();
+      const household = await prepareHousehold(app, links);
+      const occurrence = await createAssignedFlexibleOccurrence(app, household);
+
+      await request(app)
+        .post(`/api/households/${household.householdId}/occurrences/${occurrence.id}/complete`)
+        .set(auth("member@example.com"))
+        .expect(200)
+        .expect((response) => {
+          expect(response.body).toEqual(expect.objectContaining({
+            status: "completed",
+            completedAt: "2026-05-30T16:00:00.000Z",
+            completedByUserId: household.memberId
+          }));
+        });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not let a different ordinary member complete assigned work", async () => {
+    const { app, links } = createScheduleTestApp();
+    const household = await prepareHousehold(app, links);
+    await addMember(app, links, household.householdId, "other-member@example.com");
+    const occurrence = await createAssignedFlexibleOccurrence(app, household);
+
+    await request(app)
+      .post(`/api/households/${household.householdId}/occurrences/${occurrence.id}/complete`)
+      .set(auth("other-member@example.com"))
+      .expect(403);
+  });
+
+  it("returns not found for missing completed work and conflict for non-planned work", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-30T16:00:00.000Z"));
+
+    try {
+      const { app, links } = createScheduleTestApp();
+      const household = await prepareHousehold(app, links);
+      const occurrence = await createAssignedFlexibleOccurrence(app, household);
+
+      await request(app)
+        .post(`/api/households/${household.householdId}/occurrences/missing-occurrence/complete`)
+        .set(auth("member@example.com"))
+        .expect(404);
+
+      await request(app)
+        .post(`/api/households/${household.householdId}/occurrences/${occurrence.id}/complete`)
+        .set(auth("member@example.com"))
+        .expect(200);
+
+      await request(app)
+        .post(`/api/households/${household.householdId}/occurrences/${occurrence.id}/complete`)
+        .set(auth("member@example.com"))
+        .expect(409);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("creates a chore and multiple initial schedules atomically", async () => {
     const { app, links } = createScheduleTestApp();
     const household = await prepareHousehold(app, links);
@@ -499,7 +621,12 @@ describe("chore schedules", () => {
         .expect(200);
       const flexible = initial.body.filter((occurrence: { scheduleId: string }) => occurrence.scheduleId === scheduleId);
 
-      await request(app)
+      const completed = await request(app)
+        .post(`/api/households/${household.householdId}/occurrences/${flexible[0].id}/complete`)
+        .set(auth("member@example.com"))
+        .expect(200);
+
+      const skipped = await request(app)
         .post(`/api/households/${household.householdId}/occurrences/${flexible[1].id}/skip`)
         .set(auth("owner@example.com"))
         .expect(200);
@@ -531,13 +658,17 @@ describe("chore schedules", () => {
           const updatedFlexible = response.body.filter((occurrence: { scheduleId: string }) => occurrence.scheduleId === scheduleId);
           expect(updatedFlexible).toEqual([
             expect.objectContaining({
+              id: completed.body.id,
               eligibleStartOn: "2026-05-30",
               eligibleEndOn: "2026-05-31",
               estimatedMinutes: 60,
               assignedUserId: household.memberId,
-              exceptionType: "none"
+              exceptionType: "none",
+              status: "completed",
+              completedByUserId: household.memberId
             }),
             expect.objectContaining({
+              id: skipped.body.id,
               eligibleStartOn: "2026-06-06",
               eligibleEndOn: "2026-06-07",
               estimatedMinutes: 60,

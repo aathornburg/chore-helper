@@ -385,6 +385,67 @@ describe.skipIf(!safeConnectionString || !prisma)(
       })).toHaveLength(7);
     });
 
+    it("persists occurrence completion audit fields across store instances", async () => {
+      const firstStore = createPrismaStore(prisma!);
+      const owner = await firstStore.upsertUserByClerkId("owner");
+      const household = await firstStore.createHouseholdForUser("Home", owner.id);
+      const scheduled = await firstStore.createChoreWithSchedules({
+        householdId: household.id,
+        chore: { title: "Clean bathrooms", source: "manual" },
+        schedules: [{
+          planningMode: "flexible",
+          recurrence: { frequency: "weekly", interval: 1, weekDays: [6, 0] },
+          startsOn: "2026-05-30",
+          estimatedMinutes: 60,
+          flexibleWindowRule: "once_within_selected_days",
+          assignment: { mode: "fixed", memberUserIds: [owner.id] }
+        }]
+      });
+      const schedule = scheduled.schedules[0];
+      await firstStore.materializeScheduleOccurrences(
+        household.id,
+        schedule.id,
+        materializeOccurrences({
+          schedule,
+          householdTimeZone: household.timeZone,
+          rangeStart: "2026-05-30",
+          rangeEnd: "2026-05-31"
+        })
+      );
+      const occurrence = (await firstStore.listOccurrences(household.id, {
+        startAt: "2026-05-30T00:00:00.000Z",
+        endAt: "2026-05-31T23:59:59.999Z",
+        startOn: "2026-05-30",
+        endOn: "2026-05-31"
+      }))[0];
+
+      expect(await firstStore.completeOccurrence(
+        household.id,
+        occurrence.id,
+        owner.id,
+        "2026-05-30T16:00:00.000Z"
+      )).toEqual(expect.objectContaining({
+        status: "completed",
+        completedByUserId: owner.id,
+        completedAt: "2026-05-30T16:00:00.000Z"
+      }));
+      expect(await firstStore.completeOccurrence(
+        household.id,
+        occurrence.id,
+        owner.id,
+        "2026-05-30T17:00:00.000Z"
+      )).toBeUndefined();
+
+      const secondStore = createPrismaStore(prisma!);
+      expect(await secondStore.getOccurrence(household.id, occurrence.id)).toEqual(expect.objectContaining({
+        status: "completed",
+        eligibleStartOn: "2026-05-30",
+        eligibleEndOn: "2026-05-31",
+        completedByUserId: owner.id,
+        completedAt: "2026-05-30T16:00:00.000Z"
+      }));
+    });
+
     it("orders mixed occurrence modes and clears only untouched future flexible rows", async () => {
       const firstStore = createPrismaStore(prisma!);
       const owner = await firstStore.upsertUserByClerkId("owner");
@@ -477,6 +538,15 @@ describe.skipIf(!safeConnectionString || !prisma)(
         startOn: "2026-03-07",
         endOn: "2026-03-22"
       });
+      const completed = await firstStore.completeOccurrence(
+        household.id,
+        flexibleRows.find((occurrence) =>
+          occurrence.scheduleId === flexibleSchedule.id &&
+          occurrence.eligibleStartOn === "2026-03-07"
+        )!.id,
+        member.id,
+        "2026-03-08T18:00:00.000Z"
+      );
       await firstStore.skipOccurrence(
         household.id,
         flexibleRows.find((occurrence) =>
@@ -510,7 +580,14 @@ describe.skipIf(!safeConnectionString || !prisma)(
         startOn: "2026-03-07",
         endOn: "2026-03-22"
       })).filter((occurrence) => occurrence.scheduleId === flexibleSchedule.id)).toEqual([
-        expect.objectContaining({ eligibleStartOn: "2026-03-07", estimatedMinutes: 60, assignedUserId: member.id }),
+        expect.objectContaining({
+          id: completed!.id,
+          eligibleStartOn: "2026-03-07",
+          estimatedMinutes: 60,
+          assignedUserId: member.id,
+          status: "completed",
+          completedByUserId: member.id
+        }),
         expect.objectContaining({ eligibleStartOn: "2026-03-14", estimatedMinutes: 60, assignedUserId: member.id, status: "skipped" }),
         expect.objectContaining({ eligibleStartOn: "2026-03-21", estimatedMinutes: 45, assignedUserId: owner.id })
       ]);
