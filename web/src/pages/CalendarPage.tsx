@@ -124,6 +124,10 @@ function tagsFromText(value: string) {
   return value.split(",").map((tag) => tag.trim()).filter(Boolean);
 }
 
+function isDraftDisabled(editorMode: EditorMode) {
+  return editorMode === "edit";
+}
+
 export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>("calendar");
   const [calendarScale, setCalendarScale] = useState<CalendarScale>("month");
@@ -403,6 +407,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   }
 
   function renderScheduleDraft(schedule: ScheduleDraft, index: number) {
+    const disabled = isDraftDisabled(editorMode);
     return (
       <section className="schedule-form" key={schedule.key}>
         <div className="field-grid">
@@ -410,6 +415,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
             Planning mode
             <select
               aria-label="Planning mode"
+              disabled={disabled}
               value={schedule.planningMode}
               onChange={(event) => updateSchedule(index, event.target.value === "flexible"
                 ? seedDraftAssignees(createEmptyFlexibleScheduleDraft())
@@ -434,11 +440,12 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
         <div className="field-grid">
           <label>
             Starts on
-            <input type="date" value={schedule.startsOn} onChange={(event) => updateSchedule(index, { startsOn: event.target.value })} />
+            <input disabled={disabled} type="date" value={schedule.startsOn} onChange={(event) => updateSchedule(index, { startsOn: event.target.value })} />
           </label>
           <label>
             Repeat
             <select
+              disabled={disabled}
               value={schedule.recurrence.frequency}
               onChange={(event) => updateSchedule(index, {
                 recurrence: {
@@ -462,6 +469,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
               <label className="checkbox-field" key={weekday.value}>
                 <input
                   checked={Boolean(schedule.recurrence.weekDays?.includes(weekday.value))}
+                  disabled={disabled}
                   onChange={(event) => {
                     const currentDays = schedule.recurrence.weekDays ?? [];
                     updateSchedule(index, {
@@ -484,22 +492,22 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
           <div className="field-grid">
             <label>
               Start time
-              <input type="time" value={schedule.localStartTime} onChange={(event) => updateSchedule(index, { localStartTime: event.target.value })} />
+              <input disabled={disabled} type="time" value={schedule.localStartTime} onChange={(event) => updateSchedule(index, { localStartTime: event.target.value })} />
             </label>
             <label>
               End time
-              <input type="time" value={schedule.localEndTime} onChange={(event) => updateSchedule(index, { localEndTime: event.target.value })} />
+              <input disabled={disabled} type="time" value={schedule.localEndTime} onChange={(event) => updateSchedule(index, { localEndTime: event.target.value })} />
             </label>
           </div>
         ) : (
           <div className="field-grid">
             <label>
               Estimated duration
-              <input min="1" type="number" value={schedule.estimatedMinutes} onChange={(event) => updateSchedule(index, { estimatedMinutes: Number(event.target.value) })} />
+              <input disabled={disabled} min="1" type="number" value={schedule.estimatedMinutes} onChange={(event) => updateSchedule(index, { estimatedMinutes: Number(event.target.value) })} />
             </label>
             <label>
               Flexible window
-              <select value={schedule.flexibleWindowRule} onChange={(event) => updateSchedule(index, { flexibleWindowRule: event.target.value as "once_within_selected_days" | "each_selected_day" })}>
+              <select disabled={disabled} value={schedule.flexibleWindowRule} onChange={(event) => updateSchedule(index, { flexibleWindowRule: event.target.value as "once_within_selected_days" | "each_selected_day" })}>
                 <option value="once_within_selected_days">Once within selected days</option>
                 <option value="each_selected_day">Each selected day</option>
               </select>
@@ -509,6 +517,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
         <label>
           Assignee
           <select
+            disabled={disabled}
             value={schedule.assignment.memberUserIds[0] ?? ""}
             onChange={(event) => updateSchedule(index, { assignment: { mode: "fixed", memberUserIds: [event.target.value] } })}
           >
@@ -631,7 +640,20 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
 
           {editorMode !== "closed" && editorDraft ? (
             <div className="chore-editor-backdrop" role="presentation">
-              <form className="chore-editor-modal" onSubmit={(event) => editorMode === "create" ? void saveCreate(event) : void handleOccurrenceSubmit(event)}>
+              <form
+                className="chore-editor-modal"
+                onSubmit={(event) => {
+                  if (editorMode === "create") {
+                    void saveCreate(event);
+                    return;
+                  }
+                  if (editState) {
+                    void handleOccurrenceSubmit(event);
+                    return;
+                  }
+                  event.preventDefault();
+                }}
+              >
                 <div className="panel-heading">
                   <div>
                     <p className="eyebrow">{editorMode === "create" ? "New chore" : "Selected occurrence"}</p>
@@ -642,17 +664,20 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                 <div className="field-grid">
                   <label>
                     Chore title
-                    <input value={editorDraft.title} onChange={(event) => setEditorDraft({ ...editorDraft, title: event.target.value })} required />
+                    <input disabled={editorMode === "edit"} value={editorDraft.title} onChange={(event) => setEditorDraft({ ...editorDraft, title: event.target.value })} required />
                   </label>
                   <label>
                     Tags
-                    <input value={editorDraft.tags} onChange={(event) => setEditorDraft({ ...editorDraft, tags: event.target.value })} />
+                    <input disabled={editorMode === "edit"} value={editorDraft.tags} onChange={(event) => setEditorDraft({ ...editorDraft, tags: event.target.value })} />
                   </label>
                 </div>
                 <label>
                   Instructions
-                  <textarea value={editorDraft.instructions} onChange={(event) => setEditorDraft({ ...editorDraft, instructions: event.target.value })} />
+                  <textarea disabled={editorMode === "edit"} value={editorDraft.instructions} onChange={(event) => setEditorDraft({ ...editorDraft, instructions: event.target.value })} />
                 </label>
+                {editorMode === "edit" ? (
+                  <p className="empty-state">Schedule series details are shown for context. This release supports changing timed occurrence timing here; full series editing is coming with schedule mutation APIs.</p>
+                ) : null}
                 {selectedOccurrence ? (
                   <section className="schedule-card">
                     <strong>Selected occurrence</strong>
@@ -662,16 +687,18 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                 <section className="schedule-editor">
                   <div className="panel-heading">
                     <h3>Schedule Series</h3>
-                    <button
-                      className="section-action"
-                      onClick={() => setEditorDraft({
-                        ...editorDraft,
-                        schedules: [...editorDraft.schedules, seedDraftAssignees(createEmptyFlexibleScheduleDraft())]
-                      })}
-                      type="button"
-                    >
-                      Add schedule
-                    </button>
+                    {editorMode === "create" ? (
+                      <button
+                        className="section-action"
+                        onClick={() => setEditorDraft({
+                          ...editorDraft,
+                          schedules: [...editorDraft.schedules, seedDraftAssignees(createEmptyFlexibleScheduleDraft())]
+                        })}
+                        type="button"
+                      >
+                        Add schedule
+                      </button>
+                    ) : null}
                   </div>
                   {editorDraft.schedules.map(renderScheduleDraft)}
                 </section>
@@ -708,7 +735,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                 <button aria-expanded="false" className="section-action" type="button">History</button>
                 {editorStatus ? <p role="status">{editorStatus}</p> : null}
                 <div className="form-actions">
-                  <button type="submit">{editorMode === "create" ? "Save chore" : "Save occurrence"}</button>
+                  {editorMode === "create" || editState ? <button type="submit">{editorMode === "create" ? "Save chore" : "Save occurrence"}</button> : null}
                   {editorMode === "edit" && selectedOccurrence ? <button className="section-action" onClick={() => void handleSkip()} type="button">Skip occurrence</button> : null}
                 </div>
               </form>
