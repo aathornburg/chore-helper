@@ -27,19 +27,6 @@ import type {
 */
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3001";
 
-type LegacyCreateChoreInput = ChoreDefinitionInput & {
-  cadence?: string;
-  estimatedMinutes?: number;
-};
-
-type LegacyCreateScheduleInput = Partial<ScheduleInput> & {
-  recurrence: ChoreSchedule["recurrence"];
-  localStartTime?: string;
-  plannedMinutes?: number;
-  startsOn: string;
-  assignment: ChoreSchedule["assignment"];
-};
-
 let getAuthToken: (() => Promise<string | null>) | undefined;
 
 export function configureApiAuth(nextGetAuthToken: () => Promise<string | null>) {
@@ -191,20 +178,6 @@ export async function saveHouseholdStructure(
   return response.json();
 }
 
-export async function createChore(
-  householdId: string,
-  chore: LegacyCreateChoreInput
-): Promise<Chore> {
-  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/chores`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(chore)
-  });
-
-  if (!response.ok) throw new Error("Failed to create chore");
-  return response.json();
-}
-
 export async function createScheduledChore(
   householdId: string,
   input: CreateScheduledChoreInput
@@ -291,7 +264,7 @@ export async function listSchedules(householdId: string, choreId: string): Promi
 export async function createSchedule(
   householdId: string,
   choreId: string,
-  schedule: LegacyCreateScheduleInput
+  schedule: ScheduleInput
 ): Promise<ChoreSchedule> {
   const response = await apiFetch(
     `${API_BASE_URL}/api/households/${householdId}/chores/${choreId}/schedules`,

@@ -1168,7 +1168,17 @@ describe("App", () => {
     await waitFor(() => expect(screen.getByText("09:00 / 30 min")).toBeTruthy());
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:3001/api/households/household-1/chores/chore-1/schedules",
-      expect.objectContaining({ method: "POST" })
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          planningMode: "timed",
+          recurrence: { frequency: "daily", interval: 1 },
+          localStartTime: "09:00",
+          localEndTime: "09:30",
+          startsOn: "2026-05-25",
+          assignment: { mode: "fixed", memberUserIds: ["app-user-1"] }
+        })
+      })
     );
   });
 
@@ -1246,12 +1256,13 @@ describe("App", () => {
         return {
           ok: true,
           json: async () => ({
-            id: "chore-2",
-            householdId: "household-2",
-            title: "Sweep porch",
-            cadence: "weekly",
-            estimatedMinutes: 15,
-            source: "manual"
+            chore: {
+              id: "chore-2",
+              householdId: "household-2",
+              title: "Sweep porch",
+              source: "manual"
+            },
+            schedules: []
           })
         };
       }
@@ -1279,19 +1290,20 @@ describe("App", () => {
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({
-          title: "Sweep porch",
-          cadence: "weekly",
-          estimatedMinutes: 15,
-          source: "manual",
-          instructions: "Sweep steps and shake the mat.",
-          tags: ["outdoor", "weekly"]
+          chore: {
+            title: "Sweep porch",
+            source: "manual",
+            instructions: "Sweep steps and shake the mat.",
+            tags: ["outdoor", "weekly"]
+          },
+          schedules: []
         })
       })
     );
   });
 
   it("creates an optional initial schedule while adding a chore", async () => {
-    let finishScheduleRequest: (() => void) | undefined;
+    let finishCreateRequest: (() => void) | undefined;
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = input.toString();
       const method = init?.method ?? "GET";
@@ -1321,23 +1333,31 @@ describe("App", () => {
         };
       }
       if (url === "http://localhost:3001/api/households/household-1/chores" && method === "POST") {
+        await new Promise<void>((resolve) => {
+          finishCreateRequest = resolve;
+        });
         return {
           ok: true,
           json: async () => ({
-            id: "chore-2",
-            householdId: "household-1",
-            title: "Reset kitchen",
-            cadence: "daily",
-            estimatedMinutes: 20,
-            source: "manual"
+            chore: {
+              id: "chore-2",
+              householdId: "household-1",
+              title: "Reset kitchen",
+              source: "manual"
+            },
+            schedules: [{
+              id: "schedule-2",
+              householdId: "household-1",
+              choreId: "chore-2",
+              planningMode: "timed",
+              recurrence: { frequency: "daily", interval: 1 },
+              localStartTime: "09:00",
+              localEndTime: "09:30",
+              startsOn: "2026-05-25",
+              assignment: { mode: "fixed", memberUserIds: ["app-user-1"] }
+            }]
           })
         };
-      }
-      if (url === "http://localhost:3001/api/households/household-1/chores/chore-2/schedules" && method === "POST") {
-        await new Promise<void>((resolve) => {
-          finishScheduleRequest = resolve;
-        });
-        return { ok: true, json: async () => ({ id: "schedule-2" }) };
       }
 
       throw new Error(`Unhandled fetch ${method} ${url}`);
@@ -1358,25 +1378,33 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save chore" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:3001/api/households/household-1/chores/chore-2/schedules",
+      "http://localhost:3001/api/households/household-1/chores",
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({
-          recurrence: { frequency: "daily", interval: 1 },
-          localStartTime: "09:00",
-          startsOn: "2026-05-25",
-          plannedMinutes: 30,
-          assignment: { mode: "fixed", memberUserIds: ["app-user-1"] }
+          chore: {
+            title: "Reset kitchen",
+            source: "manual",
+            tags: []
+          },
+          schedules: [{
+            planningMode: "timed",
+            recurrence: { frequency: "daily", interval: 1 },
+            localStartTime: "09:00",
+            localEndTime: "09:30",
+            startsOn: "2026-05-25",
+            assignment: { mode: "fixed", memberUserIds: ["app-user-1"] }
+          }]
         })
       })
     ));
     expect(screen.getByLabelText("Add initial schedule")).toBeTruthy();
 
-    finishScheduleRequest?.();
+    finishCreateRequest?.();
     await waitFor(() => expect(screen.queryByLabelText("Add initial schedule")).toBeNull());
   });
 
-  it("keeps a created chore visible when its initial schedule fails to save", async () => {
+  it("keeps the add form open when atomic scheduled chore creation fails", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = input.toString();
       const method = init?.method ?? "GET";
@@ -1406,20 +1434,7 @@ describe("App", () => {
         };
       }
       if (url === "http://localhost:3001/api/households/household-1/chores" && method === "POST") {
-        return {
-          ok: true,
-          json: async () => ({
-            id: "chore-3",
-            householdId: "household-1",
-            title: "Clean entry",
-            cadence: "weekly",
-            estimatedMinutes: 15,
-            source: "manual"
-          })
-        };
-      }
-      if (url === "http://localhost:3001/api/households/household-1/chores/chore-3/schedules" && method === "POST") {
-        return { ok: false, json: async () => ({ error: "Schedule failed" }) };
+        return { ok: false, json: async () => ({ error: "Scheduled chore failed" }) };
       }
 
       throw new Error(`Unhandled fetch ${method} ${url}`);
@@ -1437,8 +1452,9 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Estimated minutes"), { target: { value: "15" } });
     fireEvent.click(screen.getByRole("button", { name: "Save chore" }));
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "Expand Clean entry" })).toBeTruthy());
-    expect(screen.getByText("Chore added, but its schedule could not be saved. Open the chore to finish scheduling.")).toBeTruthy();
+    await waitFor(() => expect(screen.getByText("Could not add chore.")).toBeTruthy());
+    expect(screen.getByLabelText("Add initial schedule")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Expand Clean entry" })).toBeNull();
   });
 
   it("requires a household before a chore can be added", async () => {

@@ -6,12 +6,13 @@ import {
   type ChoreSchedule,
   type Household,
   type HouseholdMemberSummary,
-  type Recommendation
+  type Recommendation,
+  type ScheduleInput
 } from "@chore-helper/shared";
 import {
   archiveChore,
-  createChore,
   createSchedule,
+  createScheduledChore,
   getCurrentUser,
   listAllChores,
   listAllRecommendations,
@@ -119,6 +120,68 @@ function formatLegacyCadence(chore: LegacyChore) {
 
 function formatLegacyEstimatedMinutes(chore: LegacyChore) {
   return chore.estimatedMinutes ?? 0;
+}
+
+function addMinutesToLocalTime(localStartTime: string, durationMinutes: number) {
+  const [hours = 0, minutes = 0] = localStartTime.split(":").map(Number);
+  const totalMinutes = ((hours * 60 + minutes + durationMinutes) % (24 * 60) + 24 * 60) % (24 * 60);
+  const endHours = Math.floor(totalMinutes / 60);
+  const endMinutes = totalMinutes % 60;
+  return `${String(endHours).padStart(2, "0")}:${String(endMinutes).padStart(2, "0")}`;
+}
+
+function getSchedulePlannedMinutes(schedule: LegacyChoreSchedule) {
+  if (typeof schedule.plannedMinutes === "number") return schedule.plannedMinutes;
+  if ("estimatedMinutes" in schedule) return schedule.estimatedMinutes;
+  const [startHours = 0, startMinutes = 0] = schedule.localStartTime.split(":").map(Number);
+  const [endHours = 0, endMinutes = 0] = schedule.localEndTime.split(":").map(Number);
+  const startTotal = startHours * 60 + startMinutes;
+  const endTotal = endHours * 60 + endMinutes;
+  return (endTotal - startTotal + 24 * 60) % (24 * 60);
+}
+
+function buildTimedScheduleInput({
+  frequency,
+  interval,
+  weekDays,
+  monthlyDay,
+  localStartTime,
+  plannedMinutes,
+  startsOn,
+  endsOn,
+  assignmentMode,
+  assignees
+}: {
+  frequency: ChoreSchedule["recurrence"]["frequency"];
+  interval: string;
+  weekDays: string;
+  monthlyDay: string;
+  localStartTime: string;
+  plannedMinutes: string;
+  startsOn: string;
+  endsOn: string;
+  assignmentMode: ChoreSchedule["assignment"]["mode"];
+  assignees: string[];
+}): ScheduleInput {
+  const recurrence: ChoreSchedule["recurrence"] = {
+    frequency,
+    interval: Number(interval),
+    ...(frequency === "weekly"
+      ? { weekDays: weekDays.split(",").map((day) => Number(day.trim())).filter((day) => !Number.isNaN(day)) }
+      : {}),
+    ...(frequency === "monthly" ? { monthlyDay: Number(monthlyDay) } : {})
+  };
+  const durationMinutes = Number(plannedMinutes);
+
+  return {
+    planningMode: "timed",
+    recurrence,
+    localStartTime,
+    localEndTime: addMinutesToLocalTime(localStartTime, durationMinutes),
+    startsOn,
+    ...(endsOn ? { endsOn } : {}),
+    assignment: { mode: assignmentMode, memberUserIds: assignees }
+  };
 }
 
 type ChoresPageProps = {
@@ -329,50 +392,47 @@ export function ChoresPage({ households, householdsLoading, onNavigate }: Chores
     setStatus("Adding chore...");
     let added: LegacyChore;
     try {
-      added = await createChore(newHouseholdId, {
+      const created = await createScheduledChore(newHouseholdId, {
+        chore: {
+          title: newTitle.trim(),
+          source: "manual",
+          instructions: newInstructions.trim() || undefined,
+          tags: newTags.split(",").map((tag) => tag.trim()).filter(Boolean)
+        },
+        schedules: newHasInitialSchedule
+          ? [buildTimedScheduleInput({
+            frequency: newScheduleFrequency,
+            interval: newScheduleInterval,
+            weekDays: newScheduleWeekDays,
+            monthlyDay: newScheduleMonthlyDay,
+            localStartTime: newScheduleStartTime,
+            plannedMinutes: newSchedulePlannedMinutes,
+            startsOn: newScheduleStartsOn,
+            endsOn: newScheduleEndsOn,
+            assignmentMode: newScheduleAssignmentMode,
+            assignees: newScheduleAssignees
+          })]
+          : []
+      });
+      added = {
+        ...created.chore,
         title: newTitle.trim(),
         cadence: newCadence.trim(),
         estimatedMinutes: Number(newEstimatedMinutes),
-        source: "manual",
-        instructions: newInstructions.trim() || undefined,
-        tags: newTags.split(",").map((tag) => tag.trim()).filter(Boolean)
-      });
+        householdName: households.find((household) => household.id === newHouseholdId)?.name
+      };
     } catch {
       setStatus("Could not add chore.");
       setIsCreatingChore(false);
       return;
     }
 
-    const householdName = households.find((household) => household.id === newHouseholdId)?.name;
-    setChores((currentChores) => [...currentChores, { ...added, householdName }]);
+    setChores((currentChores) => [...currentChores, added]);
     setRecommendations([]);
     setActiveTab("all-active");
-
-    if (newHasInitialSchedule) {
-      const recurrence: ChoreSchedule["recurrence"] = {
-        frequency: newScheduleFrequency,
-        interval: Number(newScheduleInterval),
-        ...(newScheduleFrequency === "weekly"
-          ? { weekDays: newScheduleWeekDays.split(",").map((day) => Number(day.trim())).filter((day) => !Number.isNaN(day)) }
-          : {}),
-        ...(newScheduleFrequency === "monthly" ? { monthlyDay: Number(newScheduleMonthlyDay) } : {})
-      };
-      try {
-        await createSchedule(newHouseholdId, added.id, {
-          recurrence,
-          localStartTime: newScheduleStartTime,
-          startsOn: newScheduleStartsOn,
-          ...(newScheduleEndsOn ? { endsOn: newScheduleEndsOn } : {}),
-          plannedMinutes: Number(newSchedulePlannedMinutes),
-          assignment: { mode: newScheduleAssignmentMode, memberUserIds: newScheduleAssignees }
-        });
-        setStatus("Chore and schedule added. Open Calendar to review planned occurrences.");
-      } catch {
-        setStatus("Chore added, but its schedule could not be saved. Open the chore to finish scheduling.");
-      }
-    } else {
-      setStatus("Chore added. Run review when you are ready.");
-    }
+    setStatus(newHasInitialSchedule
+      ? "Chore and schedule added. Open Calendar to review planned occurrences."
+      : "Chore added. Run review when you are ready.");
 
     setIsAddFormOpen(false);
     setIsCreatingChore(false);
@@ -427,22 +487,18 @@ export function ChoresPage({ households, householdsLoading, onNavigate }: Chores
     event.preventDefault();
     if (!expandedChore || scheduleAssignees.length === 0) return;
 
-    const recurrence: ChoreSchedule["recurrence"] = {
+    const created = await createSchedule(expandedChore.householdId, expandedChore.id, buildTimedScheduleInput({
       frequency: scheduleFrequency,
-      interval: Number(scheduleInterval),
-      ...(scheduleFrequency === "weekly"
-        ? { weekDays: scheduleWeekDays.split(",").map((day) => Number(day.trim())).filter((day) => !Number.isNaN(day)) }
-        : {}),
-      ...(scheduleFrequency === "monthly" ? { monthlyDay: Number(scheduleMonthlyDay) } : {})
-    };
-    const created = await createSchedule(expandedChore.householdId, expandedChore.id, {
-      recurrence,
+      interval: scheduleInterval,
+      weekDays: scheduleWeekDays,
+      monthlyDay: scheduleMonthlyDay,
       localStartTime: scheduleStartTime,
+      plannedMinutes: schedulePlannedMinutes,
       startsOn: scheduleStartsOn,
-      ...(scheduleEndsOn ? { endsOn: scheduleEndsOn } : {}),
-      plannedMinutes: Number(schedulePlannedMinutes),
-      assignment: { mode: scheduleAssignmentMode, memberUserIds: scheduleAssignees }
-    });
+      endsOn: scheduleEndsOn,
+      assignmentMode: scheduleAssignmentMode,
+      assignees: scheduleAssignees
+    }));
     setSchedules((current) => [...current, created]);
     setIsScheduleFormOpen(false);
     setStatus("Schedule added. Open Calendar to review planned occurrences.");
@@ -850,7 +906,7 @@ export function ChoresPage({ households, householdsLoading, onNavigate }: Chores
                             {schedules.map((schedule) => (
                               <article className="schedule-card" key={schedule.id}>
                                 <strong>{formatScheduleRecurrence(schedule)}</strong>
-                                <span>{schedule.localStartTime} / {schedule.plannedMinutes} min</span>
+                                <span>{schedule.localStartTime} / {getSchedulePlannedMinutes(schedule)} min</span>
                                 <span>{schedule.assignment.mode === "rotation" ? "Rotates assignments" : "Fixed assignment"}</span>
                               </article>
                             ))}
