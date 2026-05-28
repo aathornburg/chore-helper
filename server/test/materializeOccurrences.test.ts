@@ -172,6 +172,27 @@ describe("materializeOccurrences", () => {
     expect(occurrences.map((item) => item.eligibleStartOn)).toEqual(["2026-05-30", "2026-05-31"]);
   });
 
+  it("anchors biweekly flexible weekend windows to the schedule start date", () => {
+    const occurrences = materializeOccurrences({
+      schedule: flexibleSchedule({
+        recurrence: { frequency: "weekly", interval: 2, weekDays: [6, 0] },
+        flexibleWindowRule: "once_within_selected_days",
+        startsOn: "2026-05-30"
+      }),
+      householdTimeZone: "America/New_York",
+      rangeStart: "2026-05-30",
+      rangeEnd: "2026-06-14"
+    });
+
+    expect(occurrences.map((occurrence) => ({
+      eligibleStartOn: occurrence.eligibleStartOn,
+      eligibleEndOn: occurrence.eligibleEndOn
+    }))).toEqual([
+      { eligibleStartOn: "2026-05-30", eligibleEndOn: "2026-05-31" },
+      { eligibleStartOn: "2026-06-13", eligibleEndOn: "2026-06-14" }
+    ]);
+  });
+
   it("rotates flexible assignments by obligation sequence rather than eligible day projection", () => {
     const occurrences = materializeOccurrences({
       schedule: flexibleSchedule({

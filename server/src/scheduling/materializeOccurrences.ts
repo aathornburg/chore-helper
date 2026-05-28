@@ -2,7 +2,6 @@ import {
   addMinutes,
   differenceInCalendarDays,
   differenceInCalendarMonths,
-  differenceInCalendarWeeks,
   eachDayOfInterval,
   format,
   getDay,
@@ -30,7 +29,7 @@ function isScheduledDate(schedule: ChoreSchedule, date: Date, startDate: Date) {
   }
 
   if (recurrence.frequency === "weekly") {
-    const weeksSinceStart = differenceInCalendarWeeks(date, startDate, { weekStartsOn: 0 });
+    const weeksSinceStart = Math.floor(differenceInCalendarDays(date, startDate) / 7);
     return (
       weeksSinceStart % recurrence.interval === 0 &&
       Boolean(recurrence.weekDays?.includes(getDay(date)))
