@@ -57,7 +57,7 @@ export function TodayDashboard({ households, isLoading, loadError, onNavigate }:
         {households.length === 0 ? (
           <button onClick={() => onNavigate("/households")} type="button">Set up household</button>
         ) : (
-          <button onClick={() => onNavigate("/chores")} type="button">Manage chores</button>
+          <button onClick={() => onNavigate("/calendar")} type="button">Manage chores</button>
         )}
       </header>
 
@@ -87,7 +87,7 @@ export function TodayDashboard({ households, isLoading, loadError, onNavigate }:
                   {!profileComplete ? (
                     <button onClick={() => onNavigate("/households")} type="button">Complete profile</button>
                   ) : household.chores.length === 0 ? (
-                    <button onClick={() => onNavigate("/chores")} type="button">Add chores</button>
+                    <button onClick={() => onNavigate("/calendar")} type="button">Add chores</button>
                   ) : (
                     <button onClick={() => onNavigate("/optimize")} type="button">Optimize plan</button>
                   )}

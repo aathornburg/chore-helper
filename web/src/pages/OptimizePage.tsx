@@ -448,7 +448,7 @@ function HouseholdOptimizePanel({
 
           <div className="chat-thread" aria-label="Assistant conversation">
             {chatMessages.length === 0 ? (
-              <p className="empty-state">Ask a question about chore scope, cadence, or missing recurring work.</p>
+              <p className="empty-state">Ask a question about chore scope, scheduling, or missing recurring work.</p>
             ) : null}
             {chatMessages.map((message) => (
               <article className={`chat-message chat-message-${message.role}`} key={message.id}>

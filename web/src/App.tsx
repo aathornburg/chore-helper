@@ -3,7 +3,6 @@ import { SignInButton, SignUpButton, SignedIn, SignedOut, UserButton } from "@cl
 import { ApiAuthBridge } from "./auth/AuthProvider";
 import { OptimizePage } from "./pages/OptimizePage";
 import { HouseholdsPage } from "./pages/HouseholdsPage";
-import { ChoresPage } from "./pages/ChoresPage";
 import { CalendarPage } from "./pages/CalendarPage";
 import { FamilyPage } from "./pages/FamilyPage";
 import { LandingPage } from "./pages/LandingPage";
@@ -108,9 +107,6 @@ function AppRoutes() {
       {path === "/households" ? (
         <HouseholdsPage households={households} isLoading={isLoading} onAddHousehold={addHousehold} onReload={reloadHouseholds} />
       ) : null}
-      {path === "/chores" ? (
-        <ChoresPage households={households} householdsLoading={isLoading} onNavigate={navigate} />
-      ) : null}
       {path === "/optimize" ? (
         <OptimizePage
           households={households}
@@ -136,7 +132,6 @@ function AppShell({
     { label: "Today", path: "/today" },
     { label: "Calendar", path: "/calendar" },
     { label: "Households", path: "/households" },
-    { label: "Chores", path: "/chores" },
     { label: "Optimize", path: "/optimize" },
     { label: "Family", path: "/family" },
     { label: "Settings", path: "/settings" }

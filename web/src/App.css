@@ -264,6 +264,21 @@ button:hover {
   color: #fff;
 }
 
+.calendar-workspace-toggle {
+  display: flex;
+  gap: 8px;
+}
+
+.calendar-workspace-toggle button {
+  background: #f4f0e9;
+  color: #2f694d;
+}
+
+.calendar-workspace-toggle button[aria-pressed="true"] {
+  background: #2f694d;
+  color: #fff;
+}
+
 .calendar-toolbar {
   align-items: end;
   display: grid;
@@ -325,6 +340,13 @@ button:hover {
   padding: 0;
 }
 
+.calendar-anytime-region {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 18px;
+  padding: 18px;
+}
+
 .calendar-time-slot {
   align-items: start;
   border-bottom: 1px solid #eaded1;
@@ -355,6 +377,62 @@ button:hover {
 .calendar-edit-form h2,
 .calendar-edit-form .form-actions {
   grid-column: 1 / -1;
+}
+
+.occurrence-flexible-badge,
+.occurrence-overdue-badge {
+  border-radius: 999px;
+  justify-self: start;
+  padding: 3px 8px;
+}
+
+.occurrence-flexible-badge {
+  background: #e8f0e4;
+  color: #2f694d !important;
+}
+
+.occurrence-overdue-badge {
+  background: #fff1e6;
+  color: #9a4f3f !important;
+}
+
+.chore-editor-backdrop {
+  background: rgba(30, 38, 32, 0.32);
+  display: grid;
+  inset: 0;
+  padding: 24px;
+  place-items: center;
+  position: fixed;
+  z-index: 30;
+}
+
+.chore-editor-modal {
+  background: #fffefa;
+  border: 1px solid #eaded1;
+  border-radius: 22px;
+  box-shadow: 0 28px 70px rgba(62, 49, 37, 0.2);
+  display: grid;
+  gap: 18px;
+  max-height: calc(100vh - 48px);
+  max-width: 980px;
+  overflow: auto;
+  padding: 24px;
+  width: min(980px, 100%);
+}
+
+.calendar-list-group {
+  display: grid;
+  gap: 10px;
+}
+
+.calendar-list-day {
+  display: grid;
+  gap: 10px;
+}
+
+.calendar-list-day h3 {
+  color: #24352e;
+  margin: 6px 0 0;
 }
 
 .schedule-editor {
@@ -1818,6 +1896,14 @@ button.chore-row-summary[aria-expanded="true"] {
 
   .calendar-time-slot {
     grid-template-columns: 1fr;
+  }
+
+  .chore-editor-modal {
+    border-radius: 0;
+    inset: 0;
+    max-height: none;
+    max-width: none;
+    position: fixed;
   }
 
   .family-row {
