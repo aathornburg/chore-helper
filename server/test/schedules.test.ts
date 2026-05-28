@@ -373,6 +373,192 @@ describe("chore schedules", () => {
     expect(saturdayFlexible[0]).not.toHaveProperty("plannedStartAt");
   });
 
+  it("orders mixed timed and flexible occurrences by local eligibility date and planned time", async () => {
+    const { app, links } = createScheduleTestApp();
+    const household = await prepareHousehold(app, links);
+
+    await request(app)
+      .put(`/api/households/${household.householdId}/settings`)
+      .set(auth("owner@example.com"))
+      .send({ timeZone: "America/Los_Angeles" })
+      .expect(200);
+
+    await request(app)
+      .post(`/api/households/${household.householdId}/chores`)
+      .set(auth("owner@example.com"))
+      .send({
+        chore: { title: "Mixed ordering", source: "manual" },
+        schedules: [
+          {
+            planningMode: "flexible",
+            recurrence: { frequency: "weekly", interval: 1, weekDays: [6, 0] },
+            startsOn: "2026-03-07",
+            estimatedMinutes: 45,
+            flexibleWindowRule: "once_within_selected_days",
+            assignment: { mode: "fixed", memberUserIds: [household.memberId] }
+          },
+          {
+            planningMode: "timed",
+            recurrence: { frequency: "daily", interval: 1 },
+            localStartTime: "00:30",
+            localEndTime: "01:00",
+            startsOn: "2026-03-08",
+            assignment: { mode: "fixed", memberUserIds: [household.memberId] }
+          },
+          {
+            planningMode: "timed",
+            recurrence: { frequency: "daily", interval: 1 },
+            localStartTime: "23:30",
+            localEndTime: "23:45",
+            startsOn: "2026-03-07",
+            assignment: { mode: "fixed", memberUserIds: [household.memberId] }
+          }
+        ]
+      })
+      .expect(201);
+
+    await request(app)
+      .get(`/api/households/${household.householdId}/occurrences`)
+      .query({
+        startAt: "2026-03-07T00:00:00.000Z",
+        endAt: "2026-03-09T23:59:59.999Z",
+        startOn: "2026-03-07",
+        endOn: "2026-03-09"
+      })
+      .set(auth("owner@example.com"))
+      .expect(200)
+      .expect((response) => {
+        const mixed = response.body.filter((occurrence: { choreId: string }) => occurrence.choreId !== household.choreId);
+        expect(mixed.map((occurrence: { planningMode: string; eligibleStartOn: string; plannedStartAt?: string }) => ({
+          planningMode: occurrence.planningMode,
+          eligibleStartOn: occurrence.eligibleStartOn,
+          plannedStartAt: occurrence.plannedStartAt
+        }))).toEqual([
+          {
+            planningMode: "timed",
+            eligibleStartOn: "2026-03-07",
+            plannedStartAt: "2026-03-08T07:30:00.000Z"
+          },
+          {
+            planningMode: "flexible",
+            eligibleStartOn: "2026-03-07",
+            plannedStartAt: undefined
+          },
+          {
+            planningMode: "timed",
+            eligibleStartOn: "2026-03-08",
+            plannedStartAt: "2026-03-08T08:30:00.000Z"
+          },
+          {
+            planningMode: "timed",
+            eligibleStartOn: "2026-03-08",
+            plannedStartAt: "2026-03-09T06:30:00.000Z"
+          },
+          {
+            planningMode: "timed",
+            eligibleStartOn: "2026-03-09",
+            plannedStartAt: "2026-03-09T07:30:00.000Z"
+          }
+        ]);
+      });
+  });
+
+  it("replaces untouched future flexible occurrences after schedule edits while preserving skipped rows", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-06-01T12:00:00.000Z"));
+
+    try {
+      const { app, links } = createScheduleTestApp();
+      const household = await prepareHousehold(app, links);
+      const created = await request(app)
+        .post(`/api/households/${household.householdId}/chores`)
+        .set(auth("owner@example.com"))
+        .send({
+          chore: { title: "Flexible cleanup", source: "manual" },
+          schedules: [{
+            planningMode: "flexible",
+            recurrence: { frequency: "weekly", interval: 1, weekDays: [6, 0] },
+            startsOn: "2026-05-30",
+            estimatedMinutes: 60,
+            flexibleWindowRule: "once_within_selected_days",
+            assignment: { mode: "fixed", memberUserIds: [household.memberId] }
+          }]
+        })
+        .expect(201);
+      const scheduleId = created.body.schedules[0].id as string;
+
+      const initial = await request(app)
+        .get(`/api/households/${household.householdId}/occurrences`)
+        .query({
+          startAt: "2026-05-30T00:00:00.000Z",
+          endAt: "2026-06-14T23:59:59.999Z",
+          startOn: "2026-05-30",
+          endOn: "2026-06-14"
+        })
+        .set(auth("owner@example.com"))
+        .expect(200);
+      const flexible = initial.body.filter((occurrence: { scheduleId: string }) => occurrence.scheduleId === scheduleId);
+
+      await request(app)
+        .post(`/api/households/${household.householdId}/occurrences/${flexible[1].id}/skip`)
+        .set(auth("owner@example.com"))
+        .expect(200);
+
+      await request(app)
+        .put(`/api/households/${household.householdId}/schedules/${scheduleId}`)
+        .set(auth("owner@example.com"))
+        .send({
+          planningMode: "flexible",
+          recurrence: { frequency: "weekly", interval: 1, weekDays: [6, 0] },
+          startsOn: "2026-05-30",
+          estimatedMinutes: 45,
+          flexibleWindowRule: "once_within_selected_days",
+          assignment: { mode: "fixed", memberUserIds: [household.ownerId] }
+        })
+        .expect(200);
+
+      await request(app)
+        .get(`/api/households/${household.householdId}/occurrences`)
+        .query({
+          startAt: "2026-05-30T00:00:00.000Z",
+          endAt: "2026-06-14T23:59:59.999Z",
+          startOn: "2026-05-30",
+          endOn: "2026-06-14"
+        })
+        .set(auth("owner@example.com"))
+        .expect(200)
+        .expect((response) => {
+          const updatedFlexible = response.body.filter((occurrence: { scheduleId: string }) => occurrence.scheduleId === scheduleId);
+          expect(updatedFlexible).toEqual([
+            expect.objectContaining({
+              eligibleStartOn: "2026-05-30",
+              eligibleEndOn: "2026-05-31",
+              estimatedMinutes: 60,
+              assignedUserId: household.memberId,
+              exceptionType: "none"
+            }),
+            expect.objectContaining({
+              eligibleStartOn: "2026-06-06",
+              eligibleEndOn: "2026-06-07",
+              estimatedMinutes: 60,
+              assignedUserId: household.memberId,
+              exceptionType: "skipped",
+              status: "skipped"
+            }),
+            expect.objectContaining({
+              eligibleStartOn: "2026-06-13",
+              eligibleEndOn: "2026-06-14",
+              estimatedMinutes: 45,
+              assignedUserId: household.ownerId,
+              exceptionType: "none"
+            })
+          ]);
+        });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("records occurrence exceptions and regenerates only untouched future occurrences", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime(new Date("2026-05-25T12:00:00.000Z"));

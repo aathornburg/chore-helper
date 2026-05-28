@@ -1,5 +1,4 @@
 import {
-  addMinutes,
   differenceInCalendarDays,
   differenceInCalendarMonths,
   eachDayOfInterval,
@@ -65,6 +64,10 @@ function createTimedOccurrence(
     `${localDate}T${schedule.localStartTime}:00`,
     householdTimeZone
   );
+  const plannedEnd = fromZonedTime(
+    `${localDate}T${schedule.localEndTime}:00`,
+    householdTimeZone
+  );
   const estimatedMinutes = timedDurationMinutes(schedule);
 
   return {
@@ -75,7 +78,7 @@ function createTimedOccurrence(
     sequence,
     planningMode: "timed",
     plannedStartAt: plannedStart.toISOString(),
-    plannedEndAt: addMinutes(plannedStart, estimatedMinutes).toISOString(),
+    plannedEndAt: plannedEnd.toISOString(),
     estimatedMinutes,
     eligibleStartOn: localDate,
     eligibleEndOn: localDate,

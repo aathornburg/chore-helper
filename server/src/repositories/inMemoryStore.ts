@@ -33,6 +33,9 @@ export type OccurrenceRange = {
   endOn: string;
   assignedUserId?: string;
 };
+export type OccurrenceClearFutureCutoff =
+  | { planningMode: "timed"; fromAt: string }
+  | { planningMode: "flexible"; fromAt: string; fromOn: string };
 
 export type NewScheduledChore = {
   householdId: string;
@@ -147,7 +150,7 @@ export type HouseholdStore = {
     update: OccurrenceUpdate
   ): StoreResult<ChoreOccurrence | undefined>;
   skipOccurrence(householdId: string, occurrenceId: string): StoreResult<ChoreOccurrence | undefined>;
-  clearFutureUntouchedOccurrences(householdId: string, scheduleId: string, fromAt: string): StoreResult<void>;
+  clearFutureUntouchedOccurrences(householdId: string, scheduleId: string, cutoff: OccurrenceClearFutureCutoff): StoreResult<void>;
   saveRecommendations(
     householdId: string,
     recommendations: Recommendation[]
@@ -179,6 +182,20 @@ function normalizeInvitation(invitation: StoredHouseholdInvitation): StoredHouse
     ...invitation,
     status: "expired"
   };
+}
+
+function compareOptionalPlannedStart(first?: string, second?: string) {
+  if (first && second) return first.localeCompare(second);
+  if (first) return -1;
+  if (second) return 1;
+  return 0;
+}
+
+function compareOccurrences(first: ChoreOccurrence, second: ChoreOccurrence) {
+  return first.eligibleStartOn.localeCompare(second.eligibleStartOn) ||
+    compareOptionalPlannedStart(first.plannedStartAt, second.plannedStartAt) ||
+    first.sequence - second.sequence ||
+    first.id.localeCompare(second.id);
 }
 
 export function createInMemoryStore(): HouseholdStore {
@@ -559,9 +576,7 @@ export function createInMemoryStore(): HouseholdStore {
             (!range.assignedUserId || occurrence.assignedUserId === range.assignedUserId)
           );
         })
-        .sort((first, second) =>
-          (first.plannedStartAt ?? first.eligibleStartOn).localeCompare(second.plannedStartAt ?? second.eligibleStartOn)
-        );
+        .sort(compareOccurrences);
     },
 
     updateOccurrenceException(householdId, occurrenceId, update) {
@@ -594,14 +609,23 @@ export function createInMemoryStore(): HouseholdStore {
       return updated;
     },
 
-    clearFutureUntouchedOccurrences(householdId, scheduleId, fromAt) {
+    clearFutureUntouchedOccurrences(householdId, scheduleId, cutoff) {
       for (const [key, occurrence] of occurrences.entries()) {
+        const isFutureUntouchedTimed =
+          cutoff.planningMode === "timed" &&
+          occurrence.planningMode === "timed" &&
+          Boolean(occurrence.plannedStartAt && occurrence.plannedStartAt >= cutoff.fromAt);
+        const isFutureUntouchedFlexible =
+          cutoff.planningMode === "flexible" &&
+          occurrence.planningMode === "flexible" &&
+          occurrence.eligibleEndOn >= cutoff.fromOn;
+
         if (
           occurrence.householdId === householdId &&
           occurrence.scheduleId === scheduleId &&
-          occurrence.plannedStartAt &&
-          occurrence.plannedStartAt >= fromAt &&
-          occurrence.exceptionType === "none"
+          occurrence.exceptionType === "none" &&
+          occurrence.status === "planned" &&
+          (isFutureUntouchedTimed || isFutureUntouchedFlexible)
         ) {
           occurrences.delete(key);
         }

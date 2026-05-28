@@ -35,6 +35,8 @@ it("scopes household structure ids by their parent records in the Prisma schema"
   expect(schema).toContain("planningMode");
   expect(schema).toContain("flexibleWindowRule");
   expect(schema).toContain("eligibleStartOn");
+  expect(schema).toContain("@@index([householdId, planningMode, plannedStartAt])");
+  expect(schema).toContain("@@index([householdId, planningMode, eligibleEndOn, eligibleStartOn])");
   expect(schema).not.toContain("  cadence");
   expect(schema).not.toContain("  plannedMinutes");
 });
@@ -381,6 +383,138 @@ describe.skipIf(!safeConnectionString || !prisma)(
         startOn: "2026-05-25",
         endOn: "2026-06-01"
       })).toHaveLength(7);
+    });
+
+    it("orders mixed occurrence modes and clears only untouched future flexible rows", async () => {
+      const firstStore = createPrismaStore(prisma!);
+      const owner = await firstStore.upsertUserByClerkId("owner");
+      const member = await firstStore.upsertUserByClerkId("member");
+      const household = await firstStore.createHouseholdForUser("Home", owner.id);
+      await firstStore.updateHouseholdSettings(household.id, { timeZone: "America/Los_Angeles" });
+      await firstStore.acceptInvitation((await firstStore.createInvitation({
+        householdId: household.id,
+        recipientEmail: "member@example.com",
+        tokenDigest: "mixed-member-token",
+        invitedByUserId: owner.id,
+        expiresAt: new Date(Date.now() + 60_000).toISOString()
+      })).id, member.id, new Date().toISOString());
+
+      const scheduled = await firstStore.createChoreWithSchedules({
+        householdId: household.id,
+        chore: { title: "Mixed occurrence coverage", source: "manual" },
+        schedules: [
+          {
+            planningMode: "flexible",
+            recurrence: { frequency: "weekly", interval: 1, weekDays: [6, 0] },
+            startsOn: "2026-03-07",
+            estimatedMinutes: 60,
+            flexibleWindowRule: "once_within_selected_days",
+            assignment: { mode: "fixed", memberUserIds: [member.id] }
+          },
+          {
+            planningMode: "timed",
+            recurrence: { frequency: "daily", interval: 1 },
+            localStartTime: "23:30",
+            localEndTime: "23:45",
+            startsOn: "2026-03-07",
+            assignment: { mode: "fixed", memberUserIds: [member.id] }
+          }
+        ]
+      });
+      const flexibleSchedule = scheduled.schedules.find((schedule) => schedule.planningMode === "flexible")!;
+      const timedSchedule = scheduled.schedules.find((schedule) => schedule.planningMode === "timed")!;
+
+      for (const schedule of scheduled.schedules) {
+        await firstStore.materializeScheduleOccurrences(
+          household.id,
+          schedule.id,
+          materializeOccurrences({
+            schedule,
+            householdTimeZone: "America/Los_Angeles",
+            rangeStart: "2026-03-07",
+            rangeEnd: "2026-03-22"
+          })
+        );
+      }
+
+      const initial = await firstStore.listOccurrences(household.id, {
+        startAt: "2026-03-07T00:00:00.000Z",
+        endAt: "2026-03-09T23:59:59.999Z",
+        startOn: "2026-03-07",
+        endOn: "2026-03-09"
+      });
+      expect(initial.filter((occurrence) => occurrence.scheduleId === timedSchedule.id || occurrence.scheduleId === flexibleSchedule.id)
+        .map((occurrence) => ({
+          planningMode: occurrence.planningMode,
+          eligibleStartOn: occurrence.eligibleStartOn,
+          plannedStartAt: occurrence.plannedStartAt
+        }))).toEqual([
+        {
+          planningMode: "timed",
+          eligibleStartOn: "2026-03-07",
+          plannedStartAt: "2026-03-08T07:30:00.000Z"
+        },
+        {
+          planningMode: "flexible",
+          eligibleStartOn: "2026-03-07",
+          plannedStartAt: undefined
+        },
+        {
+          planningMode: "timed",
+          eligibleStartOn: "2026-03-08",
+          plannedStartAt: "2026-03-09T06:30:00.000Z"
+        },
+        {
+          planningMode: "timed",
+          eligibleStartOn: "2026-03-09",
+          plannedStartAt: "2026-03-09T07:30:00.000Z"
+        }
+      ]);
+
+      const flexibleRows = await firstStore.listOccurrences(household.id, {
+        startAt: "2026-03-07T00:00:00.000Z",
+        endAt: "2026-03-22T23:59:59.999Z",
+        startOn: "2026-03-07",
+        endOn: "2026-03-22"
+      });
+      await firstStore.skipOccurrence(
+        household.id,
+        flexibleRows.find((occurrence) =>
+          occurrence.scheduleId === flexibleSchedule.id &&
+          occurrence.eligibleStartOn === "2026-03-14"
+        )!.id
+      );
+      await firstStore.clearFutureUntouchedOccurrences(household.id, flexibleSchedule.id, {
+        planningMode: "flexible",
+        fromAt: "2026-03-10T12:00:00.000Z",
+        fromOn: "2026-03-10"
+      });
+      const updatedFlexible = {
+        ...flexibleSchedule,
+        estimatedMinutes: 45,
+        assignment: { mode: "fixed" as const, memberUserIds: [owner.id] }
+      };
+      await firstStore.materializeScheduleOccurrences(
+        household.id,
+        flexibleSchedule.id,
+        materializeOccurrences({
+          schedule: updatedFlexible,
+          householdTimeZone: "America/Los_Angeles",
+          rangeStart: "2026-03-07",
+          rangeEnd: "2026-03-22"
+        })
+      );
+
+      expect((await firstStore.listOccurrences(household.id, {
+        startAt: "2026-03-07T00:00:00.000Z",
+        endAt: "2026-03-22T23:59:59.999Z",
+        startOn: "2026-03-07",
+        endOn: "2026-03-22"
+      })).filter((occurrence) => occurrence.scheduleId === flexibleSchedule.id)).toEqual([
+        expect.objectContaining({ eligibleStartOn: "2026-03-07", estimatedMinutes: 60, assignedUserId: member.id }),
+        expect.objectContaining({ eligibleStartOn: "2026-03-14", estimatedMinutes: 60, assignedUserId: member.id, status: "skipped" }),
+        expect.objectContaining({ eligibleStartOn: "2026-03-21", estimatedMinutes: 45, assignedUserId: owner.id })
+      ]);
     });
 
     it("does not persist a chore when nested schedule persistence fails", async () => {

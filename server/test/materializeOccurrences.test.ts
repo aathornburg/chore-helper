@@ -132,6 +132,44 @@ describe("materializeOccurrences", () => {
     }));
   });
 
+  it("uses the configured local end time for spring-forward timed occurrences", () => {
+    const occurrences = materializeOccurrences({
+      schedule: timedSchedule({
+        localStartTime: "01:30",
+        localEndTime: "03:30",
+        startsOn: "2026-03-08"
+      }),
+      householdTimeZone: "America/New_York",
+      rangeStart: "2026-03-08",
+      rangeEnd: "2026-03-08"
+    });
+
+    expect(occurrences[0]).toEqual(expect.objectContaining({
+      plannedStartAt: "2026-03-08T06:30:00.000Z",
+      plannedEndAt: "2026-03-08T07:30:00.000Z",
+      estimatedMinutes: 120
+    }));
+  });
+
+  it("uses the configured local end time for fall-back timed occurrences", () => {
+    const occurrences = materializeOccurrences({
+      schedule: timedSchedule({
+        localStartTime: "00:30",
+        localEndTime: "02:30",
+        startsOn: "2026-11-01"
+      }),
+      householdTimeZone: "America/New_York",
+      rangeStart: "2026-11-01",
+      rangeEnd: "2026-11-01"
+    });
+
+    expect(occurrences[0]).toEqual(expect.objectContaining({
+      plannedStartAt: "2026-11-01T04:30:00.000Z",
+      plannedEndAt: "2026-11-01T07:30:00.000Z",
+      estimatedMinutes: 120
+    }));
+  });
+
   it("creates one flexible obligation covering selected weekend days", () => {
     const occurrences = materializeOccurrences({
       schedule: flexibleSchedule({

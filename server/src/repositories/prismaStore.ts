@@ -13,7 +13,7 @@ import type {
   RecommendationConfidence,
   RecommendationDecision
 } from "@chore-helper/shared";
-import type { AppUser, HouseholdStore } from "./inMemoryStore.js";
+import type { AppUser, HouseholdStore, OccurrenceClearFutureCutoff } from "./inMemoryStore.js";
 
 function serializeOptionalList<T>(values: T[]) {
   return JSON.stringify(values);
@@ -964,7 +964,9 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
         },
         orderBy: [
           { eligibleStartOn: "asc" },
-          { plannedStartAt: "asc" }
+          { plannedStartAt: { sort: "asc", nulls: "last" } },
+          { sequence: "asc" },
+          { id: "asc" }
         ]
       });
 
@@ -1012,13 +1014,17 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
       return toOccurrence(updated);
     },
 
-    async clearFutureUntouchedOccurrences(householdId, scheduleId, fromAt) {
+    async clearFutureUntouchedOccurrences(householdId, scheduleId, cutoff: OccurrenceClearFutureCutoff) {
       await prisma.choreOccurrence.deleteMany({
         where: {
           householdId,
           scheduleId,
-          plannedStartAt: { gte: new Date(fromAt) },
-          exceptionType: "none"
+          planningMode: cutoff.planningMode,
+          exceptionType: "none",
+          status: "planned",
+          ...(cutoff.planningMode === "timed"
+            ? { plannedStartAt: { gte: new Date(cutoff.fromAt) } }
+            : { eligibleEndOn: { gte: cutoff.fromOn } })
         }
       });
     },

@@ -195,6 +195,8 @@ model ChoreOccurrence {
 
   @@unique([scheduleId, sequence])
   @@index([householdId, eligibleStartOn, eligibleEndOn])
+  @@index([householdId, planningMode, plannedStartAt])
+  @@index([householdId, planningMode, eligibleEndOn, eligibleStartOn])
 }
 
 model Recommendation {

@@ -5,6 +5,7 @@
 */
 import { createHash, randomBytes } from "node:crypto";
 import { addDays, format, parseISO } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import { Router } from "express";
 import type { Request, Response } from "express";
 import { z } from "zod";
@@ -646,10 +647,17 @@ export function createHouseholdRouter(
 
     const schedule = await store.updateSchedule(access.household.id, req.params.scheduleId, parsed.data);
     if (!schedule) return res.status(404).json({ error: "Schedule not found" });
+    const cutoffInstant = new Date().toISOString();
     await store.clearFutureUntouchedOccurrences(
       access.household.id,
       schedule.id,
-      new Date().toISOString()
+      schedule.planningMode === "timed"
+        ? { planningMode: "timed", fromAt: cutoffInstant }
+        : {
+            planningMode: "flexible",
+            fromAt: cutoffInstant,
+            fromOn: formatInTimeZone(cutoffInstant, access.household.timeZone, "yyyy-MM-dd")
+          }
     );
     await materializeInitialScheduleOccurrences(schedule, access.household.timeZone);
 
