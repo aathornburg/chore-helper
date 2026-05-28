@@ -193,7 +193,7 @@ model ChoreOccurrence {
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
-  @@unique([scheduleId, sequence])
+  @@index([scheduleId, sequence])
   @@index([householdId, eligibleStartOn, eligibleEndOn])
   @@index([householdId, planningMode, plannedStartAt])
   @@index([householdId, planningMode, eligibleEndOn, eligibleStartOn])

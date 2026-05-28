@@ -911,10 +911,7 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
         occurrences.map((occurrence) =>
           prisma.choreOccurrence.upsert({
             where: {
-              scheduleId_sequence: {
-                scheduleId,
-                sequence: occurrence.sequence
-              }
+              id: occurrence.id
             },
             update: {},
             create: {
@@ -986,6 +983,7 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
         where: {
           id: occurrenceId,
           householdId,
+          assignedUserId: completedByUserId,
           status: "planned"
         },
         data: {

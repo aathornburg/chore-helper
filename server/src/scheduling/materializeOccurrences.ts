@@ -54,6 +54,35 @@ function timedDurationMinutes(schedule: TimedChoreSchedule) {
   return (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
 }
 
+function recurrenceIdentity(schedule: ChoreSchedule) {
+  const recurrence = schedule.recurrence;
+  return [
+    schedule.planningMode,
+    schedule.startsOn,
+    recurrence.frequency,
+    recurrence.interval,
+    (recurrence.weekDays ?? []).join("."),
+    recurrence.monthlyDay ?? ""
+  ].join(":");
+}
+
+function timedOccurrenceId(schedule: TimedChoreSchedule, localDate: string) {
+  return [
+    schedule.id,
+    recurrenceIdentity(schedule),
+    localDate
+  ].join(":");
+}
+
+function flexibleOccurrenceId(schedule: FlexibleChoreSchedule, eligibleStartOn: string, eligibleEndOn: string) {
+  return [
+    schedule.id,
+    recurrenceIdentity(schedule),
+    eligibleStartOn,
+    eligibleEndOn
+  ].join(":");
+}
+
 function createTimedOccurrence(
   schedule: TimedChoreSchedule,
   localDate: string,
@@ -71,7 +100,7 @@ function createTimedOccurrence(
   const estimatedMinutes = timedDurationMinutes(schedule);
 
   return {
-    id: `${schedule.id}:${sequence}`,
+    id: timedOccurrenceId(schedule, localDate),
     householdId: schedule.householdId,
     choreId: schedule.choreId,
     scheduleId: schedule.id,
@@ -95,7 +124,7 @@ function createFlexibleOccurrence(
   sequence: number
 ): ChoreOccurrence {
   return {
-    id: `${schedule.id}:${sequence}`,
+    id: flexibleOccurrenceId(schedule, eligibleStartOn, eligibleEndOn),
     householdId: schedule.householdId,
     choreId: schedule.choreId,
     scheduleId: schedule.id,

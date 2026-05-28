@@ -552,7 +552,7 @@ export function createInMemoryStore(): HouseholdStore {
 
     materializeScheduleOccurrences(householdId, scheduleId, nextOccurrences) {
       return nextOccurrences.map((occurrence) => {
-        const key = `${scheduleId}:${occurrence.sequence}`;
+        const key = occurrence.id;
         const existing = occurrences.get(key);
         if (existing) return existing;
 
@@ -596,6 +596,7 @@ export function createInMemoryStore(): HouseholdStore {
         (candidate) =>
           candidate.id === occurrenceId &&
           candidate.householdId === householdId &&
+          candidate.assignedUserId === completedByUserId &&
           candidate.status === "planned"
       );
       if (!occurrence) return undefined;
@@ -606,7 +607,7 @@ export function createInMemoryStore(): HouseholdStore {
         completedAt,
         completedByUserId
       };
-      occurrences.set(`${occurrence.scheduleId}:${occurrence.sequence}`, updated);
+      occurrences.set(occurrence.id, updated);
       return updated;
     },
 
@@ -625,7 +626,7 @@ export function createInMemoryStore(): HouseholdStore {
               ? "reassigned"
               : occurrence.exceptionType;
       const updated = { ...occurrence, ...update, exceptionType };
-      occurrences.set(`${occurrence.scheduleId}:${occurrence.sequence}`, updated);
+      occurrences.set(occurrence.id, updated);
       return updated;
     },
 
@@ -636,7 +637,7 @@ export function createInMemoryStore(): HouseholdStore {
       if (!occurrence) return undefined;
 
       const updated: ChoreOccurrence = { ...occurrence, exceptionType: "skipped", status: "skipped" };
-      occurrences.set(`${occurrence.scheduleId}:${occurrence.sequence}`, updated);
+      occurrences.set(occurrence.id, updated);
       return updated;
     },
 

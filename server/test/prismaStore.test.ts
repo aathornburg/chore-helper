@@ -37,6 +37,8 @@ it("scopes household structure ids by their parent records in the Prisma schema"
   expect(schema).toContain("eligibleStartOn");
   expect(schema).toContain("@@index([householdId, planningMode, plannedStartAt])");
   expect(schema).toContain("@@index([householdId, planningMode, eligibleEndOn, eligibleStartOn])");
+  expect(schema).toContain("@@index([scheduleId, sequence])");
+  expect(schema).not.toContain("@@unique([scheduleId, sequence])");
   expect(schema).not.toContain("  cadence");
   expect(schema).not.toContain("  plannedMinutes");
 });
@@ -500,7 +502,7 @@ describe.skipIf(!safeConnectionString || !prisma)(
 
       const initial = await firstStore.listOccurrences(household.id, {
         startAt: "2026-03-07T00:00:00.000Z",
-        endAt: "2026-03-09T23:59:59.999Z",
+        endAt: "2026-03-10T06:59:59.999Z",
         startOn: "2026-03-07",
         endOn: "2026-03-09"
       });
@@ -528,7 +530,7 @@ describe.skipIf(!safeConnectionString || !prisma)(
         {
           planningMode: "timed",
           eligibleStartOn: "2026-03-09",
-          plannedStartAt: "2026-03-09T07:30:00.000Z"
+          plannedStartAt: "2026-03-10T06:30:00.000Z"
         }
       ]);
 
@@ -693,6 +695,108 @@ describe.skipIf(!safeConnectionString || !prisma)(
           eligibleStartOn: "2026-06-03",
           plannedStartAt: "2026-06-03T15:00:00.000Z",
           estimatedMinutes: 30,
+          assignedUserId: owner.id
+        })
+      ]);
+    });
+
+    it("persists skipped history while materializing regenerated future work with reused sequence", async () => {
+      const firstStore = createPrismaStore(prisma!);
+      const owner = await firstStore.upsertUserByClerkId("owner");
+      const member = await firstStore.upsertUserByClerkId("member");
+      const household = await firstStore.createHouseholdForUser("Home", owner.id);
+      await firstStore.acceptInvitation((await firstStore.createInvitation({
+        householdId: household.id,
+        recipientEmail: "member@example.com",
+        tokenDigest: "sequence-collision-member-token",
+        invitedByUserId: owner.id,
+        expiresAt: new Date(Date.now() + 60_000).toISOString()
+      })).id, member.id, new Date().toISOString());
+
+      const scheduled = await firstStore.createChoreWithSchedules({
+        householdId: household.id,
+        chore: { title: "Regenerated future persistence", source: "manual" },
+        schedules: [{
+          planningMode: "flexible",
+          recurrence: { frequency: "weekly", interval: 1, weekDays: [1, 2] },
+          startsOn: "2026-06-01",
+          estimatedMinutes: 60,
+          flexibleWindowRule: "once_within_selected_days",
+          assignment: { mode: "fixed", memberUserIds: [member.id] }
+        }]
+      });
+      const schedule = scheduled.schedules[0];
+      await firstStore.materializeScheduleOccurrences(
+        household.id,
+        schedule.id,
+        materializeOccurrences({
+          schedule,
+          householdTimeZone: "UTC",
+          rangeStart: "2026-06-01",
+          rangeEnd: "2026-06-04"
+        })
+      );
+      const originalRows = await firstStore.listOccurrences(household.id, {
+        startAt: "2026-06-01T00:00:00.000Z",
+        endAt: "2026-06-04T23:59:59.999Z",
+        startOn: "2026-06-01",
+        endOn: "2026-06-04"
+      });
+      const skipped = await firstStore.skipOccurrence(household.id, originalRows[0].id);
+      expect(skipped).toEqual(expect.objectContaining({ sequence: 0, status: "skipped" }));
+
+      const updatedSchedule = await firstStore.updateSchedule(household.id, schedule.id, {
+        planningMode: "timed",
+        recurrence: { frequency: "daily", interval: 1 },
+        localStartTime: "15:00",
+        localEndTime: "15:30",
+        startsOn: "2026-06-03",
+        assignment: { mode: "fixed", memberUserIds: [owner.id] }
+      });
+      expect(updatedSchedule).toBeDefined();
+      await firstStore.clearFutureUntouchedOccurrences(household.id, schedule.id, {
+        fromAt: "2026-06-02T12:00:00.000Z",
+        fromOn: "2026-06-02"
+      });
+      await firstStore.materializeScheduleOccurrences(
+        household.id,
+        schedule.id,
+        materializeOccurrences({
+          schedule: updatedSchedule!,
+          householdTimeZone: "UTC",
+          rangeStart: "2026-06-03",
+          rangeEnd: "2026-06-04"
+        })
+      );
+
+      expect((await firstStore.listOccurrences(household.id, {
+        startAt: "2026-06-01T00:00:00.000Z",
+        endAt: "2026-06-04T23:59:59.999Z",
+        startOn: "2026-06-01",
+        endOn: "2026-06-04"
+      })).filter((occurrence) => occurrence.scheduleId === schedule.id)).toEqual([
+        expect.objectContaining({
+          id: skipped!.id,
+          planningMode: "flexible",
+          eligibleStartOn: "2026-06-01",
+          sequence: 0,
+          status: "skipped",
+          assignedUserId: member.id
+        }),
+        expect.objectContaining({
+          planningMode: "timed",
+          eligibleStartOn: "2026-06-03",
+          plannedStartAt: "2026-06-03T15:00:00.000Z",
+          sequence: 0,
+          status: "planned",
+          assignedUserId: owner.id
+        }),
+        expect.objectContaining({
+          planningMode: "timed",
+          eligibleStartOn: "2026-06-04",
+          plannedStartAt: "2026-06-04T15:00:00.000Z",
+          sequence: 1,
+          status: "planned",
           assignedUserId: owner.id
         })
       ]);
