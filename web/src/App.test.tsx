@@ -1252,6 +1252,18 @@ describe("App", () => {
       if (url === "http://localhost:3001/api/recommendations" && method === "GET") {
         return { ok: true, json: async () => [] };
       }
+      if (url === "http://localhost:3001/api/households/household-2/members" && method === "GET") {
+        return {
+          ok: true,
+          json: async () => [{
+            householdId: "household-2",
+            userId: "app-user-1",
+            clerkUserId: "test-user-a",
+            displayName: "Alex Owner",
+            role: "owner"
+          }]
+        };
+      }
       if (url === "http://localhost:3001/api/households/household-2/chores" && method === "POST") {
         return {
           ok: true,
@@ -1262,7 +1274,17 @@ describe("App", () => {
               title: "Sweep porch",
               source: "manual"
             },
-            schedules: []
+            schedules: [{
+              id: "schedule-2",
+              householdId: "household-2",
+              choreId: "chore-2",
+              planningMode: "timed",
+              recurrence: { frequency: "daily", interval: 1 },
+              localStartTime: "09:00",
+              localEndTime: "09:30",
+              startsOn: "2026-05-25",
+              assignment: { mode: "fixed", memberUserIds: ["app-user-1"] }
+            }]
           })
         };
       }
@@ -1276,6 +1298,7 @@ describe("App", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Add chore" }).hasAttribute("disabled")).toBe(false));
     fireEvent.click(screen.getByRole("button", { name: "Add chore" }));
     fireEvent.change(screen.getByLabelText("Household"), { target: { value: "household-2" } });
+    await waitFor(() => expect(screen.getByLabelText("Add initial schedule")).toBeTruthy());
     fireEvent.change(screen.getByLabelText("Chore title"), { target: { value: "Sweep porch" } });
     fireEvent.change(screen.getByLabelText("Cadence"), { target: { value: "weekly" } });
     fireEvent.change(screen.getByLabelText("Estimated minutes"), { target: { value: "15" } });
@@ -1296,13 +1319,20 @@ describe("App", () => {
             instructions: "Sweep steps and shake the mat.",
             tags: ["outdoor", "weekly"]
           },
-          schedules: []
+          schedules: [{
+            planningMode: "timed",
+            recurrence: { frequency: "daily", interval: 1 },
+            localStartTime: "09:00",
+            localEndTime: "09:30",
+            startsOn: "2026-05-25",
+            assignment: { mode: "fixed", memberUserIds: ["app-user-1"] }
+          }]
         })
       })
     );
   });
 
-  it("creates an optional initial schedule while adding a chore", async () => {
+  it("creates a required initial schedule while adding a chore", async () => {
     let finishCreateRequest: (() => void) | undefined;
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = input.toString();
@@ -1369,7 +1399,6 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add chore" }));
     fireEvent.change(screen.getByLabelText("Household"), { target: { value: "household-1" } });
     await waitFor(() => expect(screen.getByLabelText("Add initial schedule")).toBeTruthy());
-    fireEvent.click(screen.getByLabelText("Add initial schedule"));
     fireEvent.change(screen.getByLabelText("Chore title"), { target: { value: "Reset kitchen" } });
     fireEvent.change(screen.getByLabelText("Cadence"), { target: { value: "daily" } });
     fireEvent.change(screen.getByLabelText("Estimated minutes"), { target: { value: "20" } });

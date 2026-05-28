@@ -330,7 +330,7 @@ export function ChoresPage({ households, householdsLoading, onNavigate }: Chores
     setNewScheduleMembers([]);
     setNewCanManageSchedules(false);
     setNewScheduleLoadState("idle");
-    setNewHasInitialSchedule(false);
+    setNewHasInitialSchedule(true);
     setNewScheduleFrequency("daily");
     setNewScheduleInterval("1");
     setNewScheduleWeekDays("1");
@@ -365,8 +365,10 @@ export function ChoresPage({ households, householdsLoading, onNavigate }: Chores
         listHouseholdMembers(householdId),
         getCurrentUser()
       ]);
+      const canManage = members.some((member) => member.userId === user.id && member.role === "owner");
       setNewScheduleMembers(members);
-      setNewCanManageSchedules(members.some((member) => member.userId === user.id && member.role === "owner"));
+      setNewCanManageSchedules(canManage);
+      setNewHasInitialSchedule(canManage);
       setNewScheduleAssignees(members[0] ? [members[0].userId] : []);
       setNewScheduleLoadState("ready");
     } catch {
@@ -386,7 +388,7 @@ export function ChoresPage({ households, householdsLoading, onNavigate }: Chores
 
   async function handleCreateChore(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!newHouseholdId || isCreatingChore) return;
+    if (!newHouseholdId || isCreatingChore || !newCanManageSchedules || newScheduleAssignees.length === 0) return;
 
     setIsCreatingChore(true);
     setStatus("Adding chore...");
@@ -399,20 +401,18 @@ export function ChoresPage({ households, householdsLoading, onNavigate }: Chores
           instructions: newInstructions.trim() || undefined,
           tags: newTags.split(",").map((tag) => tag.trim()).filter(Boolean)
         },
-        schedules: newHasInitialSchedule
-          ? [buildTimedScheduleInput({
-            frequency: newScheduleFrequency,
-            interval: newScheduleInterval,
-            weekDays: newScheduleWeekDays,
-            monthlyDay: newScheduleMonthlyDay,
-            localStartTime: newScheduleStartTime,
-            plannedMinutes: newSchedulePlannedMinutes,
-            startsOn: newScheduleStartsOn,
-            endsOn: newScheduleEndsOn,
-            assignmentMode: newScheduleAssignmentMode,
-            assignees: newScheduleAssignees
-          })]
-          : []
+        schedules: [buildTimedScheduleInput({
+          frequency: newScheduleFrequency,
+          interval: newScheduleInterval,
+          weekDays: newScheduleWeekDays,
+          monthlyDay: newScheduleMonthlyDay,
+          localStartTime: newScheduleStartTime,
+          plannedMinutes: newSchedulePlannedMinutes,
+          startsOn: newScheduleStartsOn,
+          endsOn: newScheduleEndsOn,
+          assignmentMode: newScheduleAssignmentMode,
+          assignees: newScheduleAssignees
+        })]
       });
       added = {
         ...created.chore,
@@ -430,9 +430,7 @@ export function ChoresPage({ households, householdsLoading, onNavigate }: Chores
     setChores((currentChores) => [...currentChores, added]);
     setRecommendations([]);
     setActiveTab("all-active");
-    setStatus(newHasInitialSchedule
-      ? "Chore and schedule added. Open Calendar to review planned occurrences."
-      : "Chore added. Run review when you are ready.");
+    setStatus("Chore and schedule added. Open Calendar to review planned occurrences.");
 
     setIsAddFormOpen(false);
     setIsCreatingChore(false);
@@ -647,8 +645,8 @@ export function ChoresPage({ households, householdsLoading, onNavigate }: Chores
               <label className="checkbox-field initial-schedule-toggle">
                 <input
                   checked={newHasInitialSchedule}
-                  disabled={isCreatingChore}
-                  onChange={(event) => setNewHasInitialSchedule(event.target.checked)}
+                  disabled
+                  onChange={() => undefined}
                   type="checkbox"
                 />
                 Add initial schedule
@@ -733,7 +731,17 @@ export function ChoresPage({ households, householdsLoading, onNavigate }: Chores
               </section>
             ) : null}
             <div className="form-actions">
-              <button disabled={isCreatingChore || (newHasInitialSchedule && newScheduleAssignees.length === 0)} type="submit">Save chore</button>
+              <button
+                disabled={
+                  isCreatingChore ||
+                  newScheduleLoadState !== "ready" ||
+                  !newCanManageSchedules ||
+                  newScheduleAssignees.length === 0
+                }
+                type="submit"
+              >
+                Save chore
+              </button>
               <button
                 className="secondary-action"
                 disabled={isCreatingChore}
