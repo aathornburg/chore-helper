@@ -1019,12 +1019,18 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
         where: {
           householdId,
           scheduleId,
-          planningMode: cutoff.planningMode,
           exceptionType: "none",
           status: "planned",
-          ...(cutoff.planningMode === "timed"
-            ? { plannedStartAt: { gte: new Date(cutoff.fromAt) } }
-            : { eligibleEndOn: { gte: cutoff.fromOn } })
+          OR: [
+            {
+              planningMode: "timed",
+              plannedStartAt: { gte: new Date(cutoff.fromAt) }
+            },
+            {
+              planningMode: "flexible",
+              eligibleEndOn: { gte: cutoff.fromOn }
+            }
+          ]
         }
       });
     },

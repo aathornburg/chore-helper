@@ -485,7 +485,6 @@ describe.skipIf(!safeConnectionString || !prisma)(
         )!.id
       );
       await firstStore.clearFutureUntouchedOccurrences(household.id, flexibleSchedule.id, {
-        planningMode: "flexible",
         fromAt: "2026-03-10T12:00:00.000Z",
         fromOn: "2026-03-10"
       });
@@ -514,6 +513,111 @@ describe.skipIf(!safeConnectionString || !prisma)(
         expect.objectContaining({ eligibleStartOn: "2026-03-07", estimatedMinutes: 60, assignedUserId: member.id }),
         expect.objectContaining({ eligibleStartOn: "2026-03-14", estimatedMinutes: 60, assignedUserId: member.id, status: "skipped" }),
         expect.objectContaining({ eligibleStartOn: "2026-03-21", estimatedMinutes: 45, assignedUserId: owner.id })
+      ]);
+    });
+
+    it("clears untouched future occurrences across schedule planning mode changes", async () => {
+      const firstStore = createPrismaStore(prisma!);
+      const owner = await firstStore.upsertUserByClerkId("owner");
+      const member = await firstStore.upsertUserByClerkId("member");
+      const household = await firstStore.createHouseholdForUser("Home", owner.id);
+      await firstStore.acceptInvitation((await firstStore.createInvitation({
+        householdId: household.id,
+        recipientEmail: "member@example.com",
+        tokenDigest: "mode-change-member-token",
+        invitedByUserId: owner.id,
+        expiresAt: new Date(Date.now() + 60_000).toISOString()
+      })).id, member.id, new Date().toISOString());
+
+      const scheduled = await firstStore.createChoreWithSchedules({
+        householdId: household.id,
+        chore: { title: "Mode change cleanup", source: "manual" },
+        schedules: [{
+          planningMode: "flexible",
+          recurrence: { frequency: "daily", interval: 1 },
+          startsOn: "2026-06-01",
+          estimatedMinutes: 60,
+          flexibleWindowRule: "each_selected_day",
+          assignment: { mode: "fixed", memberUserIds: [member.id] }
+        }]
+      });
+      const schedule = scheduled.schedules[0];
+      await firstStore.materializeScheduleOccurrences(
+        household.id,
+        schedule.id,
+        materializeOccurrences({
+          schedule,
+          householdTimeZone: "UTC",
+          rangeStart: "2026-06-01",
+          rangeEnd: "2026-06-03"
+        })
+      );
+
+      const initialRows = await firstStore.listOccurrences(household.id, {
+        startAt: "2026-06-01T00:00:00.000Z",
+        endAt: "2026-06-03T23:59:59.999Z",
+        startOn: "2026-06-01",
+        endOn: "2026-06-03"
+      });
+      await firstStore.skipOccurrence(
+        household.id,
+        initialRows.find((occurrence) =>
+          occurrence.scheduleId === schedule.id &&
+          occurrence.eligibleStartOn === "2026-06-02"
+        )!.id
+      );
+
+      const updatedSchedule = await firstStore.updateSchedule(household.id, schedule.id, {
+        planningMode: "timed",
+        recurrence: { frequency: "daily", interval: 1 },
+        localStartTime: "15:00",
+        localEndTime: "15:30",
+        startsOn: "2026-06-01",
+        assignment: { mode: "fixed", memberUserIds: [owner.id] }
+      });
+      expect(updatedSchedule).toBeDefined();
+      await firstStore.clearFutureUntouchedOccurrences(household.id, schedule.id, {
+        fromAt: "2026-06-01T12:00:00.000Z",
+        fromOn: "2026-06-01"
+      });
+      await firstStore.materializeScheduleOccurrences(
+        household.id,
+        schedule.id,
+        materializeOccurrences({
+          schedule: updatedSchedule!,
+          householdTimeZone: "UTC",
+          rangeStart: "2026-06-01",
+          rangeEnd: "2026-06-03"
+        })
+      );
+
+      expect((await firstStore.listOccurrences(household.id, {
+        startAt: "2026-06-01T00:00:00.000Z",
+        endAt: "2026-06-03T23:59:59.999Z",
+        startOn: "2026-06-01",
+        endOn: "2026-06-03"
+      })).filter((occurrence) => occurrence.scheduleId === schedule.id)).toEqual([
+        expect.objectContaining({
+          planningMode: "timed",
+          eligibleStartOn: "2026-06-01",
+          plannedStartAt: "2026-06-01T15:00:00.000Z",
+          estimatedMinutes: 30,
+          assignedUserId: owner.id
+        }),
+        expect.objectContaining({
+          planningMode: "flexible",
+          eligibleStartOn: "2026-06-02",
+          estimatedMinutes: 60,
+          assignedUserId: member.id,
+          status: "skipped"
+        }),
+        expect.objectContaining({
+          planningMode: "timed",
+          eligibleStartOn: "2026-06-03",
+          plannedStartAt: "2026-06-03T15:00:00.000Z",
+          estimatedMinutes: 30,
+          assignedUserId: owner.id
+        })
       ]);
     });
 

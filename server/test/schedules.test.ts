@@ -559,6 +559,96 @@ describe("chore schedules", () => {
     }
   });
 
+  it("replaces untouched future timed occurrences when a schedule changes to flexible", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-06-01T12:00:00.000Z"));
+
+    try {
+      const { app, links } = createScheduleTestApp();
+      const household = await prepareHousehold(app, links);
+      const created = await request(app)
+        .post(`/api/households/${household.householdId}/chores`)
+        .set(auth("owner@example.com"))
+        .send({
+          chore: { title: "Mode switch cleanup", source: "manual" },
+          schedules: [{
+            planningMode: "timed",
+            recurrence: { frequency: "daily", interval: 1 },
+            localStartTime: "15:00",
+            localEndTime: "15:30",
+            startsOn: "2026-06-01",
+            assignment: { mode: "fixed", memberUserIds: [household.memberId] }
+          }]
+        })
+        .expect(201);
+      const scheduleId = created.body.schedules[0].id as string;
+
+      await request(app)
+        .put(`/api/households/${household.householdId}/schedules/${scheduleId}`)
+        .set(auth("owner@example.com"))
+        .send({
+          planningMode: "flexible",
+          recurrence: { frequency: "daily", interval: 1 },
+          startsOn: "2026-06-01",
+          estimatedMinutes: 20,
+          flexibleWindowRule: "each_selected_day",
+          assignment: { mode: "fixed", memberUserIds: [household.ownerId] }
+        })
+        .expect(200);
+
+      await request(app)
+        .get(`/api/households/${household.householdId}/occurrences`)
+        .query({
+          startAt: "2026-06-01T00:00:00.000Z",
+          endAt: "2026-06-03T23:59:59.999Z",
+          startOn: "2026-06-01",
+          endOn: "2026-06-03"
+        })
+        .set(auth("owner@example.com"))
+        .expect(200)
+        .expect((response) => {
+          const modeSwitchRows = response.body.filter((occurrence: { scheduleId: string }) => occurrence.scheduleId === scheduleId);
+          expect(modeSwitchRows.map((occurrence: {
+            planningMode: string;
+            eligibleStartOn: string;
+            plannedStartAt?: string;
+            estimatedMinutes: number;
+            assignedUserId: string;
+          }) => ({
+            planningMode: occurrence.planningMode,
+            eligibleStartOn: occurrence.eligibleStartOn,
+            plannedStartAt: occurrence.plannedStartAt,
+            estimatedMinutes: occurrence.estimatedMinutes,
+            assignedUserId: occurrence.assignedUserId
+          }))).toEqual([
+            {
+              planningMode: "flexible",
+              eligibleStartOn: "2026-06-01",
+              plannedStartAt: undefined,
+              estimatedMinutes: 20,
+              assignedUserId: household.ownerId
+            },
+            {
+              planningMode: "flexible",
+              eligibleStartOn: "2026-06-02",
+              plannedStartAt: undefined,
+              estimatedMinutes: 20,
+              assignedUserId: household.ownerId
+            },
+            {
+              planningMode: "flexible",
+              eligibleStartOn: "2026-06-03",
+              plannedStartAt: undefined,
+              estimatedMinutes: 20,
+              assignedUserId: household.ownerId
+            }
+          ]);
+        });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("records occurrence exceptions and regenerates only untouched future occurrences", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime(new Date("2026-05-25T12:00:00.000Z"));

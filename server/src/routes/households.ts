@@ -651,13 +651,10 @@ export function createHouseholdRouter(
     await store.clearFutureUntouchedOccurrences(
       access.household.id,
       schedule.id,
-      schedule.planningMode === "timed"
-        ? { planningMode: "timed", fromAt: cutoffInstant }
-        : {
-            planningMode: "flexible",
-            fromAt: cutoffInstant,
-            fromOn: formatInTimeZone(cutoffInstant, access.household.timeZone, "yyyy-MM-dd")
-          }
+      {
+        fromAt: cutoffInstant,
+        fromOn: formatInTimeZone(cutoffInstant, access.household.timeZone, "yyyy-MM-dd")
+      }
     );
     await materializeInitialScheduleOccurrences(schedule, access.household.timeZone);
 

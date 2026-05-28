@@ -34,8 +34,7 @@ export type OccurrenceRange = {
   assignedUserId?: string;
 };
 export type OccurrenceClearFutureCutoff =
-  | { planningMode: "timed"; fromAt: string }
-  | { planningMode: "flexible"; fromAt: string; fromOn: string };
+  { fromAt: string; fromOn: string };
 
 export type NewScheduledChore = {
   householdId: string;
@@ -612,11 +611,9 @@ export function createInMemoryStore(): HouseholdStore {
     clearFutureUntouchedOccurrences(householdId, scheduleId, cutoff) {
       for (const [key, occurrence] of occurrences.entries()) {
         const isFutureUntouchedTimed =
-          cutoff.planningMode === "timed" &&
           occurrence.planningMode === "timed" &&
           Boolean(occurrence.plannedStartAt && occurrence.plannedStartAt >= cutoff.fromAt);
         const isFutureUntouchedFlexible =
-          cutoff.planningMode === "flexible" &&
           occurrence.planningMode === "flexible" &&
           occurrence.eligibleEndOn >= cutoff.fromOn;
 
