@@ -891,9 +891,18 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: "Calendar" })).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Chores" })).toBeNull();
     expect(screen.getByRole("button", { name: "Add chore" })).toBeTruthy();
-    const tabs = screen.getByRole("tablist", { name: "Workspace view" });
+    const workspace = screen.getByRole("region", { name: "Calendar workspace" });
+    expect(workspace.classList.contains("has-external-tabs")).toBe(true);
+    const tabs = within(workspace).getByRole("tablist", { name: "Workspace view" });
     expect(within(tabs).getByRole("tab", { name: "Calendar" })).toBeTruthy();
     expect(within(tabs).getByRole("tab", { name: "List" })).toBeTruthy();
+    expect(within(workspace).getByRole("region", { name: "Calendar controls" })).toBeTruthy();
+    const header = document.querySelector(".calendar-workspace-panel-header");
+    expect(header?.querySelector(".calendar-view-toggle")).toBeNull();
+    const filters = within(workspace).getByRole("region", { name: "Calendar filters" });
+    expect(filters.classList.contains("calendar-filter-card")).toBe(true);
+    expect(within(filters).getByRole("heading", { name: "Filters" })).toBeTruthy();
+    expect(within(workspace).getByLabelText("Planning mode")).toBeTruthy();
   });
 
   it("normalizes the removed Chores route away", async () => {
@@ -945,6 +954,10 @@ describe("App", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Week" }));
     const weekGrid = await screen.findByRole("grid", { name: "Week of May 24, 2026" });
     expect(weekGrid).toBeTruthy();
+    expect(screen.getByText("May 24 - May 30, 2026")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Previous week" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Next week" })).toBeTruthy();
+    expect(screen.queryByText("May 2026")).toBeNull();
     expect(screen.getByRole("columnheader", { name: "Friday, May 29" })).toBeTruthy();
     expect(screen.getByRole("columnheader", { name: "Saturday, May 30" })).toBeTruthy();
     expect(screen.getAllByText("8:00 am")).toHaveLength(1);
@@ -956,7 +969,21 @@ describe("App", () => {
     expect(weekChore.getAttribute("title")).toBe("Clean bathrooms");
     expect(weekGrid.querySelector(".calendar-time-rail-separator")).not.toBeNull();
     expect(weekGrid.querySelectorAll(".calendar-column-hour-separator")).toHaveLength(7);
+    expect(weekGrid.querySelectorAll(".calendar-column-hour-separator.has-top-divider")).toHaveLength(7);
     expect(screen.queryByText("Flexible")).toBeNull();
+  });
+
+  it("filters calendar content by planning mode inside the workspace panel", async () => {
+    vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
+    renderAt("/calendar");
+
+    const workspace = await screen.findByRole("region", { name: "Calendar workspace" });
+    await screen.findByRole("grid", { name: "May 2026 month calendar" });
+    expect(within(workspace).getAllByRole("button", { name: "View Clean bathrooms" }).length).toBeGreaterThan(0);
+    fireEvent.change(within(workspace).getByLabelText("Planning mode"), { target: { value: "timed" } });
+
+    expect(within(workspace).queryAllByRole("button", { name: "View Clean bathrooms" })).toHaveLength(0);
+    expect(within(workspace).getByText("No chores in this range.")).toBeTruthy();
   });
 
   it("shows completed chores behind an expandable calendar drawer and in list agenda views", async () => {
@@ -974,6 +1001,7 @@ describe("App", () => {
     expect(today.querySelector(".calendar-day-completed-footer")).not.toBeNull();
     expect(today.querySelector(".calendar-day-completed-footer")?.classList.contains("has-completed-drawer")).toBe(true);
     expect(completedToggle.classList.contains("calendar-completed-toggle")).toBe(true);
+    expect(completedToggle.querySelector(".calendar-completed-count")).not.toBeNull();
     expect(completedToggle.textContent).toContain("Completed");
     expect(completedToggle.textContent).toContain("1 item");
     expect(completedToggle.getAttribute("aria-expanded")).toBe("false");
@@ -988,12 +1016,14 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Week" }));
     const weekGrid = screen.getByRole("grid", { name: "Week of May 24, 2026" });
     expect(weekGrid.querySelector(".calendar-time-rail-completed-spacer")).not.toBeNull();
+    expect(weekGrid.querySelector(".calendar-time-rail-separator")).not.toBeNull();
     const saturdayColumn = screen.getByRole("columnheader", { name: "Saturday, May 30" }).closest(".calendar-column");
     const fridayColumn = screen.getByRole("columnheader", { name: "Friday, May 29" }).closest(".calendar-column");
     expect(fridayColumn?.querySelector(".calendar-day-completed-footer")).toBeNull();
     expect(saturdayColumn?.querySelector(".calendar-column-anytime-main")).not.toBeNull();
     expect(saturdayColumn?.querySelector(".calendar-day-completed-footer")).not.toBeNull();
     expect(saturdayColumn?.querySelector(".calendar-day-completed-footer")?.classList.contains("has-completed-drawer")).toBe(true);
+    expect(saturdayColumn?.querySelector(".calendar-column-hour-separator")?.classList.contains("has-top-divider")).toBe(true);
 
     fireEvent.click(screen.getByRole("tab", { name: "List" }));
     const agenda = await screen.findByRole("region", { name: "Chore agenda" });

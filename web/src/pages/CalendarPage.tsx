@@ -6,7 +6,7 @@ import { completeOccurrence, createScheduledChore, getCurrentUser, listHousehold
 
 type WorkspaceView = "calendar" | "list";
 type CalendarScale = "month" | "week" | "day";
-type CalendarFilters = { householdId?: string; assignedUserId?: string; status?: string };
+type CalendarFilters = { householdId?: string; assignedUserId?: string; status?: string; planningMode?: string };
 type EditorMode = "closed" | "create" | "view" | "edit";
 type OccurrenceCardDensity = "title" | "summary";
 type ScheduleDraft = ScheduleInput & { key: string };
@@ -211,7 +211,8 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   const timeZone = selectedHousehold?.timeZone ?? "UTC";
   const isOwner = members.some((member) => member.userId === currentUserId && member.role === "owner");
   const visibleOccurrences = occurrences.filter((occurrence) =>
-    (!filters.status || filters.status === "all" || occurrence.status === filters.status)
+    (!filters.status || filters.status === "all" || occurrence.status === filters.status) &&
+    (!filters.planningMode || filters.planningMode === "all" || occurrence.planningMode === filters.planningMode)
   );
   const selectedOccurrence = occurrences.find((occurrence) => occurrence.id === selectedOccurrenceId);
 
@@ -299,6 +300,24 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     start: startOfWeek(focusDate, { weekStartsOn: 0 }),
     end: endOfWeek(focusDate, { weekStartsOn: 0 })
   }), [focusDate]);
+
+  const periodLabel = calendarScale === "month"
+    ? formatInTimeZone(focusDate, timeZone, "MMMM yyyy")
+    : calendarScale === "week"
+      ? `${format(weekDates[0], "MMM d")} - ${format(weekDates[weekDates.length - 1], "MMM d, yyyy")}`
+      : format(focusDate, "EEEE, MMM d, yyyy");
+
+  const periodUnit = calendarScale;
+
+  function moveFocusDate(direction: -1 | 1) {
+    setFocusDate((date) =>
+      calendarScale === "month"
+        ? addMonths(date, direction)
+        : calendarScale === "week"
+          ? addWeeks(date, direction)
+          : addDays(date, direction)
+    );
+  }
 
   function occurrenceTitle(occurrence: ChoreOccurrence) {
     return choreTitles.get(occurrence.choreId) ?? "Scheduled chore";
@@ -694,13 +713,13 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     );
   }
 
-  function renderCompletedDrawer(date: Date, completedOccurrences: ChoreOccurrence[]) {
+  function renderCompletedDrawer(date: Date, completedOccurrences: ChoreOccurrence[], hasActiveAnytime = true) {
     if (!completedOccurrences.length) return null;
     const key = dateKey(date);
     const isExpanded = expandedCompletedDates.has(key);
     const countLabel = `${completedOccurrences.length} item${completedOccurrences.length === 1 ? "" : "s"}`;
     return (
-      <section className={`calendar-completed-drawer ${isExpanded ? "is-expanded" : ""}`} key={`${key}-completed`}>
+      <section className={`calendar-completed-drawer ${isExpanded ? "is-expanded" : ""} ${hasActiveAnytime ? "has-active-anytime" : ""}`} key={`${key}-completed`}>
         <button
           aria-expanded={isExpanded}
           aria-label={`${isExpanded ? "Hide" : "Show"} ${completedOccurrences.length} completed chore${completedOccurrences.length === 1 ? "" : "s"} for ${longDateLabel(date)}`}
@@ -717,7 +736,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
           type="button"
         >
           <span>Completed</span>
-          <span>{countLabel}</span>
+          <span className="calendar-completed-count">{countLabel}</span>
         </button>
         {isExpanded ? (
           <div className="calendar-completed-list">
@@ -799,7 +818,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                 </div>
                   {completedOccurrences.length ? (
                     <div className="calendar-day-completed-footer has-completed-drawer">
-                      {renderCompletedDrawer(date, completedOccurrences)}
+                      {renderCompletedDrawer(date, completedOccurrences, activeOccurrences.length > 0)}
                     </div>
                   ) : null}
                 </section>
@@ -816,11 +835,11 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
       <section className={`calendar-column-grid ${dates.length > 1 ? "has-time-rail" : ""}`} aria-label={label} role="grid">
         {dates.length > 1 ? (
           <div className="calendar-time-rail" aria-hidden="true">
-            <span />
-            <span>Anytime</span>
+            <span className="calendar-time-rail-header-spacer" />
+            <span className="calendar-time-rail-anytime-label">Anytime</span>
             <span className="calendar-time-rail-completed-spacer" />
             <span className="calendar-time-rail-separator" />
-            {timedSlots.map((slot) => <span key={slot}>{timeSlotLabel(slot)}</span>)}
+            {timedSlots.map((slot, index) => <span key={slot} style={{ gridRow: index + 5 }}>{timeSlotLabel(slot)}</span>)}
           </div>
         ) : null}
         {dates.map((date) => renderCalendarDayColumn(date, density, dates.length === 1))}
@@ -836,21 +855,20 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     const flexibleOccurrences = activeOccurrences.filter((occurrence) => occurrence.planningMode === "flexible");
     return (
       <section className="calendar-column" key={key}>
-        <h3 role="columnheader">{longDateLabel(date)}</h3>
+        <h3 aria-label={longDateLabel(date)} role="columnheader">{showSlotLabels ? longDateLabel(date) : format(date, "EEE, MMM d")}</h3>
         <div className="calendar-column-anytime">
           <div className="calendar-column-anytime-main">
-            <span>Anytime</span>
             {flexibleOccurrences.length
               ? flexibleOccurrences.map((occurrence) => renderOccurrenceCompact(occurrence, date, density))
               : null}
           </div>
           {completedOccurrences.length ? (
             <div className="calendar-day-completed-footer has-completed-drawer">
-              {renderCompletedDrawer(date, completedOccurrences)}
+              {renderCompletedDrawer(date, completedOccurrences, flexibleOccurrences.length > 0)}
             </div>
           ) : null}
         </div>
-        <div className="calendar-column-hour-separator" aria-hidden="true" />
+        <div className="calendar-column-hour-separator has-top-divider" aria-hidden="true" />
         <div className="calendar-column-slots">
           {timedSlots.map((slot) => {
             const timedOccurrences = activeOccurrences.filter((occurrence) =>
@@ -892,77 +910,96 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
 
       {!selectedHousehold ? <section className="panel">Add a household to begin scheduling chores.</section> : (
         <>
-          <nav className="calendar-workspace-tabs" role="tablist" aria-label="Workspace view">
-            {(["calendar", "list"] as WorkspaceView[]).map((option) => (
-              <button
-                aria-selected={workspaceView === option}
-                key={option}
-                onClick={() => setWorkspaceView(option)}
-                role="tab"
-                type="button"
-              >
-                {capitalize(option)}
-              </button>
-            ))}
-          </nav>
+          <section className="calendar-workspace-shell has-external-tabs" aria-label="Calendar workspace">
+            <div className="calendar-workspace-panel-header">
+              <nav className="calendar-workspace-tabs" role="tablist" aria-label="Workspace view">
+                {(["calendar", "list"] as WorkspaceView[]).map((option) => (
+                  <button
+                    aria-selected={workspaceView === option}
+                    key={option}
+                    onClick={() => setWorkspaceView(option)}
+                    role="tab"
+                    type="button"
+                  >
+                    {capitalize(option)}
+                  </button>
+                ))}
+              </nav>
+            </div>
 
-          <section className="panel calendar-toolbar" aria-label="Calendar filters">
-            <label>
-              Household
-              <select value={selectedHousehold.id} onChange={(event) => setFilters({ householdId: event.target.value })}>
-                {households.map((household) => <option key={household.id} value={household.id}>{household.name}</option>)}
-              </select>
-            </label>
-            <label>
-              Member
-              <select value={filters.assignedUserId ?? ""} onChange={(event) => setFilters((current) => ({ ...current, assignedUserId: event.target.value || undefined }))}>
-                <option value="">Everyone</option>
-                {members.map((member) => <option key={member.userId} value={member.userId}>{memberLabel(member)}</option>)}
-              </select>
-            </label>
-            <label>
-              Status
-              <select value={filters.status ?? "all"} onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}>
-                <option value="all">All work</option>
-                <option value="planned">Planned</option>
-                <option value="completed">Completed</option>
-                <option value="skipped">Skipped</option>
-              </select>
-            </label>
-            {workspaceView === "calendar" ? (
-              <div className="calendar-period-controls">
-                <button className="section-action" onClick={() => setFocusDate((date) => calendarScale === "month" ? addMonths(date, -1) : calendarScale === "week" ? addWeeks(date, -1) : addDays(date, -1))} type="button">Previous</button>
-                <strong>{formatInTimeZone(focusDate, timeZone, "MMMM yyyy")}</strong>
-                <button className="section-action" onClick={() => setFocusDate((date) => calendarScale === "month" ? addMonths(date, 1) : calendarScale === "week" ? addWeeks(date, 1) : addDays(date, 1))} type="button">Next</button>
+            <div className="panel calendar-workspace-panel">
+            <section className="calendar-control-panel" aria-label="Calendar controls">
+              {workspaceView === "calendar" ? (
+                <div className="calendar-command-row">
+                  <section className="calendar-view-toggle" aria-label="Calendar scale">
+                    {scaleOptions.map((option) => (
+                      <button aria-pressed={calendarScale === option} key={option} onClick={() => setCalendarScale(option)} type="button">
+                        {capitalize(option)}
+                      </button>
+                    ))}
+                  </section>
+                  <div className="calendar-period-controls">
+                    <button aria-label={`Previous ${periodUnit}`} className="section-action" onClick={() => moveFocusDate(-1)} type="button">&lt;</button>
+                    <strong>{periodLabel}</strong>
+                    <button aria-label={`Next ${periodUnit}`} className="section-action" onClick={() => moveFocusDate(1)} type="button">&gt;</button>
+                  </div>
+                </div>
+              ) : null}
+
+              <section className="calendar-filter-card" aria-label="Calendar filters">
+                <h2>Filters</h2>
+                <div className="calendar-filter-panel">
+                  <label>
+                    Household
+                    <select value={selectedHousehold.id} onChange={(event) => setFilters((current) => ({ ...current, householdId: event.target.value, assignedUserId: undefined }))}>
+                      {households.map((household) => <option key={household.id} value={household.id}>{household.name}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    Member
+                    <select value={filters.assignedUserId ?? ""} onChange={(event) => setFilters((current) => ({ ...current, assignedUserId: event.target.value || undefined }))}>
+                      <option value="">Everyone</option>
+                      {members.map((member) => <option key={member.userId} value={member.userId}>{memberLabel(member)}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    Status
+                    <select value={filters.status ?? "all"} onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}>
+                      <option value="all">All work</option>
+                      <option value="planned">Planned</option>
+                      <option value="completed">Completed</option>
+                      <option value="skipped">Skipped</option>
+                    </select>
+                  </label>
+                  <label>
+                    Planning mode
+                    <select value={filters.planningMode ?? "all"} onChange={(event) => setFilters((current) => ({ ...current, planningMode: event.target.value }))}>
+                      <option value="all">All</option>
+                      <option value="timed">Timed</option>
+                      <option value="flexible">Anytime</option>
+                    </select>
+                  </label>
+                </div>
+              </section>
+            </section>
+
+            {loadState === "error" ? <section className="calendar-empty-state">Could not load scheduled chores.</section> : null}
+            {loadState === "ready" && visibleOccurrences.length === 0 ? <section className="calendar-empty-state">No chores in this range.</section> : null}
+
+            {workspaceView === "calendar" && visibleOccurrences.length > 0 ? (
+              <div className="calendar-workspace-content">
+                {calendarScale === "month" ? (
+                  renderMonthCalendar()
+                ) : calendarScale === "week" ? (
+                  renderCalendarColumns(weekDates, `Week of ${format(weekDates[0], "MMM d, yyyy")}`, "title")
+                ) : (
+                  renderCalendarColumns([focusDate], `${longDateLabel(focusDate)} day calendar`, "summary")
+                )}
               </div>
             ) : null}
-          </section>
 
-          {workspaceView === "calendar" ? (
-            <section className="panel calendar-view-toggle" aria-label="Calendar scale">
-              {scaleOptions.map((option) => (
-                <button aria-pressed={calendarScale === option} key={option} onClick={() => setCalendarScale(option)} type="button">
-                  {capitalize(option)}
-                </button>
-              ))}
-            </section>
-          ) : null}
-
-          {loadState === "error" ? <section className="panel">Could not load scheduled chores.</section> : null}
-          {loadState === "ready" && visibleOccurrences.length === 0 ? <section className="panel">No chores in this range.</section> : null}
-
-          {workspaceView === "calendar" && visibleOccurrences.length > 0 ? (
-            calendarScale === "month" ? (
-              renderMonthCalendar()
-            ) : calendarScale === "week" ? (
-              renderCalendarColumns(weekDates, `Week of ${format(weekDates[0], "MMM d, yyyy")}`, "title")
-            ) : (
-              renderCalendarColumns([focusDate], `${longDateLabel(focusDate)} day calendar`, "summary")
-            )
-          ) : null}
-
-          {workspaceView === "list" ? (
-            <section className="panel calendar-list-group calendar-agenda" aria-label="Chore agenda">
+            {workspaceView === "list" ? (
+              <section className="calendar-list-group calendar-agenda" aria-label="Chore agenda">
               <div className="agenda-header">
                 <div>
                   <p className="eyebrow">Agenda</p>
@@ -984,8 +1021,10 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                   </div>
                 </section>
               ))}
-            </section>
-          ) : null}
+              </section>
+            ) : null}
+            </div>
+          </section>
 
           {editorMode !== "closed" && editorDraft ? (
             <div className="chore-editor-backdrop" role="presentation">

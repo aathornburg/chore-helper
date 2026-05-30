@@ -1,0 +1,603 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Calendar Workspace Layout Options</title>
+  <style>
+    :root {
+      --bg: #f4f7ef;
+      --surface: #fffefa;
+      --surface-soft: #fbf8f1;
+      --line: #eaded1;
+      --line-green: #d7e4d5;
+      --text: #24352e;
+      --muted: #687167;
+      --green: #2f694d;
+      --green-soft: #e8f0e4;
+      --orange: #c9965a;
+      --shadow: 0 20px 54px rgba(62, 49, 37, 0.1);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      background:
+        radial-gradient(circle at 20% 15%, rgba(215, 228, 213, 0.7), transparent 34%),
+        linear-gradient(180deg, #fbfaf6 0%, var(--bg) 60%, #f8faf5 100%);
+      color: var(--text);
+      font-family: "Trebuchet MS", Georgia, serif;
+      margin: 0;
+      padding: 42px;
+    }
+
+    main {
+      display: grid;
+      gap: 34px;
+      margin: 0 auto;
+      max-width: 1280px;
+    }
+
+    .intro {
+      background: rgba(255, 254, 250, 0.92);
+      border: 1px solid var(--line);
+      border-radius: 26px;
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 10px;
+      padding: 30px;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      font-size: clamp(2.3rem, 4vw, 4.5rem);
+      letter-spacing: -0.05em;
+      line-height: 0.95;
+    }
+
+    .eyebrow {
+      color: #9a4f3f;
+      font-size: 0.78rem;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .intro p {
+      color: var(--muted);
+      max-width: 780px;
+    }
+
+    .option {
+      display: grid;
+      gap: 16px;
+    }
+
+    .option-note {
+      display: grid;
+      gap: 7px;
+      padding: 0 4px;
+    }
+
+    .option-note h2 {
+      font-size: 1.35rem;
+      letter-spacing: -0.02em;
+    }
+
+    .option-note p {
+      color: var(--muted);
+      line-height: 1.45;
+      max-width: 920px;
+    }
+
+    .workspace {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .tabs {
+      align-items: end;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      gap: 6px;
+      padding: 14px 18px 0;
+    }
+
+    .tab {
+      background: transparent;
+      border: 1px solid transparent;
+      border-bottom: 0;
+      border-radius: 14px 14px 0 0;
+      color: var(--muted);
+      font-weight: 900;
+      padding: 11px 18px 13px;
+    }
+
+    .tab.active {
+      background: var(--surface);
+      border-color: var(--line);
+      color: var(--green);
+      margin-bottom: -1px;
+    }
+
+    .controls {
+      display: grid;
+      gap: 14px;
+      padding: 18px;
+    }
+
+    .control-row {
+      align-items: end;
+      display: grid;
+      gap: 14px;
+      grid-template-columns: 1fr auto;
+    }
+
+    .scale {
+      background: #f4f0e9;
+      border-radius: 999px;
+      display: flex;
+      gap: 4px;
+      padding: 5px;
+      width: fit-content;
+    }
+
+    .scale span {
+      border-radius: 999px;
+      color: #3f4a43;
+      font-size: 0.86rem;
+      font-weight: 900;
+      padding: 9px 15px;
+    }
+
+    .scale .active {
+      background: var(--green);
+      color: #fff;
+    }
+
+    .period {
+      align-items: center;
+      display: flex;
+      gap: 11px;
+      justify-content: center;
+      white-space: nowrap;
+    }
+
+    .circle {
+      align-items: center;
+      background: #fffefa;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--green);
+      display: inline-flex;
+      font-weight: 900;
+      height: 38px;
+      justify-content: center;
+      width: 38px;
+    }
+
+    .period strong {
+      min-width: 190px;
+      text-align: center;
+    }
+
+    .filters {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    label {
+      color: var(--text);
+      display: grid;
+      font-size: 0.84rem;
+      font-weight: 900;
+      gap: 6px;
+    }
+
+    select {
+      appearance: none;
+      background: #fffefa;
+      border: 1px solid #e3d7ca;
+      border-radius: 10px;
+      color: var(--text);
+      font: inherit;
+      padding: 11px 12px;
+    }
+
+    .content {
+      padding: 0 18px 18px;
+    }
+
+    .month {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(7, 1fr);
+      padding: 10px;
+    }
+
+    .dow {
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 900;
+      padding: 5px 7px;
+      text-transform: uppercase;
+    }
+
+    .day {
+      background: #fbfdf8;
+      border: 1px solid var(--line-green);
+      border-radius: 12px;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      min-height: 124px;
+      padding: 9px;
+    }
+
+    .day.muted {
+      background: #f6f1ea;
+      color: var(--muted);
+      opacity: 0.76;
+    }
+
+    .day.today {
+      border-color: var(--green);
+      box-shadow: inset 0 0 0 1px var(--green);
+    }
+
+    .task {
+      align-items: start;
+      display: grid;
+      font-size: 0.84rem;
+      font-weight: 700;
+      gap: 6px;
+      grid-template-columns: 7px 1fr;
+      margin-top: 8px;
+    }
+
+    .task::before {
+      background: var(--orange);
+      border-radius: 999px;
+      content: "";
+      height: 7px;
+      margin-top: 0.45em;
+      width: 7px;
+    }
+
+    .completed {
+      border-top: 1px dashed #c8ddc4;
+      color: var(--green);
+      font-size: 0.78rem;
+      font-weight: 900;
+      margin-top: 9px;
+      padding-top: 7px;
+    }
+
+    .agenda {
+      display: grid;
+      gap: 18px;
+    }
+
+    .agenda-head {
+      align-items: center;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .chips {
+      display: flex;
+      gap: 8px;
+    }
+
+    .chip {
+      background: #f4f0e9;
+      border: 1px solid #e3d7ca;
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 900;
+      padding: 7px 10px;
+    }
+
+    .agenda-day {
+      display: grid;
+      gap: 8px;
+      max-width: 880px;
+    }
+
+    .agenda-row {
+      align-items: center;
+      background: #fffefa;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      display: grid;
+      gap: 12px;
+      grid-template-columns: 7px minmax(0, 1fr) auto auto;
+      padding: 13px 15px;
+    }
+
+    .agenda-row::before {
+      background: var(--orange);
+      border-radius: 999px;
+      content: "";
+      height: 7px;
+      width: 7px;
+    }
+
+    .agenda-row.done {
+      background: #f5f9f1;
+      border-color: #c8ddc4;
+    }
+
+    .agenda-row.done::before {
+      background: var(--green);
+    }
+
+    .meta {
+      color: var(--muted);
+      font-size: 0.86rem;
+      font-weight: 800;
+      text-align: right;
+    }
+
+    .status {
+      background: #fff1e6;
+      border-radius: 999px;
+      color: #9a4f3f;
+      font-size: 0.76rem;
+      font-weight: 900;
+      padding: 6px 9px;
+    }
+
+    .status.done {
+      background: #e8f0e4;
+      color: var(--green);
+    }
+
+    .split {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .mini-title {
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+    }
+
+    .option-b .controls {
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 16px;
+    }
+
+    .option-b .control-row {
+      grid-template-columns: auto 1fr;
+    }
+
+    .option-b .period {
+      justify-content: end;
+    }
+
+    .option-c .controls {
+      background: linear-gradient(180deg, #fffefa 0%, #fbfdf8 100%);
+      border-bottom: 1px solid var(--line-green);
+    }
+
+    .option-c .filter-shell {
+      border: 1px solid var(--line-green);
+      border-radius: 16px;
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+    }
+
+    .option-c .filter-shell h3 {
+      font-size: 0.95rem;
+    }
+
+    .option-d .controls {
+      grid-template-columns: 260px 1fr;
+    }
+
+    .option-d .calendar-tools {
+      align-content: start;
+      border-right: 1px solid var(--line);
+      display: grid;
+      gap: 14px;
+      padding-right: 14px;
+    }
+
+    .option-d .filters {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .option-d .period {
+      justify-content: start;
+    }
+
+    .note-card {
+      background: #fbfdf8;
+      border: 1px solid var(--line-green);
+      border-radius: 14px;
+      color: var(--muted);
+      line-height: 1.45;
+      padding: 14px;
+    }
+
+    @media (max-width: 920px) {
+      body {
+        padding: 20px;
+      }
+
+      .split,
+      .control-row,
+      .option-b .control-row,
+      .option-d .controls {
+        grid-template-columns: 1fr;
+      }
+
+      .filters,
+      .option-d .filters {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .option-d .calendar-tools {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+        padding: 0 0 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="intro">
+      <p class="eyebrow">Calendar workspace layout options</p>
+      <h1>Fixing the panel hierarchy</h1>
+      <p>Each option removes the orange tab band, keeps filters in the same place for Calendar and List, and separates Month/Week/Day from the Calendar/List workspace tabs.</p>
+    </section>
+
+    <section class="option option-a">
+      <div class="option-note">
+        <h2>Option A: Stacked, Neutral, Recommended</h2>
+        <p>Calendar/List remains the only top tab row. Calendar scale moves below it as a secondary control. Filters are always below period controls and above content for both Calendar and List.</p>
+      </div>
+      <div class="split">
+        <div class="workspace">
+          <div class="tabs"><span class="tab active">Calendar</span><span class="tab">List</span></div>
+          <div class="controls">
+            <div class="control-row">
+              <div class="scale"><span class="active">Month</span><span>Week</span><span>Day</span></div>
+              <div class="period"><span class="circle">&lt;</span><strong>May 2026</strong><span class="circle">&gt;</span></div>
+            </div>
+            <div class="filters">
+              <label>Household<select><option>New household</option></select></label>
+              <label>Member<select><option>Everyone</option></select></label>
+              <label>Status<select><option>All work</option></select></label>
+              <label>Planning mode<select><option>All</option></select></label>
+            </div>
+          </div>
+          <div class="content">
+            <div class="month">
+              <div class="dow">Sun</div><div class="dow">Mon</div><div class="dow">Tue</div><div class="dow">Wed</div><div class="dow">Thu</div><div class="dow">Fri</div><div class="dow">Sat</div>
+              <div class="day muted"><strong>26</strong></div><div class="day muted"><strong>27</strong></div><div class="day muted"><strong>28</strong></div><div class="day muted"><strong>29</strong></div><div class="day muted"><strong>30</strong></div><div class="day"><strong>1</strong></div><div class="day"><strong>2</strong></div>
+              <div class="day"><strong>3</strong></div><div class="day"><strong>4</strong></div><div class="day"><strong>5</strong></div><div class="day"><strong>6</strong></div><div class="day"><strong>7</strong></div><div class="day"><strong>8</strong></div><div class="day"><strong>9</strong></div>
+              <div class="day"><strong>24</strong></div><div class="day"><strong>25</strong></div><div class="day"><strong>26</strong></div><div class="day"><strong>27</strong></div><div class="day"><strong>28</strong></div><div class="day"><strong>29</strong><span class="completed">Completed 1 item</span></div><div class="day today"><strong>30</strong><span class="task">Pet cats</span><span class="completed">Completed 2 items</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="workspace">
+          <div class="tabs"><span class="tab">Calendar</span><span class="tab active">List</span></div>
+          <div class="controls">
+            <div class="filters">
+              <label>Household<select><option>New household</option></select></label>
+              <label>Member<select><option>Everyone</option></select></label>
+              <label>Status<select><option>All work</option></select></label>
+              <label>Planning mode<select><option>All</option></select></label>
+            </div>
+          </div>
+          <div class="content agenda">
+            <div class="agenda-head"><div><p class="eyebrow">Agenda</p><h3>Upcoming and completed work</h3></div><div class="chips"><span class="chip">34 planned</span><span class="chip">2 completed</span></div></div>
+            <div class="agenda-day"><h3>Saturday, May 30</h3><div class="agenda-row done"><strong>Scheduled chore</strong><span class="meta">Completed 2:56 PM</span><span class="status done">Completed</span></div><div class="agenda-row done"><strong>Pet cats</strong><span class="meta">Completed 3:57 PM</span><span class="status done">Completed</span></div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="option option-b">
+      <div class="option-note">
+        <h2>Option B: Toolbar Split</h2>
+        <p>The secondary row is split into left-side calendar scale and right-side period navigation. Filters stay in a stable full-width row for both tabs.</p>
+      </div>
+      <div class="workspace">
+        <div class="tabs"><span class="tab active">Calendar</span><span class="tab">List</span></div>
+        <div class="controls">
+          <div class="control-row">
+            <div class="scale"><span>Month</span><span class="active">Week</span><span>Day</span></div>
+            <div class="period"><span class="circle">&lt;</span><strong>May 24 - May 30, 2026</strong><span class="circle">&gt;</span></div>
+          </div>
+          <div class="filters">
+            <label>Household<select><option>New household</option></select></label>
+            <label>Member<select><option>Everyone</option></select></label>
+            <label>Status<select><option>All work</option></select></label>
+            <label>Planning mode<select><option>All</option></select></label>
+          </div>
+        </div>
+        <div class="content">
+          <div class="note-card">Best if the period navigation should feel like the primary calendar action while filters remain secondary. This is clean, but the toolbar can still feel wide on desktop.</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="option option-c">
+      <div class="option-note">
+        <h2>Option C: Filter Card Below Controls</h2>
+        <p>The tab area stays completely white. Calendar scale and period controls form a clean command row. Filters sit in a lightly bordered card that appears in the same place for Calendar and List.</p>
+      </div>
+      <div class="workspace">
+        <div class="tabs"><span class="tab active">Calendar</span><span class="tab">List</span></div>
+        <div class="controls">
+          <div class="control-row">
+            <div class="scale"><span class="active">Month</span><span>Week</span><span>Day</span></div>
+            <div class="period"><span class="circle">&lt;</span><strong>May 2026</strong><span class="circle">&gt;</span></div>
+          </div>
+          <div class="filter-shell">
+            <h3>Filters</h3>
+            <div class="filters">
+              <label>Household<select><option>New household</option></select></label>
+              <label>Member<select><option>Everyone</option></select></label>
+              <label>Status<select><option>All work</option></select></label>
+              <label>Planning mode<select><option>All</option></select></label>
+            </div>
+          </div>
+        </div>
+        <div class="content">
+          <div class="note-card">Best if filters should feel optional and contained. It adds one more visual box, but it makes the filter area easier to understand.</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="option option-d">
+      <div class="option-note">
+        <h2>Option D: Left Control Rail</h2>
+        <p>Calendar tools and filters move into a left rail. The content has more uninterrupted vertical flow, but this is a bigger structural change and uses more horizontal space.</p>
+      </div>
+      <div class="workspace">
+        <div class="tabs"><span class="tab active">Calendar</span><span class="tab">List</span></div>
+        <div class="controls">
+          <div class="calendar-tools">
+            <div class="scale"><span class="active">Month</span><span>Week</span><span>Day</span></div>
+            <div class="period"><span class="circle">&lt;</span><strong>May 2026</strong><span class="circle">&gt;</span></div>
+          </div>
+          <div class="filters">
+            <label>Household<select><option>New household</option></select></label>
+            <label>Member<select><option>Everyone</option></select></label>
+            <label>Status<select><option>All work</option></select></label>
+            <label>Planning mode<select><option>All</option></select></label>
+          </div>
+        </div>
+        <div class="content">
+          <div class="note-card">Useful if the workspace grows more controls later. For the current product, this may be more layout than we need.</div>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
