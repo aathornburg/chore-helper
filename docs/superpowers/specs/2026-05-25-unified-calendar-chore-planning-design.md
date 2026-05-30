@@ -52,8 +52,18 @@ screens. The same editor supports creation and editing so users learn one workfl
 
 ### Create Mode
 
-- Starts with blank chore descriptive fields and one required schedule series.
-- Allows owners to add multiple schedule series before saving.
+- Starts with blank chore descriptive fields plus simple occurrence fields: date,
+  optional start time, estimated duration, assignee, and recurrence.
+- Shows inline helper text for fields whose product meaning is not obvious:
+  start time is optional, estimated duration affects flexible chores and timed end
+  time, instructions help optimization understand chore scope, and tags provide
+  grouping plus optimization context.
+- If start time is blank, the created schedule is flexible and can be completed at
+  any time on the selected day. If start time is provided, the created schedule is
+  timed and its end time is derived from the estimated duration.
+- The recurrence UI starts with a segmented `Repeat` choice: `Does not repeat`
+  or `Repeats`. Selecting `Repeats` reveals the sentence-style controls:
+  `Repeats every <number> <day(s)|week(s)|month(s)|year(s)>`.
 - Rejects save unless the new chore has at least one valid schedule.
 - Persists the chore and its required schedule series as one successful user action;
   failure must not leave a newly created unscheduled chore visible in the product.
@@ -125,6 +135,16 @@ A flexible schedule defines:
 
 Example: `Clean bathrooms` once on Saturday or Sunday, expected to take one hour.
 
+Monthly recurrence supports two patterns:
+
+- Day of month, such as the 15th of every month.
+- Weekday of month, such as the third Wednesday of every month.
+
+The Add Chore UI uses the main `Date` input as the monthly anchor. When the user
+selects `month(s)`, the UI shows only the two monthly patterns derived from that
+date. The weekday pattern requires recurrence fields for ordinal week and weekday
+in addition to the monthly interval.
+
 ## Occurrences And Completion
 
 ### Occurrence Generation
@@ -154,9 +174,34 @@ Completed occurrences record:
 
 - `completedAt`
 - `completedByUserId`
+- Completion check-in answers, when collected.
 
 Future schedule-series edits regenerate only future untouched occurrences. Completed,
 skipped, or individually adjusted occurrences remain preserved as history.
+
+### Completion Check-In
+
+When a member completes a chore, the app should be able to prompt for lightweight
+follow-up answers before finalizing the completion. The check-in should support:
+
+- Whether the chore was completed on time.
+- Whether the planned duration was accurate enough to keep using.
+- Whether the assigned member should remain responsible for similar future work.
+
+For a chore backed by a repeating schedule, the check-in should also ask whether
+future occurrences should be based on the actual completion date moving forward.
+When the member chooses to rebase future work, the schedule keeps its recurrence
+interval but uses the completed occurrence as the new anchor date for future
+materialization.
+
+Example: if a flexible chore repeats every five weeks but one occurrence is not
+completed until week six, choosing to rebase means the next generated occurrence is
+five weeks after that actual completion date, and subsequent occurrences continue
+five weeks apart from the rebased anchor.
+
+Rebasing a repeating schedule must not rewrite completed, skipped, individually
+adjusted, or otherwise historical occurrences. It only changes future untouched
+occurrences for the same schedule series.
 
 ### Occurrence Exceptions
 
@@ -198,12 +243,17 @@ contracts:
 - Schedule inputs include planning mode, timed end time or flexible estimated
   duration, selected-day behavior for flexible schedules, recurrence, bounds, and
   assignment.
+- Monthly recurrence inputs include either `monthlyDay` for day-of-month schedules or
+  a weekday-of-month pattern with ordinal week and weekday.
 - New chore creation accepts descriptive chore data plus one or more schedule series
   in an atomic server operation, or an equivalently transactional operation.
 - Occurrence queries return enough flexible-window metadata for the UI to project a
   single pending flexible obligation across eligible days without treating each
   display item as a separate completion.
 - Occurrence completion records status, `completedAt`, and `completedByUserId`.
+- Occurrence completion may accept check-in answers and, for repeating schedules, a
+  `rebaseFutureOccurrences` choice that updates the schedule anchor before future
+  untouched occurrences are regenerated.
 
 Implementation may drop or reset development chore, schedule, and occurrence rows
 when adopting this contract. No compatibility behavior for the separate Chores page,
@@ -234,6 +284,8 @@ Automated server coverage must include:
   behavior.
 - Flexible `each selected day` independent occurrence behavior.
 - Completion auditing and assigned-member authorization.
+- Completion check-in persistence and recurring-schedule rebasing from the actual
+  completion date.
 - Owner schedule-series and occurrence-exception permissions.
 - Preservation of completed, skipped, and altered historical occurrences after series
   updates.

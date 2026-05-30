@@ -116,6 +116,48 @@ describe("materializeOccurrences", () => {
     ]);
   });
 
+  it("materializes monthly schedules by ordinal weekday", () => {
+    const occurrences = materializeOccurrences({
+      schedule: timedSchedule({
+        recurrence: {
+          frequency: "monthly",
+          interval: 1,
+          monthlyPattern: "weekday_of_month",
+          monthlyWeek: 3,
+          monthlyWeekday: 3
+        },
+        startsOn: "2026-06-17"
+      } as Partial<TimedChoreSchedule>),
+      householdTimeZone: "America/New_York",
+      rangeStart: "2026-06-01",
+      rangeEnd: "2026-08-31"
+    });
+
+    expect(occurrences.map((occurrence) => occurrence.eligibleStartOn)).toEqual([
+      "2026-06-17",
+      "2026-07-15",
+      "2026-08-19"
+    ]);
+  });
+
+  it("materializes yearly schedules on the same month and day", () => {
+    const occurrences = materializeOccurrences({
+      schedule: timedSchedule({
+        recurrence: { frequency: "yearly", interval: 2 },
+        startsOn: "2026-09-15"
+      } as Partial<TimedChoreSchedule>),
+      householdTimeZone: "America/New_York",
+      rangeStart: "2026-01-01",
+      rangeEnd: "2031-12-31"
+    });
+
+    expect(occurrences.map((occurrence) => occurrence.eligibleStartOn)).toEqual([
+      "2026-09-15",
+      "2028-09-15",
+      "2030-09-15"
+    ]);
+  });
+
   it("derives timed duration from its local time range across DST", () => {
     const occurrences = materializeOccurrences({
       schedule: timedSchedule({ localStartTime: "10:00", localEndTime: "11:00" }),

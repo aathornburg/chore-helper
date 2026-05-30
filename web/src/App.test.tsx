@@ -36,6 +36,21 @@ function renderAt(path: string) {
   return render(<App />);
 }
 
+function getChoreEditor() {
+  const editor = document.querySelector(".chore-editor-modal");
+  expect(editor).not.toBeNull();
+  return within(editor as HTMLElement);
+}
+
+async function findPlannedCleanBathroomsButton() {
+  const viewButtons = await screen.findAllByRole("button", { name: "View Clean bathrooms" });
+  const plannedButton = viewButtons.find((button) =>
+    !button.classList.contains("is-completed") && !button.classList.contains("is-skipped")
+  );
+  expect(plannedButton).toBeTruthy();
+  return plannedButton as HTMLElement;
+}
+
 function mockClerkSignedIn() {
   clerkState.signedIn = true;
   clerkState.getToken.mockReset();
@@ -365,6 +380,33 @@ function mockCalendarPageFetches() {
     if (url.startsWith("http://localhost:3001/api/households/household-1/occurrences?") && method === "GET") {
       return { ok: true, json: async () => occurrences };
     }
+    if (url === "http://localhost:3001/api/households/household-1/chores/chore-1/schedules" && method === "GET") {
+      return {
+        ok: true,
+        json: async () => [{
+          id: "schedule-1",
+          householdId: "household-1",
+          choreId: "chore-1",
+          planningMode: "timed",
+          recurrence: { frequency: "one_time", interval: 1 },
+          startsOn: "2026-05-25",
+          assignment: { mode: "fixed", memberUserIds: ["app-user-2"] },
+          localStartTime: "10:00",
+          localEndTime: "10:30"
+        }]
+      };
+    }
+    if (url === "http://localhost:3001/api/households/household-1/schedules/schedule-1" && method === "PUT") {
+      return {
+        ok: true,
+        json: async () => ({
+          id: "schedule-1",
+          householdId: "household-1",
+          choreId: "chore-1",
+          ...JSON.parse(String(init?.body))
+        })
+      };
+    }
     if (url === "http://localhost:3001/api/households/household-1/occurrences/occurrence-1" && method === "PUT") {
       const body = JSON.parse(String(init?.body));
       occurrences = [{ ...occurrences[0], ...body, exceptionType: "rescheduled" }];
@@ -382,7 +424,11 @@ function mockCalendarPageFetches() {
   return fetchMock;
 }
 
-function mockCalendarWorkspaceFetches() {
+function mockCalendarWorkspaceFetches({
+  frequency = "weekly"
+}: {
+  frequency?: "daily" | "weekly" | "monthly" | "yearly";
+} = {}) {
   let occurrences = [{
     id: "occurrence-flexible",
     householdId: "household-1",
@@ -392,10 +438,40 @@ function mockCalendarWorkspaceFetches() {
     planningMode: "flexible",
     estimatedMinutes: 60,
     eligibleStartOn: "2026-05-28",
-    eligibleEndOn: "2026-05-29",
+    eligibleEndOn: "2026-05-30",
     assignedUserId: "app-user-1",
     exceptionType: "none",
     status: "planned"
+  }, {
+    id: "occurrence-history",
+    householdId: "household-1",
+    choreId: "chore-1",
+    scheduleId: "schedule-1",
+    sequence: -1,
+    planningMode: "flexible",
+    estimatedMinutes: 60,
+    eligibleStartOn: "2026-05-27",
+    eligibleEndOn: "2026-05-27",
+    assignedUserId: "app-user-1",
+    exceptionType: "none",
+    status: "completed",
+    completedAt: "2026-05-27T14:00:00.000Z",
+    completedByUserId: "app-user-1"
+  }, {
+    id: "occurrence-pet-completed",
+    householdId: "household-1",
+    choreId: "chore-2",
+    scheduleId: "schedule-2",
+    sequence: 0,
+    planningMode: "flexible",
+    estimatedMinutes: 15,
+    eligibleStartOn: "2026-05-30",
+    eligibleEndOn: "2026-05-30",
+    assignedUserId: "app-user-1",
+    exceptionType: "none",
+    status: "completed",
+    completedAt: "2026-05-30T14:00:00.000Z",
+    completedByUserId: "app-user-1"
   }];
   const members: HouseholdMemberSummary[] = [{
     householdId: "household-1",
@@ -404,25 +480,89 @@ function mockCalendarWorkspaceFetches() {
     primaryEmail: "owner@example.com",
     displayName: "Alex Owner",
     role: "owner"
+  }, {
+    householdId: "household-1",
+    userId: "app-user-2",
+    clerkUserId: "test-user-b",
+    primaryEmail: "member@example.com",
+    displayName: "Taylor Member",
+    role: "member"
   }];
   return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     const method = init?.method ?? "GET";
     if (url.endsWith("/api/me")) return { ok: true, json: async () => ({ id: "app-user-1", clerkUserId: "test-user-a" }) };
-    if (url.endsWith("/api/households")) return { ok: true, json: async () => [createHouseholdAppData()] };
+    if (url.endsWith("/api/households")) {
+      return {
+        ok: true,
+        json: async () => [createHouseholdAppData({
+          chores: [
+            cleanBathroomsChore,
+            { ...cleanBathroomsChore, id: "chore-2", title: "Pet cats" }
+          ]
+        })]
+      };
+    }
     if (url.includes("/members")) return { ok: true, json: async () => members };
     if (url.includes("/occurrences?") && method === "GET") return { ok: true, json: async () => occurrences };
-    if (url.endsWith("/api/households/household-1/chores") && method === "POST") {
+    if (url.endsWith("/api/households/household-1/chores/chore-1/schedules") && method === "GET") {
+      return {
+        ok: true,
+        json: async () => [{
+          id: "schedule-1",
+          householdId: "household-1",
+          choreId: "chore-1",
+          planningMode: "flexible",
+          recurrence: frequency === "weekly"
+            ? { frequency, interval: 1, weekDays: [4, 5] }
+            : frequency === "monthly"
+              ? { frequency, interval: 1, monthlyPattern: "day_of_month", monthlyDay: 28 }
+              : { frequency, interval: 1 },
+          startsOn: "2026-05-28",
+          assignment: { mode: "fixed", memberUserIds: ["app-user-1"] },
+          estimatedMinutes: 60,
+          flexibleWindowRule: "once_within_selected_days"
+        }]
+      };
+    }
+    if (url.endsWith("/api/households/household-1/schedules/schedule-1") && method === "PUT") {
       return {
         ok: true,
         json: async () => ({
-          chore: { id: "chore-new", householdId: "household-1", title: "Clean bathrooms", source: "manual" },
+          id: "schedule-1",
+          householdId: "household-1",
+          choreId: "chore-1",
+          ...JSON.parse(String(init?.body))
+        })
+      };
+    }
+    if (url.endsWith("/api/households/household-1/chores") && method === "POST") {
+      const body = JSON.parse(String(init?.body));
+      const schedule = body.schedules[0];
+      occurrences = [...occurrences, {
+        id: "occurrence-new",
+        householdId: "household-1",
+        choreId: "chore-new",
+        scheduleId: "schedule-new",
+        sequence: 0,
+        planningMode: schedule.planningMode,
+        estimatedMinutes: schedule.estimatedMinutes ?? 60,
+        eligibleStartOn: schedule.startsOn,
+        eligibleEndOn: schedule.startsOn,
+        assignedUserId: schedule.assignment.memberUserIds[0],
+        exceptionType: "none",
+        status: "planned"
+      }];
+      return {
+        ok: true,
+        json: async () => ({
+          chore: { id: "chore-new", householdId: "household-1", title: body.chore.title, source: "manual" },
           schedules: []
         })
       };
     }
     if (url.endsWith("/occurrences/occurrence-flexible/complete") && method === "POST") {
-      const completed = { ...occurrences[0], status: "completed", completedAt: "2026-05-28T16:00:00.000Z", completedByUserId: "app-user-1" };
+      const completed = { ...occurrences[0], status: "completed", completedAt: "2026-05-30T16:00:00.000Z", completedByUserId: "app-user-1" };
       occurrences = [];
       return { ok: true, json: async () => completed };
     }
@@ -723,23 +863,25 @@ describe("App", () => {
       String(url).includes("assignedUserId=app-user-2")
     )).toBe(true));
 
-    fireEvent.click(screen.getByRole("button", { name: "Edit Clean bathrooms" }));
-    fireEvent.change(screen.getByLabelText("Planned duration"), { target: { value: "45" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save occurrence" }));
+    fireEvent.click(screen.getByRole("button", { name: "View Clean bathrooms" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    await waitFor(() => expect(screen.getByLabelText(/Estimated duration/)).toBeTruthy());
+    fireEvent.change(screen.getByLabelText(/Estimated duration/), { target: { value: "45" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:3001/api/households/household-1/occurrences/occurrence-1",
-      expect.objectContaining({ method: "PUT" })
+      "http://localhost:3001/api/households/household-1/schedules/schedule-1",
+      expect.objectContaining({ method: "PUT", body: expect.stringContaining("\"localEndTime\":\"10:45\"") })
     ));
 
-    fireEvent.dragStart(screen.getByLabelText("Scheduled Clean bathrooms"));
-    fireEvent.drop(screen.getByLabelText("10:00 time slot"));
+    fireEvent.dragStart(screen.getByRole("button", { name: "View Clean bathrooms" }));
+    fireEvent.drop(screen.getByLabelText("Monday, May 25 10:00 time slot"));
     await waitFor(() => expect(fetchMock.mock.calls.filter(([url, init]) =>
       url === "http://localhost:3001/api/households/household-1/occurrences/occurrence-1" &&
       init?.method === "PUT"
-    )).toHaveLength(2));
+    )).toHaveLength(1));
 
     fireEvent.click(screen.getByRole("button", { name: "Skip occurrence" }));
-    await waitFor(() => expect(screen.getByText("No planned chores in this range.")).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole("button", { name: "View Clean bathrooms" }).classList.contains("is-skipped")).toBe(true));
   });
 
   it("uses Calendar as the only chore planning destination", async () => {
@@ -749,6 +891,9 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: "Calendar" })).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Chores" })).toBeNull();
     expect(screen.getByRole("button", { name: "Add chore" })).toBeTruthy();
+    const tabs = screen.getByRole("tablist", { name: "Workspace view" });
+    expect(within(tabs).getByRole("tab", { name: "Calendar" })).toBeTruthy();
+    expect(within(tabs).getByRole("tab", { name: "List" })).toBeTruthy();
   });
 
   it("normalizes the removed Chores route away", async () => {
@@ -763,46 +908,400 @@ describe("App", () => {
     vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
     renderAt("/calendar");
 
-    fireEvent.click(await screen.findByRole("button", { name: "List" }));
-    expect(screen.getByRole("heading", { name: "Today" })).toBeTruthy();
-    expect(screen.getByText("Anytime today / 60 min / Flexible")).toBeTruthy();
+    fireEvent.click(await screen.findByRole("tab", { name: "List" }));
+    const agenda = await screen.findByRole("region", { name: "Chore agenda" });
+    expect(within(agenda).getByRole("heading", { name: "Upcoming and completed work" })).toBeTruthy();
+    const plannedCard = within(agenda).getByRole("button", { name: "View Clean bathrooms" });
+    expect(plannedCard.classList.contains("calendar-agenda-card")).toBe(true);
+    expect(within(plannedCard).getByText("Anytime / 60 min")).toBeTruthy();
+    expect(within(agenda).getByRole("button", { name: "View Pet cats" })).toBeTruthy();
+    expect(screen.queryByText("Flexible")).toBeNull();
   });
 
-  it("creates a chore with multiple schedule series in the shared modal", async () => {
+  it("renders month as dated calendar cells with title-only chore buttons", async () => {
+    vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
+    renderAt("/calendar");
+
+    expect(await screen.findByRole("grid", { name: "May 2026 month calendar" })).toBeTruthy();
+    expect(screen.getByText("Sun")).toBeTruthy();
+    const friday = screen.getByRole("gridcell", { name: "Friday, May 29" });
+    expect(within(friday).getByRole("button", { name: "View Clean bathrooms" })).toBeTruthy();
+    expect(within(friday).queryByText("Anytime / 60 min")).toBeNull();
+    expect(within(friday).queryByText("Alex Owner")).toBeNull();
+    expect(screen.queryByText("Assigned member")).toBeNull();
+  });
+
+  it("renders week view with one time rail and title-only chore buttons", async () => {
+    vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
+    renderAt("/calendar");
+
+    fireEvent.click(await screen.findByRole("button", { name: "Week" }));
+    const weekGrid = await screen.findByRole("grid", { name: "Week of May 24, 2026" });
+    expect(weekGrid).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "Friday, May 29" })).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "Saturday, May 30" })).toBeTruthy();
+    expect(screen.getAllByText("8:00 am")).toHaveLength(1);
+    expect(screen.getAllByText("5:00 pm")).toHaveLength(1);
+    expect(screen.queryByText("08:00")).toBeNull();
+    expect(screen.getAllByRole("button", { name: "View Clean bathrooms" }).length).toBeGreaterThan(0);
+    expect(weekGrid.querySelector(".calendar-time-rail-separator")).not.toBeNull();
+    expect(weekGrid.querySelectorAll(".calendar-column-hour-separator")).toHaveLength(7);
+    expect(screen.queryByText("Flexible")).toBeNull();
+  });
+
+  it("shows completed chores behind an expandable calendar drawer and in list agenda views", async () => {
+    vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
+    renderAt("/calendar");
+
+    expect(await screen.findByRole("grid", { name: "May 2026 month calendar" })).toBeTruthy();
+    const today = screen.getByRole("gridcell", { name: "Saturday, May 30" });
+    expect(today.closest(".calendar-month-week")).not.toBeNull();
+    expect(within(today).queryByRole("button", { name: "View Pet cats" })).toBeNull();
+    const completedToggle = within(today).getByRole("button", { name: "Show 1 completed chore for Saturday, May 30" });
+    expect(today.querySelector(".calendar-day-active-events")).not.toBeNull();
+    expect(today.querySelector(".calendar-day-completed-footer")).not.toBeNull();
+    expect(today.querySelector(".calendar-day-completed-footer")?.classList.contains("has-completed-drawer")).toBe(true);
+    expect(completedToggle.classList.contains("calendar-completed-toggle")).toBe(true);
+    expect(completedToggle.textContent).toContain("Completed");
+    expect(completedToggle.textContent).toContain("1 item");
+    expect(completedToggle.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(completedToggle);
+    expect(completedToggle.textContent).toContain("Completed");
+    expect(completedToggle.textContent).toContain("1 item");
+    expect(completedToggle.getAttribute("aria-expanded")).toBe("true");
+    const completedRow = within(today).getByRole("button", { name: "View Pet cats" });
+    expect(completedRow.classList.contains("calendar-completed-row")).toBe(true);
+    expect(completedRow.classList.contains("is-completed")).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: "Week" }));
+    const weekGrid = screen.getByRole("grid", { name: "Week of May 24, 2026" });
+    expect(weekGrid.querySelector(".calendar-time-rail-completed-spacer")).not.toBeNull();
+    const saturdayColumn = screen.getByRole("columnheader", { name: "Saturday, May 30" }).closest(".calendar-column");
+    expect(saturdayColumn?.querySelector(".calendar-column-anytime-main")).not.toBeNull();
+    expect(saturdayColumn?.querySelector(".calendar-day-completed-footer")).not.toBeNull();
+    expect(saturdayColumn?.querySelector(".calendar-day-completed-footer")?.classList.contains("has-completed-drawer")).toBe(true);
+
+    fireEvent.click(screen.getByRole("tab", { name: "List" }));
+    const agenda = await screen.findByRole("region", { name: "Chore agenda" });
+    expect(agenda.classList.contains("calendar-agenda")).toBe(true);
+    const completedCard = within(agenda).getByRole("button", { name: "View Pet cats" });
+    expect(completedCard.classList.contains("calendar-agenda-card")).toBe(true);
+    expect(within(completedCard).getByText("Completed")).toBeTruthy();
+    expect(within(agenda).getByText("1 completed")).toBeTruthy();
+  });
+
+  it("opens a chore view modal with upcoming and history before editing", async () => {
+    vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
+    renderAt("/calendar");
+
+    fireEvent.click(await findPlannedCleanBathroomsButton());
+
+    const dialog = getChoreEditor();
+    expect(dialog.getByRole("heading", { name: "Clean bathrooms" })).toBeTruthy();
+    expect(dialog.getByRole("button", { name: "Close dialog" })).toBeTruthy();
+    expect(dialog.getByRole("button", { name: "Close" })).toBeTruthy();
+    expect(dialog.getByRole("button", { name: "Edit" })).toBeTruthy();
+    expect(dialog.getByRole("button", { name: "Complete chore" })).toBeTruthy();
+    const modalActions = document.querySelector(".modal-actions");
+    expect(Array.from(modalActions?.querySelectorAll("button") ?? []).map((button) => button.textContent)).toEqual([
+      "Close",
+      "Complete chore",
+      "Edit"
+    ]);
+    expect(dialog.getByRole("button", { name: "Complete chore" }).classList.contains("section-action")).toBe(true);
+    expect(dialog.getByRole("button", { name: "Edit" }).classList.contains("section-action")).toBe(false);
+    fireEvent.click(dialog.getByRole("button", { name: "Complete chore" }));
+    expect(screen.getByRole("region", { name: "Completion check-in" })).toBeTruthy();
+    expect(screen.getByLabelText("This was done on time")).toBeTruthy();
+    expect(screen.queryByLabelText("Keep this assignee for future work")).toBeNull();
+    expect(await screen.findByLabelText("Base future occurrences on this completion date")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Chore details/ }).getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByRole("region", { name: "Upcoming occurrences" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Chore details/ }));
+    expect(screen.getByRole("button", { name: /Chore details/ }).getAttribute("aria-expanded")).toBe("true");
+    expect(Array.from(modalActions?.querySelectorAll("button") ?? []).map((button) => button.textContent)).toEqual([
+      "Close",
+      "Submit"
+    ]);
+    expect(dialog.queryByRole("button", { name: "Edit" })).toBeNull();
+    expect(dialog.getByRole("button", { name: "Submit" }).classList.contains("section-action")).toBe(false);
+    const upcoming = screen.getByRole("region", { name: "Upcoming occurrences" });
+    expect(within(upcoming).getByText("Thursday, May 28")).toBeTruthy();
+    expect(within(upcoming).getByText("Friday, May 29")).toBeTruthy();
+    const history = screen.getByRole("region", { name: "Historical occurrences" });
+    expect(within(history).getByText("Wednesday, May 27")).toBeTruthy();
+  });
+
+  it("does not offer future occurrence rebasing for daily chores", async () => {
+    const fetchMock = mockCalendarWorkspaceFetches({ frequency: "daily" });
+    vi.stubGlobal("fetch", fetchMock);
+    renderAt("/calendar");
+
+    fireEvent.click(await findPlannedCleanBathroomsButton());
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/households/household-1/chores/chore-1/schedules",
+      expect.objectContaining({ headers: expect.any(Object) })
+    ));
+    fireEvent.click(getChoreEditor().getByRole("button", { name: "Complete chore" }));
+
+    expect(screen.getByRole("region", { name: "Completion check-in" })).toBeTruthy();
+    expect(screen.queryByLabelText("Base future occurrences on this completion date")).toBeNull();
+  });
+
+  it("creates a chore from occurrence fields with inline recurrence controls", async () => {
     const fetchMock = mockCalendarWorkspaceFetches();
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/calendar");
 
     fireEvent.click(await screen.findByRole("button", { name: "Add chore" }));
+    const editor = getChoreEditor();
+    expect(editor.getByRole("button", { name: "Close dialog" })).toBeTruthy();
+    expect(editor.getByRole("button", { name: "Cancel" })).toBeTruthy();
+    expect(editor.getByRole("button", { name: "Add chore" })).toBeTruthy();
+    expect(editor.queryByRole("button", { name: "Save chore" })).toBeNull();
+    expect(screen.getByText("Add steps, scope, or preferences. This helps future optimization understand what the chore includes.")).toBeTruthy();
+    expect(screen.getByText("Optional labels like bathroom, outdoor, or deep clean. Tags help group chores and give optimization more context.")).toBeTruthy();
+    expect(screen.getByText("Choose the first date, optional timing, owner, and whether this chore repeats.")).toBeTruthy();
+    expect(screen.getByText("Leave blank if this can be done anytime on the selected day.")).toBeTruthy();
+    expect(screen.getByText("Used for flexible chores. If you add a start time, the end time is calculated from this duration.")).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Upcoming Occurrences" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "History" })).toBeNull();
     fireEvent.change(screen.getByLabelText("Chore title"), { target: { value: "Clean bathrooms" } });
-    fireEvent.click(screen.getByRole("button", { name: "Add schedule" }));
-    expect(screen.getByLabelText("Flexible schedule", { selector: "input" })).toBeTruthy();
-    fireEvent.change(screen.getByLabelText("Estimated duration"), { target: { value: "60" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save chore" }));
+    fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2026-06-06" } });
+    fireEvent.change(screen.getByLabelText(/Estimated duration/), { target: { value: "60" } });
+    fireEvent.change(screen.getByLabelText("Assignee"), { target: { value: "app-user-2" } });
+    expect(screen.queryByRole("button", { name: /Repeat this chore/i })).toBeNull();
+    expect(screen.queryByText("Days")).toBeNull();
+    expect(screen.queryByLabelText("Repeat interval")).toBeNull();
+    expect(screen.getByRole("button", { name: "Does not repeat" }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Repeats" }));
+    expect(screen.getByText("Repeats every")).toBeTruthy();
+    expect(screen.getByLabelText("Repeat interval")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Repeat unit"), { target: { value: "weekly" } });
+    expect(screen.getByText("Days")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Repeat interval"), { target: { value: "5" } });
+
+    fireEvent.click(editor.getByRole("button", { name: "Add chore" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:3001/api/households/household-1/chores",
-      expect.objectContaining({ method: "POST", body: expect.stringContaining("\"schedules\"") })
+      expect.objectContaining({
+        method: "POST",
+        body: expect.stringContaining("\"startsOn\":\"2026-06-06\"")
+      })
+    ));
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/households/household-1/chores",
+      expect.objectContaining({
+        method: "POST",
+        body: expect.stringContaining("\"memberUserIds\":[\"app-user-2\"]")
+      })
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/households/household-1/chores",
+      expect.objectContaining({
+        method: "POST",
+        body: expect.stringContaining("\"frequency\":\"weekly\"")
+      })
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/households/household-1/chores",
+      expect.objectContaining({
+        method: "POST",
+        body: expect.stringContaining("\"interval\":5")
+      })
+    );
+  });
+
+  it("refreshes calendar occurrences after creating a chore", async () => {
+    vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
+    renderAt("/calendar");
+
+    fireEvent.click(await screen.findByRole("button", { name: "Add chore" }));
+    fireEvent.change(screen.getByLabelText("Chore title"), { target: { value: "Wash windows" } });
+    fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2026-06-06" } });
+    fireEvent.click(getChoreEditor().getByRole("button", { name: "Add chore" }));
+
+    expect(await screen.findByRole("button", { name: "View Wash windows" })).toBeTruthy();
+  });
+
+  it("uses optional start time to create timed chores", async () => {
+    const fetchMock = mockCalendarWorkspaceFetches();
+    vi.stubGlobal("fetch", fetchMock);
+    renderAt("/calendar");
+
+    fireEvent.click(await screen.findByRole("button", { name: "Add chore" }));
+    fireEvent.change(screen.getByLabelText("Chore title"), { target: { value: "Clean kitchen" } });
+    fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2026-06-06" } });
+    fireEvent.change(screen.getByLabelText(/Start time/), { target: { value: "10:30" } });
+    fireEvent.change(screen.getByLabelText(/Estimated duration/), { target: { value: "45" } });
+    fireEvent.click(getChoreEditor().getByRole("button", { name: "Add chore" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/households/household-1/chores",
+      expect.objectContaining({
+        method: "POST",
+        body: expect.stringContaining("\"planningMode\":\"timed\"")
+      })
+    ));
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/households/household-1/chores",
+      expect.objectContaining({
+        method: "POST",
+        body: expect.stringContaining("\"localStartTime\":\"10:30\"")
+      })
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/households/household-1/chores",
+      expect.objectContaining({
+        method: "POST",
+        body: expect.stringContaining("\"localEndTime\":\"11:15\"")
+      })
+    );
+  });
+
+  it("reveals monthly recurrence details only for monthly chores", async () => {
+    const fetchMock = mockCalendarWorkspaceFetches();
+    vi.stubGlobal("fetch", fetchMock);
+    renderAt("/calendar");
+
+    fireEvent.click(await screen.findByRole("button", { name: "Add chore" }));
+    fireEvent.change(screen.getByLabelText("Chore title"), { target: { value: "Replace filter" } });
+    fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2026-06-15" } });
+    expect(screen.queryByLabelText("Monthly anchor date")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Repeats" }));
+    fireEvent.change(screen.getByLabelText("Repeat unit"), { target: { value: "monthly" } });
+    expect(screen.queryByLabelText("Monthly anchor date")).toBeNull();
+    expect(screen.getByRole("radio", { name: "On day 15 of the month" })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "On the third Monday" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("radio", { name: "On the third Monday" }));
+    fireEvent.click(getChoreEditor().getByRole("button", { name: "Add chore" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/households/household-1/chores",
+      expect.objectContaining({
+        method: "POST",
+        body: expect.stringContaining("\"monthlyPattern\":\"weekday_of_month\"")
+      })
+    ));
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/households/household-1/chores",
+      expect.objectContaining({
+        method: "POST",
+        body: expect.stringContaining("\"monthlyWeek\":3")
+      })
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/households/household-1/chores",
+      expect.objectContaining({
+        method: "POST",
+        body: expect.stringContaining("\"monthlyWeekday\":1")
+      })
+    );
+  });
+
+  it("creates yearly recurring chores from the repeat unit select", async () => {
+    const fetchMock = mockCalendarWorkspaceFetches();
+    vi.stubGlobal("fetch", fetchMock);
+    renderAt("/calendar");
+
+    fireEvent.click(await screen.findByRole("button", { name: "Add chore" }));
+    fireEvent.change(screen.getByLabelText("Chore title"), { target: { value: "Service HVAC" } });
+    fireEvent.click(screen.getByRole("button", { name: "Repeats" }));
+    fireEvent.change(screen.getByLabelText("Repeat interval"), { target: { value: "1" } });
+    fireEvent.change(screen.getByLabelText("Repeat unit"), { target: { value: "yearly" } });
+    expect(screen.queryByText("Days")).toBeNull();
+    expect(screen.queryByLabelText("Monthly anchor date")).toBeNull();
+    fireEvent.click(getChoreEditor().getByRole("button", { name: "Add chore" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/households/household-1/chores",
+      expect.objectContaining({
+        method: "POST",
+        body: expect.stringContaining("\"frequency\":\"yearly\"")
+      })
     ));
   });
 
-  it("opens a selected occurrence in the editor and displays collapsed history", async () => {
+  it("opens a selected occurrence in view mode before editing", async () => {
     vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
     renderAt("/calendar");
 
-    const editButtons = await screen.findAllByRole("button", { name: "Edit Clean bathrooms" });
-    fireEvent.click(editButtons[0]);
-    expect(screen.getAllByText("Selected occurrence").length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "History" }).getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(await findPlannedCleanBathroomsButton());
+    expect(screen.getByRole("heading", { name: "Clean bathrooms" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Upcoming occurrences" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    const dialog = getChoreEditor();
+    expect(dialog.getByRole("heading", { name: "Clean bathrooms" })).toBeTruthy();
+    expect(dialog.getByText("Edit chore")).toBeTruthy();
+    const schedulePanel = screen.getByRole("region", { name: "Chore schedule" });
+    expect(schedulePanel.classList.contains("create-schedule-panel")).toBe(true);
+    expect(schedulePanel.querySelector(".aligned-field-grid")).not.toBeNull();
+    expect((screen.getByLabelText("Date") as HTMLInputElement).value).toBe("2026-05-28");
+    expect((screen.getByLabelText("Assignee") as HTMLSelectElement).value).toBe("app-user-1");
+    expect((screen.getByLabelText(/Estimated duration/) as HTMLInputElement).value).toBe("60");
+    expect(screen.getByRole("button", { name: "Does not repeat" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "Occurrence timing" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Schedule series" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "History" })).toBeNull();
+  });
+
+  it("saves schedule series edits from the occurrence editor", async () => {
+    const fetchMock = mockCalendarWorkspaceFetches();
+    vi.stubGlobal("fetch", fetchMock);
+    renderAt("/calendar");
+
+    fireEvent.click(await findPlannedCleanBathroomsButton());
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save changes" })).toBeTruthy());
+    await waitFor(() => expect(screen.getByLabelText(/Estimated duration/)).toBeTruthy());
+    fireEvent.change(screen.getByLabelText(/Estimated duration/), { target: { value: "75" } });
+    fireEvent.change(screen.getByLabelText("Assignee"), { target: { value: "app-user-2" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/households/household-1/schedules/schedule-1",
+      expect.objectContaining({
+        method: "PUT",
+        body: expect.stringContaining("\"estimatedMinutes\":75")
+      })
+    ));
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/households/household-1/schedules/schedule-1",
+      expect.objectContaining({
+        method: "PUT",
+        body: expect.stringContaining("\"memberUserIds\":[\"app-user-2\"]")
+      })
+    );
+    expect(screen.getByRole("status").textContent).toContain("Schedule saved.");
   });
 
   it("completes an assigned flexible obligation from its row and removes duplicate projections", async () => {
-    vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
+    const fetchMock = mockCalendarWorkspaceFetches();
+    vi.stubGlobal("fetch", fetchMock);
     renderAt("/calendar");
 
-    fireEvent.click(await screen.findByRole("button", { name: "List" }));
-    fireEvent.click(screen.getByRole("button", { name: "Complete Clean bathrooms" }));
-    await waitFor(() => expect(screen.queryAllByText("Clean bathrooms")).toHaveLength(0));
+    fireEvent.click(await screen.findByRole("tab", { name: "List" }));
+    fireEvent.click(screen.getByRole("button", { name: "View Clean bathrooms" }));
+    fireEvent.click(screen.getByRole("button", { name: "Complete chore" }));
+    fireEvent.click(await screen.findByLabelText("Base future occurrences on this completion date"));
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "View Clean bathrooms" }).classList.contains("is-completed")).toBe(true));
+    expect(screen.getAllByText("Clean bathrooms")).toHaveLength(1);
+    expect(screen.getByText("2 completed")).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/households/household-1/occurrences/occurrence-flexible/complete",
+      expect.objectContaining({
+        method: "POST",
+        body: expect.stringContaining("\"rebaseFutureOccurrences\":true")
+      })
+    );
+    const completeCall = fetchMock.mock.calls.find(([url]) =>
+      String(url) === "http://localhost:3001/api/households/household-1/occurrences/occurrence-flexible/complete"
+    );
+    expect(String(completeCall?.[1]?.body)).not.toContain("keepAssignee");
   });
 
   it("adds the first household from the no-households state", async () => {

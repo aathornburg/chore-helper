@@ -15,6 +15,7 @@ model Household {
   chores          Chore[]
   schedules       ChoreSchedule[]
   occurrences     ChoreOccurrence[]
+  completionCheckIns ChoreCompletionCheckIn[]
   recommendations Recommendation[]
   members         HouseholdMember[]
   invitations     HouseholdInvitation[]
@@ -31,6 +32,7 @@ model User {
   sentInvitations HouseholdInvitation[] @relation("InvitationInviter")
   scheduleAssignees ChoreScheduleAssignee[]
   assignedOccurrences ChoreOccurrence[] @relation("OccurrenceAssignee")
+  completedCheckIns ChoreCompletionCheckIn[] @relation("CheckInCompletedBy")
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
 }
@@ -127,6 +129,7 @@ model Chore {
   archivedAt       DateTime?
   schedules        ChoreSchedule[]
   occurrences      ChoreOccurrence[]
+  completionCheckIns ChoreCompletionCheckIn[]
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 }
@@ -141,7 +144,10 @@ model ChoreSchedule {
   frequency          String
   interval           Int
   weekDays           String                   @default("[]")
+  monthlyPattern     String?
   monthlyDay         Int?
+  monthlyWeek        Int?
+  monthlyWeekday     Int?
   localStartTime     String?
   localEndTime       String?
   estimatedMinutes   Int?
@@ -151,6 +157,7 @@ model ChoreSchedule {
   assignmentMode     String
   assignees          ChoreScheduleAssignee[]
   occurrences        ChoreOccurrence[]
+  completionCheckIns ChoreCompletionCheckIn[]
   archivedAt         DateTime?
   createdAt          DateTime                 @default(now())
   updatedAt          DateTime                 @updatedAt
@@ -190,6 +197,7 @@ model ChoreOccurrence {
   status            String        @default("planned")
   completedAt       DateTime?
   completedByUserId String?
+  completionCheckIn ChoreCompletionCheckIn?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
@@ -197,6 +205,32 @@ model ChoreOccurrence {
   @@index([householdId, eligibleStartOn, eligibleEndOn])
   @@index([householdId, planningMode, plannedStartAt])
   @@index([householdId, planningMode, eligibleEndOn, eligibleStartOn])
+}
+
+model ChoreCompletionCheckIn {
+  id                       String          @id @default(cuid())
+  householdId              String
+  household                Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  choreId                  String
+  chore                    Chore           @relation(fields: [choreId], references: [id], onDelete: Cascade)
+  scheduleId               String
+  schedule                 ChoreSchedule   @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  occurrenceId             String          @unique
+  occurrence               ChoreOccurrence @relation(fields: [occurrenceId], references: [id], onDelete: Cascade)
+  completedByUserId        String
+  completedByUser          User            @relation("CheckInCompletedBy", fields: [completedByUserId], references: [id], onDelete: Restrict)
+  completedAt              DateTime
+  completedOnTime          Boolean
+  durationAccurate         Boolean
+  keepAssignee             Boolean
+  rebaseFutureOccurrences  Boolean
+  createdAt                DateTime        @default(now())
+  updatedAt                DateTime        @updatedAt
+
+  @@unique([householdId, occurrenceId])
+  @@index([householdId, completedAt])
+  @@index([householdId, choreId])
+  @@index([householdId, scheduleId])
 }
 
 model Recommendation {

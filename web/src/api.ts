@@ -4,6 +4,7 @@ import type {
   ChoreDefinitionInput,
   ChoreOccurrence,
   ChoreSchedule,
+  CompletionCheckInInput,
   CreateScheduledChoreInput,
   Household,
   HouseholdAppData,
@@ -279,6 +280,24 @@ export async function createSchedule(
   return response.json();
 }
 
+export async function updateSchedule(
+  householdId: string,
+  scheduleId: string,
+  schedule: ScheduleInput
+): Promise<ChoreSchedule> {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/households/${householdId}/schedules/${scheduleId}`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(schedule)
+    }
+  );
+
+  if (!response.ok) throw new Error("Failed to update schedule");
+  return response.json();
+}
+
 export async function listOccurrences(
   householdId: string,
   range: { startAt: string; endAt: string; startOn: string; endOn: string; assignedUserId?: string }
@@ -300,11 +319,16 @@ export async function listOccurrences(
 
 export async function completeOccurrence(
   householdId: string,
-  occurrenceId: string
+  occurrenceId: string,
+  checkIn?: CompletionCheckInInput
 ): Promise<ChoreOccurrence> {
   const response = await apiFetch(
     `${API_BASE_URL}/api/households/${householdId}/occurrences/${occurrenceId}/complete`,
-    { method: "POST" }
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(checkIn ?? {})
+    }
   );
 
   if (!response.ok) throw new Error("Failed to complete occurrence");

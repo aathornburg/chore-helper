@@ -10,8 +10,9 @@ function auth(email: string) {
 
 function createScheduleTestApp() {
   const links: string[] = [];
+  const store = createInMemoryStore();
   const app = createApp({
-    store: createInMemoryStore(),
+    store,
     authMode: "test",
     invitationBaseUrl: "http://localhost:5173",
     invitationMailer: {
@@ -20,7 +21,7 @@ function createScheduleTestApp() {
       }
     }
   });
-  return { app, links };
+  return { app, links, store };
 }
 
 async function prepareHousehold(app: ReturnType<typeof createApp>, links: string[]) {
@@ -163,6 +164,36 @@ describe("chore schedules", () => {
     }
   });
 
+  it("records completion check-in answers for completed work", async () => {
+    const { app, links, store } = createScheduleTestApp();
+    const household = await prepareHousehold(app, links);
+    const occurrence = await createAssignedFlexibleOccurrence(app, household);
+
+    const completed = await request(app)
+      .post(`/api/households/${household.householdId}/occurrences/${occurrence.id}/complete`)
+      .set(auth("member@example.com"))
+      .send({
+        completedOnTime: false,
+        durationAccurate: false,
+        keepAssignee: true,
+        rebaseFutureOccurrences: true
+      })
+      .expect(200);
+
+    await expect(Promise.resolve(
+      store.getCompletionCheckInForOccurrence(household.householdId, occurrence.id)
+    )).resolves.toEqual(expect.objectContaining({
+      householdId: household.householdId,
+      occurrenceId: occurrence.id,
+      completedByUserId: household.memberId,
+      completedAt: completed.body.completedAt,
+      completedOnTime: false,
+      durationAccurate: false,
+      keepAssignee: true,
+      rebaseFutureOccurrences: true
+    }));
+  });
+
   it("does not let a different ordinary member complete assigned work", async () => {
     const { app, links } = createScheduleTestApp();
     const household = await prepareHousehold(app, links);
@@ -241,6 +272,109 @@ describe("chore schedules", () => {
         .post(`/api/households/${household.householdId}/occurrences/${occurrence.id}/complete`)
         .set(auth("member@example.com"))
         .expect(409);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("rebases future recurring occurrences from the completion date when requested", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-03T16:00:00.000Z"));
+
+    try {
+      const { app, links } = createScheduleTestApp();
+      const household = await prepareHousehold(app, links);
+      const created = await request(app)
+        .post(`/api/households/${household.householdId}/chores`)
+        .set(auth("owner@example.com"))
+        .send({
+          chore: { title: "Clean filter", source: "manual" },
+          schedules: [{
+            planningMode: "flexible",
+            recurrence: { frequency: "weekly", interval: 5, weekDays: [3] },
+            estimatedMinutes: 30,
+            flexibleWindowRule: "each_selected_day",
+            startsOn: "2026-04-22",
+            assignment: { mode: "fixed", memberUserIds: [household.memberId] }
+          }]
+        })
+        .expect(201);
+      const scheduleId = created.body.schedules[0].id as string;
+
+      const before = await request(app)
+        .get(`/api/households/${household.householdId}/occurrences`)
+        .query({
+          startAt: "2026-05-20T00:00:00.000Z",
+          endAt: "2026-07-20T23:59:59.999Z",
+          startOn: "2026-05-20",
+          endOn: "2026-07-20"
+        })
+        .set(auth("owner@example.com"))
+        .expect(200);
+      const lateOccurrence = before.body.find((occurrence: ChoreOccurrence) =>
+        occurrence.scheduleId === scheduleId && occurrence.eligibleStartOn === "2026-05-27"
+      ) as ChoreOccurrence;
+
+      await request(app)
+        .post(`/api/households/${household.householdId}/occurrences/${lateOccurrence.id}/complete`)
+        .set(auth("member@example.com"))
+        .send({
+          completedOnTime: false,
+          durationAccurate: true,
+          keepAssignee: true,
+          rebaseFutureOccurrences: true
+        })
+        .expect(200)
+        .expect((response) => {
+          expect(response.body).toEqual(expect.objectContaining({
+            status: "completed",
+            eligibleStartOn: "2026-05-27",
+            completedAt: "2026-06-03T16:00:00.000Z"
+          }));
+        });
+
+      await request(app)
+        .get(`/api/households/${household.householdId}/chores/${created.body.chore.id}/schedules`)
+        .set(auth("owner@example.com"))
+        .expect(200)
+        .expect((response) => {
+          expect(response.body[0]).toEqual(expect.objectContaining({
+            startsOn: "2026-06-03",
+            recurrence: expect.objectContaining({ weekDays: [3] })
+          }));
+        });
+
+      await request(app)
+        .get(`/api/households/${household.householdId}/occurrences`)
+        .query({
+          startAt: "2026-05-20T00:00:00.000Z",
+          endAt: "2026-07-20T23:59:59.999Z",
+          startOn: "2026-05-20",
+          endOn: "2026-07-20"
+        })
+        .set(auth("owner@example.com"))
+        .expect(200)
+        .expect((response) => {
+          expect(response.body).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+              id: lateOccurrence.id,
+              status: "completed",
+              eligibleStartOn: "2026-05-27"
+            }),
+            expect.objectContaining({
+              scheduleId,
+              status: "planned",
+              eligibleStartOn: "2026-07-08"
+            })
+          ]));
+          expect(response.body).not.toEqual(expect.arrayContaining([
+            expect.objectContaining({
+              scheduleId,
+              status: "planned",
+              eligibleStartOn: "2026-07-01"
+            })
+          ]));
+        });
     } finally {
       vi.useRealTimers();
     }

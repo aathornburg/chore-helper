@@ -1,6 +1,7 @@
 import {
   differenceInCalendarDays,
   differenceInCalendarMonths,
+  differenceInCalendarYears,
   eachDayOfInterval,
   format,
   getDay,
@@ -35,9 +36,29 @@ function isScheduledDate(schedule: ChoreSchedule, date: Date, startDate: Date) {
     );
   }
 
+  if (recurrence.frequency === "yearly") {
+    const yearsSinceStart = differenceInCalendarYears(date, startDate);
+    return (
+      yearsSinceStart % recurrence.interval === 0 &&
+      date.getMonth() === startDate.getMonth() &&
+      date.getDate() === startDate.getDate()
+    );
+  }
+
   const monthsSinceStart = differenceInCalendarMonths(date, startDate);
+  if (monthsSinceStart % recurrence.interval !== 0) return false;
+
+  if (recurrence.monthlyPattern === "weekday_of_month") {
+    const weekOfMonth = Math.ceil(date.getDate() / 7);
+    const lastDayOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+    const isLastMatchingWeekday = date.getDate() + 7 > lastDayOfMonth;
+    return (
+      getDay(date) === recurrence.monthlyWeekday &&
+      (recurrence.monthlyWeek === -1 ? isLastMatchingWeekday : weekOfMonth === recurrence.monthlyWeek)
+    );
+  }
+
   return (
-    monthsSinceStart % recurrence.interval === 0 &&
     date.getDate() === recurrence.monthlyDay
   );
 }
@@ -62,7 +83,10 @@ function recurrenceIdentity(schedule: ChoreSchedule) {
     recurrence.frequency,
     recurrence.interval,
     (recurrence.weekDays ?? []).join("."),
-    recurrence.monthlyDay ?? ""
+    recurrence.monthlyPattern ?? "",
+    recurrence.monthlyDay ?? "",
+    recurrence.monthlyWeek ?? "",
+    recurrence.monthlyWeekday ?? ""
   ].join(":");
 }
 

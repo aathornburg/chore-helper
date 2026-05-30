@@ -4,7 +4,7 @@
   calls service/repository operations, and returns JSON responses.
 */
 import { createHash, randomBytes } from "node:crypto";
-import { addDays, format, parseISO } from "date-fns";
+import { addDays, format, getDay, parseISO } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { Router } from "express";
 import type { Request, Response } from "express";
@@ -126,10 +126,13 @@ const choreSchema = z.object({
 });
 
 const recurrenceSchema = z.object({
-  frequency: z.enum(["one_time", "daily", "weekly", "monthly"]),
+  frequency: z.enum(["one_time", "daily", "weekly", "monthly", "yearly"]),
   interval: z.number().int().positive(),
   weekDays: z.array(z.number().int().min(0).max(6)).optional(),
-  monthlyDay: z.number().int().min(1).max(31).optional()
+  monthlyPattern: z.enum(["day_of_month", "weekday_of_month"]).optional(),
+  monthlyDay: z.number().int().min(1).max(31).optional(),
+  monthlyWeek: z.number().int().refine((value) => [-1, 1, 2, 3, 4].includes(value), "Monthly week must be first through fourth or last").optional(),
+  monthlyWeekday: z.number().int().min(0).max(6).optional()
 });
 
 const assignmentSchema = z.object({
@@ -174,8 +177,19 @@ const scheduleSchema = z.discriminatedUnion("planningMode", [
   if (schedule.recurrence.frequency === "weekly" && !schedule.recurrence.weekDays?.length) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Weekly schedules need weekdays", path: ["recurrence"] });
   }
-  if (schedule.recurrence.frequency === "monthly" && !schedule.recurrence.monthlyDay) {
+  if (
+    schedule.recurrence.frequency === "monthly" &&
+    (schedule.recurrence.monthlyPattern ?? "day_of_month") === "day_of_month" &&
+    !schedule.recurrence.monthlyDay
+  ) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Monthly schedules need a day", path: ["recurrence"] });
+  }
+  if (
+    schedule.recurrence.frequency === "monthly" &&
+    schedule.recurrence.monthlyPattern === "weekday_of_month" &&
+    (!schedule.recurrence.monthlyWeek || schedule.recurrence.monthlyWeekday === undefined)
+  ) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Monthly weekday schedules need week and weekday", path: ["recurrence"] });
   }
   if (schedule.planningMode === "timed" && schedule.localEndTime <= schedule.localStartTime) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Timed schedule end must be after start", path: ["localEndTime"] });
@@ -216,6 +230,22 @@ const occurrenceRangeSchema = z.object({
     });
   }
 });
+
+const completionCheckInSchema = z.object({
+  completedOnTime: z.boolean().optional(),
+  durationAccurate: z.boolean().optional(),
+  keepAssignee: z.boolean().optional(),
+  rebaseFutureOccurrences: z.boolean().optional()
+}).optional();
+
+function normalizeCompletionCheckIn(input: z.infer<typeof completionCheckInSchema>) {
+  return {
+    completedOnTime: input?.completedOnTime ?? true,
+    durationAccurate: input?.durationAccurate ?? true,
+    keepAssignee: input?.keepAssignee ?? true,
+    rebaseFutureOccurrences: input?.rebaseFutureOccurrences ?? false
+  };
+}
 
 const occurrenceUpdateSchema = z.object({
   plannedStartAt: z.string().datetime(),
@@ -331,6 +361,44 @@ export function createHouseholdRouter(
       schedule.id,
       materializeOccurrences({ schedule, householdTimeZone, rangeStart, rangeEnd })
     );
+  }
+
+  function rebaseScheduleFromCompletion(schedule: ChoreSchedule, completedOn: string): ChoreSchedule {
+    const completedDate = parseISO(completedOn);
+    const recurrence = schedule.recurrence.frequency === "weekly"
+      ? { ...schedule.recurrence, weekDays: [getDay(completedDate)] }
+      : schedule.recurrence.frequency === "monthly"
+        ? schedule.recurrence.monthlyPattern === "weekday_of_month"
+          ? {
+              ...schedule.recurrence,
+              monthlyDay: undefined,
+              monthlyWeek: Math.ceil(completedDate.getDate() / 7),
+              monthlyWeekday: getDay(completedDate)
+            }
+          : {
+              ...schedule.recurrence,
+              monthlyDay: completedDate.getDate(),
+              monthlyWeek: undefined,
+              monthlyWeekday: undefined
+            }
+        : schedule.recurrence;
+
+    if (schedule.planningMode === "flexible") {
+      return {
+        ...schedule,
+        startsOn: completedOn,
+        recurrence,
+        flexibleWindowRule: recurrence.frequency === "weekly" && (recurrence.weekDays?.length ?? 0) < 2
+          ? "each_selected_day"
+          : schedule.flexibleWindowRule
+      };
+    }
+
+    return {
+      ...schedule,
+      startsOn: completedOn,
+      recurrence
+    };
   }
 
   router.get("/", async (req, res) => {
@@ -614,6 +682,9 @@ export function createHouseholdRouter(
     const access = await requireHouseholdAccess(req, res);
     if (!access) return;
 
+    const parsed = completionCheckInSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid completion payload" });
+
     const occurrence = await store.getOccurrence(access.household.id, req.params.occurrenceId);
     if (!occurrence) return res.status(404).json({ error: "Occurrence not found" });
     if (occurrence.assignedUserId !== access.user.id) {
@@ -627,6 +698,39 @@ export function createHouseholdRouter(
       new Date().toISOString()
     );
     if (!completed) return res.status(409).json({ error: "Occurrence is no longer planned" });
+
+    const checkIn = normalizeCompletionCheckIn(parsed.data);
+    await store.recordCompletionCheckIn({
+      householdId: access.household.id,
+      occurrenceId: completed.id,
+      completedByUserId: access.user.id,
+      completedAt: completed.completedAt!,
+      ...checkIn
+    });
+
+    if (checkIn.rebaseFutureOccurrences) {
+      const schedules = await store.listSchedules(access.household.id, completed.choreId);
+      const schedule = schedules.find((candidate) => candidate.id === completed.scheduleId);
+      if (schedule && schedule.recurrence.frequency !== "one_time") {
+        const completedOn = formatInTimeZone(completed.completedAt!, access.household.timeZone, "yyyy-MM-dd");
+        const rebased = await store.updateSchedule(
+          access.household.id,
+          schedule.id,
+          rebaseScheduleFromCompletion(schedule, completedOn)
+        );
+        if (rebased) {
+          await store.clearFutureUntouchedOccurrences(
+            access.household.id,
+            rebased.id,
+            {
+              fromAt: completed.completedAt!,
+              fromOn: completedOn
+            }
+          );
+          await materializeInitialScheduleOccurrences(rebased, access.household.timeZone);
+        }
+      }
+    }
 
     return res.status(200).json(completed);
   });

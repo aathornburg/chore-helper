@@ -98,13 +98,16 @@ export type HouseholdInvitation = {
   createdAt: string;
 };
 
-export type RecurrenceFrequency = "one_time" | "daily" | "weekly" | "monthly";
+export type RecurrenceFrequency = "one_time" | "daily" | "weekly" | "monthly" | "yearly";
 
 export type ChoreScheduleRecurrence = {
   frequency: RecurrenceFrequency;
   interval: number;
   weekDays?: number[];
+  monthlyPattern?: "day_of_month" | "weekday_of_month";
   monthlyDay?: number;
+  monthlyWeek?: number;
+  monthlyWeekday?: number;
 };
 
 export type ChoreScheduleAssignment = {
@@ -184,6 +187,27 @@ export type CreateScheduledChoreInput = {
 export type ScheduledChore = {
   chore: Chore;
   schedules: ChoreSchedule[];
+};
+
+export type CompletionCheckInInput = {
+  completedOnTime?: boolean;
+  durationAccurate?: boolean;
+  keepAssignee?: boolean;
+  rebaseFutureOccurrences?: boolean;
+};
+
+export type ChoreCompletionCheckIn = {
+  id: string;
+  householdId: string;
+  occurrenceId: string;
+  completedByUserId: string;
+  completedAt: string;
+  completedOnTime: boolean;
+  durationAccurate: boolean;
+  keepAssignee: boolean;
+  rebaseFutureOccurrences: boolean;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type ChoreReviewState = "unreviewed" | "recommendation-pending" | "reviewed";

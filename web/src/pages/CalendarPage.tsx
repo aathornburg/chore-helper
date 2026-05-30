@@ -1,32 +1,29 @@
 import { addDays, addMinutes, addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format, parseISO, startOfMonth, startOfWeek } from "date-fns";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { useEffect, useMemo, useState } from "react";
-import type { ChoreOccurrence, HouseholdAppData, HouseholdMemberSummary, ScheduleInput } from "@chore-helper/shared";
-import { completeOccurrence, createScheduledChore, getCurrentUser, listHouseholdMembers, listOccurrences, skipOccurrence, updateOccurrence } from "../api";
+import type { ChoreOccurrence, ChoreSchedule, CompletionCheckInInput, HouseholdAppData, HouseholdMemberSummary, ScheduleInput } from "@chore-helper/shared";
+import { completeOccurrence, createScheduledChore, getCurrentUser, listHouseholdMembers, listOccurrences, listSchedules, skipOccurrence, updateOccurrence, updateSchedule as updateScheduleApi } from "../api";
 
 type WorkspaceView = "calendar" | "list";
 type CalendarScale = "month" | "week" | "day";
 type CalendarFilters = { householdId?: string; assignedUserId?: string; status?: string };
-type EditorMode = "closed" | "create" | "edit";
+type EditorMode = "closed" | "create" | "view" | "edit";
+type OccurrenceCardDensity = "title" | "summary";
 type ScheduleDraft = ScheduleInput & { key: string };
 type EditorDraft = {
   choreId?: string;
   title: string;
   instructions: string;
   tags: string;
+  startTime: string;
   schedules: ScheduleDraft[];
 };
+
+type CompletionCheckInDraft = Required<Pick<CompletionCheckInInput, "completedOnTime" | "durationAccurate" | "rebaseFutureOccurrences">>;
 
 type CalendarPageProps = {
   households: HouseholdAppData[];
   isLoading: boolean;
-};
-
-type EditState = {
-  occurrenceId: string;
-  localStart: string;
-  plannedMinutes: string;
-  assignedUserId: string;
 };
 
 const scaleOptions: CalendarScale[] = ["month", "week", "day"];
@@ -40,6 +37,7 @@ const weekdays = [
   { label: "Sat", value: 6 }
 ];
 const timedSlots = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"];
+const occurrenceStatusRank = { planned: 0, completed: 1, skipped: 2 } as const;
 
 function memberLabel(member: HouseholdMemberSummary) {
   return member.displayName ?? member.primaryEmail ?? member.clerkUserId;
@@ -85,15 +83,22 @@ function listRange(timeZone: string) {
   };
 }
 
-function localInputValue(instant: string, timeZone: string) {
-  return formatInTimeZone(instant, timeZone, "yyyy-MM-dd'T'HH:mm");
-}
-
 function displayDates(occurrence: ChoreOccurrence) {
+  if (occurrence.status === "completed" && occurrence.completedAt) {
+    return [parseISO(occurrence.completedAt)];
+  }
   if (occurrence.planningMode === "flexible" && occurrence.status === "planned") {
     return eachDayOfInterval({ start: parseISO(occurrence.eligibleStartOn), end: parseISO(occurrence.eligibleEndOn) });
   }
   return [parseISO(occurrence.eligibleStartOn)];
+}
+
+function dateKey(date: Date) {
+  return format(date, "yyyy-MM-dd");
+}
+
+function longDateLabel(date: Date) {
+  return format(date, "EEEE, MMM d");
 }
 
 function createEmptyTimedScheduleDraft(): ScheduleDraft {
@@ -120,12 +125,67 @@ function createEmptyFlexibleScheduleDraft(): ScheduleDraft {
   };
 }
 
+function createDefaultOneTimeScheduleDraft(): ScheduleDraft {
+  return {
+    key: crypto.randomUUID(),
+    planningMode: "flexible",
+    recurrence: { frequency: "one_time", interval: 1 },
+    flexibleWindowRule: "each_selected_day",
+    estimatedMinutes: 60,
+    startsOn: format(new Date(), "yyyy-MM-dd"),
+    assignment: { mode: "fixed", memberUserIds: [] }
+  };
+}
+
+function timeAfterMinutes(startTime: string, minutes: number) {
+  const [hour, minute] = startTime.split(":").map(Number);
+  const totalMinutes = hour * 60 + minute + minutes;
+  const endHour = Math.floor(totalMinutes / 60);
+  const endMinute = totalMinutes % 60;
+  return `${String(endHour).padStart(2, "0")}:${String(endMinute).padStart(2, "0")}`;
+}
+
+function timeSlotLabel(slot: string) {
+  const [hour, minute] = slot.split(":").map(Number);
+  const period = hour >= 12 ? "pm" : "am";
+  const displayHour = hour % 12 || 12;
+  return `${displayHour}:${String(minute).padStart(2, "0")} ${period}`;
+}
+
+function minutesBetween(startTime: string, endTime: string) {
+  const [startHour, startMinute] = startTime.split(":").map(Number);
+  const [endHour, endMinute] = endTime.split(":").map(Number);
+  const startTotal = startHour * 60 + startMinute;
+  const endTotal = endHour * 60 + endMinute;
+  return Math.max(1, endTotal >= startTotal ? endTotal - startTotal : endTotal + 24 * 60 - startTotal);
+}
+
+function ordinal(value: number) {
+  if (value === -1) return "last";
+  return ["first", "second", "third", "fourth"][value - 1] ?? `${value}th`;
+}
+
+function weekOfMonth(dateValue: string) {
+  return Math.ceil(parseISO(dateValue).getDate() / 7);
+}
+
+function monthlyWeekdayLabel(dateValue: string) {
+  return `${ordinal(weekOfMonth(dateValue))} ${format(parseISO(dateValue), "EEEE")}`;
+}
+
+function weekdayIndex(dateValue: string) {
+  return parseISO(dateValue).getDay();
+}
+
 function tagsFromText(value: string) {
   return value.split(",").map((tag) => tag.trim()).filter(Boolean);
 }
 
-function isDraftDisabled(editorMode: EditorMode) {
-  return editorMode === "edit";
+function scheduleToDraft(schedule: ChoreSchedule): ScheduleDraft {
+  return {
+    ...schedule,
+    key: schedule.id
+  };
 }
 
 export function CalendarPage({ households, isLoading }: CalendarPageProps) {
@@ -139,16 +199,18 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   const [loadState, setLoadState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [editorMode, setEditorMode] = useState<EditorMode>("closed");
   const [selectedOccurrenceId, setSelectedOccurrenceId] = useState<string>();
-  const [editState, setEditState] = useState<EditState>();
   const [editorDraft, setEditorDraft] = useState<EditorDraft>();
   const [editorStatus, setEditorStatus] = useState<string>();
+  const [scheduleAccordionOpen, setScheduleAccordionOpen] = useState(false);
+  const [completionCheckIn, setCompletionCheckIn] = useState<CompletionCheckInDraft>();
   const [draggingId, setDraggingId] = useState<string>();
+  const [createdChoreTitles, setCreatedChoreTitles] = useState(() => new Map<string, string>());
+  const [expandedCompletedDates, setExpandedCompletedDates] = useState(() => new Set<string>());
 
   const selectedHousehold = households.find((household) => household.id === filters.householdId) ?? households[0];
   const timeZone = selectedHousehold?.timeZone ?? "UTC";
   const isOwner = members.some((member) => member.userId === currentUserId && member.role === "owner");
   const visibleOccurrences = occurrences.filter((occurrence) =>
-    occurrence.status === "planned" &&
     (!filters.status || filters.status === "all" || occurrence.status === filters.status)
   );
   const selectedOccurrence = occurrences.find((occurrence) => occurrence.id === selectedOccurrenceId);
@@ -198,20 +260,57 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   }, [calendarScale, filters.assignedUserId, focusDate, selectedHousehold?.id, timeZone, workspaceView]);
 
   const choreTitles = useMemo(() => new Map(
-    (selectedHousehold?.chores ?? []).map((chore) => [chore.id, chore.title])
-  ), [selectedHousehold]);
+    [...(selectedHousehold?.chores ?? []).map((chore) => [chore.id, chore.title] as const), ...createdChoreTitles]
+  ), [createdChoreTitles, selectedHousehold]);
 
-  const listGroups = useMemo(() => {
+  const occurrenceDateBuckets = useMemo(() => {
     const groups = new Map<string, ChoreOccurrence[]>();
     for (const occurrence of visibleOccurrences) {
-      const key = occurrence.eligibleStartOn;
-      groups.set(key, [...(groups.get(key) ?? []), occurrence]);
+      for (const date of displayDates(occurrence)) {
+        const key = dateKey(date);
+        groups.set(key, [...(groups.get(key) ?? []), occurrence]);
+      }
     }
-    return Array.from(groups.entries()).sort(([first], [second]) => first.localeCompare(second));
+    return groups;
   }, [visibleOccurrences]);
+
+  const listGroups = useMemo(() => {
+    const today = format(new Date(), "yyyy-MM-dd");
+    return Array.from(occurrenceDateBuckets.entries())
+      .filter(([date]) => date >= today)
+      .sort(([first], [second]) => first.localeCompare(second));
+  }, [occurrenceDateBuckets]);
+
+  const listStatusCounts = useMemo(() => {
+    const listOccurrences = listGroups.flatMap(([, dateOccurrences]) => dateOccurrences);
+    return {
+      planned: listOccurrences.filter((occurrence) => occurrence.status === "planned").length,
+      completed: listOccurrences.filter((occurrence) => occurrence.status === "completed").length,
+      skipped: listOccurrences.filter((occurrence) => occurrence.status === "skipped").length
+    };
+  }, [listGroups]);
+
+  const monthDates = useMemo(() => eachDayOfInterval({
+    start: startOfWeek(startOfMonth(focusDate), { weekStartsOn: 0 }),
+    end: endOfWeek(endOfMonth(focusDate), { weekStartsOn: 0 })
+  }), [focusDate]);
+
+  const weekDates = useMemo(() => eachDayOfInterval({
+    start: startOfWeek(focusDate, { weekStartsOn: 0 }),
+    end: endOfWeek(focusDate, { weekStartsOn: 0 })
+  }), [focusDate]);
 
   function occurrenceTitle(occurrence: ChoreOccurrence) {
     return choreTitles.get(occurrence.choreId) ?? "Scheduled chore";
+  }
+
+  function assignedMemberLabel(occurrence: ChoreOccurrence) {
+    const member = members.find((item) =>
+      item.userId === occurrence.assignedUserId || item.clerkUserId === occurrence.assignedUserId
+    );
+    if (member) return memberLabel(member);
+    if (occurrence.assignedUserId === currentUserId) return "You";
+    return occurrence.assignedUserId ? "Unknown member" : "Unassigned";
   }
 
   function seedDraftAssignees(draft: ScheduleDraft): ScheduleDraft {
@@ -227,25 +326,27 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
 
   function openCreateEditor() {
     setSelectedOccurrenceId(undefined);
-    setEditState(undefined);
     setEditorStatus(undefined);
+    setScheduleAccordionOpen(false);
+    setCompletionCheckIn(undefined);
     setEditorDraft({
       title: "",
       instructions: "",
       tags: "",
-      schedules: [seedDraftAssignees(createEmptyTimedScheduleDraft())]
+      startTime: "",
+      schedules: [seedDraftAssignees(createDefaultOneTimeScheduleDraft())]
     });
     setEditorMode("create");
   }
 
-  function openEditEditor(occurrence: ChoreOccurrence) {
-    setSelectedOccurrenceId(occurrence.id);
-    setEditorStatus(undefined);
+  function draftFromOccurrence(occurrence: ChoreOccurrence): EditorDraft {
     const chore = selectedHousehold?.chores.find((item) => item.id === occurrence.choreId);
     const scheduleDraft = (occurrence.planningMode === "flexible"
       ? {
           ...createEmptyFlexibleScheduleDraft(),
           key: occurrence.scheduleId,
+          recurrence: { frequency: "one_time", interval: 1 },
+          flexibleWindowRule: "each_selected_day",
           startsOn: occurrence.eligibleStartOn,
           estimatedMinutes: occurrence.estimatedMinutes,
           assignment: { mode: "fixed", memberUserIds: [occurrence.assignedUserId] }
@@ -253,32 +354,56 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
       : {
           ...createEmptyTimedScheduleDraft(),
           key: occurrence.scheduleId,
+          recurrence: { frequency: "one_time", interval: 1 },
           startsOn: occurrence.eligibleStartOn,
           localStartTime: occurrence.plannedStartAt ? formatInTimeZone(occurrence.plannedStartAt, timeZone, "HH:mm") : "09:00",
           localEndTime: occurrence.plannedEndAt ? formatInTimeZone(occurrence.plannedEndAt, timeZone, "HH:mm") : "10:00",
           assignment: { mode: "fixed", memberUserIds: [occurrence.assignedUserId] }
         }) as ScheduleDraft;
-    setEditorDraft({
+    return {
       choreId: occurrence.choreId,
       title: occurrenceTitle(occurrence),
       instructions: chore?.instructions ?? "",
       tags: chore?.tags?.join(", ") ?? "",
+      startTime: occurrence.plannedStartAt ? formatInTimeZone(occurrence.plannedStartAt, timeZone, "HH:mm") : "",
       schedules: [seedDraftAssignees(scheduleDraft)]
-    });
-    if (occurrence.plannedStartAt) {
-      setEditState({
-        occurrenceId: occurrence.id,
-        localStart: localInputValue(occurrence.plannedStartAt, timeZone),
-        plannedMinutes: String(durationInMinutes(occurrence)),
-        assignedUserId: occurrence.assignedUserId
-      });
-    } else {
-      setEditState(undefined);
-    }
+    };
+  }
+
+  function loadScheduleDetailsForEditor(occurrence: ChoreOccurrence) {
+    if (!selectedHousehold) return;
+
+    void listSchedules(selectedHousehold.id, occurrence.choreId)
+      .then((loadedSchedules) => {
+        setEditorDraft((current) => current?.choreId === occurrence.choreId ? {
+          ...current,
+          schedules: loadedSchedules.map(scheduleToDraft)
+        } : current);
+      })
+      .catch(() => setEditorStatus("Could not load schedule details."));
+  }
+
+  function openViewEditor(occurrence: ChoreOccurrence) {
+    setSelectedOccurrenceId(occurrence.id);
+    setEditorStatus(undefined);
+    setScheduleAccordionOpen(false);
+    setCompletionCheckIn(undefined);
+    setEditorDraft(draftFromOccurrence(occurrence));
+    loadScheduleDetailsForEditor(occurrence);
+    setEditorMode("view");
+  }
+
+  function openEditEditor(occurrence: ChoreOccurrence) {
+    setSelectedOccurrenceId(occurrence.id);
+    setEditorStatus(undefined);
+    setScheduleAccordionOpen(false);
+    setCompletionCheckIn(undefined);
+    setEditorDraft(draftFromOccurrence(occurrence));
+    loadScheduleDetailsForEditor(occurrence);
     setEditorMode("edit");
   }
 
-  function updateSchedule(index: number, update: Partial<ScheduleDraft>) {
+  function updateScheduleDraft(index: number, update: Partial<ScheduleDraft>) {
     setEditorDraft((current) => current ? {
       ...current,
       schedules: current.schedules.map((schedule, scheduleIndex) =>
@@ -287,10 +412,44 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     } : current);
   }
 
+  function updatePrimarySchedule(update: Partial<ScheduleDraft>) {
+    updateScheduleDraft(0, update);
+  }
+
+  function updatePrimaryRecurrenceFrequency(frequency: ScheduleInput["recurrence"]["frequency"]) {
+    if (!editorDraft?.schedules[0]) return;
+    const schedule = editorDraft.schedules[0];
+    updatePrimarySchedule({
+      recurrence: {
+        ...schedule.recurrence,
+        frequency,
+        weekDays: frequency === "weekly" ? (schedule.recurrence.weekDays ?? [parseISO(schedule.startsOn).getDay()]) : undefined,
+        monthlyPattern: frequency === "monthly" ? (schedule.recurrence.monthlyPattern ?? "day_of_month") : undefined,
+        monthlyDay: frequency === "monthly" ? (schedule.recurrence.monthlyDay ?? parseISO(schedule.startsOn).getDate()) : undefined,
+        monthlyWeek: frequency === "monthly" ? (schedule.recurrence.monthlyWeek ?? weekOfMonth(schedule.startsOn)) : undefined,
+        monthlyWeekday: frequency === "monthly" ? (schedule.recurrence.monthlyWeekday ?? weekdayIndex(schedule.startsOn)) : undefined
+      }
+    });
+  }
+
   async function saveCreate(event: React.FormEvent) {
     event.preventDefault();
     if (!selectedHousehold || !editorDraft) return;
     try {
+      const schedules = editorDraft.schedules.map(({ key: _key, ...schedule }) => {
+        if (editorDraft.startTime.trim() && schedule.planningMode === "flexible") {
+          return {
+            planningMode: "timed" as const,
+            recurrence: schedule.recurrence,
+            startsOn: schedule.startsOn,
+            ...(schedule.endsOn ? { endsOn: schedule.endsOn } : {}),
+            assignment: schedule.assignment,
+            localStartTime: editorDraft.startTime,
+            localEndTime: timeAfterMinutes(editorDraft.startTime, schedule.estimatedMinutes)
+          };
+        }
+        return schedule;
+      });
       const created = await createScheduledChore(selectedHousehold.id, {
         chore: {
           title: editorDraft.title,
@@ -298,9 +457,11 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
           ...(editorDraft.instructions.trim() ? { instructions: editorDraft.instructions.trim() } : {}),
           tags: tagsFromText(editorDraft.tags)
         },
-        schedules: editorDraft.schedules.map(({ key: _key, ...schedule }) => schedule)
+        schedules
       });
       selectedHousehold.chores.push({ ...created.chore, recommendations: [] });
+      setCreatedChoreTitles((current) => new Map(current).set(created.chore.id, created.chore.title));
+      await reloadOccurrences();
       setEditorMode("closed");
       setEditorDraft(undefined);
       setEditorStatus("Chore saved.");
@@ -318,20 +479,33 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
       assignedUserId
     });
     setOccurrences((current) => current.map((item) => item.id === updated.id ? updated : item));
-    setEditState((current) => current?.occurrenceId === updated.id ? {
-      occurrenceId: updated.id,
-      localStart: updated.plannedStartAt ? localInputValue(updated.plannedStartAt, timeZone) : current.localStart,
-      plannedMinutes: String(durationInMinutes(updated)),
-      assignedUserId: updated.assignedUserId
-    } : current);
   }
 
-  async function handleOccurrenceSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    if (!editState) return;
-    const occurrence = occurrences.find((item) => item.id === editState.occurrenceId);
-    if (!occurrence) return;
-    await saveUpdate(occurrence, editState.localStart, Number(editState.plannedMinutes), editState.assignedUserId);
+  async function reloadOccurrences() {
+    if (!selectedHousehold) return;
+    const range = workspaceView === "list" ? listRange(timeZone) : rangeForView(focusDate, calendarScale, timeZone);
+    const loaded = await listOccurrences(selectedHousehold.id, {
+      ...range,
+      ...(filters.assignedUserId ? { assignedUserId: filters.assignedUserId } : {})
+    });
+    setOccurrences(loaded);
+  }
+
+  async function handleScheduleSeriesSave() {
+    if (!selectedHousehold || !editorDraft) return;
+    try {
+      const savedSchedules = await Promise.all(editorDraft.schedules.map(({ key, ...schedule }) =>
+        updateScheduleApi(selectedHousehold.id, key, schedule)
+      ));
+      setEditorDraft((current) => current ? {
+        ...current,
+        schedules: savedSchedules.map(scheduleToDraft)
+      } : current);
+      await reloadOccurrences();
+      setEditorStatus("Schedule saved.");
+    } catch {
+      setEditorStatus("Could not save schedule.");
+    }
   }
 
   async function handleSkip() {
@@ -340,14 +514,16 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     setOccurrences((current) => current.map((item) => item.id === updated.id ? updated : item));
   }
 
-  async function handleComplete(occurrence: ChoreOccurrence) {
+  async function handleComplete(occurrence: ChoreOccurrence, checkIn?: CompletionCheckInInput) {
     if (!selectedHousehold) return;
-    const updated = await completeOccurrence(selectedHousehold.id, occurrence.id);
+    const updated = await completeOccurrence(selectedHousehold.id, occurrence.id, checkIn);
     setOccurrences((current) =>
-      updated.status === "completed"
-        ? current.filter((item) => item.id !== updated.id)
-        : current.map((item) => item.id === updated.id ? updated : item)
+      current.map((item) => item.id === updated.id ? updated : item)
     );
+    if (selectedOccurrenceId === occurrence.id) {
+      setEditorMode("closed");
+      setSelectedOccurrenceId(undefined);
+    }
   }
 
   async function handleDrop(slot: string) {
@@ -358,16 +534,21 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     setDraggingId(undefined);
   }
 
-  function occurrenceLine(occurrence: ChoreOccurrence, date?: Date) {
+  function occurrenceDateLine(occurrence: ChoreOccurrence) {
     if (occurrence.planningMode === "flexible") {
-      const label = date
-        ? format(date, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd")
-          ? "today"
-          : format(date, "EEEE").toLowerCase()
-        : "today";
-      return `Anytime ${label} / ${durationInMinutes(occurrence)} min / Flexible`;
+      return `Anytime / ${durationInMinutes(occurrence)} min`;
     }
-    return `${occurrence.plannedStartAt ? formatInTimeZone(occurrence.plannedStartAt, timeZone, "EEE, MMM d / h:mm a") : occurrence.eligibleStartOn} / ${durationInMinutes(occurrence)} min`;
+    return `${occurrence.plannedStartAt ? formatInTimeZone(occurrence.plannedStartAt, timeZone, "h:mm a") : "Anytime"} / ${durationInMinutes(occurrence)} min`;
+  }
+
+  function occurrenceStatusLabel(occurrence: ChoreOccurrence) {
+    return occurrence.status === "completed" ? "Completed" : occurrence.status === "skipped" ? "Skipped" : "Planned";
+  }
+
+  function occurrenceCompletionLine(occurrence: ChoreOccurrence) {
+    return occurrence.completedAt
+      ? `Completed ${formatInTimeZone(occurrence.completedAt, timeZone, "h:mm a")}`
+      : occurrenceStatusLabel(occurrence);
   }
 
   function isFlexibleOverdue(occurrence: ChoreOccurrence) {
@@ -376,154 +557,291 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
       occurrence.eligibleEndOn < format(new Date(), "yyyy-MM-dd");
   }
 
-  function renderOccurrence(occurrence: ChoreOccurrence, date?: Date) {
-    const title = occurrenceTitle(occurrence);
-    const assignedToCurrentUser = occurrence.assignedUserId === currentUserId;
-    return (
-      <article
-        aria-label={`Scheduled ${title}`}
-        className={`calendar-event ${occurrence.status === "skipped" ? "is-skipped" : ""}`}
-        draggable={isOwner && calendarScale !== "month" && occurrence.planningMode === "timed"}
-        key={`${occurrence.id}-${date ? format(date, "yyyy-MM-dd") : "row"}`}
-        onDragStart={() => setDraggingId(occurrence.id)}
-      >
-        <strong>{title}</strong>
-        <span>{occurrenceLine(occurrence, date)}</span>
-        <span>{members.find((member) => member.userId === occurrence.assignedUserId)?.displayName ?? "Assigned member"}</span>
-        {occurrence.planningMode === "flexible" ? <span className="occurrence-flexible-badge">Flexible</span> : null}
-        {isFlexibleOverdue(occurrence) ? <span className="occurrence-overdue-badge">Overdue</span> : null}
-        <div className="form-actions">
-          <button className="section-action" onClick={() => openEditEditor(occurrence)} type="button">
-            Edit {title}
-          </button>
-          {assignedToCurrentUser ? (
-            <button className="section-action" onClick={() => void handleComplete(occurrence)} type="button">
-              Complete {title}
-            </button>
-          ) : null}
-        </div>
-      </article>
+  function occurrencePrimaryDate(occurrence: ChoreOccurrence) {
+    if (occurrence.status === "completed" && occurrence.completedAt) {
+      return formatInTimeZone(occurrence.completedAt, timeZone, "yyyy-MM-dd");
+    }
+    return occurrence.plannedStartAt
+      ? formatInTimeZone(occurrence.plannedStartAt, timeZone, "yyyy-MM-dd")
+      : occurrence.eligibleStartOn;
+  }
+
+  function relatedOccurrences(status: "upcoming" | "history") {
+    if (!selectedOccurrence) return [];
+    return occurrences
+      .filter((occurrence) =>
+        occurrence.choreId === selectedOccurrence.choreId &&
+        occurrence.scheduleId === selectedOccurrence.scheduleId &&
+        (status === "upcoming" ? occurrence.status === "planned" : occurrence.status !== "planned")
+      )
+      .sort((first, second) => occurrencePrimaryDate(first).localeCompare(occurrencePrimaryDate(second)));
+  }
+
+  function relatedOccurrenceDateRows(status: "upcoming" | "history") {
+    return relatedOccurrences(status)
+      .flatMap((occurrence) => displayDates(occurrence).map((date) => ({ occurrence, date })))
+      .sort((first, second) => dateKey(first.date).localeCompare(dateKey(second.date)));
+  }
+
+  function selectedOccurrenceCanRebaseFuture() {
+    const selectedSchedule = editorDraft?.schedules.find((schedule) => schedule.key === selectedOccurrence?.scheduleId);
+    return Boolean(
+      selectedSchedule &&
+      selectedSchedule.recurrence.frequency !== "one_time" &&
+      selectedSchedule.recurrence.frequency !== "daily"
     );
   }
 
-  function renderScheduleDraft(schedule: ScheduleDraft, index: number) {
-    const disabled = isDraftDisabled(editorMode);
+  function renderChoreViewDetailSections() {
+    if (!selectedOccurrence || !editorDraft) return null;
+
     return (
-      <section className="schedule-form" key={schedule.key}>
-        <div className="field-grid">
-          <label>
-            Planning mode
-            <select
-              aria-label="Planning mode"
-              disabled={disabled}
-              value={schedule.planningMode}
-              onChange={(event) => updateSchedule(index, event.target.value === "flexible"
-                ? seedDraftAssignees(createEmptyFlexibleScheduleDraft())
-                : seedDraftAssignees(createEmptyTimedScheduleDraft()))}
-            >
-              <option value="timed">Timed</option>
-              <option value="flexible">Flexible</option>
-            </select>
-          </label>
-          {schedule.planningMode === "flexible" ? (
-            <label className="checkbox-field">
-              <input checked readOnly type="checkbox" />
-              Flexible schedule
-            </label>
-          ) : (
-            <label className="checkbox-field">
-              <input checked readOnly type="checkbox" />
-              Timed schedule
-            </label>
-          )}
+      <>
+        <div className="chore-view-summary">
+          <span>{occurrenceDateLine(selectedOccurrence)}</span>
+          <span>{assignedMemberLabel(selectedOccurrence)}</span>
+          <span>{format(parseISO(occurrencePrimaryDate(selectedOccurrence)), "EEEE, MMM d")}</span>
         </div>
-        <div className="field-grid">
-          <label>
-            Starts on
-            <input disabled={disabled} type="date" value={schedule.startsOn} onChange={(event) => updateSchedule(index, { startsOn: event.target.value })} />
-          </label>
-          <label>
-            Repeat
-            <select
-              disabled={disabled}
-              value={schedule.recurrence.frequency}
-              onChange={(event) => updateSchedule(index, {
-                recurrence: {
-                  ...schedule.recurrence,
-                  frequency: event.target.value as ScheduleInput["recurrence"]["frequency"],
-                  weekDays: event.target.value === "weekly" ? (schedule.recurrence.weekDays ?? [1]) : undefined
-                }
-              })}
-            >
-              <option value="one_time">One time</option>
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-              <option value="monthly">Monthly</option>
-            </select>
-          </label>
-        </div>
-        {schedule.recurrence.frequency === "weekly" ? (
-          <fieldset className="schedule-assignees">
-            <legend>Days</legend>
-            {weekdays.map((weekday) => (
-              <label className="checkbox-field" key={weekday.value}>
-                <input
-                  checked={Boolean(schedule.recurrence.weekDays?.includes(weekday.value))}
-                  disabled={disabled}
-                  onChange={(event) => {
-                    const currentDays = schedule.recurrence.weekDays ?? [];
-                    updateSchedule(index, {
-                      recurrence: {
-                        ...schedule.recurrence,
-                        weekDays: event.target.checked
-                          ? [...new Set([...currentDays, weekday.value])].sort()
-                          : currentDays.filter((day) => day !== weekday.value)
-                      }
-                    });
-                  }}
-                  type="checkbox"
-                />
-                {weekday.label}
-              </label>
-            ))}
-          </fieldset>
+        {editorDraft.instructions ? (
+          <section className="schedule-card">
+            <strong>Instructions</strong>
+            <span>{editorDraft.instructions}</span>
+          </section>
         ) : null}
-        {schedule.planningMode === "timed" ? (
-          <div className="field-grid">
-            <label>
-              Start time
-              <input disabled={disabled} type="time" value={schedule.localStartTime} onChange={(event) => updateSchedule(index, { localStartTime: event.target.value })} />
-            </label>
-            <label>
-              End time
-              <input disabled={disabled} type="time" value={schedule.localEndTime} onChange={(event) => updateSchedule(index, { localEndTime: event.target.value })} />
-            </label>
+        {editorDraft.tags ? (
+          <section className="schedule-card">
+            <strong>Tags</strong>
+            <span>{editorDraft.tags}</span>
+          </section>
+        ) : null}
+        <section className="schedule-card-list" aria-label="Upcoming occurrences">
+          <h3>Upcoming Occurrences</h3>
+          {relatedOccurrenceDateRows("upcoming").slice(0, 4).map(({ occurrence, date }) => (
+            <article className="schedule-card" key={`${occurrence.id}-${dateKey(date)}`}>
+              <strong>{format(date, "EEEE, MMM d")}</strong>
+              <span>{occurrenceDateLine(occurrence)}</span>
+            </article>
+          ))}
+        </section>
+        <section className="schedule-card-list" aria-label="Historical occurrences">
+          <h3>History</h3>
+          {relatedOccurrenceDateRows("history").slice(0, 4).map(({ occurrence, date }) => (
+            <article className="schedule-card" key={`${occurrence.id}-${dateKey(date)}`}>
+              <strong>{format(date, "EEEE, MMM d")}</strong>
+              <span>{capitalize(occurrence.status)}</span>
+            </article>
+          ))}
+        </section>
+      </>
+    );
+  }
+
+  function startCompletionCheckIn() {
+    setScheduleAccordionOpen(false);
+    setCompletionCheckIn({
+      completedOnTime: true,
+      durationAccurate: true,
+      rebaseFutureOccurrences: false
+    });
+  }
+
+  function renderOccurrenceCompact(occurrence: ChoreOccurrence, date: Date, density: OccurrenceCardDensity) {
+    const title = occurrenceTitle(occurrence);
+    return (
+      <button
+        aria-label={`View ${title}`}
+        className={`calendar-event calendar-event-compact ${density === "title" ? "is-title-only" : ""} ${occurrence.status === "completed" ? "is-completed" : ""} ${occurrence.status === "skipped" ? "is-skipped" : ""}`}
+        draggable={isOwner && calendarScale !== "month" && occurrence.status === "planned" && occurrence.planningMode === "timed"}
+        key={`${occurrence.id}-${dateKey(date)}`}
+        onClick={() => openViewEditor(occurrence)}
+        onDragStart={() => setDraggingId(occurrence.id)}
+        type="button"
+      >
+        <strong>{title}</strong>
+        {density === "summary" ? (
+          <>
+            <span>{occurrenceDateLine(occurrence)}</span>
+            <span>{assignedMemberLabel(occurrence)}</span>
+            {isFlexibleOverdue(occurrence) ? <span className="occurrence-overdue-badge">Overdue</span> : null}
+          </>
+        ) : null}
+      </button>
+    );
+  }
+
+  function renderCompletedDrawer(date: Date, completedOccurrences: ChoreOccurrence[]) {
+    if (!completedOccurrences.length) return null;
+    const key = dateKey(date);
+    const isExpanded = expandedCompletedDates.has(key);
+    const countLabel = `${completedOccurrences.length} item${completedOccurrences.length === 1 ? "" : "s"}`;
+    return (
+      <section className={`calendar-completed-drawer ${isExpanded ? "is-expanded" : ""}`} key={`${key}-completed`}>
+        <button
+          aria-expanded={isExpanded}
+          aria-label={`${isExpanded ? "Hide" : "Show"} ${completedOccurrences.length} completed chore${completedOccurrences.length === 1 ? "" : "s"} for ${longDateLabel(date)}`}
+          className="calendar-completed-toggle"
+          onClick={() => setExpandedCompletedDates((current) => {
+            const next = new Set(current);
+            if (next.has(key)) {
+              next.delete(key);
+            } else {
+              next.add(key);
+            }
+            return next;
+          })}
+          type="button"
+        >
+          <span>Completed</span>
+          <span>{countLabel}</span>
+        </button>
+        {isExpanded ? (
+          <div className="calendar-completed-list">
+            {completedOccurrences.map((occurrence) => {
+              const title = occurrenceTitle(occurrence);
+              return (
+                <button
+                  aria-label={`View ${title}`}
+                  className="calendar-completed-row"
+                  key={`${occurrence.id}-${key}`}
+                  onClick={() => openViewEditor(occurrence)}
+                  type="button"
+                >
+                  <span aria-hidden="true">✓</span>
+                  <strong>{title}</strong>
+                </button>
+              );
+            })}
           </div>
-        ) : (
-          <div className="field-grid">
-            <label>
-              Estimated duration
-              <input disabled={disabled} min="1" type="number" value={schedule.estimatedMinutes} onChange={(event) => updateSchedule(index, { estimatedMinutes: Number(event.target.value) })} />
-            </label>
-            <label>
-              Flexible window
-              <select disabled={disabled} value={schedule.flexibleWindowRule} onChange={(event) => updateSchedule(index, { flexibleWindowRule: event.target.value as "once_within_selected_days" | "each_selected_day" })}>
-                <option value="once_within_selected_days">Once within selected days</option>
-                <option value="each_selected_day">Each selected day</option>
-              </select>
-            </label>
+        ) : null}
+      </section>
+    );
+  }
+
+  function renderAgendaOccurrence(occurrence: ChoreOccurrence, date: Date) {
+    const title = occurrenceTitle(occurrence);
+    return (
+      <button
+        aria-label={`View ${title}`}
+        className={`calendar-agenda-card is-${occurrence.status}`}
+        key={`${occurrence.id}-${dateKey(date)}`}
+        onClick={() => openViewEditor(occurrence)}
+        type="button"
+      >
+        <span className="agenda-status-dot" aria-hidden="true" />
+        <span className="agenda-main">
+          <strong>{title}</strong>
+          <span>{occurrence.status === "completed" ? occurrenceCompletionLine(occurrence) : occurrenceDateLine(occurrence)}</span>
+        </span>
+        <span className="agenda-meta">
+          <span>{assignedMemberLabel(occurrence)}</span>
+          <span>{durationInMinutes(occurrence)} min</span>
+        </span>
+        <span className={`agenda-status-chip is-${occurrence.status}`}>{occurrenceStatusLabel(occurrence)}</span>
+      </button>
+    );
+  }
+
+  function renderMonthCalendar() {
+    const monthWeeks = Array.from({ length: Math.ceil(monthDates.length / 7) }, (_item, index) =>
+      monthDates.slice(index * 7, index * 7 + 7)
+    );
+    return (
+      <section className="calendar-month-panel" aria-label={`${format(focusDate, "MMMM yyyy")} month calendar`} role="grid">
+        {weekdays.map((weekday) => (
+          <div className="calendar-weekday-header" key={weekday.value} role="columnheader">{weekday.label}</div>
+        ))}
+        {monthWeeks.map((weekDatesInMonth) => (
+          <div className="calendar-month-week" key={dateKey(weekDatesInMonth[0])}>
+            {weekDatesInMonth.map((date) => {
+              const key = dateKey(date);
+              const isCurrentMonth = format(date, "yyyy-MM") === format(focusDate, "yyyy-MM");
+              const occurrencesForDay = occurrenceDateBuckets.get(key) ?? [];
+              const completedOccurrences = occurrencesForDay.filter((occurrence) => occurrence.status === "completed");
+              const activeOccurrences = occurrencesForDay.filter((occurrence) => occurrence.status !== "completed");
+              return (
+                <section
+                  aria-label={longDateLabel(date)}
+                  className={`calendar-day-cell ${isCurrentMonth ? "" : "is-outside-month"} ${key === format(new Date(), "yyyy-MM-dd") ? "is-today" : ""}`}
+                  key={key}
+                  role="gridcell"
+                >
+                  <div className="calendar-day-cell-header">
+                    <span>{format(date, "d")}</span>
+                    {key === format(new Date(), "yyyy-MM-dd") ? <strong>Today</strong> : null}
+                  </div>
+                <div className="calendar-day-active-events">
+                  {activeOccurrences.map((occurrence) => renderOccurrenceCompact(occurrence, date, "title"))}
+                </div>
+                <div className={`calendar-day-completed-footer ${completedOccurrences.length ? "has-completed-drawer" : ""}`}>
+                  {renderCompletedDrawer(date, completedOccurrences)}
+                </div>
+                </section>
+              );
+            })}
           </div>
-        )}
-        <label>
-          Assignee
-          <select
-            disabled={disabled}
-            value={schedule.assignment.memberUserIds[0] ?? ""}
-            onChange={(event) => updateSchedule(index, { assignment: { mode: "fixed", memberUserIds: [event.target.value] } })}
-          >
-            {members.map((member) => <option key={member.userId} value={member.userId}>{memberLabel(member)}</option>)}
-          </select>
-        </label>
+        ))}
+      </section>
+    );
+  }
+
+  function renderCalendarColumns(dates: Date[], label: string, density: OccurrenceCardDensity) {
+    return (
+      <section className={`calendar-column-grid ${dates.length > 1 ? "has-time-rail" : ""}`} aria-label={label} role="grid">
+        {dates.length > 1 ? (
+          <div className="calendar-time-rail" aria-hidden="true">
+            <span />
+            <span>Anytime</span>
+            <span className="calendar-time-rail-completed-spacer" />
+            <span className="calendar-time-rail-separator" />
+            {timedSlots.map((slot) => <span key={slot}>{timeSlotLabel(slot)}</span>)}
+          </div>
+        ) : null}
+        {dates.map((date) => renderCalendarDayColumn(date, density, dates.length === 1))}
+      </section>
+    );
+  }
+
+  function renderCalendarDayColumn(date: Date, density: OccurrenceCardDensity, showSlotLabels: boolean) {
+    const key = dateKey(date);
+    const occurrencesForDay = occurrenceDateBuckets.get(key) ?? [];
+    const completedOccurrences = occurrencesForDay.filter((occurrence) => occurrence.status === "completed");
+    const activeOccurrences = occurrencesForDay.filter((occurrence) => occurrence.status !== "completed");
+    const flexibleOccurrences = activeOccurrences.filter((occurrence) => occurrence.planningMode === "flexible");
+    return (
+      <section className="calendar-column" key={key}>
+        <h3 role="columnheader">{longDateLabel(date)}</h3>
+        <div className="calendar-column-anytime">
+          <div className="calendar-column-anytime-main">
+            <span>Anytime</span>
+            {flexibleOccurrences.length
+              ? flexibleOccurrences.map((occurrence) => renderOccurrenceCompact(occurrence, date, density))
+              : null}
+          </div>
+          <div className={`calendar-day-completed-footer ${completedOccurrences.length ? "has-completed-drawer" : ""}`}>
+            {renderCompletedDrawer(date, completedOccurrences)}
+          </div>
+        </div>
+        <div className="calendar-column-hour-separator" aria-hidden="true" />
+        <div className="calendar-column-slots">
+          {timedSlots.map((slot) => {
+            const timedOccurrences = activeOccurrences.filter((occurrence) =>
+              occurrence.plannedStartAt &&
+              formatInTimeZone(occurrence.plannedStartAt, timeZone, "HH:mm").startsWith(slot.slice(0, 2))
+            );
+            return (
+              <div
+                aria-label={`${longDateLabel(date)} ${slot} time slot`}
+                className={`calendar-time-slot ${showSlotLabels ? "" : "hide-slot-label"}`}
+                key={`${key}-${slot}`}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={() => void handleDrop(slot)}
+              >
+                {showSlotLabels ? <span>{timeSlotLabel(slot)}</span> : null}
+                <div>{timedOccurrences.map((occurrence) => renderOccurrenceCompact(occurrence, date, density))}</div>
+              </div>
+            );
+          })}
+        </div>
       </section>
     );
   }
@@ -539,19 +857,26 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
           <p className="lede">Plan chores as timed appointments or flexible work windows in one place.</p>
         </div>
         <div className="header-action">
-          <div className="calendar-workspace-toggle" aria-label="Workspace view">
-            {(["calendar", "list"] as WorkspaceView[]).map((option) => (
-              <button aria-pressed={workspaceView === option} key={option} onClick={() => setWorkspaceView(option)} type="button">
-                {capitalize(option)}
-              </button>
-            ))}
-          </div>
           <button onClick={openCreateEditor} type="button">Add chore</button>
         </div>
       </header>
 
       {!selectedHousehold ? <section className="panel">Add a household to begin scheduling chores.</section> : (
         <>
+          <nav className="calendar-workspace-tabs" role="tablist" aria-label="Workspace view">
+            {(["calendar", "list"] as WorkspaceView[]).map((option) => (
+              <button
+                aria-selected={workspaceView === option}
+                key={option}
+                onClick={() => setWorkspaceView(option)}
+                role="tab"
+                type="button"
+              >
+                {capitalize(option)}
+              </button>
+            ))}
+          </nav>
+
           <section className="panel calendar-toolbar" aria-label="Calendar filters">
             <label>
               Household
@@ -569,8 +894,10 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
             <label>
               Status
               <select value={filters.status ?? "all"} onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}>
-                <option value="all">All planned work</option>
+                <option value="all">All work</option>
                 <option value="planned">Planned</option>
+                <option value="completed">Completed</option>
+                <option value="skipped">Skipped</option>
               </select>
             </label>
             {workspaceView === "calendar" ? (
@@ -593,46 +920,39 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
           ) : null}
 
           {loadState === "error" ? <section className="panel">Could not load scheduled chores.</section> : null}
-          {loadState === "ready" && visibleOccurrences.length === 0 ? <section className="panel">No planned chores in this range.</section> : null}
+          {loadState === "ready" && visibleOccurrences.length === 0 ? <section className="panel">No chores in this range.</section> : null}
 
           {workspaceView === "calendar" && visibleOccurrences.length > 0 ? (
             calendarScale === "month" ? (
-              <section className="calendar-month-grid" aria-label="Monthly occurrences">
-                {visibleOccurrences.flatMap((occurrence) => displayDates(occurrence).map((date) => renderOccurrence(occurrence, date)))}
-              </section>
+              renderMonthCalendar()
+            ) : calendarScale === "week" ? (
+              renderCalendarColumns(weekDates, `Week of ${format(weekDates[0], "MMM d, yyyy")}`, "title")
             ) : (
-              <section className="panel calendar-agenda" aria-label={`${capitalize(calendarScale)} agenda`}>
-                <div className="calendar-anytime-region">
-                  {visibleOccurrences.filter((occurrence) => occurrence.planningMode === "flexible").map((occurrence) => renderOccurrence(occurrence, parseISO(occurrence.eligibleStartOn)))}
-                </div>
-                {timedSlots.map((slot) => (
-                  <div
-                    aria-label={`${slot} time slot`}
-                    className="calendar-time-slot"
-                    key={slot}
-                    onDragOver={(event) => event.preventDefault()}
-                    onDrop={() => void handleDrop(slot)}
-                  >
-                    <span>{slot}</span>
-                    <div>
-                      {visibleOccurrences.filter((occurrence) =>
-                        occurrence.plannedStartAt &&
-                        formatInTimeZone(occurrence.plannedStartAt, timeZone, "HH:mm").startsWith(slot.slice(0, 2))
-                      ).map((occurrence) => renderOccurrence(occurrence))}
-                    </div>
-                  </div>
-                ))}
-              </section>
+              renderCalendarColumns([focusDate], `${longDateLabel(focusDate)} day calendar`, "summary")
             )
           ) : null}
 
           {workspaceView === "list" ? (
-            <section className="panel calendar-list-group" aria-label="Upcoming chore occurrences">
-              <h2>Today</h2>
+            <section className="panel calendar-list-group calendar-agenda" aria-label="Chore agenda">
+              <div className="agenda-header">
+                <div>
+                  <p className="eyebrow">Agenda</p>
+                  <h2>Upcoming and completed work</h2>
+                </div>
+                <div className="agenda-summary" aria-label="Agenda summary">
+                  <span>{listStatusCounts.planned} planned</span>
+                  <span>{listStatusCounts.completed} completed</span>
+                  <span>{listStatusCounts.skipped} skipped</span>
+                </div>
+              </div>
               {listGroups.map(([date, dateOccurrences]) => (
                 <section className="calendar-list-day" key={date}>
                   <h3>{format(parseISO(date), "EEEE, MMM d")}</h3>
-                  {dateOccurrences.map((occurrence) => renderOccurrence(occurrence, parseISO(date)))}
+                  <div className="calendar-list-day-items">
+                    {dateOccurrences
+                      .sort((first, second) => occurrenceStatusRank[first.status] - occurrenceStatusRank[second.status])
+                      .map((occurrence) => renderAgendaOccurrence(occurrence, parseISO(date)))}
+                  </div>
                 </section>
               ))}
             </section>
@@ -647,8 +967,9 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                     void saveCreate(event);
                     return;
                   }
-                  if (editState) {
-                    void handleOccurrenceSubmit(event);
+                  if (editorMode === "edit") {
+                    event.preventDefault();
+                    void handleScheduleSeriesSave();
                     return;
                   }
                   event.preventDefault();
@@ -656,88 +977,343 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
               >
                 <div className="panel-heading">
                   <div>
-                    <p className="eyebrow">{editorMode === "create" ? "New chore" : "Selected occurrence"}</p>
-                    <h2>{editorMode === "create" ? "Chore Details" : "Selected occurrence"}</h2>
+                    <p className="eyebrow">{editorMode === "create" ? "New chore" : editorMode === "view" ? "Chore details" : "Edit chore"}</p>
+                    <h2>{editorMode === "create" ? "Chore Details" : editorDraft.title}</h2>
                   </div>
-                  <button className="section-action" onClick={() => setEditorMode("closed")} type="button">Close</button>
+                  <button aria-label="Close dialog" className="icon-button modal-close-button" onClick={() => setEditorMode("closed")} type="button" />
                 </div>
-                <div className="field-grid">
-                  <label>
+                {editorMode === "view" && selectedOccurrence ? (
+                  <section className="chore-view-details">
+                    {completionCheckIn ? (
+                      <>
+                        <section className="completion-check-in" aria-label="Completion check-in">
+                          <h3>Before completing</h3>
+                          <label className="checkbox-field">
+                            <input
+                              checked={completionCheckIn.completedOnTime}
+                              onChange={(event) => setCompletionCheckIn({ ...completionCheckIn, completedOnTime: event.target.checked })}
+                              type="checkbox"
+                            />
+                            This was done on time
+                          </label>
+                          <label className="checkbox-field">
+                            <input
+                              checked={completionCheckIn.durationAccurate}
+                              onChange={(event) => setCompletionCheckIn({ ...completionCheckIn, durationAccurate: event.target.checked })}
+                              type="checkbox"
+                            />
+                            The estimated duration still feels accurate
+                          </label>
+                          {selectedOccurrenceCanRebaseFuture() ? (
+                            <label className="checkbox-field">
+                              <input
+                                checked={completionCheckIn.rebaseFutureOccurrences}
+                                onChange={(event) => setCompletionCheckIn({ ...completionCheckIn, rebaseFutureOccurrences: event.target.checked })}
+                                type="checkbox"
+                              />
+                              Base future occurrences on this completion date
+                            </label>
+                          ) : null}
+                        </section>
+                        <section className="schedule-accordion">
+                          <button
+                            aria-expanded={scheduleAccordionOpen}
+                            className="schedule-accordion-summary"
+                            onClick={() => setScheduleAccordionOpen((isOpen) => !isOpen)}
+                            type="button"
+                          >
+                            <span>
+                              <strong>Chore details</strong>
+                              <span>{`${editorDraft.title} · ${occurrenceDateLine(selectedOccurrence)} · ${assignedMemberLabel(selectedOccurrence)}`}</span>
+                            </span>
+                            <span>{scheduleAccordionOpen ? "Hide details" : "Show details"}</span>
+                          </button>
+                          {scheduleAccordionOpen ? (
+                            <div className="schedule-accordion-body chore-details-drawer-body">
+                              {renderChoreViewDetailSections()}
+                            </div>
+                          ) : null}
+                        </section>
+                      </>
+                    ) : (
+                      renderChoreViewDetailSections()
+                    )}
+                  </section>
+                ) : null}
+                {editorMode !== "view" ? (
+                  <>
+                <div className="field-grid aligned-field-grid">
+                  <label className="aligned-field">
                     Chore title
                     <input disabled={editorMode === "edit"} value={editorDraft.title} onChange={(event) => setEditorDraft({ ...editorDraft, title: event.target.value })} required />
+                    {editorMode === "create" || editorMode === "edit" ? <span className="field-help-placeholder" aria-hidden="true" /> : null}
                   </label>
-                  <label>
+                  <label className="aligned-field">
                     Tags
-                    <input disabled={editorMode === "edit"} value={editorDraft.tags} onChange={(event) => setEditorDraft({ ...editorDraft, tags: event.target.value })} />
+                    <input
+                      aria-describedby={editorMode === "create" ? "chore-tags-help" : undefined}
+                      disabled={editorMode === "edit"}
+                      value={editorDraft.tags}
+                      onChange={(event) => setEditorDraft({ ...editorDraft, tags: event.target.value })}
+                    />
+                    {editorMode === "create" ? (
+                      <span className="field-help" id="chore-tags-help">Optional labels like bathroom, outdoor, or deep clean. Tags help group chores and give optimization more context.</span>
+                    ) : null}
                   </label>
                 </div>
                 <label>
                   Instructions
-                  <textarea disabled={editorMode === "edit"} value={editorDraft.instructions} onChange={(event) => setEditorDraft({ ...editorDraft, instructions: event.target.value })} />
+                  <textarea
+                    aria-describedby={editorMode === "create" ? "chore-instructions-help" : undefined}
+                    disabled={editorMode === "edit"}
+                    value={editorDraft.instructions}
+                    onChange={(event) => setEditorDraft({ ...editorDraft, instructions: event.target.value })}
+                  />
+                  {editorMode === "create" ? (
+                    <span className="field-help" id="chore-instructions-help">Add steps, scope, or preferences. This helps future optimization understand what the chore includes.</span>
+                  ) : null}
                 </label>
-                {editorMode === "edit" ? (
-                  <p className="empty-state">Schedule series details are shown for context. This release supports changing timed occurrence timing here; full series editing is coming with schedule mutation APIs.</p>
-                ) : null}
-                {selectedOccurrence ? (
-                  <section className="schedule-card">
-                    <strong>Selected occurrence</strong>
-                    <span>{occurrenceLine(selectedOccurrence)}</span>
-                  </section>
-                ) : null}
-                <section className="schedule-editor">
-                  <div className="panel-heading">
-                    <h3>Schedule Series</h3>
-                    {editorMode === "create" ? (
-                      <button
-                        className="section-action"
-                        onClick={() => setEditorDraft({
-                          ...editorDraft,
-                          schedules: [...editorDraft.schedules, seedDraftAssignees(createEmptyFlexibleScheduleDraft())]
-                        })}
-                        type="button"
-                      >
-                        Add schedule
-                      </button>
-                    ) : null}
-                  </div>
-                  {editorDraft.schedules.map(renderScheduleDraft)}
-                </section>
-                {editState ? (
-                  <section className="schedule-form">
-                    <h3>Occurrence timing</h3>
-                    <div className="field-grid">
-                      <label>
-                        Planned start
-                        <input type="datetime-local" value={editState.localStart} onChange={(event) => setEditState({ ...editState, localStart: event.target.value })} />
+                {editorDraft.schedules[0] ? (
+                  <section className="create-schedule-panel" aria-label="Chore schedule">
+                    <div className="panel-heading">
+                      <div>
+                        <p className="eyebrow">Schedule</p>
+                        <h3>When should this happen?</h3>
+                        <p className="section-help">Choose the first date, optional timing, owner, and whether this chore repeats.</p>
+                      </div>
+                    </div>
+                    <div className="field-grid aligned-field-grid">
+                      <label className="aligned-field">
+                        Date
+                        <input
+                          disabled={editorMode === "edit" && !isOwner}
+                          type="date"
+                          value={editorDraft.schedules[0].startsOn}
+                          onChange={(event) => updatePrimarySchedule({
+                            startsOn: event.target.value,
+                            recurrence: {
+                              ...editorDraft.schedules[0].recurrence,
+                              ...(editorDraft.schedules[0].recurrence.frequency === "monthly"
+                                ? {
+                                    monthlyDay: parseISO(event.target.value).getDate(),
+                                    monthlyWeek: weekOfMonth(event.target.value),
+                                    monthlyWeekday: weekdayIndex(event.target.value)
+                                  }
+                                : {})
+                            }
+                          })}
+                        />
+                        <span className="field-help-placeholder" aria-hidden="true" />
                       </label>
-                      <label>
-                        Planned duration
-                        <input min="1" type="number" value={editState.plannedMinutes} onChange={(event) => setEditState({ ...editState, plannedMinutes: event.target.value })} />
+                      <label className="aligned-field">
+                        Assignee
+                        <select
+                          disabled={editorMode === "edit" && !isOwner}
+                          value={editorDraft.schedules[0].assignment.memberUserIds[0] ?? ""}
+                          onChange={(event) => updatePrimarySchedule({ assignment: { mode: "fixed", memberUserIds: [event.target.value] } })}
+                        >
+                          {members.map((member) => <option key={member.userId} value={member.userId}>{memberLabel(member)}</option>)}
+                        </select>
+                        <span className="field-help-placeholder" aria-hidden="true" />
+                      </label>
+                      <label className="aligned-field">
+                        Start time (optional)
+                        <input
+                          aria-describedby="chore-start-time-help"
+                          disabled={editorMode === "edit" && !isOwner}
+                          type="time"
+                          value={editorDraft.schedules[0].planningMode === "timed" ? editorDraft.schedules[0].localStartTime : editorDraft.startTime}
+                          onChange={(event) => {
+                            if (editorDraft.schedules[0].planningMode === "timed") {
+                              updatePrimarySchedule({
+                                localStartTime: event.target.value,
+                                localEndTime: timeAfterMinutes(event.target.value, minutesBetween(editorDraft.schedules[0].localStartTime, editorDraft.schedules[0].localEndTime))
+                              });
+                            } else {
+                              setEditorDraft({ ...editorDraft, startTime: event.target.value });
+                            }
+                          }}
+                        />
+                        <span className="field-help" id="chore-start-time-help">Leave blank if this can be done anytime on the selected day.</span>
+                      </label>
+                      <label className="aligned-field">
+                        Estimated duration
+                        <input
+                          aria-describedby="chore-duration-help"
+                          disabled={editorMode === "edit" && !isOwner}
+                          min="1"
+                          type="number"
+                          value={editorDraft.schedules[0].planningMode === "flexible"
+                            ? editorDraft.schedules[0].estimatedMinutes
+                            : minutesBetween(editorDraft.schedules[0].localStartTime, editorDraft.schedules[0].localEndTime)}
+                          onChange={(event) => {
+                            const minutes = Number(event.target.value);
+                            if (editorDraft.schedules[0].planningMode === "timed") {
+                              updatePrimarySchedule({ localEndTime: timeAfterMinutes(editorDraft.schedules[0].localStartTime, minutes) });
+                            } else {
+                              updatePrimarySchedule({ estimatedMinutes: minutes });
+                            }
+                          }}
+                        />
+                        <span className="field-help" id="chore-duration-help">Used for flexible chores. If you add a start time, the end time is calculated from this duration.</span>
                       </label>
                     </div>
-                    <label>
-                      Assignee
-                      <select value={editState.assignedUserId} onChange={(event) => setEditState({ ...editState, assignedUserId: event.target.value })}>
-                        {members.map((member) => <option key={member.userId} value={member.userId}>{memberLabel(member)}</option>)}
-                      </select>
-                    </label>
+                    <div className="repeat-segmented-field">
+                      <span className="sr-only">Repeat</span>
+                      <div className="segmented-control" aria-label="Repeat">
+                        <button
+                          aria-pressed={editorDraft.schedules[0].recurrence.frequency === "one_time"}
+                          disabled={editorMode === "edit" && !isOwner}
+                          onClick={() => updatePrimaryRecurrenceFrequency("one_time")}
+                          type="button"
+                        >
+                          Does not repeat
+                        </button>
+                        <button
+                          aria-pressed={editorDraft.schedules[0].recurrence.frequency !== "one_time"}
+                          disabled={editorMode === "edit" && !isOwner}
+                          onClick={() => updatePrimaryRecurrenceFrequency(editorDraft.schedules[0].recurrence.frequency === "one_time" ? "daily" : editorDraft.schedules[0].recurrence.frequency)}
+                          type="button"
+                        >
+                          Repeats
+                        </button>
+                      </div>
+                    </div>
                   </section>
                 ) : null}
-                <section className="schedule-card-list" aria-label="Upcoming occurrences">
-                  <h3>Upcoming Occurrences</h3>
-                  {visibleOccurrences.slice(0, 4).map((occurrence) => (
-                    <article className="schedule-card" key={occurrence.id}>
-                      <strong>{occurrenceTitle(occurrence)}</strong>
-                      <span>{occurrenceLine(occurrence)}</span>
-                    </article>
-                  ))}
-                </section>
-                <button aria-expanded="false" className="section-action" type="button">History</button>
+                {editorDraft.schedules[0] && editorDraft.schedules[0].recurrence.frequency !== "one_time" ? (
+                  <div className="recurrence-panel">
+                    <div className="recurrence-sentence">
+                      <span>Repeats every</span>
+                      <label>
+                        <span className="sr-only">Repeat interval</span>
+                        <input
+                          aria-label="Repeat interval"
+                          disabled={editorMode === "edit" && !isOwner}
+                          min="1"
+                          type="number"
+                          value={editorDraft.schedules[0].recurrence.interval}
+                          onChange={(event) => updatePrimarySchedule({
+                            recurrence: {
+                              ...editorDraft.schedules[0].recurrence,
+                              interval: Number(event.target.value)
+                            }
+                          })}
+                        />
+                      </label>
+                      <label>
+                        <span className="sr-only">Repeat unit</span>
+                        <select
+                          aria-label="Repeat unit"
+                          disabled={editorMode === "edit" && !isOwner}
+                          value={editorDraft.schedules[0].recurrence.frequency}
+                          onChange={(event) => updatePrimaryRecurrenceFrequency(event.target.value as ScheduleInput["recurrence"]["frequency"])}
+                        >
+                          <option value="daily">day(s)</option>
+                          <option value="weekly">week(s)</option>
+                          <option value="monthly">month(s)</option>
+                          <option value="yearly">year(s)</option>
+                        </select>
+                      </label>
+                    </div>
+                    {editorDraft.schedules[0].recurrence.frequency === "weekly" ? (
+                      <fieldset className="schedule-assignees">
+                        <legend>Days</legend>
+                        {weekdays.map((weekday) => (
+                          <label className="checkbox-field" key={weekday.value}>
+                            <input
+                              checked={Boolean(editorDraft.schedules[0].recurrence.weekDays?.includes(weekday.value))}
+                              disabled={editorMode === "edit" && !isOwner}
+                              onChange={(event) => {
+                                const currentDays = editorDraft.schedules[0].recurrence.weekDays ?? [];
+                                updatePrimarySchedule({
+                                  recurrence: {
+                                    ...editorDraft.schedules[0].recurrence,
+                                    weekDays: event.target.checked
+                                      ? [...new Set([...currentDays, weekday.value])].sort()
+                                      : currentDays.filter((day) => day !== weekday.value)
+                                  }
+                                });
+                              }}
+                              type="checkbox"
+                            />
+                            {weekday.label}
+                          </label>
+                        ))}
+                      </fieldset>
+                    ) : null}
+                    {editorDraft.schedules[0].recurrence.frequency === "monthly" ? (
+                      <fieldset className="schedule-assignees">
+                        <legend>Monthly pattern</legend>
+                        <label className="checkbox-field">
+                          <input
+                            checked={(editorDraft.schedules[0].recurrence.monthlyPattern ?? "day_of_month") === "day_of_month"}
+                            disabled={editorMode === "edit" && !isOwner}
+                            name="monthly-pattern"
+                            onChange={() => updatePrimarySchedule({
+                              recurrence: {
+                                ...editorDraft.schedules[0].recurrence,
+                                monthlyPattern: "day_of_month",
+                                monthlyDay: parseISO(editorDraft.schedules[0].startsOn).getDate(),
+                                monthlyWeek: undefined,
+                                monthlyWeekday: undefined
+                              }
+                            })}
+                            type="radio"
+                          />
+                          On day {parseISO(editorDraft.schedules[0].startsOn).getDate()} of the month
+                        </label>
+                        <label className="checkbox-field">
+                          <input
+                            checked={editorDraft.schedules[0].recurrence.monthlyPattern === "weekday_of_month"}
+                            disabled={editorMode === "edit" && !isOwner}
+                            name="monthly-pattern"
+                            onChange={() => updatePrimarySchedule({
+                              recurrence: {
+                                ...editorDraft.schedules[0].recurrence,
+                                monthlyPattern: "weekday_of_month",
+                                monthlyDay: undefined,
+                                monthlyWeek: weekOfMonth(editorDraft.schedules[0].startsOn),
+                                monthlyWeekday: weekdayIndex(editorDraft.schedules[0].startsOn)
+                              }
+                            })}
+                            type="radio"
+                          />
+                          On the {monthlyWeekdayLabel(editorDraft.schedules[0].startsOn)}
+                        </label>
+                      </fieldset>
+                    ) : null}
+                  </div>
+                ) : null}
+                {editorMode === "edit" && !isOwner ? (
+                  <p className="empty-state">Schedule details are available for review. Only household owners can change the schedule.</p>
+                ) : null}
+                  </>
+                ) : null}
                 {editorStatus ? <p role="status">{editorStatus}</p> : null}
-                <div className="form-actions">
-                  {editorMode === "create" || editState ? <button type="submit">{editorMode === "create" ? "Save chore" : "Save occurrence"}</button> : null}
-                  {editorMode === "edit" && selectedOccurrence ? <button className="section-action" onClick={() => void handleSkip()} type="button">Skip occurrence</button> : null}
-                </div>
+                {editorMode === "view" && selectedOccurrence ? (
+                  <div className="form-actions modal-actions">
+                    <button className="section-action" onClick={() => setEditorMode("closed")} type="button">Close</button>
+                    <div className="modal-action-group">
+                      {completionCheckIn ? (
+                        <button onClick={() => void handleComplete(selectedOccurrence, completionCheckIn)} type="button">Submit</button>
+                      ) : (
+                        <>
+                          {selectedOccurrence.status === "planned" && selectedOccurrence.assignedUserId === currentUserId ? (
+                          <button className="section-action" onClick={startCompletionCheckIn} type="button">Complete chore</button>
+                          ) : null}
+                          <button onClick={() => openEditEditor(selectedOccurrence)} type="button">Edit</button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="form-actions modal-actions">
+                    <button className="section-action" onClick={() => setEditorMode("closed")} type="button">Cancel</button>
+                    {editorMode === "create" || editorMode === "edit" ? <button type="submit">{editorMode === "create" ? "Add chore" : "Save changes"}</button> : null}
+                    {editorMode === "edit" && selectedOccurrence ? <button className="section-action" onClick={() => void handleSkip()} type="button">Skip occurrence</button> : null}
+                  </div>
+                )}
               </form>
             </div>
           ) : null}

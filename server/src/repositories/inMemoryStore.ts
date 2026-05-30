@@ -1,5 +1,6 @@
 import type {
   Chore,
+  ChoreCompletionCheckIn,
   ChoreDefinitionInput,
   ChoreOccurrence,
   ChoreSchedule,
@@ -35,6 +36,8 @@ export type OccurrenceRange = {
 };
 export type OccurrenceClearFutureCutoff =
   { fromAt: string; fromOn: string };
+
+export type CompletionCheckInCreate = Omit<ChoreCompletionCheckIn, "id" | "createdAt" | "updatedAt">;
 
 export type NewScheduledChore = {
   householdId: string;
@@ -150,6 +153,11 @@ export type HouseholdStore = {
     completedByUserId: string,
     completedAt: string
   ): StoreResult<ChoreOccurrence | undefined>;
+  recordCompletionCheckIn(input: CompletionCheckInCreate): StoreResult<ChoreCompletionCheckIn>;
+  getCompletionCheckInForOccurrence(
+    householdId: string,
+    occurrenceId: string
+  ): StoreResult<ChoreCompletionCheckIn | undefined>;
   updateOccurrenceException(
     householdId: string,
     occurrenceId: string,
@@ -213,6 +221,7 @@ export function createInMemoryStore(): HouseholdStore {
   const chores = new Map<string, Chore[]>();
   const schedules = new Map<string, ChoreSchedule>();
   const occurrences = new Map<string, ChoreOccurrence>();
+  const completionCheckIns = new Map<string, ChoreCompletionCheckIn>();
   const recommendations = new Map<string, Recommendation[]>();
 
   function markStale(householdId: string) {
@@ -609,6 +618,23 @@ export function createInMemoryStore(): HouseholdStore {
       };
       occurrences.set(occurrence.id, updated);
       return updated;
+    },
+
+    recordCompletionCheckIn(input) {
+      const existing = completionCheckIns.get(`${input.householdId}:${input.occurrenceId}`);
+      const now = new Date().toISOString();
+      const checkIn: ChoreCompletionCheckIn = {
+        id: existing?.id ?? crypto.randomUUID(),
+        ...input,
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now
+      };
+      completionCheckIns.set(`${input.householdId}:${input.occurrenceId}`, checkIn);
+      return checkIn;
+    },
+
+    getCompletionCheckInForOccurrence(householdId, occurrenceId) {
+      return completionCheckIns.get(`${householdId}:${occurrenceId}`);
     },
 
     updateOccurrenceException(householdId, occurrenceId, update) {

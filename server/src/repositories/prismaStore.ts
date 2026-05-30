@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import type {
   Chore,
+  ChoreCompletionCheckIn,
   ChoreOccurrence,
   ChoreSchedule,
   Household,
@@ -13,7 +14,7 @@ import type {
   RecommendationConfidence,
   RecommendationDecision
 } from "@chore-helper/shared";
-import type { AppUser, HouseholdStore, OccurrenceClearFutureCutoff } from "./inMemoryStore.js";
+import type { AppUser, CompletionCheckInCreate, HouseholdStore, OccurrenceClearFutureCutoff } from "./inMemoryStore.js";
 
 function serializeOptionalList<T>(values: T[]) {
   return JSON.stringify(values);
@@ -187,7 +188,10 @@ function toSchedule(schedule: {
   frequency: string;
   interval: number;
   weekDays: string;
+  monthlyPattern?: string | null;
   monthlyDay?: number | null;
+  monthlyWeek?: number | null;
+  monthlyWeekday?: number | null;
   localStartTime?: string | null;
   localEndTime?: string | null;
   estimatedMinutes?: number | null;
@@ -207,7 +211,10 @@ function toSchedule(schedule: {
       frequency: schedule.frequency as ChoreSchedule["recurrence"]["frequency"],
       interval: schedule.interval,
       ...(weekDays.length ? { weekDays } : {}),
-      ...(schedule.monthlyDay ? { monthlyDay: schedule.monthlyDay } : {})
+      ...(schedule.monthlyPattern ? { monthlyPattern: schedule.monthlyPattern as ChoreSchedule["recurrence"]["monthlyPattern"] } : {}),
+      ...(schedule.monthlyDay ? { monthlyDay: schedule.monthlyDay } : {}),
+      ...(schedule.monthlyWeek ? { monthlyWeek: schedule.monthlyWeek } : {}),
+      ...(schedule.monthlyWeekday !== null && schedule.monthlyWeekday !== undefined ? { monthlyWeekday: schedule.monthlyWeekday } : {})
     },
     startsOn: schedule.startsOn,
     ...(schedule.endsOn ? { endsOn: schedule.endsOn } : {}),
@@ -271,6 +278,55 @@ function toOccurrence(occurrence: {
     completedAt: serializeDate(occurrence.completedAt),
     completedByUserId: occurrence.completedByUserId ?? undefined
   };
+}
+
+function toCompletionCheckIn(checkIn: {
+  id: string;
+  householdId: string;
+  occurrenceId: string;
+  completedByUserId: string;
+  completedAt: Date;
+  completedOnTime: boolean;
+  durationAccurate: boolean;
+  keepAssignee: boolean;
+  rebaseFutureOccurrences: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}): ChoreCompletionCheckIn {
+  return {
+    id: checkIn.id,
+    householdId: checkIn.householdId,
+    occurrenceId: checkIn.occurrenceId,
+    completedByUserId: checkIn.completedByUserId,
+    completedAt: checkIn.completedAt.toISOString(),
+    completedOnTime: checkIn.completedOnTime,
+    durationAccurate: checkIn.durationAccurate,
+    keepAssignee: checkIn.keepAssignee,
+    rebaseFutureOccurrences: checkIn.rebaseFutureOccurrences,
+    createdAt: checkIn.createdAt.toISOString(),
+    updatedAt: checkIn.updatedAt.toISOString()
+  };
+}
+
+async function completionCheckInRelations(
+  prisma: PrismaClient,
+  input: CompletionCheckInCreate
+) {
+  const occurrence = await prisma.choreOccurrence.findFirst({
+    where: {
+      id: input.occurrenceId,
+      householdId: input.householdId,
+      completedByUserId: input.completedByUserId,
+      status: "completed"
+    },
+    select: {
+      choreId: true,
+      scheduleId: true
+    }
+  });
+  if (!occurrence) return undefined;
+
+  return occurrence;
 }
 
 function toRecommendation(recommendation: {
@@ -690,7 +746,10 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
                 frequency: schedule.recurrence.frequency,
                 interval: schedule.recurrence.interval,
                 weekDays: serializeOptionalList(schedule.recurrence.weekDays ?? []),
+                monthlyPattern: schedule.recurrence.monthlyPattern,
                 monthlyDay: schedule.recurrence.monthlyDay,
+                monthlyWeek: schedule.recurrence.monthlyWeek,
+                monthlyWeekday: schedule.recurrence.monthlyWeekday,
                 localStartTime: schedule.planningMode === "timed" ? schedule.localStartTime : null,
                 localEndTime: schedule.planningMode === "timed" ? schedule.localEndTime : null,
                 estimatedMinutes: schedule.planningMode === "flexible" ? schedule.estimatedMinutes : null,
@@ -827,7 +886,10 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
           frequency: schedule.recurrence.frequency,
           interval: schedule.recurrence.interval,
           weekDays: serializeOptionalList(schedule.recurrence.weekDays ?? []),
+          monthlyPattern: schedule.recurrence.monthlyPattern,
           monthlyDay: schedule.recurrence.monthlyDay,
+          monthlyWeek: schedule.recurrence.monthlyWeek,
+          monthlyWeekday: schedule.recurrence.monthlyWeekday,
           localStartTime: schedule.planningMode === "timed" ? schedule.localStartTime : null,
           localEndTime: schedule.planningMode === "timed" ? schedule.localEndTime : null,
           estimatedMinutes: schedule.planningMode === "flexible" ? schedule.estimatedMinutes : null,
@@ -872,7 +934,10 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
           frequency: update.recurrence.frequency,
           interval: update.recurrence.interval,
           weekDays: serializeOptionalList(update.recurrence.weekDays ?? []),
+          monthlyPattern: update.recurrence.monthlyPattern,
           monthlyDay: update.recurrence.monthlyDay,
+          monthlyWeek: update.recurrence.monthlyWeek,
+          monthlyWeekday: update.recurrence.monthlyWeekday,
           localStartTime: update.planningMode === "timed" ? update.localStartTime : null,
           localEndTime: update.planningMode === "timed" ? update.localEndTime : null,
           estimatedMinutes: update.planningMode === "flexible" ? update.estimatedMinutes : null,
@@ -998,6 +1063,57 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
         where: { id: occurrenceId, householdId }
       });
       return occurrence ? toOccurrence(occurrence) : undefined;
+    },
+
+    async recordCompletionCheckIn(input) {
+      const occurrence = await completionCheckInRelations(prisma, input);
+      if (!occurrence) {
+        throw new Error("Cannot record a check-in for an incomplete occurrence");
+      }
+
+      const checkIn = await prisma.choreCompletionCheckIn.upsert({
+        where: {
+          householdId_occurrenceId: {
+            householdId: input.householdId,
+            occurrenceId: input.occurrenceId
+          }
+        },
+        create: {
+          householdId: input.householdId,
+          choreId: occurrence.choreId,
+          scheduleId: occurrence.scheduleId,
+          occurrenceId: input.occurrenceId,
+          completedByUserId: input.completedByUserId,
+          completedAt: new Date(input.completedAt),
+          completedOnTime: input.completedOnTime,
+          durationAccurate: input.durationAccurate,
+          keepAssignee: input.keepAssignee,
+          rebaseFutureOccurrences: input.rebaseFutureOccurrences
+        },
+        update: {
+          completedByUserId: input.completedByUserId,
+          completedAt: new Date(input.completedAt),
+          completedOnTime: input.completedOnTime,
+          durationAccurate: input.durationAccurate,
+          keepAssignee: input.keepAssignee,
+          rebaseFutureOccurrences: input.rebaseFutureOccurrences
+        }
+      });
+
+      return toCompletionCheckIn(checkIn);
+    },
+
+    async getCompletionCheckInForOccurrence(householdId, occurrenceId) {
+      const checkIn = await prisma.choreCompletionCheckIn.findUnique({
+        where: {
+          householdId_occurrenceId: {
+            householdId,
+            occurrenceId
+          }
+        }
+      });
+
+      return checkIn ? toCompletionCheckIn(checkIn) : undefined;
     },
 
     async updateOccurrenceException(householdId, occurrenceId, update) {

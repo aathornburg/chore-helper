@@ -38,6 +38,9 @@ it("scopes household structure ids by their parent records in the Prisma schema"
   expect(schema).toContain("@@index([householdId, planningMode, plannedStartAt])");
   expect(schema).toContain("@@index([householdId, planningMode, eligibleEndOn, eligibleStartOn])");
   expect(schema).toContain("@@index([scheduleId, sequence])");
+  expect(schema).toContain("model ChoreCompletionCheckIn");
+  expect(schema).toContain("completionCheckIn ChoreCompletionCheckIn?");
+  expect(schema).toContain("@@unique([householdId, occurrenceId])");
   expect(schema).not.toContain("@@unique([scheduleId, sequence])");
   expect(schema).not.toContain("  cadence");
   expect(schema).not.toContain("  plannedMinutes");
@@ -49,6 +52,7 @@ async function clearDatabase() {
   await prisma!.householdRoom.deleteMany();
   await prisma!.householdFloor.deleteMany();
   await prisma!.recommendation.deleteMany();
+  await prisma!.choreCompletionCheckIn.deleteMany();
   await prisma!.chore.deleteMany();
   await prisma!.householdProfile.deleteMany();
   await prisma!.household.deleteMany();
@@ -445,6 +449,71 @@ describe.skipIf(!safeConnectionString || !prisma)(
         eligibleEndOn: "2026-05-31",
         completedByUserId: owner.id,
         completedAt: "2026-05-30T16:00:00.000Z"
+      }));
+    });
+
+    it("persists completion check-in answers across store instances", async () => {
+      const firstStore = createPrismaStore(prisma!);
+      const owner = await firstStore.upsertUserByClerkId("owner");
+      const household = await firstStore.createHouseholdForUser("Home", owner.id);
+      const scheduled = await firstStore.createChoreWithSchedules({
+        householdId: household.id,
+        chore: { title: "Clean bathrooms", source: "manual" },
+        schedules: [{
+          planningMode: "flexible",
+          recurrence: { frequency: "weekly", interval: 1, weekDays: [6, 0] },
+          startsOn: "2026-05-30",
+          estimatedMinutes: 60,
+          flexibleWindowRule: "once_within_selected_days",
+          assignment: { mode: "fixed", memberUserIds: [owner.id] }
+        }]
+      });
+      const schedule = scheduled.schedules[0];
+      await firstStore.materializeScheduleOccurrences(
+        household.id,
+        schedule.id,
+        materializeOccurrences({
+          schedule,
+          householdTimeZone: household.timeZone,
+          rangeStart: "2026-05-30",
+          rangeEnd: "2026-05-31"
+        })
+      );
+      const occurrence = (await firstStore.listOccurrences(household.id, {
+        startAt: "2026-05-30T00:00:00.000Z",
+        endAt: "2026-05-31T23:59:59.999Z",
+        startOn: "2026-05-30",
+        endOn: "2026-05-31"
+      }))[0];
+      const completed = await firstStore.completeOccurrence(
+        household.id,
+        occurrence.id,
+        owner.id,
+        "2026-05-30T16:00:00.000Z"
+      );
+      expect(completed).toBeDefined();
+
+      await firstStore.recordCompletionCheckIn({
+        householdId: household.id,
+        occurrenceId: occurrence.id,
+        completedByUserId: owner.id,
+        completedAt: "2026-05-30T16:00:00.000Z",
+        completedOnTime: false,
+        durationAccurate: true,
+        keepAssignee: false,
+        rebaseFutureOccurrences: true
+      });
+
+      const secondStore = createPrismaStore(prisma!);
+      expect(await secondStore.getCompletionCheckInForOccurrence(household.id, occurrence.id)).toEqual(expect.objectContaining({
+        householdId: household.id,
+        occurrenceId: occurrence.id,
+        completedByUserId: owner.id,
+        completedAt: "2026-05-30T16:00:00.000Z",
+        completedOnTime: false,
+        durationAccurate: true,
+        keepAssignee: false,
+        rebaseFutureOccurrences: true
       }));
     });
 
