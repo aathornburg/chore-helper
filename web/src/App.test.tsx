@@ -912,20 +912,27 @@ describe("App", () => {
     const agenda = await screen.findByRole("region", { name: "Chore agenda" });
     expect(within(agenda).getByRole("heading", { name: "Upcoming and completed work" })).toBeTruthy();
     const plannedCard = within(agenda).getByRole("button", { name: "View Clean bathrooms" });
-    expect(plannedCard.classList.contains("calendar-agenda-card")).toBe(true);
+    expect(plannedCard.classList.contains("calendar-chore-row")).toBe(true);
+    expect(plannedCard.classList.contains("calendar-agenda-row")).toBe(true);
+    expect(plannedCard.classList.contains("calendar-agenda-card")).toBe(false);
     expect(within(plannedCard).getByText("Anytime / 60 min")).toBeTruthy();
     expect(within(agenda).getByRole("button", { name: "View Pet cats" })).toBeTruthy();
     expect(screen.queryByText("Flexible")).toBeNull();
   });
 
-  it("renders month as dated calendar cells with title-only chore buttons", async () => {
+  it("renders month as dated calendar cells with lightweight truncated chore rows", async () => {
     vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
     renderAt("/calendar");
 
     expect(await screen.findByRole("grid", { name: "May 2026 month calendar" })).toBeTruthy();
     expect(screen.getByText("Sun")).toBeTruthy();
     const friday = screen.getByRole("gridcell", { name: "Friday, May 29" });
-    expect(within(friday).getByRole("button", { name: "View Clean bathrooms" })).toBeTruthy();
+    const monthChore = within(friday).getByRole("button", { name: "View Clean bathrooms" });
+    expect(monthChore.classList.contains("calendar-chore-row")).toBe(true);
+    expect(monthChore.classList.contains("calendar-month-chore-row")).toBe(false);
+    expect(monthChore.classList.contains("calendar-event")).toBe(false);
+    expect(monthChore.getAttribute("title")).toBe("Clean bathrooms");
+    expect(monthChore.querySelector(".calendar-chore-title")).not.toBeNull();
     expect(within(friday).queryByText("Anytime / 60 min")).toBeNull();
     expect(within(friday).queryByText("Alex Owner")).toBeNull();
     expect(screen.queryByText("Assigned member")).toBeNull();
@@ -943,7 +950,10 @@ describe("App", () => {
     expect(screen.getAllByText("8:00 am")).toHaveLength(1);
     expect(screen.getAllByText("5:00 pm")).toHaveLength(1);
     expect(screen.queryByText("08:00")).toBeNull();
-    expect(screen.getAllByRole("button", { name: "View Clean bathrooms" }).length).toBeGreaterThan(0);
+    const weekChore = within(weekGrid).getAllByRole("button", { name: "View Clean bathrooms" })[0];
+    expect(weekChore.classList.contains("calendar-chore-row")).toBe(true);
+    expect(weekChore.classList.contains("calendar-event")).toBe(false);
+    expect(weekChore.getAttribute("title")).toBe("Clean bathrooms");
     expect(weekGrid.querySelector(".calendar-time-rail-separator")).not.toBeNull();
     expect(weekGrid.querySelectorAll(".calendar-column-hour-separator")).toHaveLength(7);
     expect(screen.queryByText("Flexible")).toBeNull();
@@ -954,6 +964,8 @@ describe("App", () => {
     renderAt("/calendar");
 
     expect(await screen.findByRole("grid", { name: "May 2026 month calendar" })).toBeTruthy();
+    const friday = screen.getByRole("gridcell", { name: "Friday, May 29" });
+    expect(friday.querySelector(".calendar-day-completed-footer")).toBeNull();
     const today = screen.getByRole("gridcell", { name: "Saturday, May 30" });
     expect(today.closest(".calendar-month-week")).not.toBeNull();
     expect(within(today).queryByRole("button", { name: "View Pet cats" })).toBeNull();
@@ -977,6 +989,8 @@ describe("App", () => {
     const weekGrid = screen.getByRole("grid", { name: "Week of May 24, 2026" });
     expect(weekGrid.querySelector(".calendar-time-rail-completed-spacer")).not.toBeNull();
     const saturdayColumn = screen.getByRole("columnheader", { name: "Saturday, May 30" }).closest(".calendar-column");
+    const fridayColumn = screen.getByRole("columnheader", { name: "Friday, May 29" }).closest(".calendar-column");
+    expect(fridayColumn?.querySelector(".calendar-day-completed-footer")).toBeNull();
     expect(saturdayColumn?.querySelector(".calendar-column-anytime-main")).not.toBeNull();
     expect(saturdayColumn?.querySelector(".calendar-day-completed-footer")).not.toBeNull();
     expect(saturdayColumn?.querySelector(".calendar-day-completed-footer")?.classList.contains("has-completed-drawer")).toBe(true);
@@ -985,7 +999,9 @@ describe("App", () => {
     const agenda = await screen.findByRole("region", { name: "Chore agenda" });
     expect(agenda.classList.contains("calendar-agenda")).toBe(true);
     const completedCard = within(agenda).getByRole("button", { name: "View Pet cats" });
-    expect(completedCard.classList.contains("calendar-agenda-card")).toBe(true);
+    expect(completedCard.classList.contains("calendar-chore-row")).toBe(true);
+    expect(completedCard.classList.contains("calendar-agenda-row")).toBe(true);
+    expect(completedCard.classList.contains("calendar-agenda-card")).toBe(false);
     expect(within(completedCard).getByText("Completed")).toBeTruthy();
     expect(within(agenda).getByText("1 completed")).toBeTruthy();
   });
@@ -1026,9 +1042,13 @@ describe("App", () => {
     expect(dialog.queryByRole("button", { name: "Edit" })).toBeNull();
     expect(dialog.getByRole("button", { name: "Submit" }).classList.contains("section-action")).toBe(false);
     const upcoming = screen.getByRole("region", { name: "Upcoming occurrences" });
+    expect(upcoming.classList.contains("schedule-occurrence-section")).toBe(true);
+    expect(upcoming.querySelector(".schedule-occurrence-list")).not.toBeNull();
+    expect(upcoming.querySelector(".schedule-occurrence-list .schedule-card")).toBeNull();
     expect(within(upcoming).getByText("Thursday, May 28")).toBeTruthy();
     expect(within(upcoming).getByText("Friday, May 29")).toBeTruthy();
     const history = screen.getByRole("region", { name: "Historical occurrences" });
+    expect(history.classList.contains("schedule-occurrence-section")).toBe(true);
     expect(within(history).getByText("Wednesday, May 27")).toBeTruthy();
   });
 

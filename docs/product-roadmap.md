@@ -88,6 +88,7 @@ Key outcomes:
 - Households becomes fully editable by replacing the duplicate legacy baseline shape with general profile facts plus floor/room structure.
 - Settings contains a Google Calendar connection shell, while Today and Chores provide clear entry actions before OAuth/import functionality lands.
 - The warm home-oriented visual style becomes consistent across public and authenticated surfaces.
+- Calendar chore markers should eventually support keyword or category-based icons, such as a paw for pet-related chores, instead of only using the generic dot marker.
 
 Suggested child docs:
 

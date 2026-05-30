@@ -614,23 +614,27 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
             <span>{editorDraft.tags}</span>
           </section>
         ) : null}
-        <section className="schedule-card-list" aria-label="Upcoming occurrences">
+        <section className="schedule-occurrence-section" aria-label="Upcoming occurrences">
           <h3>Upcoming Occurrences</h3>
-          {relatedOccurrenceDateRows("upcoming").slice(0, 4).map(({ occurrence, date }) => (
-            <article className="schedule-card" key={`${occurrence.id}-${dateKey(date)}`}>
-              <strong>{format(date, "EEEE, MMM d")}</strong>
-              <span>{occurrenceDateLine(occurrence)}</span>
-            </article>
-          ))}
+          <div className="schedule-occurrence-list">
+            {relatedOccurrenceDateRows("upcoming").slice(0, 4).map(({ occurrence, date }) => (
+              <article className="schedule-occurrence-row" key={`${occurrence.id}-${dateKey(date)}`}>
+                <span>{format(date, "EEEE, MMM d")}</span>
+                <span>{occurrenceDateLine(occurrence)}</span>
+              </article>
+            ))}
+          </div>
         </section>
-        <section className="schedule-card-list" aria-label="Historical occurrences">
+        <section className="schedule-occurrence-section" aria-label="Historical occurrences">
           <h3>History</h3>
-          {relatedOccurrenceDateRows("history").slice(0, 4).map(({ occurrence, date }) => (
-            <article className="schedule-card" key={`${occurrence.id}-${dateKey(date)}`}>
-              <strong>{format(date, "EEEE, MMM d")}</strong>
-              <span>{capitalize(occurrence.status)}</span>
-            </article>
-          ))}
+          <div className="schedule-occurrence-list">
+            {relatedOccurrenceDateRows("history").slice(0, 4).map(({ occurrence, date }) => (
+              <article className="schedule-occurrence-row" key={`${occurrence.id}-${dateKey(date)}`}>
+                <span>{format(date, "EEEE, MMM d")}</span>
+                <span>{capitalize(occurrence.status)}</span>
+              </article>
+            ))}
+          </div>
         </section>
       </>
     );
@@ -650,21 +654,42 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     return (
       <button
         aria-label={`View ${title}`}
-        className={`calendar-event calendar-event-compact ${density === "title" ? "is-title-only" : ""} ${occurrence.status === "completed" ? "is-completed" : ""} ${occurrence.status === "skipped" ? "is-skipped" : ""}`}
+        className={`calendar-chore-row ${density === "summary" ? "is-summary" : ""} ${occurrence.status === "completed" ? "is-completed" : ""} ${occurrence.status === "skipped" ? "is-skipped" : ""}`}
         draggable={isOwner && calendarScale !== "month" && occurrence.status === "planned" && occurrence.planningMode === "timed"}
         key={`${occurrence.id}-${dateKey(date)}`}
         onClick={() => openViewEditor(occurrence)}
         onDragStart={() => setDraggingId(occurrence.id)}
+        title={title}
         type="button"
       >
-        <strong>{title}</strong>
-        {density === "summary" ? (
-          <>
-            <span>{occurrenceDateLine(occurrence)}</span>
-            <span>{assignedMemberLabel(occurrence)}</span>
+        <span className="calendar-chore-main">
+          <span className="calendar-chore-title">{title}</span>
+          {density === "summary" ? (
+            <>
+            <span className="calendar-chore-detail">{occurrenceDateLine(occurrence)}</span>
+            <span className="calendar-chore-detail">{assignedMemberLabel(occurrence)}</span>
             {isFlexibleOverdue(occurrence) ? <span className="occurrence-overdue-badge">Overdue</span> : null}
-          </>
-        ) : null}
+            </>
+          ) : null}
+        </span>
+      </button>
+    );
+  }
+
+  function renderMonthOccurrence(occurrence: ChoreOccurrence, date: Date) {
+    const title = occurrenceTitle(occurrence);
+    return (
+      <button
+        aria-label={`View ${title}`}
+        className={`calendar-chore-row ${occurrence.status === "skipped" ? "is-skipped" : ""}`}
+        key={`${occurrence.id}-${dateKey(date)}`}
+        onClick={() => openViewEditor(occurrence)}
+        title={title}
+        type="button"
+      >
+        <span className="calendar-chore-main">
+          <span className="calendar-chore-title">{title}</span>
+        </span>
       </button>
     );
   }
@@ -722,17 +747,17 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     return (
       <button
         aria-label={`View ${title}`}
-        className={`calendar-agenda-card is-${occurrence.status}`}
+        className={`calendar-chore-row calendar-agenda-row is-${occurrence.status}`}
         key={`${occurrence.id}-${dateKey(date)}`}
         onClick={() => openViewEditor(occurrence)}
+        title={title}
         type="button"
       >
-        <span className="agenda-status-dot" aria-hidden="true" />
-        <span className="agenda-main">
-          <strong>{title}</strong>
-          <span>{occurrence.status === "completed" ? occurrenceCompletionLine(occurrence) : occurrenceDateLine(occurrence)}</span>
+        <span className="calendar-chore-main">
+          <span className="calendar-chore-title">{title}</span>
+          <span className="calendar-chore-detail">{occurrence.status === "completed" ? occurrenceCompletionLine(occurrence) : occurrenceDateLine(occurrence)}</span>
         </span>
-        <span className="agenda-meta">
+        <span className="calendar-chore-meta">
           <span>{assignedMemberLabel(occurrence)}</span>
           <span>{durationInMinutes(occurrence)} min</span>
         </span>
@@ -770,11 +795,13 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                     {key === format(new Date(), "yyyy-MM-dd") ? <strong>Today</strong> : null}
                   </div>
                 <div className="calendar-day-active-events">
-                  {activeOccurrences.map((occurrence) => renderOccurrenceCompact(occurrence, date, "title"))}
+                  {activeOccurrences.map((occurrence) => renderMonthOccurrence(occurrence, date))}
                 </div>
-                <div className={`calendar-day-completed-footer ${completedOccurrences.length ? "has-completed-drawer" : ""}`}>
-                  {renderCompletedDrawer(date, completedOccurrences)}
-                </div>
+                  {completedOccurrences.length ? (
+                    <div className="calendar-day-completed-footer has-completed-drawer">
+                      {renderCompletedDrawer(date, completedOccurrences)}
+                    </div>
+                  ) : null}
                 </section>
               );
             })}
@@ -817,9 +844,11 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
               ? flexibleOccurrences.map((occurrence) => renderOccurrenceCompact(occurrence, date, density))
               : null}
           </div>
-          <div className={`calendar-day-completed-footer ${completedOccurrences.length ? "has-completed-drawer" : ""}`}>
-            {renderCompletedDrawer(date, completedOccurrences)}
-          </div>
+          {completedOccurrences.length ? (
+            <div className="calendar-day-completed-footer has-completed-drawer">
+              {renderCompletedDrawer(date, completedOccurrences)}
+            </div>
+          ) : null}
         </div>
         <div className="calendar-column-hour-separator" aria-hidden="true" />
         <div className="calendar-column-slots">

@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Month Chore Style Alternatives</title>
+  <style>
+    :root {
+      background: #f7f2ea;
+      color: #24352e;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 32px;
+    }
+
+    main {
+      display: grid;
+      gap: 24px;
+      margin: 0 auto;
+      max-width: 1320px;
+    }
+
+    .intro,
+    .option {
+      background: #fffefa;
+      border: 1px solid #eaded1;
+      border-radius: 22px;
+      box-shadow: 0 18px 45px rgba(62, 49, 37, 0.08);
+      padding: 24px;
+    }
+
+    .eyebrow {
+      color: #2f694d;
+      font-size: 0.76rem;
+      font-weight: 900;
+      letter-spacing: 0.11em;
+      margin: 0 0 8px;
+      text-transform: uppercase;
+    }
+
+    h1,
+    h2,
+    p {
+      margin-top: 0;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 3vw, 3rem);
+      margin-bottom: 10px;
+    }
+
+    h2 {
+      font-size: 1.12rem;
+      margin-bottom: 8px;
+    }
+
+    .lede,
+    .option p,
+    .notes {
+      color: #5e625b;
+      line-height: 1.45;
+    }
+
+    .lede {
+      margin-bottom: 0;
+      max-width: 920px;
+    }
+
+    .options {
+      display: grid;
+      gap: 22px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .option {
+      align-content: start;
+      display: grid;
+      gap: 16px;
+    }
+
+    .option-header {
+      align-items: start;
+      display: flex;
+      gap: 16px;
+      justify-content: space-between;
+    }
+
+    .recommendation {
+      background: #e8f0e4;
+      border: 1px solid #c8ddc4;
+      border-radius: 999px;
+      color: #2f694d;
+      flex: 0 0 auto;
+      font-size: 0.75rem;
+      font-weight: 900;
+      padding: 6px 9px;
+    }
+
+    .month {
+      background: #fffefa;
+      border: 1px solid #eaded1;
+      border-radius: 18px;
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(7, minmax(120px, 1fr));
+      overflow: hidden;
+      padding: 10px;
+    }
+
+    .weekday {
+      color: #687167;
+      font-size: 0.78rem;
+      font-weight: 850;
+      padding: 8px 10px;
+      text-transform: uppercase;
+    }
+
+    .day {
+      align-content: start;
+      background: #fbfdf8;
+      border: 1px solid #d7e4d5;
+      border-radius: 12px;
+      display: grid;
+      gap: 8px;
+      min-height: 150px;
+      padding: 10px;
+    }
+
+    .day.today {
+      border-color: #2f694d;
+      box-shadow: inset 0 0 0 1px #2f694d;
+    }
+
+    .day-header {
+      align-items: center;
+      display: flex;
+      font-weight: 850;
+      justify-content: space-between;
+    }
+
+    .today-pill {
+      background: #2f694d;
+      border-radius: 999px;
+      color: #fff;
+      font-size: 0.72rem;
+      padding: 3px 7px;
+    }
+
+    button {
+      cursor: pointer;
+      font: inherit;
+      text-align: left;
+    }
+
+    .default-card {
+      background: #fffefa;
+      border: 1px solid #d7e4d5;
+      border-radius: 14px;
+      color: #24352e;
+      font-weight: 850;
+      min-height: 38px;
+      padding: 8px 10px;
+      width: 100%;
+    }
+
+    .flat-row {
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 7px;
+      color: #24352e;
+      font-weight: 850;
+      padding: 4px 5px;
+      width: 100%;
+    }
+
+    .flat-row:hover {
+      background: #f4f8f0;
+      border-color: #d7e4d5;
+    }
+
+    .left-rule {
+      background: #fffefa;
+      border: 0;
+      border-left: 3px solid #c9965a;
+      border-radius: 7px;
+      color: #24352e;
+      font-weight: 850;
+      padding: 5px 7px;
+      width: 100%;
+    }
+
+    .left-rule:hover {
+      background: #f4f8f0;
+    }
+
+    .tinted-strip {
+      background: #fff7eb;
+      border: 0;
+      border-radius: 8px;
+      color: #5b3f23;
+      font-weight: 850;
+      padding: 6px 8px;
+      width: 100%;
+    }
+
+    .tinted-strip:hover {
+      background: #ffefd9;
+    }
+
+    .compact-line {
+      align-items: center;
+      background: transparent;
+      border: 0;
+      color: #24352e;
+      display: grid;
+      font-weight: 850;
+      gap: 6px;
+      grid-template-columns: 7px minmax(0, 1fr);
+      padding: 4px 2px;
+      width: 100%;
+    }
+
+    .compact-line::before {
+      background: #c9965a;
+      border-radius: 999px;
+      content: "";
+      height: 7px;
+      width: 7px;
+    }
+
+    .compact-line:hover span {
+      text-decoration: underline;
+    }
+
+    .underline-row {
+      background: transparent;
+      border: 0;
+      border-bottom: 1px solid #eaded1;
+      color: #24352e;
+      font-weight: 850;
+      padding: 5px 1px 6px;
+      width: 100%;
+    }
+
+    .underline-row:hover {
+      border-bottom-color: #9fc1ad;
+      color: #2f694d;
+    }
+
+    .mini-stack {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .mini-chip {
+      background: #f4f0e9;
+      border: 1px solid #e3d7ca;
+      border-radius: 999px;
+      color: #3f4a43;
+      font-size: 0.78rem;
+      font-weight: 850;
+      padding: 4px 7px;
+    }
+
+    .mini-chip:hover {
+      background: #e8f0e4;
+      border-color: #c8ddc4;
+      color: #2f694d;
+    }
+
+    .completed {
+      border-top: 1px dashed #c8ddc4;
+      margin-top: auto;
+      padding-top: 7px;
+    }
+
+    .completed button {
+      align-items: center;
+      background: transparent;
+      border: 1px solid transparent;
+      border-left: 3px solid #b8d2bd;
+      border-radius: 8px;
+      color: #4d5c52;
+      display: flex;
+      font-size: 0.8rem;
+      font-weight: 850;
+      justify-content: space-between;
+      padding: 5px 7px;
+      width: 100%;
+    }
+
+    .completed span:last-child {
+      color: #2f694d;
+      font-size: 0.74rem;
+      font-weight: 900;
+    }
+
+    .notes {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    @media (max-width: 980px) {
+      body {
+        padding: 18px;
+      }
+
+      .options {
+        grid-template-columns: 1fr;
+      }
+
+      .month {
+        grid-template-columns: repeat(7, minmax(110px, 1fr));
+        overflow-x: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="intro">
+      <p class="eyebrow">Month View Chore Styling</p>
+      <h1>Reduce the “bubble inside bubble” feel.</h1>
+      <p class="lede">The day tile already provides the container. In month view, chore items can be quieter than cards while still being clickable. I recommend Option 2 or Option 4.</p>
+    </section>
+
+    <section class="options">
+      <article class="option">
+        <div class="option-header">
+          <div>
+            <p class="eyebrow">Option 1</p>
+            <h2>Flat clickable rows</h2>
+            <p>Remove the card background entirely. Keep a small hover state so the chore still feels clickable.</p>
+          </div>
+        </div>
+        <div class="month">
+          <div class="weekday">Sun</div><div class="weekday">Mon</div><div class="weekday">Tue</div><div class="weekday">Wed</div><div class="weekday">Thu</div><div class="weekday">Fri</div><div class="weekday">Sat</div>
+          <section class="day"><div class="day-header">24</div></section>
+          <section class="day"><div class="day-header">25</div><button class="flat-row">Laundry</button></section>
+          <section class="day"><div class="day-header">26</div></section>
+          <section class="day"><div class="day-header">27</div><button class="flat-row">Vacuum upstairs</button></section>
+          <section class="day"><div class="day-header">28</div><button class="flat-row">Clean bathrooms</button></section>
+          <section class="day"><div class="day-header">29</div><button class="flat-row">Clean bathrooms</button></section>
+          <section class="day today"><div class="day-header"><span>30</span><strong class="today-pill">Today</strong></div><button class="flat-row">Clean bathrooms</button><button class="flat-row">Take out trash</button><div class="completed"><button><span>Completed</span><span>1 item</span></button></div></section>
+        </div>
+        <ul class="notes">
+          <li>Cleanest and least clunky.</li>
+          <li>May feel too plain unless hover/focus is polished.</li>
+        </ul>
+      </article>
+
+      <article class="option">
+        <div class="option-header">
+          <div>
+            <p class="eyebrow">Option 2</p>
+            <h2>Left-rule rows</h2>
+            <p>Use a narrow accent bar instead of a full bordered card. It keeps the chore scannable without nesting a bubble.</p>
+          </div>
+          <span class="recommendation">Recommended</span>
+        </div>
+        <div class="month">
+          <div class="weekday">Sun</div><div class="weekday">Mon</div><div class="weekday">Tue</div><div class="weekday">Wed</div><div class="weekday">Thu</div><div class="weekday">Fri</div><div class="weekday">Sat</div>
+          <section class="day"><div class="day-header">24</div></section>
+          <section class="day"><div class="day-header">25</div><button class="left-rule">Laundry</button></section>
+          <section class="day"><div class="day-header">26</div></section>
+          <section class="day"><div class="day-header">27</div><button class="left-rule">Vacuum upstairs</button></section>
+          <section class="day"><div class="day-header">28</div><button class="left-rule">Clean bathrooms</button></section>
+          <section class="day"><div class="day-header">29</div><button class="left-rule">Clean bathrooms</button></section>
+          <section class="day today"><div class="day-header"><span>30</span><strong class="today-pill">Today</strong></div><button class="left-rule">Clean bathrooms</button><button class="left-rule">Take out trash</button><div class="completed"><button><span>Completed</span><span>1 item</span></button></div></section>
+        </div>
+        <ul class="notes">
+          <li>Best balance of affordance and quietness.</li>
+          <li>Easy to extend later with different accent colors for chore types.</li>
+        </ul>
+      </article>
+
+      <article class="option">
+        <div class="option-header">
+          <div>
+            <p class="eyebrow">Option 3</p>
+            <h2>Tinted strips</h2>
+            <p>Use fill but remove borders and heavy rounding. This keeps visibility high while reducing the nested-card feel.</p>
+          </div>
+        </div>
+        <div class="month">
+          <div class="weekday">Sun</div><div class="weekday">Mon</div><div class="weekday">Tue</div><div class="weekday">Wed</div><div class="weekday">Thu</div><div class="weekday">Fri</div><div class="weekday">Sat</div>
+          <section class="day"><div class="day-header">24</div></section>
+          <section class="day"><div class="day-header">25</div><button class="tinted-strip">Laundry</button></section>
+          <section class="day"><div class="day-header">26</div></section>
+          <section class="day"><div class="day-header">27</div><button class="tinted-strip">Vacuum upstairs</button></section>
+          <section class="day"><div class="day-header">28</div><button class="tinted-strip">Clean bathrooms</button></section>
+          <section class="day"><div class="day-header">29</div><button class="tinted-strip">Clean bathrooms</button></section>
+          <section class="day today"><div class="day-header"><span>30</span><strong class="today-pill">Today</strong></div><button class="tinted-strip">Clean bathrooms</button><button class="tinted-strip">Take out trash</button><div class="completed"><button><span>Completed</span><span>1 item</span></button></div></section>
+        </div>
+        <ul class="notes">
+          <li>Still visible from a distance.</li>
+          <li>Can feel busier if there are many chores in a month.</li>
+        </ul>
+      </article>
+
+      <article class="option">
+        <div class="option-header">
+          <div>
+            <p class="eyebrow">Option 4</p>
+            <h2>Dot-led text rows</h2>
+            <p>Small dot plus title, no container. This is the most calendar-native treatment and keeps the day tile dominant.</p>
+          </div>
+          <span class="recommendation">Recommended</span>
+        </div>
+        <div class="month">
+          <div class="weekday">Sun</div><div class="weekday">Mon</div><div class="weekday">Tue</div><div class="weekday">Wed</div><div class="weekday">Thu</div><div class="weekday">Fri</div><div class="weekday">Sat</div>
+          <section class="day"><div class="day-header">24</div></section>
+          <section class="day"><div class="day-header">25</div><button class="compact-line"><span>Laundry</span></button></section>
+          <section class="day"><div class="day-header">26</div></section>
+          <section class="day"><div class="day-header">27</div><button class="compact-line"><span>Vacuum upstairs</span></button></section>
+          <section class="day"><div class="day-header">28</div><button class="compact-line"><span>Clean bathrooms</span></button></section>
+          <section class="day"><div class="day-header">29</div><button class="compact-line"><span>Clean bathrooms</span></button></section>
+          <section class="day today"><div class="day-header"><span>30</span><strong class="today-pill">Today</strong></div><button class="compact-line"><span>Clean bathrooms</span></button><button class="compact-line"><span>Take out trash</span></button><div class="completed"><button><span>Completed</span><span>1 item</span></button></div></section>
+        </div>
+        <ul class="notes">
+          <li>Least “component inside component.”</li>
+          <li>Strongly resembles traditional calendar event lists.</li>
+        </ul>
+      </article>
+
+      <article class="option">
+        <div class="option-header">
+          <div>
+            <p class="eyebrow">Option 5</p>
+            <h2>Underline rows</h2>
+            <p>Text rows with a divider line. This creates separation without adding another shape.</p>
+          </div>
+        </div>
+        <div class="month">
+          <div class="weekday">Sun</div><div class="weekday">Mon</div><div class="weekday">Tue</div><div class="weekday">Wed</div><div class="weekday">Thu</div><div class="weekday">Fri</div><div class="weekday">Sat</div>
+          <section class="day"><div class="day-header">24</div></section>
+          <section class="day"><div class="day-header">25</div><button class="underline-row">Laundry</button></section>
+          <section class="day"><div class="day-header">26</div></section>
+          <section class="day"><div class="day-header">27</div><button class="underline-row">Vacuum upstairs</button></section>
+          <section class="day"><div class="day-header">28</div><button class="underline-row">Clean bathrooms</button></section>
+          <section class="day"><div class="day-header">29</div><button class="underline-row">Clean bathrooms</button></section>
+          <section class="day today"><div class="day-header"><span>30</span><strong class="today-pill">Today</strong></div><button class="underline-row">Clean bathrooms</button><button class="underline-row">Take out trash</button><div class="completed"><button><span>Completed</span><span>1 item</span></button></div></section>
+        </div>
+        <ul class="notes">
+          <li>Very readable.</li>
+          <li>Can start to look table-like if many chores stack.</li>
+        </ul>
+      </article>
+
+      <article class="option">
+        <div class="option-header">
+          <div>
+            <p class="eyebrow">Option 6</p>
+            <h2>Small chips</h2>
+            <p>Keep a chip-like affordance but shrink it substantially. This preserves clickability but still has some nested shape feel.</p>
+          </div>
+        </div>
+        <div class="month">
+          <div class="weekday">Sun</div><div class="weekday">Mon</div><div class="weekday">Tue</div><div class="weekday">Wed</div><div class="weekday">Thu</div><div class="weekday">Fri</div><div class="weekday">Sat</div>
+          <section class="day"><div class="day-header">24</div></section>
+          <section class="day"><div class="day-header">25</div><div class="mini-stack"><button class="mini-chip">Laundry</button></div></section>
+          <section class="day"><div class="day-header">26</div></section>
+          <section class="day"><div class="day-header">27</div><div class="mini-stack"><button class="mini-chip">Vacuum upstairs</button></div></section>
+          <section class="day"><div class="day-header">28</div><div class="mini-stack"><button class="mini-chip">Clean bathrooms</button></div></section>
+          <section class="day"><div class="day-header">29</div><div class="mini-stack"><button class="mini-chip">Clean bathrooms</button></div></section>
+          <section class="day today"><div class="day-header"><span>30</span><strong class="today-pill">Today</strong></div><div class="mini-stack"><button class="mini-chip">Clean bathrooms</button><button class="mini-chip">Take out trash</button></div><div class="completed"><button><span>Completed</span><span>1 item</span></button></div></section>
+        </div>
+        <ul class="notes">
+          <li>Feels compact and touchable.</li>
+          <li>Still has some bubble-in-bubble energy, just reduced.</li>
+        </ul>
+      </article>
+    </section>
+  </main>
+</body>
+</html>
