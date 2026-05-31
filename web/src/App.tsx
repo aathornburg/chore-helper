@@ -157,7 +157,7 @@ function AppShell({
     { label: "Optimize", path: "/optimize", emphasis: true },
     { label: "Today", path: "/today" },
     { label: "Calendar", path: "/calendar" },
-    { label: "Households", path: "/households" },
+    { label: "My Home", path: "/households" },
     { label: "Family", path: "/family" },
     { label: "Settings", path: "/settings" }
   ];

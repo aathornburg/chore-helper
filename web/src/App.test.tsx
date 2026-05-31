@@ -78,6 +78,12 @@ async function manageHomeHousehold() {
   await waitFor(() => expect(screen.getByRole("heading", { name: "My Home", level: 1 })).toBeTruthy());
 }
 
+async function enableHomeEditing() {
+  await waitFor(() => expect(screen.getByRole("button", { name: "Edit home" })).toBeTruthy());
+  fireEvent.click(screen.getByRole("button", { name: "Edit home" }));
+  expect(screen.getByRole("button", { name: "Done editing" })).toBeTruthy();
+}
+
 async function openHouseholdManageTab(name: "Overview" | "Floors" | "Rooms") {
   await waitFor(() => expect(screen.getByRole("tab", { name })).toBeTruthy());
   fireEvent.click(screen.getByRole("tab", { name }));
@@ -746,7 +752,7 @@ describe("App", () => {
 
     const nav = await screen.findByRole("navigation", { name: "Primary" });
     const links = within(nav).getAllByRole("link");
-    expect(links.map((link) => link.textContent)).toEqual(["Optimize", "Today", "Calendar", "Households", "Family", "Settings"]);
+    expect(links.map((link) => link.textContent)).toEqual(["Optimize", "Today", "Calendar", "My Home", "Family", "Settings"]);
     expect(within(nav).getByRole("link", { name: "Optimize" }).classList.contains("is-primary-nav-action")).toBe(true);
     expect(screen.queryByRole("link", { name: "Chores" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Setup" })).toBeNull();
@@ -1161,7 +1167,7 @@ describe("App", () => {
     });
   });
 
-  it("renders the one-home overview with profile form and floor preview", async () => {
+  it("renders the one-home overview as a view state with editable profile details", async () => {
     mockHouseholdsPageFetches({
       householdId: "household-1",
       floors: [
@@ -1201,6 +1207,10 @@ describe("App", () => {
 
     expect(await screen.findByRole("heading", { name: "My Home", level: 1 })).toBeTruthy();
     expect(screen.getByRole("region", { name: "Home floor preview" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Home profile summary" })).toBeTruthy();
+    expect(screen.queryByLabelText("Household name")).toBeNull();
+
+    await enableHomeEditing();
     expect(screen.getByLabelText("Household name")).toBeTruthy();
     expect(screen.getByLabelText("Home type")).toBeTruthy();
     expect(screen.queryByText("Property dashboard")).toBeNull();
@@ -1279,6 +1289,8 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "Rooms" }));
     expect(screen.queryByRole("region", { name: "Home floor preview" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add room" })).toBeNull();
+    await enableHomeEditing();
     expect(screen.getByRole("button", { name: "Add room" })).toBeTruthy();
   });
 
@@ -2075,6 +2087,8 @@ describe("App", () => {
     expect(screen.getByLabelText("Select Main floor")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Main floor" })).toBeTruthy();
     expect(within(screen.getByRole("tabpanel", { name: "Floors" })).getByText("hardwood, rugs")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Edit surfaces" })).toBeNull();
+    await enableHomeEditing();
     expect(screen.queryByRole("button", { name: "hardwood" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Edit surfaces" }));
     expect(screen.getByRole("button", { name: "hardwood" }).getAttribute("aria-pressed")).toBe("true");
@@ -2100,6 +2114,7 @@ describe("App", () => {
 
     renderAt("/households");
     await manageHomeHousehold();
+    await enableHomeEditing();
     fireEvent.change(screen.getByLabelText("Household name"), { target: { value: "Lake House" } });
     fireEvent.click(screen.getByRole("button", { name: "Save household profile" }));
 
@@ -2127,6 +2142,7 @@ describe("App", () => {
     renderAt("/households");
 
     await manageHomeHousehold();
+    await enableHomeEditing();
     await openHouseholdManageTab("Floors");
     await waitFor(() => expect(screen.getByRole("button", { name: "Add basement" })).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "Add basement" }));
@@ -2164,6 +2180,7 @@ describe("App", () => {
     renderAt("/households");
 
     await manageHomeHousehold();
+    await enableHomeEditing();
     await openHouseholdManageTab("Floors");
     await editFloorSurfaces();
     await waitFor(() => expect(screen.getByRole("button", { name: "hardwood" })).toBeTruthy());
@@ -2211,6 +2228,7 @@ describe("App", () => {
     renderAt("/households");
 
     await manageHomeHousehold();
+    await enableHomeEditing();
     await openHouseholdManageTab("Floors");
     await editFloorSurfaces();
     await waitFor(() => expect(screen.getByRole("button", { name: "hardwood" })).toBeTruthy());
@@ -2248,6 +2266,7 @@ describe("App", () => {
     renderAt("/households");
 
     await manageHomeHousehold();
+    await enableHomeEditing();
     await openHouseholdManageTab("Floors");
     await editFloorSurfaces();
     await waitFor(() => expect(screen.getByRole("button", { name: "hardwood" })).toBeTruthy());
@@ -2286,6 +2305,7 @@ describe("App", () => {
     renderAt("/households");
 
     await manageHomeHousehold();
+    await enableHomeEditing();
     await openHouseholdManageTab("Rooms");
     await waitFor(() => expect(screen.getByRole("button", { name: "Add room" })).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "Add room" }));
@@ -2334,6 +2354,7 @@ describe("App", () => {
     renderAt("/households");
 
     await manageHomeHousehold();
+    await enableHomeEditing();
     await openHouseholdManageTab("Rooms");
     await waitFor(() => expect(screen.getByRole("button", { name: "Add room" })).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "Add room" }));
