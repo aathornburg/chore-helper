@@ -955,8 +955,12 @@ describe("App", () => {
     const weekGrid = await screen.findByRole("grid", { name: "Week of May 24, 2026" });
     expect(weekGrid).toBeTruthy();
     expect(screen.getByText("May 24 - May 30, 2026")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Previous week" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Next week" })).toBeTruthy();
+    const previousButton = screen.getByRole("button", { name: "Previous week" });
+    const nextButton = screen.getByRole("button", { name: "Next week" });
+    expect(previousButton.querySelector("svg")).not.toBeNull();
+    expect(nextButton.querySelector("svg")).not.toBeNull();
+    expect(previousButton.textContent).not.toContain("<");
+    expect(nextButton.textContent).not.toContain(">");
     expect(screen.queryByText("May 2026")).toBeNull();
     expect(screen.getByRole("columnheader", { name: "Friday, May 29" })).toBeTruthy();
     expect(screen.getByRole("columnheader", { name: "Saturday, May 30" })).toBeTruthy();
@@ -973,6 +977,25 @@ describe("App", () => {
     expect(screen.queryByText("Flexible")).toBeNull();
   });
 
+  it("renders day view with an anytime row label and inline hour labels", async () => {
+    vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
+    renderAt("/calendar");
+
+    fireEvent.click(await screen.findByRole("button", { name: "Day" }));
+    const dayGrid = await screen.findByRole("grid", { name: "Saturday, May 30 day calendar" });
+    expect(dayGrid).toBeTruthy();
+    expect(within(dayGrid).getByText("Anytime")).toBeTruthy();
+    expect(dayGrid.querySelector(".calendar-time-rail")).toBeNull();
+    expect(within(dayGrid).getAllByText("8:00 am")).toHaveLength(1);
+    const dayRows = within(dayGrid).getAllByRole("button");
+    expect(dayRows.map((row) => row.getAttribute("aria-label"))).toEqual(["View Clean bathrooms", "View Pet cats"]);
+    expect(within(dayRows[0]).getByText("Anytime / 60 min · Alex Owner")).toBeTruthy();
+    expect(within(dayRows[0]).queryByText("Anytime / 60 min")).toBeNull();
+    expect(within(dayRows[0]).queryByText("Alex Owner")).toBeNull();
+    expect(dayRows[1].classList.contains("is-completed")).toBe(true);
+    expect(dayGrid.querySelector(".calendar-completed-drawer")).toBeNull();
+  });
+
   it("filters calendar content by planning mode inside the workspace panel", async () => {
     vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
     renderAt("/calendar");
@@ -983,47 +1006,53 @@ describe("App", () => {
     fireEvent.change(within(workspace).getByLabelText("Planning mode"), { target: { value: "timed" } });
 
     expect(within(workspace).queryAllByRole("button", { name: "View Clean bathrooms" })).toHaveLength(0);
-    expect(within(workspace).getByText("No chores in this range.")).toBeTruthy();
+    expect(within(workspace).queryByText("No chores in this range.")).toBeNull();
+    expect(within(workspace).getByRole("grid", { name: "May 2026 month calendar" })).toBeTruthy();
   });
 
-  it("shows completed chores behind an expandable calendar drawer and in list agenda views", async () => {
+  it("shows completed chores inline in calendar views and in list agenda views", async () => {
     vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
     renderAt("/calendar");
 
     expect(await screen.findByRole("grid", { name: "May 2026 month calendar" })).toBeTruthy();
-    const friday = screen.getByRole("gridcell", { name: "Friday, May 29" });
-    expect(friday.querySelector(".calendar-day-completed-footer")).toBeNull();
+    const completedOnlyDay = screen.getByRole("gridcell", { name: "Wednesday, May 27" });
+    expect(completedOnlyDay.classList.contains("is-all-completed")).toBe(true);
+    expect(completedOnlyDay.classList.contains("is-today")).toBe(false);
+    expect(within(completedOnlyDay).queryByText("Done")).toBeNull();
+    expect(within(completedOnlyDay).queryByText("No chores due")).toBeNull();
+    expect(completedOnlyDay.querySelector(".calendar-completed-drawer")).toBeNull();
+    const completedOnlyChore = within(completedOnlyDay).getByRole("button", { name: "View Clean bathrooms" });
+    expect(completedOnlyChore.classList.contains("calendar-chore-row")).toBe(true);
+    expect(completedOnlyChore.classList.contains("is-completed")).toBe(true);
     const today = screen.getByRole("gridcell", { name: "Saturday, May 30" });
     expect(today.closest(".calendar-month-week")).not.toBeNull();
-    expect(within(today).queryByRole("button", { name: "View Pet cats" })).toBeNull();
-    const completedToggle = within(today).getByRole("button", { name: "Show 1 completed chore for Saturday, May 30" });
+    expect(today.classList.contains("is-all-completed")).toBe(false);
+    expect(today.classList.contains("is-today")).toBe(true);
+    expect(within(today).queryByText("Done")).toBeNull();
     expect(today.querySelector(".calendar-day-active-events")).not.toBeNull();
-    expect(today.querySelector(".calendar-day-completed-footer")).not.toBeNull();
-    expect(today.querySelector(".calendar-day-completed-footer")?.classList.contains("has-completed-drawer")).toBe(true);
-    expect(completedToggle.classList.contains("calendar-completed-toggle")).toBe(true);
-    expect(completedToggle.querySelector(".calendar-completed-count")).not.toBeNull();
-    expect(completedToggle.textContent).toContain("Completed");
-    expect(completedToggle.textContent).toContain("1 item");
-    expect(completedToggle.getAttribute("aria-expanded")).toBe("false");
-    fireEvent.click(completedToggle);
-    expect(completedToggle.textContent).toContain("Completed");
-    expect(completedToggle.textContent).toContain("1 item");
-    expect(completedToggle.getAttribute("aria-expanded")).toBe("true");
-    const completedRow = within(today).getByRole("button", { name: "View Pet cats" });
-    expect(completedRow.classList.contains("calendar-completed-row")).toBe(true);
-    expect(completedRow.classList.contains("is-completed")).toBe(false);
+    expect(today.querySelector(".calendar-day-completed-footer")).toBeNull();
+    const todayRows = within(today).getAllByRole("button");
+    expect(todayRows.map((row) => row.getAttribute("aria-label"))).toEqual(["View Clean bathrooms", "View Pet cats"]);
+    expect(todayRows[1].classList.contains("is-completed")).toBe(true);
 
     fireEvent.click(screen.getByRole("button", { name: "Week" }));
-    const weekGrid = screen.getByRole("grid", { name: "Week of May 24, 2026" });
-    expect(weekGrid.querySelector(".calendar-time-rail-completed-spacer")).not.toBeNull();
+    const weekGrid = await screen.findByRole("grid", { name: "Week of May 24, 2026" });
+    expect(weekGrid.querySelector(".calendar-time-rail-completed-spacer")).toBeNull();
     expect(weekGrid.querySelector(".calendar-time-rail-separator")).not.toBeNull();
     const saturdayColumn = screen.getByRole("columnheader", { name: "Saturday, May 30" }).closest(".calendar-column");
-    const fridayColumn = screen.getByRole("columnheader", { name: "Friday, May 29" }).closest(".calendar-column");
-    expect(fridayColumn?.querySelector(".calendar-day-completed-footer")).toBeNull();
+    const completedOnlyColumn = screen.getByRole("columnheader", { name: "Wednesday, May 27" }).closest(".calendar-column");
+    expect(completedOnlyColumn ? within(completedOnlyColumn as HTMLElement).queryByText("No chores due") : null).toBeNull();
+    expect(completedOnlyColumn?.querySelector(".calendar-completed-drawer")).toBeNull();
+    const completedOnlyWeekChore = completedOnlyColumn
+      ? within(completedOnlyColumn as HTMLElement).getByRole("button", { name: "View Clean bathrooms" })
+      : null;
+    expect(completedOnlyWeekChore?.classList.contains("is-completed")).toBe(true);
     expect(saturdayColumn?.querySelector(".calendar-column-anytime-main")).not.toBeNull();
-    expect(saturdayColumn?.querySelector(".calendar-day-completed-footer")).not.toBeNull();
-    expect(saturdayColumn?.querySelector(".calendar-day-completed-footer")?.classList.contains("has-completed-drawer")).toBe(true);
+    expect(saturdayColumn?.querySelector(".calendar-day-completed-footer")).toBeNull();
     expect(saturdayColumn?.querySelector(".calendar-column-hour-separator")?.classList.contains("has-top-divider")).toBe(true);
+    const saturdayRows = saturdayColumn ? within(saturdayColumn as HTMLElement).getAllByRole("button") : [];
+    expect(saturdayRows.map((row) => row.getAttribute("aria-label"))).toEqual(["View Clean bathrooms", "View Pet cats"]);
+    expect(saturdayRows[1].classList.contains("is-completed")).toBe(true);
 
     fireEvent.click(screen.getByRole("tab", { name: "List" }));
     const agenda = await screen.findByRole("region", { name: "Chore agenda" });

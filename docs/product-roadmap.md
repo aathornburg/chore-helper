@@ -119,6 +119,22 @@ Key changes:
 
 - Update styling from simple CSS to Tailwind
 
+### 8. Home Navigation + Today Operating Dashboard
+
+Update the authenticated header so Optimize is visually and spatially emphasized, then revamp Today into the daily operating dashboard now that app-owned chores and calendar occurrences are functional.
+
+Key outcomes:
+
+- Signed-in visits to `/` still open Today as the first working page.
+- The header places Optimize to the left of Today so it becomes the first navigation item users scan.
+- Optimize receives a stronger visual treatment than standard navigation items, encouraging users to start there when they want planning guidance.
+- Today remains clearly available and understandable as the daily home view.
+- Today shows a due-today calendar widget with quick completion actions for assigned chores.
+- Today shows an upcoming chores widget, likely covering the next seven days, so users can see what is coming without opening the full Calendar page.
+- Completed chores remain visible but visually quiet, matching the Calendar completion treatment.
+- Today widgets link into the full Calendar page for deeper planning, filtering, and schedule editing.
+- Mobile Today prioritizes what needs doing now, then upcoming chores, then household summary context.
+
 ## Documentation Flow
 
 For each milestone:

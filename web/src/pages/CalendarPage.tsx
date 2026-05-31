@@ -152,6 +152,21 @@ function timeSlotLabel(slot: string) {
   return `${displayHour}:${String(minute).padStart(2, "0")} ${period}`;
 }
 
+function ChevronIcon({ direction }: { direction: "previous" | "next" }) {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 20 20">
+      <path
+        d={direction === "previous" ? "M12.5 4.5 7 10l5.5 5.5" : "M7.5 4.5 13 10l-5.5 5.5"}
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2.2"
+      />
+    </svg>
+  );
+}
+
 function minutesBetween(startTime: string, endTime: string) {
   const [startHour, startMinute] = startTime.split(":").map(Number);
   const [endHour, endMinute] = endTime.split(":").map(Number);
@@ -205,7 +220,6 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   const [completionCheckIn, setCompletionCheckIn] = useState<CompletionCheckInDraft>();
   const [draggingId, setDraggingId] = useState<string>();
   const [createdChoreTitles, setCreatedChoreTitles] = useState(() => new Map<string, string>());
-  const [expandedCompletedDates, setExpandedCompletedDates] = useState(() => new Set<string>());
 
   const selectedHousehold = households.find((household) => household.id === filters.householdId) ?? households[0];
   const timeZone = selectedHousehold?.timeZone ?? "UTC";
@@ -685,8 +699,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
           <span className="calendar-chore-title">{title}</span>
           {density === "summary" ? (
             <>
-            <span className="calendar-chore-detail">{occurrenceDateLine(occurrence)}</span>
-            <span className="calendar-chore-detail">{assignedMemberLabel(occurrence)}</span>
+            <span className="calendar-chore-detail">{`${occurrenceDateLine(occurrence)} · ${assignedMemberLabel(occurrence)}`}</span>
             {isFlexibleOverdue(occurrence) ? <span className="occurrence-overdue-badge">Overdue</span> : null}
             </>
           ) : null}
@@ -700,7 +713,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     return (
       <button
         aria-label={`View ${title}`}
-        className={`calendar-chore-row ${occurrence.status === "skipped" ? "is-skipped" : ""}`}
+        className={`calendar-chore-row ${occurrence.status === "completed" ? "is-completed" : ""} ${occurrence.status === "skipped" ? "is-skipped" : ""}`}
         key={`${occurrence.id}-${dateKey(date)}`}
         onClick={() => openViewEditor(occurrence)}
         title={title}
@@ -710,54 +723,6 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
           <span className="calendar-chore-title">{title}</span>
         </span>
       </button>
-    );
-  }
-
-  function renderCompletedDrawer(date: Date, completedOccurrences: ChoreOccurrence[], hasActiveAnytime = true) {
-    if (!completedOccurrences.length) return null;
-    const key = dateKey(date);
-    const isExpanded = expandedCompletedDates.has(key);
-    const countLabel = `${completedOccurrences.length} item${completedOccurrences.length === 1 ? "" : "s"}`;
-    return (
-      <section className={`calendar-completed-drawer ${isExpanded ? "is-expanded" : ""} ${hasActiveAnytime ? "has-active-anytime" : ""}`} key={`${key}-completed`}>
-        <button
-          aria-expanded={isExpanded}
-          aria-label={`${isExpanded ? "Hide" : "Show"} ${completedOccurrences.length} completed chore${completedOccurrences.length === 1 ? "" : "s"} for ${longDateLabel(date)}`}
-          className="calendar-completed-toggle"
-          onClick={() => setExpandedCompletedDates((current) => {
-            const next = new Set(current);
-            if (next.has(key)) {
-              next.delete(key);
-            } else {
-              next.add(key);
-            }
-            return next;
-          })}
-          type="button"
-        >
-          <span>Completed</span>
-          <span className="calendar-completed-count">{countLabel}</span>
-        </button>
-        {isExpanded ? (
-          <div className="calendar-completed-list">
-            {completedOccurrences.map((occurrence) => {
-              const title = occurrenceTitle(occurrence);
-              return (
-                <button
-                  aria-label={`View ${title}`}
-                  className="calendar-completed-row"
-                  key={`${occurrence.id}-${key}`}
-                  onClick={() => openViewEditor(occurrence)}
-                  type="button"
-                >
-                  <span aria-hidden="true">✓</span>
-                  <strong>{title}</strong>
-                </button>
-              );
-            })}
-          </div>
-        ) : null}
-      </section>
     );
   }
 
@@ -802,10 +767,11 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
               const occurrencesForDay = occurrenceDateBuckets.get(key) ?? [];
               const completedOccurrences = occurrencesForDay.filter((occurrence) => occurrence.status === "completed");
               const activeOccurrences = occurrencesForDay.filter((occurrence) => occurrence.status !== "completed");
+              const hasAllCompleted = occurrencesForDay.length > 0 && activeOccurrences.length === 0;
               return (
                 <section
                   aria-label={longDateLabel(date)}
-                  className={`calendar-day-cell ${isCurrentMonth ? "" : "is-outside-month"} ${key === format(new Date(), "yyyy-MM-dd") ? "is-today" : ""}`}
+                  className={`calendar-day-cell ${isCurrentMonth ? "" : "is-outside-month"} ${hasAllCompleted ? "is-all-completed" : ""} ${key === format(new Date(), "yyyy-MM-dd") ? "is-today" : ""}`}
                   key={key}
                   role="gridcell"
                 >
@@ -813,14 +779,9 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                     <span>{format(date, "d")}</span>
                     {key === format(new Date(), "yyyy-MM-dd") ? <strong>Today</strong> : null}
                   </div>
-                <div className="calendar-day-active-events">
-                  {activeOccurrences.map((occurrence) => renderMonthOccurrence(occurrence, date))}
-                </div>
-                  {completedOccurrences.length ? (
-                    <div className="calendar-day-completed-footer has-completed-drawer">
-                      {renderCompletedDrawer(date, completedOccurrences, activeOccurrences.length > 0)}
-                    </div>
-                  ) : null}
+                  <div className="calendar-day-active-events">
+                    {[...activeOccurrences, ...completedOccurrences].map((occurrence) => renderMonthOccurrence(occurrence, date))}
+                  </div>
                 </section>
               );
             })}
@@ -837,9 +798,8 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
           <div className="calendar-time-rail" aria-hidden="true">
             <span className="calendar-time-rail-header-spacer" />
             <span className="calendar-time-rail-anytime-label">Anytime</span>
-            <span className="calendar-time-rail-completed-spacer" />
             <span className="calendar-time-rail-separator" />
-            {timedSlots.map((slot, index) => <span key={slot} style={{ gridRow: index + 5 }}>{timeSlotLabel(slot)}</span>)}
+            {timedSlots.map((slot, index) => <span key={slot} style={{ gridRow: index + 4 }}>{timeSlotLabel(slot)}</span>)}
           </div>
         ) : null}
         {dates.map((date) => renderCalendarDayColumn(date, density, dates.length === 1))}
@@ -853,25 +813,24 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     const completedOccurrences = occurrencesForDay.filter((occurrence) => occurrence.status === "completed");
     const activeOccurrences = occurrencesForDay.filter((occurrence) => occurrence.status !== "completed");
     const flexibleOccurrences = activeOccurrences.filter((occurrence) => occurrence.planningMode === "flexible");
+    const completedFlexibleOccurrences = completedOccurrences.filter((occurrence) => occurrence.planningMode === "flexible");
     return (
       <section className="calendar-column" key={key}>
         <h3 aria-label={longDateLabel(date)} role="columnheader">{showSlotLabels ? longDateLabel(date) : format(date, "EEE, MMM d")}</h3>
-        <div className="calendar-column-anytime">
+        <div className={`calendar-column-anytime ${showSlotLabels ? "has-slot-label" : ""}`}>
+          {showSlotLabels ? <span className="calendar-column-anytime-label">Anytime</span> : null}
           <div className="calendar-column-anytime-main">
-            {flexibleOccurrences.length
-              ? flexibleOccurrences.map((occurrence) => renderOccurrenceCompact(occurrence, date, density))
-              : null}
+            {[...flexibleOccurrences, ...completedFlexibleOccurrences].map((occurrence) => renderOccurrenceCompact(occurrence, date, density))}
           </div>
-          {completedOccurrences.length ? (
-            <div className="calendar-day-completed-footer has-completed-drawer">
-              {renderCompletedDrawer(date, completedOccurrences, flexibleOccurrences.length > 0)}
-            </div>
-          ) : null}
         </div>
         <div className="calendar-column-hour-separator has-top-divider" aria-hidden="true" />
         <div className="calendar-column-slots">
           {timedSlots.map((slot) => {
             const timedOccurrences = activeOccurrences.filter((occurrence) =>
+              occurrence.plannedStartAt &&
+              formatInTimeZone(occurrence.plannedStartAt, timeZone, "HH:mm").startsWith(slot.slice(0, 2))
+            );
+            const completedTimedOccurrences = completedOccurrences.filter((occurrence) =>
               occurrence.plannedStartAt &&
               formatInTimeZone(occurrence.plannedStartAt, timeZone, "HH:mm").startsWith(slot.slice(0, 2))
             );
@@ -884,7 +843,9 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                 onDrop={() => void handleDrop(slot)}
               >
                 {showSlotLabels ? <span>{timeSlotLabel(slot)}</span> : null}
-                <div>{timedOccurrences.map((occurrence) => renderOccurrenceCompact(occurrence, date, density))}</div>
+                <div>
+                  {[...timedOccurrences, ...completedTimedOccurrences].map((occurrence) => renderOccurrenceCompact(occurrence, date, density))}
+                </div>
               </div>
             );
           })}
@@ -939,9 +900,13 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                     ))}
                   </section>
                   <div className="calendar-period-controls">
-                    <button aria-label={`Previous ${periodUnit}`} className="section-action" onClick={() => moveFocusDate(-1)} type="button">&lt;</button>
+                    <button aria-label={`Previous ${periodUnit}`} className="section-action calendar-period-button" onClick={() => moveFocusDate(-1)} type="button">
+                      <ChevronIcon direction="previous" />
+                    </button>
                     <strong>{periodLabel}</strong>
-                    <button aria-label={`Next ${periodUnit}`} className="section-action" onClick={() => moveFocusDate(1)} type="button">&gt;</button>
+                    <button aria-label={`Next ${periodUnit}`} className="section-action calendar-period-button" onClick={() => moveFocusDate(1)} type="button">
+                      <ChevronIcon direction="next" />
+                    </button>
                   </div>
                 </div>
               ) : null}
@@ -984,9 +949,8 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
             </section>
 
             {loadState === "error" ? <section className="calendar-empty-state">Could not load scheduled chores.</section> : null}
-            {loadState === "ready" && visibleOccurrences.length === 0 ? <section className="calendar-empty-state">No chores in this range.</section> : null}
 
-            {workspaceView === "calendar" && visibleOccurrences.length > 0 ? (
+            {workspaceView === "calendar" && loadState === "ready" ? (
               <div className="calendar-workspace-content">
                 {calendarScale === "month" ? (
                   renderMonthCalendar()
