@@ -37,6 +37,16 @@ function renderAt(path: string) {
   return render(<App />);
 }
 
+async function withMay2026CalendarClock(callback: () => Promise<void>) {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  vi.setSystemTime(new Date("2026-05-30T12:00:00.000-04:00"));
+  try {
+    await callback();
+  } finally {
+    vi.useRealTimers();
+  }
+}
+
 function getChoreEditor() {
   const editor = document.querySelector(".chore-editor-modal");
   expect(editor).not.toBeNull();
@@ -1216,6 +1226,65 @@ describe("App", () => {
     expect(screen.queryByText("Assigned member")).toBeNull();
   });
 
+  it("keeps Calendar month view as a full month grid after the visual refresh", async () => {
+    await withMay2026CalendarClock(async () => {
+      vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
+      renderAt("/calendar");
+
+      expect(await screen.findByRole("heading", { name: "Calendar" })).toBeTruthy();
+      fireEvent.click(screen.getByRole("tab", { name: "Calendar" }));
+      fireEvent.click(screen.getByRole("button", { name: "Month" }));
+
+      const monthGrid = await screen.findByRole("grid", { name: /month calendar/i });
+      const dayCells = within(monthGrid).getAllByRole("gridcell");
+
+      expect(dayCells.map((cell) => cell.getAttribute("aria-label"))).toEqual([
+        "Sunday, Apr 26",
+        "Monday, Apr 27",
+        "Tuesday, Apr 28",
+        "Wednesday, Apr 29",
+        "Thursday, Apr 30",
+        "Friday, May 1",
+        "Saturday, May 2",
+        "Sunday, May 3",
+        "Monday, May 4",
+        "Tuesday, May 5",
+        "Wednesday, May 6",
+        "Thursday, May 7",
+        "Friday, May 8",
+        "Saturday, May 9",
+        "Sunday, May 10",
+        "Monday, May 11",
+        "Tuesday, May 12",
+        "Wednesday, May 13",
+        "Thursday, May 14",
+        "Friday, May 15",
+        "Saturday, May 16",
+        "Sunday, May 17",
+        "Monday, May 18",
+        "Tuesday, May 19",
+        "Wednesday, May 20",
+        "Thursday, May 21",
+        "Friday, May 22",
+        "Saturday, May 23",
+        "Sunday, May 24",
+        "Monday, May 25",
+        "Tuesday, May 26",
+        "Wednesday, May 27",
+        "Thursday, May 28",
+        "Friday, May 29",
+        "Saturday, May 30",
+        "Sunday, May 31",
+        "Monday, Jun 1",
+        "Tuesday, Jun 2",
+        "Wednesday, Jun 3",
+        "Thursday, Jun 4",
+        "Friday, Jun 5",
+        "Saturday, Jun 6"
+      ]);
+    });
+  });
+
   it("renders week view with one time rail and title-only chore buttons", async () => {
     vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
     renderAt("/calendar");
@@ -1332,6 +1401,37 @@ describe("App", () => {
     expect(completedCard.classList.contains("calendar-agenda-card")).toBe(false);
     expect(within(completedCard).getByText("Completed")).toBeTruthy();
     expect(within(agenda).getByText("1 completed")).toBeTruthy();
+  });
+
+  it("renders completed Calendar chores after incomplete chores in each day group", async () => {
+    await withMay2026CalendarClock(async () => {
+      vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
+      renderAt("/calendar");
+
+      expect(await screen.findByRole("heading", { name: "Calendar" })).toBeTruthy();
+      const dayCell = await screen.findByRole("gridcell", { name: /Saturday, May 30/i });
+      const rows = within(dayCell).getAllByRole("button", { name: /View / });
+
+      expect(rows.map((row) => row.getAttribute("aria-label"))).toEqual(["View Clean bathrooms", "View Pet cats"]);
+
+      const firstCompletedIndex = rows.findIndex((row) => row.classList.contains("is-completed"));
+      const lastOpenIndex = rows.findLastIndex((row) => !row.classList.contains("is-completed"));
+
+      expect(firstCompletedIndex).toBeGreaterThanOrEqual(0);
+      expect(lastOpenIndex).toBeGreaterThanOrEqual(0);
+      expect(firstCompletedIndex).toBeGreaterThan(lastOpenIndex);
+    });
+  });
+
+  it("uses the compact completed status marker class for completed Calendar rows", async () => {
+    await withMay2026CalendarClock(async () => {
+      vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
+      renderAt("/calendar");
+
+      const completedButton = await screen.findByRole("button", { name: /View Pet cats/i });
+      expect(completedButton.classList.contains("is-completed")).toBe(true);
+      expect(completedButton.querySelector(".calendar-status-icon")).toBeTruthy();
+    });
   });
 
   it("opens a chore view modal with upcoming and history before editing", async () => {
