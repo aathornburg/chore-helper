@@ -1325,12 +1325,21 @@ describe("App", () => {
     expect(screen.queryByRole("region", { name: "Home profile summary" })).toBeNull();
     expect(screen.queryByText("Selected floor")).toBeNull();
     expect(screen.getByLabelText("Select Main floor")).toBeTruthy();
+    const overviewPanel = document.getElementById("household-1-overview-panel") as HTMLElement;
+    const roomsPanel = document.getElementById("household-1-rooms-panel") as HTMLElement;
+    expect(overviewPanel.hidden).toBe(true);
+    expect(window.getComputedStyle(overviewPanel).display).toBe("none");
+    expect(roomsPanel.hidden).toBe(true);
+    expect(window.getComputedStyle(roomsPanel).display).toBe("none");
 
     fireEvent.click(screen.getByRole("tab", { name: "Rooms" }));
     expect(screen.queryByRole("region", { name: "Home floor preview" })).toBeNull();
     expect(screen.queryByRole("region", { name: "Home profile summary" })).toBeNull();
     expect(screen.queryByText("Selected floor")).toBeNull();
     expect(screen.getByRole("button", { name: "Add room" })).toBeTruthy();
+    const floorsPanel = document.getElementById("household-1-floors-panel") as HTMLElement;
+    expect(floorsPanel.hidden).toBe(true);
+    expect(window.getComputedStyle(floorsPanel).display).toBe("none");
   });
 
   it("keeps add another home as a low-emphasis header action for one household", async () => {
