@@ -3067,21 +3067,67 @@ button.chore-row-summary[aria-expanded="true"] {
   gap: 12px;
 }
 
+.family-collaboration-shell {
+  display: grid;
+  gap: 18px;
+  padding-top: 4px;
+}
+
+.family-collaboration-summary,
+.family-member-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.family-collaboration-summary div {
+  border-top: 1px solid #d5e8ea;
+  padding-top: 14px;
+}
+
+.family-collaboration-summary span,
+.family-member-card-main > span:not(.role-pill),
+.family-invite-row span:not(.role-pill) {
+  color: #5e625b;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.family-collaboration-summary span {
+  display: block;
+  text-transform: uppercase;
+}
+
+.family-collaboration-summary strong {
+  color: #0f4c66;
+  display: block;
+  font-size: 1.55rem;
+  margin-top: 4px;
+}
+
+.family-collaboration-summary p {
+  color: #5e625b;
+  margin: 4px 0 0;
+}
+
 .family-household-list {
   display: grid;
-  gap: 20px;
+  gap: 18px;
 }
 
 .family-household {
+  background: #fffefa;
+  border: 1px solid #d5e8ea;
+  border-radius: 8px;
   display: grid;
   gap: 22px;
-  padding: 24px;
+  padding: 20px;
 }
 
 .family-panel-grid {
   display: grid;
   gap: 22px;
-  grid-template-columns: repeat(2, minmax(280px, 1fr));
+  grid-template-columns: minmax(0, 1.12fr) minmax(280px, 0.88fr);
 }
 
 .compact-heading {
@@ -3095,67 +3141,80 @@ button.chore-row-summary[aria-expanded="true"] {
 }
 
 .compact-heading span {
-  background: #eef6ea;
+  background: #e4f1f6;
   border-radius: 999px;
-  color: #425447;
+  color: #0f4c66;
   font-size: 0.84rem;
-  font-weight: 700;
+  font-weight: 800;
   padding: 4px 10px;
 }
 
-.family-list {
-  display: grid;
-  gap: 10px;
+.family-list,
+.family-member-grid {
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.family-row {
+.family-list {
+  display: grid;
+  gap: 10px;
+}
+
+.family-member-card,
+.family-invite-row {
+  border-top: 1px solid #d9e7e9;
+  display: grid;
+  gap: 12px;
+  padding: 14px 0 0;
+}
+
+.family-member-card {
+  align-content: space-between;
+  min-height: 148px;
+}
+
+.family-member-card-main,
+.family-invite-row > div:first-child {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.family-member-card strong,
+.family-invite-row strong {
+  color: #24352e;
+  overflow-wrap: anywhere;
+}
+
+.family-compact-actions {
   align-items: center;
-  background: #fffefa;
-  border: 1px solid #eaded1;
-  border-radius: 10px;
   display: flex;
-  gap: 14px;
-  justify-content: space-between;
-  padding: 12px;
-}
-
-.family-row strong,
-.family-row span {
-  display: block;
-}
-
-.family-row > div:first-child span {
-  color: #667085;
-  font-size: 0.88rem;
-  margin-top: 4px;
-}
-
-.family-row-actions {
-  align-items: center;
-  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+  justify-content: flex-end;
 }
 
-.family-row-actions button {
+.family-compact-actions button {
+  background: #155e75;
   font-size: 0.84rem;
   padding: 8px 10px;
 }
 
 .role-pill {
-  background: #eef6ea;
+  background: #e4f1f6;
   border-radius: 999px;
-  color: #365243;
+  color: #0f4c66;
+  display: inline-flex;
   font-size: 0.78rem;
-  font-weight: 750;
+  font-weight: 800;
+  justify-self: start;
   padding: 6px 9px;
 }
 
 .role-pill.pending {
-  background: #fef3c7;
-  color: #92400e;
+  background: #fff7d6;
+  color: #87520c;
 }
 
 .role-pill.accepted {
@@ -3170,9 +3229,9 @@ button.chore-row-summary[aria-expanded="true"] {
 }
 
 .family-invite-form {
-  background: #f8fbf6;
-  border: 1px solid #d7e4d5;
-  border-radius: 10px;
+  background: #f6fbfc;
+  border: 1px solid #d5e8ea;
+  border-radius: 8px;
   display: grid;
   gap: 8px;
   margin-bottom: 12px;
@@ -3180,9 +3239,9 @@ button.chore-row-summary[aria-expanded="true"] {
 }
 
 .family-invite-form label {
-  color: #425447;
+  color: #0f4c66;
   font-size: 0.84rem;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .family-invite-form div {
@@ -3194,10 +3253,24 @@ button.chore-row-summary[aria-expanded="true"] {
   flex: 1;
 }
 
+.family-invite-row {
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.family-invite-row.is-muted {
+  background: #f6f7f4;
+  border-color: #e0ded6;
+}
+
+.family-invite-history {
+  margin-top: 10px;
+}
+
 .subtle-action {
   background: #fffefa;
-  border: 1px solid #eaded1;
-  color: #425447;
+  border: 1px solid #c8dde1;
+  color: #0f4c66;
 }
 
 .settings-radio-group {

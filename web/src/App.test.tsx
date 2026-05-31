@@ -1163,6 +1163,19 @@ describe("App", () => {
     );
   });
 
+  it("renders Family as a collaboration hub", async () => {
+    const fetchMock = mockFamilyPageFetches();
+    vi.stubGlobal("fetch", fetchMock);
+    renderAt("/family");
+
+    expect(await screen.findByRole("heading", { name: "Family" })).toBeTruthy();
+    const collaboration = screen.getByRole("region", { name: "Household collaboration" });
+    expect(collaboration).toBeTruthy();
+    await waitFor(() => expect(within(collaboration).getByText("Alex Owner")).toBeTruthy());
+    expect(within(collaboration).getByText("People with household access").parentElement?.textContent).toContain("2");
+    expect(within(collaboration).getByText("Owner-managed invite queue").parentElement?.textContent).toContain("1");
+  });
+
   it("shows family members without owner-only actions to an ordinary member", async () => {
     mockFamilyPageFetches("member");
     renderAt("/family");
