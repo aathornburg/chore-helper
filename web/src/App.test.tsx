@@ -2213,6 +2213,18 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Review selected chores" })).toBeTruthy();
   });
 
+  it("renders Optimize as a prompt-first assistant workspace", async () => {
+    restoreHouseholdInStorage();
+    mockRestoredHouseholdFetches();
+
+    renderAt("/optimize");
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Optimize" })).toBeTruthy());
+    expect(screen.getByRole("region", { name: "Assistant workspace" })).toBeTruthy();
+    expect(screen.getByText("What should we improve around the house?")).toBeTruthy();
+    expect(await screen.findByText(/Ready to review/i)).toBeTruthy();
+  });
+
   it("shows Optimize chat prompts and renders an assistant answer", async () => {
     restoreHouseholdInStorage();
     const fetchMock = mockRestoredHouseholdFetches({

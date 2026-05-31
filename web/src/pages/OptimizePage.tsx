@@ -70,15 +70,20 @@ function formatProfileSummary(profile: HouseholdProfile | undefined, structure: 
 
 export function OptimizePage({ households, isLoading }: OptimizePageProps) {
   return (
-    <div className="plan-review review-page optimize-page">
-      <header className="workspace-hero compact-hero">
+    <div className="plan-review review-page optimize-page operational-page">
+      <section className="optimize-command-panel" aria-label="Assistant workspace">
         <div>
+          <p className="eyebrow">Optimize</p>
           <h1>Optimize</h1>
           <p className="lede">
-            Generate structured recommendations or ask the assistant free-form questions about your chore plan.
+            Ask Cleanly to inspect chores, timing, workload, and household gaps before approving changes.
           </p>
         </div>
-      </header>
+        <div className="assistant-prompt-callout">
+          <span>What should we improve around the house?</span>
+          <p>Review selected chores, ask follow-up questions, and apply only the changes that make sense.</p>
+        </div>
+      </section>
 
       {isLoading ? <div className="empty-state">Loading Optimize workspace...</div> : null}
 
@@ -129,6 +134,14 @@ function HouseholdOptimizePanel({
     () => chores.filter((chore) => !chore.archivedAt),
     [chores]
   );
+  const pendingRecommendations = useMemo(
+    () => existingRecommendations.filter((recommendation) => recommendation.decision !== "applied"),
+    [existingRecommendations]
+  );
+  const appliedRecommendations = useMemo(
+    () => existingRecommendations.filter((recommendation) => recommendation.decision === "applied"),
+    [existingRecommendations]
+  );
 
   useEffect(() => {
     if (!householdId) return;
@@ -156,7 +169,7 @@ function HouseholdOptimizePanel({
         setReviewRecommendations([]);
         setReviewStep("select");
         setLoadState("ready");
-        setStatus("Choose chores for assistant review.");
+        setStatus("Ready to review.");
       } catch {
         if (!cancelled) {
           setLoadState("error");
@@ -266,13 +279,56 @@ function HouseholdOptimizePanel({
   }
 
   return (
-    <section className="household-instance panel" aria-label={`${householdName} optimize workspace`}>
+    <section className="household-instance optimize-household-workspace" aria-label={`${householdName} optimize workspace`}>
       <div className="section-heading">
         <div>
           <p className="eyebrow">Household</p>
           <h2>{householdName}</h2>
           <p className="supporting-copy">{formatProfileSummary(profile, structure)}</p>
         </div>
+      </div>
+
+      <div className="optimize-assistant-layout">
+        <section className="assistant-prompt-panel" aria-label={`${householdName} assistant prompt`}>
+          <span>What should we improve?</span>
+          <h3>Start with the chores that need another look.</h3>
+          <p>
+            Cleanly can compare selected chores against the home profile, room coverage, timing, and prior recommendations.
+          </p>
+        </section>
+
+        <section className="recommendation-review-queue" aria-label={`${householdName} review queue`}>
+          <div>
+            <span>Ready to review</span>
+            <strong>{selectedChoreIds.length}</strong>
+            <p>Selected chores</p>
+          </div>
+          <div>
+            <span>Pending ideas</span>
+            <strong>{pendingRecommendations.length}</strong>
+            <p>Awaiting a decision</p>
+          </div>
+          <div>
+            <span>Applied</span>
+            <strong>{appliedRecommendations.length}</strong>
+            <p>Accepted improvements</p>
+          </div>
+        </section>
+
+        <section className="household-signal-grid" aria-label={`${householdName} household signals`}>
+          <div>
+            <span>Context</span>
+            <strong>{profile?.homeType ?? "Profile needed"}</strong>
+          </div>
+          <div>
+            <span>Floors</span>
+            <strong>{structure.floors.length}</strong>
+          </div>
+          <div>
+            <span>Rooms</span>
+            <strong>{structure.floors.reduce((total, floor) => total + floor.rooms.length, 0)}</strong>
+          </div>
+        </section>
       </div>
 
       <div className="optimize-mode-tabs" role="tablist" aria-label="Optimize mode">
