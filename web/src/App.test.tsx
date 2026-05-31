@@ -677,6 +677,7 @@ describe("App", () => {
 
     await waitFor(() => expect(screen.getByText("Ready to optimize")).toBeTruthy());
     expect(screen.getByRole("heading", { name: "Today" })).toBeTruthy();
+    expect(window.location.pathname).toBe("/");
     expect(screen.queryByText("Make household work visible, fair, and easier to adjust.")).toBeNull();
   });
 
@@ -684,13 +685,11 @@ describe("App", () => {
     mockEmptyAppDataFetches();
     renderAt("/today");
 
-    await waitFor(() => expect(screen.getByRole("link", { name: "Today" })).toBeTruthy());
-    expect(screen.getByRole("link", { name: "Calendar" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Households" })).toBeTruthy();
+    const nav = await screen.findByRole("navigation", { name: "Primary" });
+    const links = within(nav).getAllByRole("link");
+    expect(links.map((link) => link.textContent)).toEqual(["Optimize", "Today", "Calendar", "Households", "Family", "Settings"]);
+    expect(within(nav).getByRole("link", { name: "Optimize" }).classList.contains("is-primary-nav-action")).toBe(true);
     expect(screen.queryByRole("link", { name: "Chores" })).toBeNull();
-    expect(screen.getByRole("link", { name: /Optimize/ })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Family" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Settings" })).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Setup" })).toBeNull();
   });
 

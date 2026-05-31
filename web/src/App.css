@@ -236,6 +236,18 @@ button:hover {
   color: #2f694d;
 }
 
+.workspace-nav .is-primary-nav-action {
+  background: #2f694d;
+  box-shadow: 0 0 0 3px #d7e4d5;
+  color: #fff;
+}
+
+.workspace-nav .is-primary-nav-action[aria-current="page"],
+.workspace-nav .is-primary-nav-action:hover {
+  background: #24543d;
+  color: #fff;
+}
+
 .workspace-main {
   padding: 34px;
 }

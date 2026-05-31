@@ -129,10 +129,10 @@ function AppShell({
   onNavigate: (path: string) => void;
 }) {
   const navItems = [
+    { label: "Optimize", path: "/optimize", emphasis: true },
     { label: "Today", path: "/today" },
     { label: "Calendar", path: "/calendar" },
     { label: "Households", path: "/households" },
-    { label: "Optimize", path: "/optimize" },
     { label: "Family", path: "/family" },
     { label: "Settings", path: "/settings" }
   ];
@@ -158,6 +158,7 @@ function AppShell({
           {navItems.map((item) => (
             <a
               aria-current={currentPath === item.path ? "page" : undefined}
+              className={item.emphasis ? "is-primary-nav-action" : undefined}
               href={item.path}
               key={item.path}
               onClick={(event) => {
