@@ -1089,6 +1089,52 @@ describe("App", () => {
     });
   });
 
+  it("renders Households as a property dashboard", async () => {
+    mockHouseholdsPageFetches({
+      householdId: "household-1",
+      floors: [
+        {
+          id: "floor-main",
+          householdId: "household-1",
+          name: "Main floor",
+          levelType: "main",
+          flooring: ["tile"],
+          petImpact: "medium",
+          robotVacuumCoverage: "none",
+          robotMopCoverage: "none",
+          rooms: [{
+            id: "room-kitchen",
+            floorId: "floor-main",
+            name: "Kitchen",
+            flooring: ["tile"],
+            petImpact: "inherit",
+            robotVacuumCoverage: "inherit",
+            robotMopCoverage: "inherit"
+          }]
+        },
+        {
+          id: "floor-upstairs",
+          householdId: "household-1",
+          name: "Upstairs",
+          levelType: "upstairs",
+          flooring: ["carpet"],
+          petImpact: "low",
+          robotVacuumCoverage: "partial",
+          robotMopCoverage: "none",
+          rooms: []
+        }
+      ]
+    });
+    renderAt("/households");
+
+    expect(await screen.findByRole("heading", { name: "Households", level: 1 })).toBeTruthy();
+    const overview = await screen.findByRole("region", { name: "Household overview" });
+    expect(overview).toBeTruthy();
+    expect(within(overview).getByText(/setup quality/i)).toBeTruthy();
+    expect(within(overview).getAllByText("Rooms need detail").length).toBeGreaterThan(0);
+    expect(within(overview).getByText("Floors")).toBeTruthy();
+  });
+
   it("loads household family management and lets an owner administer members and invitations", async () => {
     const fetchMock = mockFamilyPageFetches();
     renderAt("/family");

@@ -32,8 +32,31 @@ function getMainFloorId(floors: HouseholdFloor[]) {
   return floors.find((floor) => floor.levelType === "main")?.id ?? floors[0]?.id;
 }
 
+function roomCount(household: HouseholdAppData) {
+  return household.structure.floors.reduce((total, floor) => total + floor.rooms.length, 0);
+}
+
+function setupQualityLabel(household: HouseholdAppData) {
+  const floors = household.structure.floors.length;
+  const floorsWithRooms = household.structure.floors.filter((floor) => floor.rooms.length > 0).length;
+  if (floors > 0 && floorsWithRooms === floors) return "Profile healthy";
+  if (floors > 0) return "Rooms need detail";
+  return "Setup needed";
+}
+
 export function HouseholdsPage({ households, isLoading, onAddHousehold, onReload }: HouseholdsPageProps) {
   const [isAddingHousehold, setIsAddingHousehold] = useState(false);
+  const householdSummaries = households.map((household) => ({
+    household,
+    rooms: roomCount(household),
+    setupQuality: setupQualityLabel(household)
+  }));
+  const totalFloors = householdSummaries.reduce((total, { household }) => total + household.structure.floors.length, 0);
+  const totalRooms = householdSummaries.reduce((total, { rooms }) => total + rooms, 0);
+  const healthyProfiles = householdSummaries.filter(({ setupQuality }) => setupQuality === "Profile healthy").length;
+  const coverageLabel = households.length > 0
+    ? `${healthyProfiles} of ${households.length} profile${households.length === 1 ? "" : "s"} healthy`
+    : "Add a household to begin";
 
   async function handleAddHousehold() {
     if (isAddingHousehold) return;
@@ -46,36 +69,69 @@ export function HouseholdsPage({ households, isLoading, onAddHousehold, onReload
   }
 
   return (
-    <div className="households-page">
-      <header className="workspace-hero compact-hero">
+    <div className="households-page operational-page">
+      <header className="page-command-header">
         <div>
+          <p className="eyebrow">Home model</p>
           <h1>Households</h1>
-          <p className="lede">Manage floors, rooms, flooring, pet impact, and cleaning-device coverage.</p>
+          <p className="lede">Manage floors, rooms, surfaces, pet impact, and cleaning coverage.</p>
         </div>
+        <button disabled={isAddingHousehold} onClick={handleAddHousehold} type="button">
+          Add household
+        </button>
       </header>
 
       {isLoading ? (
         <div className="empty-state">Loading households...</div>
       ) : (
         <>
-        <section className="dashboard-section" aria-labelledby="households-heading">
-          <div className="section-heading">
-            <div className="section-title">
+          <section className="dashboard-section property-overview" aria-label="Household overview">
+            <div className="section-heading property-overview-heading">
               <div>
-                <h2 id="households-heading">Households</h2>
-                <p>Manage your households and their associated details.</p>
+                <p className="eyebrow">Property dashboard</p>
+                <h2>Household overview</h2>
+                <p>Track how complete each home model is before chores depend on it.</p>
               </div>
             </div>
-          </div>
-          <div className="form-actions">
-            <button disabled={isAddingHousehold} onClick={handleAddHousehold} type="button">
-              Add household
-            </button>
-          </div>
-        </section>
-        { households.length > 0 ? ( households.map((household) => (
-          <HouseholdEditor household={household} key={household.id} onReload={onReload} />
-        ))) : null}
+            <div className="household-health-grid">
+              <div>
+                <span>Setup quality</span>
+                <strong>{coverageLabel}</strong>
+                <p>{households.length > 0 ? "Profiles are strongest once every floor has room detail." : "Create a property profile to map cleaning coverage."}</p>
+              </div>
+              <div>
+                <span>Households</span>
+                <strong>{households.length}</strong>
+                <p>Properties in your account</p>
+              </div>
+              <div>
+                <span>Floors</span>
+                <strong>{totalFloors}</strong>
+                <p>Modeled levels across homes</p>
+              </div>
+              <div>
+                <span>Rooms</span>
+                <strong>{totalRooms}</strong>
+                <p>Room-level cleaning targets</p>
+              </div>
+            </div>
+            {households.length > 0 ? (
+              <div className="property-overview-list">
+                {householdSummaries.map(({ household, rooms, setupQuality }) => (
+                  <div key={household.id}>
+                    <strong>{household.name}</strong>
+                    <span>{setupQuality}</span>
+                    <small>{household.structure.floors.length} floor{household.structure.floors.length === 1 ? "" : "s"} / {rooms} room{rooms === 1 ? "" : "s"}</small>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-state">No households yet.</div>
+            )}
+          </section>
+          {households.length > 0 ? households.map((household) => (
+            <HouseholdEditor household={household} key={household.id} onReload={onReload} />
+          )) : null}
         </>
       )}
     </div>
@@ -436,7 +492,7 @@ function HouseholdEditor({ household, onReload }: { household: HouseholdAppData;
   }
 
   return (
-    <section className="household-instance panel" aria-label={`${household.name} floor editor`}>
+    <section className="household-instance panel household-editor-shell" aria-label={`${household.name} floor editor`}>
       <div className="section-heading">
         <div className="section-title">
           <h2>{household.name}</h2>
@@ -490,7 +546,7 @@ function HouseholdEditor({ household, onReload }: { household: HouseholdAppData;
           </div>
 
           {manageTab === "overview" ? (
-            <section className="household-overview" aria-label="Household overview">
+            <section className="household-overview" aria-label={`${household.name} overview`}>
               <div className="empty-state">
                 {floors.length} floor{floors.length === 1 ? "" : "s"} / {household.chores.length} chore{household.chores.length === 1 ? "" : "s"}
               </div>
