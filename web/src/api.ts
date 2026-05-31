@@ -2,6 +2,7 @@ import type {
   AppUserProfile,
   Chore,
   ChoreDefinitionInput,
+  ChoreCompletionCheckIn,
   ChoreOccurrence,
   ChoreSchedule,
   CompletionCheckInInput,
@@ -332,6 +333,24 @@ export async function completeOccurrence(
   );
 
   if (!response.ok) throw new Error("Failed to complete occurrence");
+  return response.json();
+}
+
+export async function updateCompletionCheckIn(
+  householdId: string,
+  occurrenceId: string,
+  checkIn: CompletionCheckInInput
+): Promise<ChoreCompletionCheckIn> {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/households/${householdId}/occurrences/${occurrenceId}/check-in`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(checkIn)
+    }
+  );
+
+  if (!response.ok) throw new Error("Failed to update completion check-in");
   return response.json();
 }
 

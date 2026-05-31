@@ -7,7 +7,7 @@ import type {
   HouseholdStructure
 } from "@chore-helper/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { completeOccurrence, createScheduledChore, listOccurrences } from "./api";
+import { completeOccurrence, createScheduledChore, listOccurrences, updateCompletionCheckIn } from "./api";
 import App from "./App";
 
 const clerkState = vi.hoisted(() => ({
@@ -671,6 +671,50 @@ describe("App", () => {
     );
   });
 
+  it("updates a completed occurrence check-in through the unified API", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input.toString();
+      const method = init?.method ?? "GET";
+
+      if (
+        url === "http://localhost:3001/api/households/household-1/occurrences/occurrence-1/check-in" &&
+        method === "PUT"
+      ) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "check-in-1",
+            householdId: "household-1",
+            occurrenceId: "occurrence-1",
+            completedOnTime: true,
+            durationAccurate: false,
+            rebaseFutureOccurrences: true,
+            createdAt: "2026-05-25T14:20:00.000Z",
+            updatedAt: "2026-05-25T14:25:00.000Z"
+          })
+        };
+      }
+
+      throw new Error(`Unhandled fetch ${method} ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const checkIn = await updateCompletionCheckIn("household-1", "occurrence-1", {
+      completedOnTime: true,
+      durationAccurate: false,
+      rebaseFutureOccurrences: true
+    });
+
+    expect(checkIn.durationAccurate).toBe(false);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/households/household-1/occurrences/occurrence-1/check-in",
+      expect.objectContaining({
+        method: "PUT",
+        body: expect.stringContaining('"rebaseFutureOccurrences":true')
+      })
+    );
+  });
+
   it("routes signed-in root visits to Today", async () => {
     mockRestoredHouseholdFetches();
     renderAt("/");
@@ -691,6 +735,64 @@ describe("App", () => {
     expect(within(nav).getByRole("link", { name: "Optimize" }).classList.contains("is-primary-nav-action")).toBe(true);
     expect(screen.queryByRole("link", { name: "Chores" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Setup" })).toBeNull();
+  });
+
+  it("loads Today dashboard occurrences across households", async () => {
+    const secondHousehold = {
+      ...createHouseholdAppData({
+        chores: [{ ...cleanBathroomsChore, id: "chore-cabin", householdId: "household-2", title: "Mow lawn" }],
+        structure: { householdId: "household-2", floors: [] }
+      }),
+      id: "household-2",
+      name: "Cabin",
+      timeZone: "America/New_York"
+    };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input.toString();
+      const method = init?.method ?? "GET";
+
+      if (url === "http://localhost:3001/api/me" && method === "GET") {
+        return { ok: true, json: async () => ({ id: "app-user-1", clerkUserId: "test-user-a" }) };
+      }
+      if (url === "http://localhost:3001/api/households" && method === "GET") {
+        return { ok: true, json: async () => [createHouseholdAppData(), secondHousehold] };
+      }
+      if (url === "http://localhost:3001/api/households/household-1/members" && method === "GET") {
+        return { ok: true, json: async () => [{ householdId: "household-1", userId: "app-user-1", clerkUserId: "test-user-a", displayName: "Alex Owner", role: "owner" }] };
+      }
+      if (url === "http://localhost:3001/api/households/household-2/members" && method === "GET") {
+        return { ok: true, json: async () => [{ householdId: "household-2", userId: "app-user-1", clerkUserId: "test-user-a", displayName: "Alex Owner", role: "owner" }] };
+      }
+      if (url.startsWith("http://localhost:3001/api/households/household-1/occurrences?") && method === "GET") {
+        return { ok: true, json: async () => [] };
+      }
+      if (url.startsWith("http://localhost:3001/api/households/household-2/occurrences?") && method === "GET") {
+        return { ok: true, json: async () => [] };
+      }
+
+      throw new Error(`Unhandled fetch ${method} ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderAt("/today");
+
+    expect(await screen.findByRole("region", { name: "Seven day chore strip" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Selected day chores" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Merged" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "By household" })).toBeTruthy();
+    expect(screen.getByText("Home")).toBeTruthy();
+    expect(screen.getByText("Cabin")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Upcoming next 7 days" })).toBeTruthy();
+    expect(fetchMock.mock.calls.some(([url]) =>
+      String(url).startsWith("http://localhost:3001/api/households/household-1/occurrences?") &&
+      String(url).includes("startOn=") &&
+      String(url).includes("endOn=")
+    )).toBe(true);
+    expect(fetchMock.mock.calls.some(([url]) =>
+      String(url).startsWith("http://localhost:3001/api/households/household-2/occurrences?") &&
+      String(url).includes("startOn=") &&
+      String(url).includes("endOn=")
+    )).toBe(true);
   });
 
   it("loads app household data from the user-scoped households endpoint without localStorage restore", async () => {

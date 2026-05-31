@@ -1,4 +1,8 @@
-import type { HouseholdAppData } from "@chore-helper/shared";
+import { useEffect, useMemo, useState } from "react";
+import { addDays, format, startOfDay } from "date-fns";
+import { fromZonedTime } from "date-fns-tz";
+import type { ChoreOccurrence, HouseholdAppData, HouseholdMemberSummary } from "@chore-helper/shared";
+import { getCurrentUser, listHouseholdMembers, listOccurrences } from "../api";
 import type { Navigate } from "../types";
 import { formatHouseholdSummary } from "../utils/household";
 
@@ -13,7 +17,95 @@ function isProfileComplete(household: HouseholdAppData) {
   return Boolean(household.profile) && household.structure.floors.length > 0;
 }
 
+type TodayViewMode = "merged" | "grouped";
+type TodayDataStatus = "idle" | "loading" | "ready" | "error";
+
+function occurrenceDateKey(occurrence: ChoreOccurrence) {
+  return occurrence.eligibleStartOn;
+}
+
+function buildOccurrenceRange(startDate: Date, endDate: Date, timeZone: string) {
+  const startOn = format(startDate, "yyyy-MM-dd");
+  const endOn = format(endDate, "yyyy-MM-dd");
+
+  return {
+    startAt: fromZonedTime(`${startOn}T00:00:00`, timeZone).toISOString(),
+    endAt: fromZonedTime(`${endOn}T23:59:59`, timeZone).toISOString(),
+    startOn,
+    endOn
+  };
+}
+
 export function TodayDashboard({ households, isLoading, loadError, onNavigate }: TodayDashboardProps) {
+  const todayStart = useMemo(() => startOfDay(new Date()), []);
+  const stripDates = useMemo(
+    () => Array.from({ length: 7 }, (_, index) => addDays(todayStart, index)),
+    [todayStart]
+  );
+  const [selectedDateKey, setSelectedDateKey] = useState(() => format(todayStart, "yyyy-MM-dd"));
+  const [viewMode, setViewMode] = useState<TodayViewMode>("merged");
+  const [currentUserId, setCurrentUserId] = useState<string>();
+  const [membersByHousehold, setMembersByHousehold] = useState<Record<string, HouseholdMemberSummary[]>>({});
+  const [occurrencesByHousehold, setOccurrencesByHousehold] = useState<Record<string, ChoreOccurrence[]>>({});
+  const [todayDataStatus, setTodayDataStatus] = useState<TodayDataStatus>("idle");
+
+  useEffect(() => {
+    if (isLoading || loadError || households.length === 0) {
+      setMembersByHousehold({});
+      setOccurrencesByHousehold({});
+      setTodayDataStatus("idle");
+      return;
+    }
+
+    let isCurrent = true;
+    setTodayDataStatus("loading");
+
+    async function loadTodayData() {
+      try {
+        const currentUser = await getCurrentUser();
+        const nextMembersByHousehold: Record<string, HouseholdMemberSummary[]> = {};
+        const nextOccurrencesByHousehold: Record<string, ChoreOccurrence[]> = {};
+        const rangeEnd = stripDates[stripDates.length - 1] ?? todayStart;
+
+        await Promise.all(households.map(async (household) => {
+          const [members, occurrences] = await Promise.all([
+            listHouseholdMembers(household.id),
+            listOccurrences(household.id, buildOccurrenceRange(todayStart, rangeEnd, household.timeZone))
+          ]);
+          nextMembersByHousehold[household.id] = members;
+          nextOccurrencesByHousehold[household.id] = occurrences;
+        }));
+
+        if (!isCurrent) return;
+        setCurrentUserId(currentUser.id);
+        setMembersByHousehold(nextMembersByHousehold);
+        setOccurrencesByHousehold(nextOccurrencesByHousehold);
+        setTodayDataStatus("ready");
+      } catch {
+        if (!isCurrent) return;
+        setTodayDataStatus("error");
+      }
+    }
+
+    void loadTodayData();
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [households, isLoading, loadError, stripDates, todayStart]);
+
+  const allOccurrences = useMemo(
+    () => Object.values(occurrencesByHousehold).flat(),
+    [occurrencesByHousehold]
+  );
+  const selectedDateOccurrences = allOccurrences.filter(
+    (occurrence) => occurrenceDateKey(occurrence) === selectedDateKey
+  );
+  const selectedDatePlannedCount = selectedDateOccurrences.filter(
+    (occurrence) => occurrence.status === "planned"
+  ).length;
+  const memberCount = Object.values(membersByHousehold).reduce((total, members) => total + members.length, 0);
+
   if (isLoading) {
     return (
       <div className="dashboard-page">
@@ -68,34 +160,95 @@ export function TodayDashboard({ households, isLoading, loadError, onNavigate }:
           <p>Add floors, rooms, pets, and notes so Cleanly can make useful chore recommendations.</p>
         </section>
       ) : (
-        <section className="today-household-grid" aria-label="Household overview">
-          {households.map((household) => {
-            const profileComplete = isProfileComplete(household);
-            const reviewReady = profileComplete && household.chores.length > 0;
-            return (
-              <article className="panel today-household-card" key={household.id}>
-                <div className="panel-heading">
-                  <h2>{household.name}</h2>
-                  <span>{reviewReady ? "Ready to optimize" : profileComplete ? "Ready for chores" : "Needs setup"}</span>
-                </div>
-                <p>{formatHouseholdSummary(household)}</p>
-                <div className="overview-stat-grid">
-                  <div><span>Chores</span><strong>{household.chores.length}</strong></div>
-                  <div><span>Recommendations</span><strong>{household.recommendations.length}</strong></div>
-                </div>
-                <div className="form-actions">
-                  {!profileComplete ? (
-                    <button onClick={() => onNavigate("/households")} type="button">Complete profile</button>
-                  ) : household.chores.length === 0 ? (
-                    <button onClick={() => onNavigate("/calendar")} type="button">Add chores</button>
-                  ) : (
-                    <button onClick={() => onNavigate("/optimize")} type="button">Optimize plan</button>
-                  )}
-                </div>
-              </article>
-            );
-          })}
-        </section>
+        <>
+          <section aria-label="Seven day chore strip" className="panel today-date-strip">
+            {stripDates.map((date) => {
+              const dateKey = format(date, "yyyy-MM-dd");
+              const dueCount = allOccurrences.filter((occurrence) => occurrenceDateKey(occurrence) === dateKey).length;
+              return (
+                <button
+                  aria-pressed={selectedDateKey === dateKey}
+                  className="today-date-button"
+                  key={dateKey}
+                  onClick={() => setSelectedDateKey(dateKey)}
+                  type="button"
+                >
+                  <span>{format(date, "EEE")}</span>
+                  <strong>{format(date, "d")}</strong>
+                  <small>{dueCount} due</small>
+                </button>
+              );
+            })}
+          </section>
+
+          <section aria-label="Selected day chores" className="panel today-selected-day">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">Today dashboard</p>
+                <h2>{format(new Date(`${selectedDateKey}T00:00:00`), "EEEE, MMM d")}</h2>
+              </div>
+              <div className="today-view-toggle" role="group" aria-label="Today chore grouping">
+                <button aria-pressed={viewMode === "merged"} onClick={() => setViewMode("merged")} type="button">
+                  Merged
+                </button>
+                <button aria-pressed={viewMode === "grouped"} onClick={() => setViewMode("grouped")} type="button">
+                  By household
+                </button>
+              </div>
+            </div>
+            <p>
+              {todayDataStatus === "error"
+                ? "We could not load the latest chore schedule."
+                : todayDataStatus === "loading"
+                  ? "Loading chore schedule..."
+                  : `${selectedDatePlannedCount} chore${selectedDatePlannedCount === 1 ? "" : "s"} ready to work.`}
+            </p>
+            <div className="today-household-chip-row">
+              <span>{households.length} household{households.length === 1 ? "" : "s"}</span>
+              <span>{viewMode === "merged" ? "Merged schedule" : "Grouped by household"}</span>
+            </div>
+          </section>
+
+          <section aria-label="Upcoming chores" className="panel today-upcoming-panel">
+            <div className="panel-heading">
+              <h2>Upcoming next 7 days</h2>
+              <span>{allOccurrences.length} scheduled</span>
+            </div>
+            <p>
+              {memberCount} household member{memberCount === 1 ? "" : "s"} included in this view
+              {currentUserId ? `, including you.` : "."}
+            </p>
+          </section>
+
+          <section className="today-household-grid" aria-label="Household overview">
+            {households.map((household) => {
+              const profileComplete = isProfileComplete(household);
+              const reviewReady = profileComplete && household.chores.length > 0;
+              return (
+                <article className="panel today-household-card" key={household.id}>
+                  <div className="panel-heading">
+                    <h2>{household.name}</h2>
+                    <span>{reviewReady ? "Ready to optimize" : profileComplete ? "Ready for chores" : "Needs setup"}</span>
+                  </div>
+                  <p>{formatHouseholdSummary(household)}</p>
+                  <div className="overview-stat-grid">
+                    <div><span>Chores</span><strong>{household.chores.length}</strong></div>
+                    <div><span>Recommendations</span><strong>{household.recommendations.length}</strong></div>
+                  </div>
+                  <div className="form-actions">
+                    {!profileComplete ? (
+                      <button onClick={() => onNavigate("/households")} type="button">Complete profile</button>
+                    ) : household.chores.length === 0 ? (
+                      <button onClick={() => onNavigate("/calendar")} type="button">Add chores</button>
+                    ) : (
+                      <button onClick={() => onNavigate("/optimize")} type="button">Optimize plan</button>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </section>
+        </>
       )}
 
       <section className="panel integration-callout" aria-labelledby="today-calendar-heading">
