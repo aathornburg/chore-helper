@@ -852,30 +852,32 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
                   />
                 </label>
               </div>
-              <div className="floor-surface-summary">
-                <div>
-                  <span>Flooring</span>
-                  <strong>{selectedFloor.flooring.length > 0 ? selectedFloor.flooring.join(", ") : "No floor surfaces set"}</strong>
+              <section className="floor-surface-panel" aria-label="Flooring surfaces">
+                <div className="floor-surface-summary">
+                  <div>
+                    <span>Flooring</span>
+                    <strong>{selectedFloor.flooring.length > 0 ? selectedFloor.flooring.join(", ") : "No floor surfaces set"}</strong>
+                  </div>
+                  <button className="secondary-action" disabled={isSaving} onClick={() => setIsEditingSurfaces(true)} type="button">
+                    Edit surfaces
+                  </button>
                 </div>
-                <button className="secondary-action" disabled={isSaving} onClick={() => setIsEditingSurfaces(true)} type="button">
-                  Edit surfaces
-                </button>
-              </div>
-              {isEditingSurfaces ? (
-                <div className="chip-list" aria-label="Flooring">
-                  {flooringOptions.map((flooring) => (
-                    <button
-                      aria-pressed={selectedFloor.flooring.includes(flooring)}
-                      disabled={isSaving}
-                      key={flooring}
-                      onClick={() => handleToggleFlooring(flooring)}
-                      type="button"
-                    >
-                      {flooring}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
+                {isEditingSurfaces ? (
+                  <div className="chip-list" aria-label="Flooring">
+                    {flooringOptions.map((flooring) => (
+                      <button
+                        aria-pressed={selectedFloor.flooring.includes(flooring)}
+                        disabled={isSaving}
+                        key={flooring}
+                        onClick={() => handleToggleFlooring(flooring)}
+                        type="button"
+                      >
+                        {flooring}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </section>
               <div className="floor-edit-actions">
                 <div>
                   {selectedFloor.levelType !== "main" ? (

@@ -3531,27 +3531,6 @@ button.chore-row-summary[aria-expanded="true"] {
   accent-color: var(--color-primary-strong);
 }
 
-.floor-surface-summary {
-  background: transparent;
-  border: 1px solid var(--color-border);
-  border-width: 1px 0 0;
-  border-radius: 8px;
-  padding: 13px 0 0;
-}
-
-.floor-surface-summary span {
-  color: #667085;
-  display: block;
-  font-size: 0.78rem;
-  font-weight: 800;
-  margin-bottom: 5px;
-  text-transform: uppercase;
-}
-
-.floor-surface-summary strong {
-  color: #24352e;
-}
-
 .home-floor-preview {
   align-items: center;
   display: grid;
@@ -3631,12 +3610,34 @@ button.chore-row-summary[aria-expanded="true"] {
   padding: 16px;
 }
 
+.floor-surface-panel {
+  background: #f6fbfc;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 14px;
+}
+
 .floor-surface-summary {
   align-items: center;
   display: flex;
   gap: 14px;
   justify-content: space-between;
-  margin-top: 16px;
+}
+
+.floor-surface-summary span {
+  color: #667085;
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 800;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+}
+
+.floor-surface-summary strong {
+  color: #24352e;
 }
 
 .household-editor {

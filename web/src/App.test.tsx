@@ -2137,6 +2137,7 @@ describe("App", () => {
     expect(screen.queryByRole("button", { name: "Edit surfaces" })).toBeNull();
     await editSelectedFloor();
     expect(screen.queryByRole("button", { name: "Add floor" })).toBeNull();
+    expect(within(screen.getByRole("region", { name: "Flooring surfaces" })).getByRole("button", { name: "Edit surfaces" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "hardwood" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Edit surfaces" }));
     expect(screen.getByRole("button", { name: "hardwood" }).getAttribute("aria-pressed")).toBe("true");
