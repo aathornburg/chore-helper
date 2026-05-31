@@ -177,8 +177,6 @@ function SingleHomeWorkspace({
   onAddHousehold: () => Promise<void>;
   onReload: () => Promise<void>;
 }) {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-
   return (
     <>
       <header className="my-home-header">
@@ -188,22 +186,13 @@ function SingleHomeWorkspace({
         </div>
         <div className="my-home-header-actions">
           <button
-            aria-expanded={isMenuOpen}
-            aria-haspopup="menu"
-            aria-label="More home actions"
-            className="secondary-action my-home-more-button"
-            onClick={() => setIsMenuOpen((current) => !current)}
+            className="my-home-add-link"
+            disabled={isAddingHousehold}
+            onClick={onAddHousehold}
             type="button"
           >
-            More
+            Add another home
           </button>
-          {isMenuOpen ? (
-            <div className="my-home-menu" role="menu">
-              <button disabled={isAddingHousehold} onClick={onAddHousehold} role="menuitem" type="button">
-                Add another home
-              </button>
-            </div>
-          ) : null}
         </div>
       </header>
       <HouseholdWorkspace household={household} onReload={onReload} />
@@ -512,6 +501,7 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
     try {
       await saveHouseholdProfile(household.id, { name: profileName.trim(), ...profile });
       await onReload();
+      setIsEditingHome(false);
     } catch {
       setProfileError("Could not save household profile.");
     } finally {
@@ -654,9 +644,15 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
             Rooms
           </button>
         </div>
-        <button className="secondary-action" onClick={handleToggleEditing} type="button">
-          {isEditingHome ? "Done editing" : "Edit home"}
-        </button>
+        {!isEditingHome ? (
+          <button className="secondary-action" onClick={handleToggleEditing} type="button">
+            Edit home
+          </button>
+        ) : workspaceView === "overview" ? null : (
+          <button className="secondary-action" onClick={handleToggleEditing} type="button">
+            Done editing
+          </button>
+        )}
       </div>
 
       {saveError ? <div className="empty-state" role="status">{saveError}</div> : null}
@@ -736,7 +732,9 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
                 onChange={(event) => setProfile({ ...profile, notes: event.target.value })}
               />
             </label>
-            <button disabled={isSavingProfile} type="submit">Save household profile</button>
+            <div className="household-profile-actions">
+              <button disabled={isSavingProfile} type="submit">Save household profile</button>
+            </div>
           </form>
         ) : (
           <section className="home-profile-summary" aria-label="Home profile summary">

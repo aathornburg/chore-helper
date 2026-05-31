@@ -81,7 +81,6 @@ async function manageHomeHousehold() {
 async function enableHomeEditing() {
   await waitFor(() => expect(screen.getByRole("button", { name: "Edit home" })).toBeTruthy());
   fireEvent.click(screen.getByRole("button", { name: "Edit home" }));
-  expect(screen.getByRole("button", { name: "Done editing" })).toBeTruthy();
 }
 
 async function openHouseholdManageTab(name: "Overview" | "Floors" | "Rooms") {
@@ -1294,7 +1293,7 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Add room" })).toBeTruthy();
   });
 
-  it("keeps add another home in a low-emphasis More menu for one household", async () => {
+  it("keeps add another home as a low-emphasis header action for one household", async () => {
     const fetchMock = mockHouseholdsPageFetches(
       { householdId: "household-1", floors: [] },
       { allowAddHousehold: true }
@@ -1304,10 +1303,9 @@ describe("App", () => {
 
     expect(await screen.findByRole("heading", { name: "My Home", level: 1 })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Add household" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "More home actions" })).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "More home actions" }));
-    expect(screen.queryByRole("menuitem", { name: "Rename home" })).toBeNull();
-    fireEvent.click(screen.getByRole("menuitem", { name: "Add another home" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add another home" }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -2115,6 +2113,7 @@ describe("App", () => {
     renderAt("/households");
     await manageHomeHousehold();
     await enableHomeEditing();
+    expect(screen.queryByRole("button", { name: "Done editing" })).toBeNull();
     fireEvent.change(screen.getByLabelText("Household name"), { target: { value: "Lake House" } });
     fireEvent.click(screen.getByRole("button", { name: "Save household profile" }));
 
@@ -2133,6 +2132,7 @@ describe("App", () => {
         })
       );
     });
+    expect(screen.getByRole("button", { name: "Edit home" })).toBeTruthy();
   });
 
   it("adds and removes a basement floor with confirmation", async () => {
