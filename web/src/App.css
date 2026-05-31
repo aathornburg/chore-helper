@@ -3721,6 +3721,7 @@ button.chore-row-summary[aria-expanded="true"] {
   background: var(--color-surface-elevated);
   border: 1px solid var(--color-border);
   color: #2f3a34;
+  font-weight: 500;
   padding: 8px 10px;
 }
 
@@ -3729,6 +3730,7 @@ button.chore-row-summary[aria-expanded="true"] {
   display: flex;
   gap: 16px;
   justify-content: space-between;
+  margin-bottom: 12px;
 }
 
 .floor-detail-heading h2 {
