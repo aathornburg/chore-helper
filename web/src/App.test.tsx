@@ -1294,6 +1294,7 @@ describe("App", () => {
     expect(screen.queryByRole("button", { name: "Add household" })).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "More home actions" }));
+    expect(screen.queryByRole("menuitem", { name: "Rename home" })).toBeNull();
     fireEvent.click(screen.getByRole("menuitem", { name: "Add another home" }));
 
     await waitFor(() => {
@@ -2388,10 +2389,12 @@ describe("App", () => {
 
       fireEvent.click(screen.getByRole("button", { name: "Next week" }));
       expect(await screen.findByRole("button", { name: "Sunday May 31 0 due" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Sunday May 31 0 due" }).getAttribute("aria-pressed")).toBe("true");
       expect(screen.queryByRole("button", { name: "Sunday May 24 0 due" })).toBeNull();
 
       fireEvent.click(screen.getByRole("button", { name: "Previous week" }));
       expect(await screen.findByRole("button", { name: "Sunday May 24 0 due" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Sunday May 24 0 due" }).getAttribute("aria-pressed")).toBe("true");
     });
   });
 

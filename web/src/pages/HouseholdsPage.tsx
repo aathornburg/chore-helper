@@ -191,9 +191,6 @@ function SingleHomeWorkspace({
           </button>
           {isMenuOpen ? (
             <div className="my-home-menu" role="menu">
-              <button role="menuitem" type="button">
-                Rename home
-              </button>
               <button disabled={isAddingHousehold} onClick={onAddHousehold} role="menuitem" type="button">
                 Add another home
               </button>

@@ -102,6 +102,13 @@ export function TodayDashboard({ households, isLoading, loadError, onNavigate, w
   });
 
   useEffect(() => {
+    const visibleDateKeys = stripDates.map((date) => format(date, "yyyy-MM-dd"));
+    if (!visibleDateKeys.includes(selectedDateKey)) {
+      setSelectedDateKey(visibleDateKeys[0] ?? format(todayStart, "yyyy-MM-dd"));
+    }
+  }, [selectedDateKey, stripDates, todayStart]);
+
+  useEffect(() => {
     if (isLoading || loadError || households.length === 0) {
       setMembersByHousehold({});
       setOccurrencesByHousehold({});
@@ -117,12 +124,13 @@ export function TodayDashboard({ households, isLoading, loadError, onNavigate, w
         const currentUser = await getCurrentUser();
         const nextMembersByHousehold: Record<string, HouseholdMemberSummary[]> = {};
         const nextOccurrencesByHousehold: Record<string, ChoreOccurrence[]> = {};
-        const rangeEnd = stripDates[stripDates.length - 1] ?? todayStart;
+        const rangeStart = stripDates[0] ?? todayStart;
+        const rangeEnd = stripDates[stripDates.length - 1] ?? rangeStart;
 
         await Promise.all(households.map(async (household) => {
           const [members, occurrences] = await Promise.all([
             listHouseholdMembers(household.id),
-            listOccurrences(household.id, buildOccurrenceRange(todayStart, rangeEnd, household.timeZone))
+            listOccurrences(household.id, buildOccurrenceRange(rangeStart, rangeEnd, household.timeZone))
           ]);
           nextMembersByHousehold[household.id] = members;
           nextOccurrencesByHousehold[household.id] = occurrences;
