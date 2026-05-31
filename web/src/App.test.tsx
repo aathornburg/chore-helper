@@ -846,6 +846,7 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "Home" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Cabin" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Upcoming next 7 days" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Sunday May 24 0 due" })).toBeTruthy();
     expect(await screen.findByRole("button", { name: "Saturday May 30 3 due" })).toBeTruthy();
     expect(screen.getByText("TO DO (1)")).toBeTruthy();
     expect(screen.getByText("DONE (1)")).toBeTruthy();
@@ -2016,6 +2017,23 @@ describe("App", () => {
     expect(screen.getByText("Not connected")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Connect Google Calendar" }));
     expect(screen.getByText(/connection flow is coming next/i)).toBeTruthy();
+  });
+
+  it("lets Settings switch the Today week rail start day", async () => {
+    mockEmptyAppDataFetches();
+    renderAt("/settings");
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Settings" })).toBeTruthy());
+    expect((screen.getByLabelText("Sunday") as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(screen.getByLabelText("Monday"));
+    expect(window.localStorage.getItem("cleanly:week-start-day")).toBe("monday");
+
+    cleanup();
+    mockRestoredHouseholdFetches();
+    renderAt("/today");
+
+    expect(await screen.findByRole("button", { name: "Monday May 25 0 due" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Sunday May 24 0 due" })).toBeNull();
   });
 
   it("shows the Optimize recommendation selection flow", async () => {

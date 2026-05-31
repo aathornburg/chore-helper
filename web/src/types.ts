@@ -6,4 +6,6 @@ import type { Chore } from "@chore-helper/shared";
 */
 export type Navigate = (path: string) => void;
 
+export type WeekStartDay = "sunday" | "monday";
+
 export type ExistingChoreFormValues = Omit<Chore, "id" | "householdId">;

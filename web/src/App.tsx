@@ -12,6 +12,7 @@ import { normalizePath } from "./routes";
 import { AppDataProvider } from "./state/AppDataProvider";
 import { useAppData } from "./state/useAppData";
 import { BellIcon, CloseIcon, MenuIcon, SparklesIcon } from "./components/AppIcons";
+import type { WeekStartDay } from "./types";
 
 /*
   Importing CSS directly inside a React module is a bundler feature. With
@@ -55,6 +56,9 @@ function App() {
 
 function AppRoutes() {
   const [path, setPath] = useState(() => normalizePath(window.location.pathname));
+  const [weekStartDay, setWeekStartDayState] = useState<WeekStartDay>(() =>
+    window.localStorage.getItem("cleanly:week-start-day") === "monday" ? "monday" : "sunday"
+  );
   const { addHousehold, households, isLoading, loadError, reloadHouseholds } = useAppData();
 
   /*
@@ -84,6 +88,11 @@ function AppRoutes() {
     setPath(normalizePath(window.location.pathname));
   }
 
+  function setWeekStartDay(nextWeekStartDay: WeekStartDay) {
+    window.localStorage.setItem("cleanly:week-start-day", nextWeekStartDay);
+    setWeekStartDayState(nextWeekStartDay);
+  }
+
   /*
     This manual navigation is roughly like calling `router.navigateByUrl`
     in Angular. The component manages browser history and updates local
@@ -92,7 +101,13 @@ function AppRoutes() {
   if (path === "/") {
     return (
       <AppShell currentPath="/today" onNavigate={navigate}>
-        <TodayDashboard households={households} isLoading={isLoading} loadError={loadError} onNavigate={navigate} />
+        <TodayDashboard
+          households={households}
+          isLoading={isLoading}
+          loadError={loadError}
+          onNavigate={navigate}
+          weekStartDay={weekStartDay}
+        />
       </AppShell>
     );
   }
@@ -100,7 +115,13 @@ function AppRoutes() {
   return (
     <AppShell currentPath={path} onNavigate={navigate}>
       {path === "/today" ? (
-        <TodayDashboard households={households} isLoading={isLoading} loadError={loadError} onNavigate={navigate} />
+        <TodayDashboard
+          households={households}
+          isLoading={isLoading}
+          loadError={loadError}
+          onNavigate={navigate}
+          weekStartDay={weekStartDay}
+        />
       ) : null}
       {path === "/calendar" ? (
         <CalendarPage households={households} isLoading={isLoading} onNavigate={navigate} />
@@ -115,7 +136,9 @@ function AppRoutes() {
         />
       ) : null}
       {path === "/family" ? <FamilyPage households={households} isLoading={isLoading} /> : null}
-      {path === "/settings" ? <SettingsPage /> : null}
+      {path === "/settings" ? (
+        <SettingsPage onWeekStartDayChange={setWeekStartDay} weekStartDay={weekStartDay} />
+      ) : null}
     </AppShell>
   );
 }

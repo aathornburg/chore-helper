@@ -212,10 +212,11 @@ button:hover {
   gap: 26px;
   justify-content: space-between;
   margin: 14px auto 0;
-  max-width: 1248px;
+  max-width: 1180px;
   padding: 12px 32px;
   position: sticky;
   top: 0;
+  width: min(1180px, calc(100vw - 68px));
   z-index: 10;
 }
 
@@ -1825,6 +1826,7 @@ button.calendar-event:hover {
   gap: 18px;
   max-width: 1180px;
   padding: 28px 34px 34px;
+  width: min(1180px, calc(100vw - 68px));
 }
 
 .today-command-header {
@@ -3023,6 +3025,31 @@ button.chore-row-summary[aria-expanded="true"] {
   color: #425447;
 }
 
+.settings-radio-group {
+  border: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+}
+
+.settings-radio-group label {
+  align-items: center;
+  background: #fffefa;
+  border: 1px solid #eaded1;
+  border-radius: 999px;
+  color: #24352e;
+  display: inline-flex;
+  font-weight: 850;
+  gap: 8px;
+  padding: 9px 12px;
+}
+
+.settings-radio-group input {
+  accent-color: #0e512d;
+}
+
 .overview-stat-grid {
   display: grid;
   gap: 12px;
@@ -3292,6 +3319,7 @@ button.chore-row-summary[aria-expanded="true"] {
   .workspace-topbar {
     border-radius: 0;
     margin-top: 0;
+    width: 100%;
   }
 
   .workspace-brand-cluster,
@@ -3400,6 +3428,7 @@ button.chore-row-summary[aria-expanded="true"] {
   .today-page {
     border-radius: 0 0 12px 12px;
     padding: 20px 14px 24px;
+    width: 100%;
   }
 
   .today-command-header,

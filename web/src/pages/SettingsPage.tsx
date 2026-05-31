@@ -1,6 +1,12 @@
 import { useState } from "react";
+import type { WeekStartDay } from "../types";
 
-export function SettingsPage() {
+type SettingsPageProps = {
+  onWeekStartDayChange: (weekStartDay: WeekStartDay) => void;
+  weekStartDay: WeekStartDay;
+};
+
+export function SettingsPage({ onWeekStartDayChange, weekStartDay }: SettingsPageProps) {
   const [showCalendarReadiness, setShowCalendarReadiness] = useState(false);
   const highlighted = window.location.hash === "#calendar";
 
@@ -33,6 +39,42 @@ export function SettingsPage() {
               The Google Calendar connection flow is coming next. This entry point is ready for OAuth and import review work.
             </p>
           ) : null}
+        </article>
+      </section>
+
+      <section className="dashboard-section" aria-labelledby="calendar-preferences-heading">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Calendar</p>
+            <h2 id="calendar-preferences-heading">Calendar preferences</h2>
+          </div>
+        </div>
+        <article className="integration-card">
+          <div className="panel-heading">
+            <h2>Week starts on</h2>
+            <span>{weekStartDay === "sunday" ? "Sunday" : "Monday"}</span>
+          </div>
+          <fieldset className="settings-radio-group">
+            <legend className="sr-only">Week starts on</legend>
+            <label>
+              <input
+                checked={weekStartDay === "sunday"}
+                name="week-start-day"
+                onChange={() => onWeekStartDayChange("sunday")}
+                type="radio"
+              />
+              Sunday
+            </label>
+            <label>
+              <input
+                checked={weekStartDay === "monday"}
+                name="week-start-day"
+                onChange={() => onWeekStartDayChange("monday")}
+                type="radio"
+              />
+              Monday
+            </label>
+          </fieldset>
         </article>
       </section>
     </div>

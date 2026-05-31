@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { addDays, format, startOfDay } from "date-fns";
+import { addDays, format, startOfDay, startOfWeek } from "date-fns";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import type { ChoreOccurrence, CompletionCheckInInput, HouseholdAppData, HouseholdMemberSummary } from "@chore-helper/shared";
 import { completeOccurrence, getCurrentUser, listHouseholdMembers, listOccurrences, updateCompletionCheckIn } from "../api";
 import type { Navigate } from "../types";
+import type { WeekStartDay } from "../types";
 import { formatHouseholdSummary } from "../utils/household";
 import {
   CalendarIcon,
@@ -21,6 +22,7 @@ type TodayDashboardProps = {
   isLoading: boolean;
   loadError?: string;
   onNavigate: Navigate;
+  weekStartDay: WeekStartDay;
 };
 
 function isProfileComplete(household: HouseholdAppData) {
@@ -72,11 +74,14 @@ function buildOccurrenceRange(startDate: Date, endDate: Date, timeZone: string) 
   };
 }
 
-export function TodayDashboard({ households, isLoading, loadError, onNavigate }: TodayDashboardProps) {
+export function TodayDashboard({ households, isLoading, loadError, onNavigate, weekStartDay }: TodayDashboardProps) {
   const todayStart = useMemo(() => startOfDay(new Date()), []);
   const stripDates = useMemo(
-    () => Array.from({ length: 7 }, (_, index) => addDays(todayStart, index)),
-    [todayStart]
+    () => {
+      const weekStart = startOfWeek(todayStart, { weekStartsOn: weekStartDay === "monday" ? 1 : 0 });
+      return Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
+    },
+    [todayStart, weekStartDay]
   );
   const [selectedDateKey, setSelectedDateKey] = useState(() => format(todayStart, "yyyy-MM-dd"));
   const [viewMode, setViewMode] = useState<TodayViewMode>("merged");
