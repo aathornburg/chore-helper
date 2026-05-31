@@ -200,7 +200,7 @@ function SingleHomeWorkspace({
   );
 }
 
-function HousePreview({ floors }: { floors: HouseholdFloor[] }) {
+function HousePreview({ floors, onSelectFloor }: { floors: HouseholdFloor[]; onSelectFloor: (floorId: string) => void }) {
   if (floors.length === 0) {
     return (
       <section className="home-floor-preview" aria-label="Home floor preview">
@@ -211,12 +211,18 @@ function HousePreview({ floors }: { floors: HouseholdFloor[] }) {
 
   return (
     <section className="home-floor-preview" aria-label="Home floor preview">
-      <div className="home-preview-elevation" aria-hidden="true">
+      <div className="home-preview-elevation">
         <div className="home-preview-roof" />
         {floors.map((floor) => (
-          <div className={`home-preview-floor home-preview-floor-${floor.levelType}`} key={floor.id}>
+          <button
+            aria-label={`View ${floor.name} details`}
+            className={`home-preview-floor home-preview-floor-${floor.levelType}`}
+            key={floor.id}
+            onClick={() => onSelectFloor(floor.id)}
+            type="button"
+          >
             {floor.name}
-          </div>
+          </button>
         ))}
       </div>
       <div className="home-preview-floor-list">
@@ -236,7 +242,8 @@ function HousePreview({ floors }: { floors: HouseholdFloor[] }) {
 function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppData; onReload: () => Promise<void> }) {
   const saveInFlightRef = useRef(false);
   const [workspaceView, setWorkspaceView] = useState<HomeWorkspaceView>("overview");
-  const [isEditingHome, setIsEditingHome] = useState(false);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isEditingFloor, setIsEditingFloor] = useState(false);
   const overviewTabId = `${household.id}-overview-tab`;
   const overviewPanelId = `${household.id}-overview-panel`;
   const floorsTabId = `${household.id}-floors-tab`;
@@ -269,26 +276,43 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
 
   function handleSelectWorkspaceView(nextView: HomeWorkspaceView) {
     setWorkspaceView(nextView);
-    if (nextView !== "floors") setIsEditingSurfaces(false);
+    if (nextView !== "overview") resetProfileDraft();
+    if (nextView !== "floors") {
+      setIsEditingFloor(false);
+      setIsEditingSurfaces(false);
+    }
     if (nextView !== "rooms") setEditingRoom(undefined);
     setPendingRemoveFloorId(undefined);
   }
 
   function handleSelectFloor(floorId: string) {
     setSelectedFloorId(floorId);
+    setIsEditingFloor(false);
     setIsEditingSurfaces(false);
     setPendingRemoveFloorId(undefined);
   }
 
-  function handleToggleEditing() {
-    setIsEditingHome((current) => {
-      if (current) {
-        setIsEditingSurfaces(false);
-        setEditingRoom(undefined);
-        setPendingRemoveFloorId(undefined);
-      }
-      return !current;
+  function handleOpenFloorFromOverview(floorId: string) {
+    setSelectedFloorId(floorId);
+    handleSelectWorkspaceView("floors");
+  }
+
+  function resetProfileDraft() {
+    setProfileName(household.name);
+    setProfile(household.profile ?? {
+      homeType: "house",
+      hasPets: false,
+      hasOutdoorSpace: false,
+      notes: ""
     });
+    setProfileError(undefined);
+    setIsEditingProfile(false);
+  }
+
+  function resetFloorEdit() {
+    setIsEditingFloor(false);
+    setIsEditingSurfaces(false);
+    setPendingRemoveFloorId(undefined);
   }
 
   function renderFloorSelector(showActions: boolean) {
@@ -313,20 +337,6 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
             </button>
           ))}
         </div>
-        <div className="floor-summary-list">
-          {floors.map((floor) => (
-            <button
-              aria-pressed={selectedFloor.id === floor.id}
-              disabled={isSaving}
-              key={floor.id}
-              onClick={() => handleSelectFloor(floor.id)}
-              type="button"
-            >
-              <strong>{floor.name}</strong>
-              <span>{floor.rooms.length} room{floor.rooms.length === 1 ? "" : "s"}</span>
-            </button>
-          ))}
-        </div>
         {showActions ? (
           <div className="floor-actions">
             <button disabled={isSaving} onClick={handleAddFloor} type="button">Add floor</button>
@@ -339,7 +349,7 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
     );
   }
 
-  function renderRoomsPanel(canEdit: boolean) {
+  function renderRoomsPanel() {
     if (!selectedFloor) return null;
 
     return (
@@ -349,15 +359,13 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
             <h2>{selectedFloor.name}</h2>
             <p className="lede">Rooms</p>
           </div>
-          {canEdit ? (
-            <button
-              disabled={isSaving}
-              onClick={() => setEditingRoom(createRoom(selectedFloor.id))}
-              type="button"
-            >
-              Add room
-            </button>
-          ) : null}
+          <button
+            disabled={isSaving}
+            onClick={() => setEditingRoom(createRoom(selectedFloor.id))}
+            type="button"
+          >
+            Add room
+          </button>
         </div>
 
         <section className="room-card-section" aria-label="Rooms">
@@ -370,12 +378,10 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
                 <span>Pet impact: {room.petImpact}</span>
                 <span>Vacuum: {room.robotVacuumCoverage}</span>
                 <span>Mop: {room.robotMopCoverage}</span>
-                {canEdit ? (
-                  <div className="form-actions">
-                    <button disabled={isSaving} onClick={() => setEditingRoom(room)} type="button">Edit {room.name}</button>
-                    <button disabled={isSaving} onClick={() => handleRemoveRoom(room.id)} type="button">Remove {room.name}</button>
-                  </div>
-                ) : null}
+                <div className="form-actions">
+                  <button disabled={isSaving} onClick={() => setEditingRoom(room)} type="button">Edit {room.name}</button>
+                  <button disabled={isSaving} onClick={() => handleRemoveRoom(room.id)} type="button">Remove {room.name}</button>
+                </div>
               </article>
               ))}
             </div>
@@ -384,7 +390,7 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
           )}
         </section>
 
-        {canEdit && editingRoom ? (
+        {editingRoom ? (
           <form className="room-editor" onSubmit={handleSaveRoom}>
             <label>
               Room name
@@ -501,7 +507,7 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
     try {
       await saveHouseholdProfile(household.id, { name: profileName.trim(), ...profile });
       await onReload();
-      setIsEditingHome(false);
+      setIsEditingProfile(false);
     } catch {
       setProfileError("Could not save household profile.");
     } finally {
@@ -512,7 +518,8 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
   async function handleSaveFloor(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedFloor || isSaving) return;
-    await persist(activeStructure);
+    const saved = await persist(activeStructure);
+    if (saved) resetFloorEdit();
   }
 
   function updateSelectedFloor(update: Partial<HouseholdFloor>) {
@@ -543,6 +550,7 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
     const floor = createNewFloor(activeStructure.householdId, activeStructure.floors.length);
     const nextStructure = { ...activeStructure, floors: sortFloors([...activeStructure.floors, floor]) };
     setSelectedFloorId(floor.id);
+    setIsEditingFloor(true);
     await persist(nextStructure);
   }
 
@@ -597,6 +605,7 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
     const basement = createBasementFloor(activeStructure.householdId);
     const nextStructure = { ...activeStructure, floors: sortFloors([...activeStructure.floors, basement]) };
     setSelectedFloorId(basement.id);
+    setIsEditingFloor(true);
     await persist(nextStructure);
   }
 
@@ -644,15 +653,6 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
             Rooms
           </button>
         </div>
-        {!isEditingHome ? (
-          <button className="secondary-action" onClick={handleToggleEditing} type="button">
-            Edit home
-          </button>
-        ) : workspaceView === "overview" ? null : (
-          <button className="secondary-action" onClick={handleToggleEditing} type="button">
-            Done editing
-          </button>
-        )}
       </div>
 
       {saveError ? <div className="empty-state" role="status">{saveError}</div> : null}
@@ -666,22 +666,8 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
         id={overviewPanelId}
         role="tabpanel"
       >
-        <HousePreview floors={floors} />
-        <div className="overview-stat-grid">
-          <div>
-            <span>Selected floor</span>
-            <strong>{selectedFloor?.name ?? "No floor selected"}</strong>
-          </div>
-          <div>
-            <span>Rooms</span>
-            <strong>{floors.reduce((total, floor) => total + floor.rooms.length, 0)}</strong>
-          </div>
-          <div>
-            <span>Surfaces</span>
-            <strong>{selectedFloor && selectedFloor.flooring.length > 0 ? selectedFloor.flooring.join(", ") : "None set"}</strong>
-          </div>
-        </div>
-        {isEditingHome ? (
+        <HousePreview floors={floors} onSelectFloor={handleOpenFloorFromOverview} />
+        {isEditingProfile ? (
           <form className="manual-chore-form household-profile-form" onSubmit={handleSaveProfile}>
             <div className="field-grid">
               <label>
@@ -733,7 +719,8 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
               />
             </label>
             <div className="household-profile-actions">
-              <button disabled={isSavingProfile} type="submit">Save household profile</button>
+              <button className="secondary-action" disabled={isSavingProfile} onClick={resetProfileDraft} type="button">Cancel</button>
+              <button disabled={isSavingProfile} type="submit">Save</button>
             </div>
           </form>
         ) : (
@@ -755,8 +742,21 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
                 <span>Outdoor space</span>
                 <strong>{formatBoolean(profile.hasOutdoorSpace)}</strong>
               </div>
+              <div>
+                <span>Modeled structure</span>
+                <strong>
+                  {floors.length} floor{floors.length === 1 ? "" : "s"} / {floors.reduce((total, floor) => total + floor.rooms.length, 0)} rooms
+                </strong>
+              </div>
+              <div>
+                <span>Setup status</span>
+                <strong>{setupQualityLabel({ ...household, structure: activeStructure })}</strong>
+              </div>
             </div>
             {profile.notes ? <p>{profile.notes}</p> : null}
+            <div className="household-profile-actions">
+              <button className="secondary-action" onClick={() => setIsEditingProfile(true)} type="button">Edit home details</button>
+            </div>
           </section>
         )}
       </section>
@@ -771,8 +771,8 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
       >
         {workspaceView === "floors" && selectedFloor ? (
           <>
-            {renderFloorSelector(isEditingHome)}
-            {isEditingHome ? (
+            {renderFloorSelector(true)}
+            {isEditingFloor ? (
               <form className="floor-detail-panel" onSubmit={handleSaveFloor}>
               <div className="floor-detail-heading">
                 <div>
@@ -878,6 +878,7 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
                 </div>
               ) : null}
               <div className="form-actions">
+                <button className="secondary-action" disabled={isSaving} onClick={resetFloorEdit} type="button">Cancel</button>
                 <button disabled={isSaving} type="submit">Save floor details</button>
               </div>
             </form>
@@ -888,6 +889,7 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
                     <h2>{selectedFloor.name}</h2>
                     <p className="lede">Floor details</p>
                   </div>
+                  <button className="secondary-action" onClick={() => setIsEditingFloor(true)} type="button">Edit floor</button>
                 </div>
                 <div className="home-summary-grid floor-readonly-grid">
                   <div>
@@ -931,7 +933,7 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
         {workspaceView === "rooms" && selectedFloor ? (
           <>
             {renderFloorSelector(false)}
-            {renderRoomsPanel(isEditingHome)}
+            {renderRoomsPanel()}
           </>
         ) : workspaceView === "rooms" ? (
           <div className="empty-state">No floors modeled yet.</div>

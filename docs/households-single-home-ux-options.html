@@ -3,23 +3,24 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Households Single-Home UX Options</title>
+  <title>My Home View Comparisons</title>
   <style>
     :root {
-      --bg: #edf7f9;
-      --surface: #fbfdfe;
-      --surface-soft: #eef8fa;
-      --surface-muted: #f5fafb;
-      --line: #c8e1e7;
+      --bg: #eef7f9;
+      --page: #fbfdfe;
+      --surface: #f5fafb;
+      --surface-cool: #e7f4f7;
+      --line: #c9e2e8;
       --line-soft: #dcecef;
-      --text: #092f43;
-      --muted: #536173;
+      --text: #0a3144;
+      --body: #304553;
+      --muted: #657585;
       --teal: #155e75;
-      --teal-strong: #0f4c66;
+      --teal-dark: #0f4c66;
       --teal-soft: #dff1f5;
-      --done: #135c38;
-      --warning: #945f25;
-      --shadow: 0 18px 48px rgba(15, 76, 102, 0.1);
+      --green: #15603d;
+      --amber: #8a5a1d;
+      --shadow: 0 20px 60px rgba(15, 76, 102, 0.12);
     }
 
     * {
@@ -28,260 +29,146 @@
 
     body {
       background:
-        radial-gradient(circle at top left, rgba(203, 229, 235, 0.8), transparent 34rem),
-        linear-gradient(135deg, #eef7f9 0%, #f8fcfd 52%, #e8f3f6 100%);
+        radial-gradient(circle at 10% 0%, rgba(184, 223, 230, 0.8), transparent 34rem),
+        linear-gradient(140deg, #eef8fa 0%, #f9fcfd 48%, #e8f3f6 100%);
       color: var(--text);
       font-family: "Trebuchet MS", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
       margin: 0;
       min-height: 100vh;
-      padding: 32px;
+      padding: 30px;
     }
 
     main {
       display: grid;
       gap: 22px;
       margin: 0 auto;
-      max-width: 1280px;
+      max-width: 1440px;
     }
 
     h1,
     h2,
     h3,
+    h4,
     p {
       margin: 0;
     }
 
-    .intro {
-      background: rgba(251, 253, 254, 0.94);
+    .hero,
+    .view-section,
+    .decision {
+      background: rgba(251, 253, 254, 0.96);
       border: 1px solid var(--line);
       border-radius: 14px;
       box-shadow: var(--shadow);
+    }
+
+    .hero {
       display: grid;
       gap: 18px;
-      padding: 28px;
+      padding: 30px;
     }
 
-    .intro h1 {
-      font-size: clamp(2.35rem, 5vw, 4.25rem);
-      line-height: 0.98;
+    .hero h1 {
+      color: var(--teal-dark);
+      font-size: clamp(2.5rem, 5vw, 4.5rem);
+      line-height: 0.96;
+      max-width: 980px;
     }
 
-    .intro p {
-      color: var(--muted);
+    .hero p {
+      color: var(--body);
       font-size: 1.05rem;
       line-height: 1.55;
-      max-width: 850px;
-    }
-
-    .recommendation {
-      align-items: start;
-      background: var(--teal-soft);
-      border: 1px solid #badde5;
-      border-radius: 10px;
-      display: grid;
-      gap: 10px;
-      grid-template-columns: minmax(0, 1fr) auto;
-      padding: 16px;
-    }
-
-    .recommendation strong {
-      color: var(--teal-strong);
-      font-size: 1.05rem;
-    }
-
-    .pill {
-      background: var(--teal);
-      border-radius: 999px;
-      color: #fff;
-      display: inline-flex;
-      font-size: 0.8rem;
-      font-weight: 850;
-      justify-content: center;
-      padding: 8px 12px;
-      white-space: nowrap;
-    }
-
-    .option-grid {
-      display: grid;
-      gap: 18px;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .interaction-grid {
-      display: grid;
-      gap: 18px;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
-    .option {
-      background: rgba(251, 253, 254, 0.95);
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      box-shadow: var(--shadow);
-      display: grid;
-      gap: 0;
-      overflow: hidden;
-    }
-
-    .interaction-card {
-      background: rgba(251, 253, 254, 0.95);
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      box-shadow: var(--shadow);
-      display: grid;
-      gap: 16px;
-      padding: 18px;
-    }
-
-    .interaction-card.recommended {
-      border-color: #8fc8d4;
-      box-shadow: 0 18px 48px rgba(15, 76, 102, 0.16);
-    }
-
-    .home-first .page {
-      gap: 20px;
-    }
-
-    .home-first .page-title {
-      align-items: end;
-    }
-
-    .home-first .page-actions {
-      align-items: center;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      justify-content: flex-end;
-    }
-
-    .quiet-action {
-      color: var(--teal-strong);
-      font-size: 0.82rem;
-      font-weight: 850;
-      text-decoration: none;
-    }
-
-    .home-first .section {
-      background: transparent;
-      border-width: 1px 0 0;
-      border-radius: 0;
-      padding: 16px 0 0;
-    }
-
-    .home-first .section:first-of-type {
-      border-top: 0;
-      padding-top: 0;
-    }
-
-    .home-first .stat,
-    .home-first .field {
-      background: transparent;
-      border-color: var(--line);
-      border-width: 1px 0 0;
-      border-radius: 0;
-      padding: 12px 0;
-    }
-
-    .home-first .stat strong {
-      font-size: 1.65rem;
-    }
-
-    .home-overview-layout {
-      align-items: center;
-      display: grid;
-      gap: 18px;
-      grid-template-columns: minmax(120px, 0.42fr) minmax(0, 1fr);
-    }
-
-    .home-elevation {
-      display: grid;
-      justify-items: center;
-    }
-
-    .home-roof {
-      border-bottom: 34px solid var(--teal-strong);
-      border-left: 62px solid transparent;
-      border-right: 62px solid transparent;
-      height: 0;
-      width: 0;
-    }
-
-    .home-floor {
-      align-items: center;
-      background: #fff;
-      border: 2px solid var(--teal-strong);
-      border-top: 0;
-      color: var(--teal-strong);
-      display: flex;
-      font-size: 0.8rem;
-      font-weight: 900;
-      height: 42px;
-      justify-content: center;
-      width: 124px;
-    }
-
-    .home-floor.main {
-      background: var(--teal-soft);
-      box-shadow: inset 0 0 0 3px #b9dce4;
-    }
-
-    .home-floor.basement {
-      background: #eef3f5;
-    }
-
-    .home-view-summary {
-      display: grid;
-      gap: 8px;
-    }
-
-    .home-view-summary .row {
-      background: transparent;
-      border-width: 1px 0 0;
-      border-radius: 0;
-      grid-template-columns: minmax(0, 1fr) auto;
-      padding: 10px 0;
-    }
-
-    .home-view-summary .row:first-child {
-      border-top: 0;
-    }
-
-    .option-header {
-      border-bottom: 1px solid var(--line-soft);
-      display: grid;
-      gap: 10px;
-      padding: 18px;
+      max-width: 900px;
     }
 
     .eyebrow {
-      color: var(--teal-strong);
-      font-size: 0.76rem;
+      color: var(--teal-dark);
+      font-size: 0.74rem;
       font-weight: 900;
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
 
-    .option-header h2 {
-      font-size: 1.45rem;
-      line-height: 1.1;
+    .decision {
+      align-items: start;
+      display: grid;
+      gap: 16px;
+      grid-template-columns: minmax(0, 1fr) auto;
+      padding: 18px;
     }
 
-    .option-header p,
+    .decision strong {
+      color: var(--teal-dark);
+      display: block;
+      font-size: 1.15rem;
+      margin-bottom: 6px;
+    }
+
+    .pill {
+      background: var(--teal);
+      border-radius: 999px;
+      color: white;
+      display: inline-flex;
+      font-size: 0.82rem;
+      font-weight: 900;
+      padding: 8px 12px;
+      white-space: nowrap;
+    }
+
+    .view-section {
+      overflow: hidden;
+    }
+
+    .view-header {
+      border-bottom: 1px solid var(--line-soft);
+      display: grid;
+      gap: 9px;
+      padding: 22px;
+    }
+
+    .view-header h2 {
+      color: var(--teal-dark);
+      font-size: clamp(1.8rem, 3vw, 2.6rem);
+      line-height: 1;
+    }
+
+    .view-header p,
     .copy,
-    .tradeoff li {
+    li {
       color: var(--muted);
       line-height: 1.45;
     }
 
-    .mock {
-      background: linear-gradient(180deg, #f7fbfc 0%, #fdfefe 100%);
-      border-bottom: 1px solid var(--line-soft);
-      min-height: 380px;
-      padding: 18px;
+    .comparison-grid {
+      display: grid;
+      gap: 0;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     }
 
-    .app-frame {
-      background: var(--surface);
+    .comparison {
+      border-right: 1px solid var(--line-soft);
+      display: grid;
+      gap: 16px;
+      padding: 20px;
+    }
+
+    .comparison:last-child {
+      border-right: 0;
+    }
+
+    .comparison.recommended {
+      background: linear-gradient(180deg, #f8fcfd 0%, #eef8fa 100%);
+    }
+
+    .comparison h3 {
+      color: #15394a;
+      font-size: 1.35rem;
+      line-height: 1.1;
+    }
+
+    .mock {
+      background: #ffffff;
       border: 1px solid var(--line);
       border-radius: 12px;
       overflow: hidden;
@@ -291,92 +178,178 @@
       align-items: center;
       border-bottom: 1px solid var(--line-soft);
       display: flex;
-      gap: 18px;
+      gap: 14px;
       justify-content: space-between;
-      padding: 12px 18px;
+      padding: 12px 16px;
     }
 
     .brand {
-      color: var(--teal-strong);
+      color: var(--teal-dark);
       font-family: "Segoe Script", "Brush Script MT", cursive;
-      font-size: 1.45rem;
-      font-weight: 850;
+      font-size: 1.35rem;
+      font-weight: 900;
     }
 
     .nav {
       display: flex;
       gap: 12px;
       font-size: 0.78rem;
-      font-weight: 850;
+      font-weight: 900;
     }
 
     .nav span {
-      color: #11231b;
+      color: #142820;
     }
 
     .nav .active {
-      color: var(--teal);
       border-bottom: 2px solid var(--teal);
+      color: var(--teal);
       padding-bottom: 3px;
     }
 
     .page {
       display: grid;
-      gap: 14px;
+      gap: 18px;
+      min-height: 500px;
       padding: 18px;
     }
 
-    .page-title {
+    .page-head {
       align-items: start;
       display: flex;
-      gap: 14px;
+      gap: 16px;
       justify-content: space-between;
     }
 
-    .page-title h3 {
-      color: var(--teal-strong);
-      font-size: 2rem;
+    .page-head h4 {
+      color: var(--teal-dark);
+      font-size: 1.95rem;
       line-height: 1;
+    }
+
+    .page-head p {
+      color: var(--body);
+      font-size: 0.9rem;
+      margin-top: 8px;
+    }
+
+    .link-action {
+      background: transparent;
+      border: 0;
+      color: var(--teal-dark);
+      font-size: 0.82rem;
+      font-weight: 900;
+      padding: 4px 0;
+      text-decoration: underline;
+      text-underline-offset: 4px;
+      white-space: nowrap;
+    }
+
+    .tabs {
+      background: var(--teal-soft);
+      border-radius: 999px;
+      display: inline-flex;
+      gap: 5px;
+      padding: 5px;
+      width: max-content;
+    }
+
+    .tabs span {
+      border-radius: 999px;
+      color: #203a45;
+      font-size: 0.8rem;
+      font-weight: 900;
+      padding: 8px 13px;
+    }
+
+    .tabs .active {
+      background: var(--teal);
+      color: #fff;
+    }
+
+    .button,
+    .button-secondary,
+    .button-quiet {
+      align-items: center;
+      border-radius: 999px;
+      display: inline-flex;
+      font-size: 0.82rem;
+      font-weight: 900;
+      justify-content: center;
+      padding: 9px 13px;
+      white-space: nowrap;
     }
 
     .button {
       background: var(--teal);
-      border-radius: 999px;
-      color: #fff;
-      font-size: 0.8rem;
-      font-weight: 850;
-      padding: 9px 12px;
-      white-space: nowrap;
+      color: white;
     }
 
-    .ghost {
+    .button-secondary {
       background: var(--teal-soft);
-      color: var(--teal-strong);
+      color: var(--teal-dark);
     }
 
-    .section {
-      background: var(--surface-muted);
-      border: 1px solid var(--line-soft);
-      border-radius: 10px;
-      display: grid;
-      gap: 12px;
-      padding: 14px;
+    .button-quiet {
+      background: transparent;
+      border: 1px solid var(--line);
+      color: var(--teal-dark);
     }
 
-    .section h4 {
-      font-size: 1rem;
-      margin: 0;
-    }
-
-    .section-heading-inline {
+    .toolbar {
       align-items: center;
       display: flex;
-      gap: 12px;
+      flex-wrap: wrap;
+      gap: 10px;
       justify-content: space-between;
     }
 
-    .mini-state {
-      background: var(--surface);
+    .content-band {
+      border-top: 1px solid var(--line-soft);
+      display: grid;
+      gap: 14px;
+      padding-top: 16px;
+    }
+
+    .stat-row,
+    .profile-row,
+    .floor-row,
+    .room-row {
+      align-items: center;
+      border-top: 1px solid var(--line-soft);
+      display: grid;
+      gap: 12px;
+      grid-template-columns: minmax(0, 1fr) auto;
+      padding: 12px 0;
+    }
+
+    .stat-row:first-child,
+    .profile-row:first-child,
+    .floor-row:first-child,
+    .room-row:first-child {
+      border-top: 0;
+      padding-top: 0;
+    }
+
+    .stat-row strong,
+    .profile-row strong,
+    .floor-row strong,
+    .room-row strong {
+      color: #142b37;
+    }
+
+    .stat-row span,
+    .profile-row span,
+    .floor-row span,
+    .room-row span,
+    .label {
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 850;
+    }
+
+    .always-on-data {
+      background: #f6fbfc;
       border: 1px solid var(--line);
       border-radius: 12px;
       display: grid;
@@ -384,619 +357,692 @@
       padding: 14px;
     }
 
-    .mini-header {
-      align-items: center;
-      display: flex;
-      gap: 10px;
-      justify-content: space-between;
-    }
-
-    .mini-header h3 {
-      color: var(--teal-strong);
-      font-size: 1.35rem;
-    }
-
-    .mini-menu {
-      background: #fff;
-      border: 1px solid var(--line-soft);
-      border-radius: 10px;
-      box-shadow: 0 12px 28px rgba(15, 76, 102, 0.1);
-      display: grid;
-      gap: 0;
-      justify-self: end;
-      min-width: 150px;
-      overflow: hidden;
-    }
-
-    .mini-menu span {
-      border-bottom: 1px solid var(--line-soft);
-      color: #24352e;
-      font-size: 0.82rem;
-      font-weight: 800;
-      padding: 9px 11px;
-    }
-
-    .mini-menu span:last-child {
-      border-bottom: 0;
-      color: var(--teal-strong);
-    }
-
-    .home-list {
-      display: grid;
-      gap: 8px;
-    }
-
-    .home-list-row {
-      align-items: center;
-      background: #fff;
-      border: 1px solid var(--line-soft);
-      border-radius: 8px;
-      display: grid;
-      gap: 8px;
-      grid-template-columns: minmax(0, 1fr) auto;
-      padding: 10px;
-    }
-
-    .home-list-row strong {
-      color: #24352e;
-    }
-
-    .home-list-row span {
-      color: var(--muted);
-      font-size: 0.78rem;
-      font-weight: 800;
-    }
-
     .stat-grid {
       display: grid;
-      gap: 8px;
+      gap: 10px;
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
     .stat {
-      background: #fff;
+      background: white;
       border: 1px solid var(--line-soft);
-      border-radius: 8px;
+      border-radius: 10px;
       display: grid;
       gap: 4px;
-      min-height: 72px;
-      padding: 10px;
-    }
-
-    .stat span,
-    .row span,
-    .mini-label {
-      color: var(--muted);
-      font-size: 0.76rem;
-      font-weight: 800;
+      min-height: 78px;
+      padding: 12px;
     }
 
     .stat strong {
-      color: var(--teal-strong);
+      color: var(--teal-dark);
       font-size: 1.35rem;
     }
 
-    .checklist,
-    .rows,
-    .room-list {
+    .house-preview {
+      align-items: center;
       display: grid;
-      gap: 8px;
+      gap: 18px;
+      grid-template-columns: minmax(130px, 0.38fr) minmax(0, 1fr);
     }
 
-    .row {
+    .house-stack {
+      display: grid;
+      justify-items: center;
+    }
+
+    .roof {
+      border-bottom: 36px solid var(--teal-dark);
+      border-left: 68px solid transparent;
+      border-right: 68px solid transparent;
+      height: 0;
+      width: 0;
+    }
+
+    .house-floor {
       align-items: center;
       background: #fff;
-      border: 1px solid var(--line-soft);
-      border-radius: 8px;
+      border: 2px solid var(--teal-dark);
+      border-top: 0;
+      color: var(--teal-dark);
+      display: flex;
+      font-size: 0.85rem;
+      font-weight: 900;
+      height: 44px;
+      justify-content: center;
+      width: 136px;
+    }
+
+    .house-floor.active {
+      background: var(--teal-soft);
+      box-shadow: inset 0 0 0 3px #badde5;
+    }
+
+    .house-preview.overview-nav .house-floor {
+      cursor: pointer;
+    }
+
+    .house-preview.overview-nav .house-floor:hover {
+      background: var(--surface-cool);
+    }
+
+    .floor-layout,
+    .rooms-layout {
+      align-items: start;
       display: grid;
-      gap: 8px;
-      grid-template-columns: auto minmax(0, 1fr) auto;
-      padding: 10px;
+      gap: 18px;
+      grid-template-columns: 220px minmax(0, 1fr);
     }
 
-    .dot {
-      border: 2px solid var(--teal);
-      border-radius: 999px;
-      height: 16px;
-      width: 16px;
-    }
-
-    .dot.done {
-      background: var(--done);
-      border-color: var(--done);
-    }
-
-    .tabs,
-    .segmented {
-      background: var(--surface-soft);
-      border-radius: 999px;
-      display: inline-flex;
-      gap: 4px;
-      padding: 4px;
-      width: max-content;
-    }
-
-    .tabs span,
-    .segmented span {
-      border-radius: 999px;
-      color: #24352e;
-      font-size: 0.78rem;
-      font-weight: 850;
-      padding: 8px 11px;
-    }
-
-    .tabs .active,
-    .segmented .active {
-      background: var(--teal);
-      color: #fff;
-    }
-
-    .two-col {
+    .selector {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 10px;
       display: grid;
       gap: 10px;
-      grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+      padding: 14px;
     }
 
-    .floor-stack {
-      display: grid;
-      gap: 6px;
-    }
-
-    .floor {
-      background: #fff;
+    .floor-button {
+      background: white;
       border: 1px solid var(--line);
       border-radius: 8px;
-      padding: 11px;
+      color: #203a45;
+      font-weight: 900;
+      padding: 10px;
       text-align: center;
     }
 
-    .floor.active {
+    .floor-button.active {
       background: var(--teal);
-      color: #fff;
+      color: white;
     }
 
-    .room-list {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .room {
-      background: #fff;
-      border: 1px solid var(--line-soft);
-      border-radius: 8px;
+    .detail-panel,
+    .edit-panel {
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 10px;
       display: grid;
-      gap: 5px;
-      min-height: 70px;
-      padding: 10px;
+      gap: 14px;
+      padding: 16px;
     }
 
-    .form-grid {
+    .detail-heading {
+      align-items: start;
+      display: flex;
+      gap: 14px;
+      justify-content: space-between;
+    }
+
+    .detail-heading h5 {
+      color: #143344;
+      font-size: 1.3rem;
+      margin: 0;
+    }
+
+    .field-grid {
       display: grid;
-      gap: 10px;
+      gap: 12px;
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .field {
-      background: #fff;
-      border: 1px solid var(--line-soft);
-      border-radius: 8px;
-      color: #24352e;
       display: grid;
       gap: 7px;
-      font-size: 0.84rem;
-      font-weight: 850;
-      padding: 10px;
+    }
+
+    .field span:first-child {
+      color: #203a45;
+      font-size: 0.85rem;
+      font-weight: 900;
     }
 
     .input {
-      background: #fafdfe;
+      background: #f9fcfd;
       border: 1px solid var(--line);
-      border-radius: 8px;
+      border-radius: 9px;
       color: var(--muted);
-      font-size: 0.82rem;
-      padding: 8px;
+      min-height: 40px;
+      padding: 10px;
     }
 
-    .option-body {
-      display: grid;
-      gap: 14px;
-      padding: 18px;
+    .form-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
     }
 
-    .tradeoff {
+    .room-grid {
       display: grid;
-      gap: 7px;
+      gap: 10px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .room-card {
+      background: white;
+      border: 1px solid var(--line-soft);
+      border-radius: 10px;
+      display: grid;
+      gap: 6px;
+      min-height: 108px;
+      padding: 13px;
+    }
+
+    .room-card strong {
+      color: #173442;
+    }
+
+    .empty-state {
+      background: var(--surface-cool);
+      border: 1px dashed #a8d3dd;
+      border-radius: 10px;
+      color: var(--body);
+      display: grid;
+      gap: 10px;
+      padding: 16px;
+    }
+
+    .notes {
+      display: grid;
+      gap: 8px;
       margin: 0;
       padding-left: 18px;
     }
 
-    .tradeoff strong {
-      color: #24352e;
+    .notes strong {
+      color: #173442;
     }
 
-    .single {
-      grid-column: 1 / -1;
+    .wrong {
+      border-left: 5px solid #c77732;
     }
 
-    @media (max-width: 980px) {
+    .right {
+      border-left: 5px solid var(--teal);
+    }
+
+    @media (max-width: 1050px) {
       body {
         padding: 18px;
       }
 
-      .option-grid,
-      .interaction-grid,
-      .two-col,
-      .recommendation,
-      .home-overview-layout {
+      .comparison-grid,
+      .decision,
+      .house-preview,
+      .floor-layout,
+      .rooms-layout,
+      .field-grid,
+      .room-grid,
+      .stat-grid {
         grid-template-columns: 1fr;
       }
 
-      .room-list,
-      .form-grid,
-      .stat-grid {
-        grid-template-columns: 1fr;
+      .comparison {
+        border-bottom: 1px solid var(--line-soft);
+        border-right: 0;
       }
     }
   </style>
 </head>
 <body>
   <main>
-    <section class="intro">
+    <section class="hero">
       <div>
-        <p class="eyebrow">Households page UX comparison</p>
-        <h1>Designing for one home first</h1>
+        <p class="eyebrow">My Home UX pass</p>
+        <h1>View-specific comparisons for Overview, Floors, and Rooms</h1>
       </div>
       <p>
-        The current page behaves like a multi-property admin dashboard. These alternatives compare ways to make the common
-        single-household case feel direct while preserving the ability to support multiple homes later.
+        The page should stop feeling like a persistent admin dashboard. Each tab should own its own content,
+        actions should be local to the thing being edited, and the page should feel like a calm home model instead
+        of a configuration wall.
       </p>
-      <div class="recommendation">
-        <div>
-          <strong>Recommendation: Option 2, with setup checklist cues from Option 3.</strong>
-          <p class="copy">
-            It is the smallest product shift with the clearest UX gain: one-household users land directly in "My Home,"
-            while multi-household users still get a list/dashboard when it becomes relevant.
-          </p>
-        </div>
-        <span class="pill">Best balance</span>
-      </div>
     </section>
 
-    <section class="intro">
+    <section class="decision">
       <div>
-        <p class="eyebrow">Where does "Add another home" belong?</p>
-        <h1>Multi-home interaction patterns</h1>
+        <strong>Recommended direction: local edit actions, no global edit mode.</strong>
+        <p class="copy">
+          Overview edits home details. Floors edits the selected floor. Rooms edits one room at a time.
+          This removes the duplicate "Done editing" / "Save" problem and prevents overview stats from leaking into every view.
+        </p>
       </div>
-      <p>
-        The placement only makes sense once the multiple-home state is designed. These patterns compare how the page could
-        behave before and after a user adds another home.
-      </p>
-      <div class="interaction-grid">
-        <article class="interaction-card">
-          <div>
-            <p class="eyebrow">Pattern A</p>
-            <h2>Home title menu</h2>
-            <p class="copy">The home name acts like a selector, and the add action lives inside that menu.</p>
-          </div>
-          <div class="mini-state">
-            <div class="mini-header">
-              <h3>Lake house v</h3>
-              <span class="button ghost">Overview</span>
-            </div>
-            <div class="mini-menu">
-              <span>Primary home</span>
-              <span>Lake house</span>
-              <span>Add another home</span>
-            </div>
-          </div>
-          <ul class="tradeoff">
-            <li><strong>Works if:</strong> the app supports a selected/current home model.</li>
-            <li><strong>Risk:</strong> implies an active household concept we do not want.</li>
-          </ul>
-        </article>
-
-        <article class="interaction-card">
-          <div>
-            <p class="eyebrow">Pattern B</p>
-            <h2>Homes management block</h2>
-            <p class="copy">The single-home page stays focused, and a small Homes section owns add/manage actions.</p>
-          </div>
-          <div class="mini-state">
-            <div class="mini-header">
-              <h3>My Home</h3>
-              <div class="tabs"><span class="active">Overview</span><span>Floors</span><span>Rooms</span></div>
-            </div>
-            <div class="home-list">
-              <div class="home-list-row"><strong>New household</strong><span>Current home</span></div>
-              <div class="home-list-row"><strong>Add another home</strong><span>+</span></div>
-            </div>
-          </div>
-          <ul class="tradeoff">
-            <li><strong>Works if:</strong> adding another home should be visible but clearly secondary.</li>
-            <li><strong>Risk:</strong> can feel like extra page furniture for single-home users.</li>
-          </ul>
-        </article>
-
-        <article class="interaction-card recommended">
-          <div>
-            <p class="eyebrow">Pattern C</p>
-            <h2>Single home now, list only later</h2>
-            <p class="copy">Hide the add action under a small page menu until multiple homes exist; then the page becomes a homes list.</p>
-          </div>
-          <div class="mini-state">
-            <div class="mini-header">
-              <h3>My Home</h3>
-              <span class="quiet-action">More</span>
-            </div>
-            <div class="mini-menu">
-              <span>Rename home</span>
-              <span>Add another home</span>
-            </div>
-          </div>
-          <div class="mini-state">
-            <div class="mini-header">
-              <h3>Homes</h3>
-              <span class="quiet-action">Add another home</span>
-            </div>
-            <div class="home-list">
-              <div class="home-list-row"><strong>Primary home</strong><span>8 rooms</span></div>
-              <div class="home-list-row"><strong>Lake house</strong><span>4 rooms</span></div>
-            </div>
-          </div>
-          <ul class="tradeoff">
-            <li><strong>Works if:</strong> single-home users should not see multi-home chrome by default.</li>
-            <li><strong>Why I like it:</strong> no active-home model, clean first-run UX, natural multi-home escalation.</li>
-          </ul>
-        </article>
-      </div>
+      <span class="pill">Use this</span>
     </section>
 
-    <section class="option-grid">
-      <article class="option home-first">
-        <div class="option-header">
-          <p class="eyebrow">Option 1</p>
-          <h2>"My Home" first, multi-home secondary</h2>
-          <p>Rename the experience around the default user and hide multi-household management behind a smaller selector.</p>
-        </div>
-        <div class="mock">
-          <div class="app-frame">
+    <section class="view-section">
+      <header class="view-header">
+        <p class="eyebrow">Global interaction model</p>
+        <h2>Navigation and page-level actions</h2>
+        <p>The top of the page should provide orientation, not compete with the view content.</p>
+      </header>
+      <div class="comparison-grid">
+        <article class="comparison wrong">
+          <div>
+            <p class="eyebrow">Problem pattern</p>
+            <h3>Global edit state plus persistent overview data</h3>
+            <p class="copy">One edit button changes the meaning of the whole page, while rare actions sit in heavy chrome.</p>
+          </div>
+          <div class="mock">
             <div class="topbar">
               <div class="brand">Cleanly</div>
               <div class="nav"><span>Today</span><span>Calendar</span><span class="active">My Home</span><span>Family</span></div>
             </div>
             <div class="page">
-              <div class="page-title">
+              <div class="page-head">
                 <div>
-                  <h3>My Home</h3>
+                  <h4>My Home</h4>
+                  <p>Review floors, rooms, surfaces, pet impact, and cleaning coverage.</p>
                 </div>
-                <div class="page-actions">
-                  <div class="tabs"><span class="active">Overview</span><span>Floors</span><span>Rooms</span></div>
-                  <span class="quiet-action">Add another home</span>
-                </div>
+                <span class="button-secondary">Done editing</span>
               </div>
-              <div class="section">
-                <div class="home-overview-layout">
-                  <div class="home-elevation" aria-label="Read-only house floor view">
-                    <div class="home-roof"></div>
-                    <div class="home-floor">Upstairs</div>
-                    <div class="home-floor main">Main</div>
-                    <div class="home-floor basement">Basement</div>
-                  </div>
-                  <div class="home-view-summary">
-                    <div class="row"><strong>Main floor</strong><span>4 rooms / profile healthy</span></div>
-                    <div class="row"><strong>Upstairs</strong><span>4 rooms / needs surfaces</span></div>
-                    <div class="row"><strong>Basement</strong><span>No rooms yet</span></div>
-                  </div>
-                </div>
-              </div>
-              <div class="section">
-                <h4>Profile details</h4>
-                <div class="form-grid">
-                  <div class="field">Home type <span class="input">House</span></div>
-                  <div class="field">Pets <span class="input">Yes</span></div>
-                  <div class="field">Outdoor space <span class="input">No</span></div>
-                  <div class="field">Notes <span class="input">Needs seasonal deep clean</span></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="option-body">
-          <p class="copy">Best when the product language should reinforce that Cleanly is for managing a home, not an account portfolio.</p>
-          <ul class="tradeoff">
-            <li><strong>Pros:</strong> Warmer and simpler mental model, better nav label, less "admin" framing.</li>
-            <li><strong>Cons:</strong> Needs careful copy for users who do manage several homes.</li>
-          </ul>
-        </div>
-      </article>
-
-      <article class="option">
-        <div class="option-header">
-          <p class="eyebrow">Option 2</p>
-          <h2>Adaptive single-household layout</h2>
-          <p>Use one route, but change the page structure based on household count.</p>
-        </div>
-        <div class="mock">
-          <div class="app-frame">
-            <div class="topbar">
-              <div class="brand">Cleanly</div>
-              <div class="nav"><span>Today</span><span>Calendar</span><span class="active">Households</span><span>Family</span></div>
-            </div>
-            <div class="page">
-              <div class="page-title">
-                <div>
-                  <p class="eyebrow">Home model</p>
-                  <h3>New household</h3>
-                </div>
-                <span class="button ghost">Add another</span>
-              </div>
-              <div class="section">
-                <div class="checklist">
-                  <div class="row"><span class="dot done"></span><strong>Profile</strong><span>Complete</span></div>
-                  <div class="row"><span class="dot done"></span><strong>Floors</strong><span>2 modeled</span></div>
-                  <div class="row"><span class="dot"></span><strong>Rooms</strong><span>3 need detail</span></div>
-                </div>
-              </div>
-              <div class="section">
+              <div class="toolbar">
                 <div class="tabs"><span class="active">Overview</span><span>Floors</span><span>Rooms</span></div>
-                <div class="two-col">
-                  <div class="floor-stack"><div class="floor active">Main</div><div class="floor">Upstairs</div></div>
-                  <div class="room-list"><div class="room"><strong>Kitchen</strong><span class="mini-label">Tile</span></div><div class="room"><strong>Living room</strong><span class="mini-label">Wood</span></div></div>
+                <span class="button-secondary">Add another home</span>
+              </div>
+              <div class="always-on-data">
+                <div class="stat-grid">
+                  <div class="stat"><span class="label">Selected floor</span><strong>Main</strong></div>
+                  <div class="stat"><span class="label">Rooms</span><strong>0</strong></div>
+                  <div class="stat"><span class="label">Surfaces</span><strong>None</strong></div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-        <div class="option-body">
-          <p class="copy">Best practical path: no route split, no data model change, just better conditional information architecture.</p>
-          <ul class="tradeoff">
-            <li><strong>Pros:</strong> Lowest implementation risk, removes awkward "1 household" stats, keeps current multi-home support.</li>
-            <li><strong>Cons:</strong> The nav label may still say "Households" unless renamed separately.</li>
+          <ul class="notes">
+            <li><strong>Issue:</strong> edit mode is abstract and vague.</li>
+            <li><strong>Issue:</strong> overview metrics keep occupying space even when the user chose Floors or Rooms.</li>
+            <li><strong>Issue:</strong> rare multi-home action feels too prominent.</li>
           </ul>
-        </div>
-      </article>
+        </article>
 
-      <article class="option">
-        <div class="option-header">
-          <p class="eyebrow">Option 3</p>
-          <h2>Setup checklist workspace</h2>
-          <p>Make the page answer "what do I need to finish so chores work better?"</p>
-        </div>
-        <div class="mock">
-          <div class="app-frame">
+        <article class="comparison recommended right">
+          <div>
+            <p class="eyebrow">Recommended pattern</p>
+            <h3>View tabs own the body; actions are local</h3>
+            <p class="copy">The page header stays quiet. Each active tab renders only the content and actions for that mode.</p>
+          </div>
+          <div class="mock">
             <div class="topbar">
               <div class="brand">Cleanly</div>
-              <div class="nav"><span>Today</span><span>Calendar</span><span class="active">Households</span><span>Settings</span></div>
+              <div class="nav"><span>Today</span><span>Calendar</span><span class="active">My Home</span><span>Family</span></div>
             </div>
             <div class="page">
-              <div class="page-title">
+              <div class="page-head">
                 <div>
-                  <p class="eyebrow">Setup progress</p>
-                  <h3>Finish your home model</h3>
+                  <h4>My Home</h4>
+                  <p>Keep Cleanly aligned with your rooms and surfaces.</p>
                 </div>
-                <span class="pill">72%</span>
+                <button class="link-action">Add another home</button>
               </div>
-              <div class="section">
-                <div class="rows">
-                  <div class="row"><span class="dot done"></span><strong>Name and home type</strong><span>Done</span></div>
-                  <div class="row"><span class="dot done"></span><strong>Add floors</strong><span>Done</span></div>
-                  <div class="row"><span class="dot"></span><strong>Describe rooms</strong><span>Start</span></div>
-                  <div class="row"><span class="dot"></span><strong>Set surfaces and pet impact</strong><span>Next</span></div>
-                </div>
+              <div class="toolbar">
+                <div class="tabs"><span class="active">Overview</span><span>Floors</span><span>Rooms</span></div>
               </div>
-              <div class="section">
-                <h4>Current step</h4>
-                <div class="form-grid">
-                  <div class="field">Room name <span class="input">Kitchen</span></div>
-                  <div class="field">Floor <span class="input">Main</span></div>
-                </div>
-                <span class="button">Save and continue</span>
+              <div class="content-band">
+                <div class="profile-row"><strong>New household</strong><span>House / Pets: no / Outdoor: no</span></div>
+                <div class="profile-row"><strong>Home model</strong><span>3 floors, 0 rooms modeled</span></div>
+                <div class="form-actions"><span class="button-secondary">Edit home details</span></div>
               </div>
             </div>
           </div>
-        </div>
-        <div class="option-body">
-          <p class="copy">Best if the page is primarily a setup experience and users only return occasionally.</p>
-          <ul class="tradeoff">
-            <li><strong>Pros:</strong> Clear next action, less overwhelming, strong onboarding.</li>
-            <li><strong>Cons:</strong> Can feel too task-oriented for power users who just want to edit a detail.</li>
+          <ul class="notes">
+            <li><strong>Benefit:</strong> no duplicate global save/done controls.</li>
+            <li><strong>Benefit:</strong> rare multi-home action remains visible but quiet.</li>
+            <li><strong>Benefit:</strong> selected tab has clear ownership of the page body.</li>
           </ul>
-        </div>
-      </article>
+        </article>
+      </div>
+    </section>
 
-      <article class="option">
-        <div class="option-header">
-          <p class="eyebrow">Option 4</p>
-          <h2>Room-centered home model</h2>
-          <p>Put rooms at the center because that is where chores become concrete.</p>
-        </div>
-        <div class="mock">
-          <div class="app-frame">
-            <div class="topbar">
-              <div class="brand">Cleanly</div>
-              <div class="nav"><span>Today</span><span>Calendar</span><span class="active">Rooms</span><span>Family</span></div>
-            </div>
+    <section class="view-section">
+      <header class="view-header">
+        <p class="eyebrow">Overview view</p>
+        <h2>Home summary and profile details</h2>
+        <p>Overview should answer: "What does Cleanly currently know about my home?"</p>
+      </header>
+      <div class="comparison-grid">
+        <article class="comparison wrong">
+          <div>
+            <p class="eyebrow">Problem pattern</p>
+            <h3>Overview as permanent dashboard furniture</h3>
+            <p class="copy">The overview stats are useful here, but become noise when they never leave.</p>
+          </div>
+          <div class="mock">
             <div class="page">
-              <div class="page-title">
-                <div>
-                  <p class="eyebrow">Home coverage</p>
-                  <h3>Rooms</h3>
+              <div class="toolbar">
+                <div class="tabs"><span class="active">Overview</span><span>Floors</span><span>Rooms</span></div>
+                <span class="button-secondary">Edit home</span>
+              </div>
+              <div class="always-on-data">
+                <div class="stat-grid">
+                  <div class="stat"><span class="label">Selected floor</span><strong>Main</strong></div>
+                  <div class="stat"><span class="label">Rooms</span><strong>0</strong></div>
+                  <div class="stat"><span class="label">Surfaces</span><strong>None</strong></div>
                 </div>
+              </div>
+              <div class="edit-panel">
+                <div class="field-grid">
+                  <div class="field"><span>Household name</span><span class="input">New household</span></div>
+                  <div class="field"><span>Home type</span><span class="input">House</span></div>
+                  <div class="field"><span>Pets live here</span><span class="input">Unchecked</span></div>
+                  <div class="field"><span>Outdoor space</span><span class="input">Unchecked</span></div>
+                </div>
+                <span class="button">Save household profile</span>
+              </div>
+            </div>
+          </div>
+          <ul class="notes">
+            <li><strong>Issue:</strong> selected floor is too specific for Overview.</li>
+            <li><strong>Issue:</strong> editing starts too abruptly if the form is always near the top.</li>
+            <li><strong>Issue:</strong> full-width save button feels heavy.</li>
+          </ul>
+        </article>
+
+        <article class="comparison recommended right">
+          <div>
+            <p class="eyebrow">Recommended view</p>
+            <h3>Read-first home summary with local profile edit</h3>
+            <p class="copy">The overview should show a calm read state. The form appears only after "Edit home details."</p>
+          </div>
+          <div class="mock">
+            <div class="page">
+              <div class="toolbar">
+                <div class="tabs"><span class="active">Overview</span><span>Floors</span><span>Rooms</span></div>
+              </div>
+              <div class="house-preview overview-nav">
+                <div class="house-stack">
+                  <div class="roof"></div>
+                  <div class="house-floor">Floor 2</div>
+                  <div class="house-floor">Main floor</div>
+                  <div class="house-floor">Basement</div>
+                </div>
+                <div class="content-band">
+                  <div class="profile-row"><strong>Home details</strong><span>House / Pets: no / Outdoor: no</span></div>
+                  <div class="profile-row"><strong>Modeled structure</strong><span>3 floors / 0 rooms</span></div>
+                  <div class="profile-row"><strong>Setup status</strong><span>Add rooms next</span></div>
+                </div>
+              </div>
+              <div class="form-actions">
+                <span class="button-secondary">Edit home details</span>
+              </div>
+            </div>
+          </div>
+          <ul class="notes">
+            <li><strong>Content:</strong> home details, model completeness, and setup status.</li>
+            <li><strong>House preview:</strong> no selected floor indicator; clicking a floor opens Floors with that floor selected.</li>
+            <li><strong>Action:</strong> "Edit home details" opens only the profile form.</li>
+            <li><strong>Do not show:</strong> floor editor, room editor, selected-floor stats.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="view-section">
+      <header class="view-header">
+        <p class="eyebrow">Floors view</p>
+        <h2>Selected floor inspection and editing</h2>
+        <p>Floors should answer: "What is configured on this floor, and how do I adjust floor-level defaults?"</p>
+      </header>
+      <div class="comparison-grid">
+        <article class="comparison wrong">
+          <div>
+            <p class="eyebrow">Problem pattern</p>
+            <h3>Floor view still starts with overview data</h3>
+            <p class="copy">The user asks for Floors, but the page keeps spending space on overview metrics.</p>
+          </div>
+          <div class="mock">
+            <div class="page">
+              <div class="toolbar">
+                <div class="tabs"><span>Overview</span><span class="active">Floors</span><span>Rooms</span></div>
+                <span class="button-secondary">Done editing</span>
+              </div>
+              <div class="always-on-data">
+                <div class="stat-grid">
+                  <div class="stat"><span class="label">Selected floor</span><strong>Main</strong></div>
+                  <div class="stat"><span class="label">Rooms</span><strong>0</strong></div>
+                  <div class="stat"><span class="label">Surfaces</span><strong>None</strong></div>
+                </div>
+              </div>
+              <div class="floor-layout">
+                <div class="selector">
+                  <span class="floor-button">Floor 2</span>
+                  <span class="floor-button active">Main floor</span>
+                  <span class="floor-button">Basement</span>
+                </div>
+                <div class="edit-panel">
+                  <div class="field-grid">
+                    <div class="field"><span>Floor name</span><span class="input">Main floor</span></div>
+                    <div class="field"><span>Level type</span><span class="input">Main</span></div>
+                    <div class="field"><span>Pet impact</span><span class="input">None</span></div>
+                    <div class="field"><span>Vacuum coverage</span><span class="input">None</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <ul class="notes">
+            <li><strong>Issue:</strong> user sees edit fields before choosing to edit a floor.</li>
+            <li><strong>Issue:</strong> overview stats duplicate selected floor content.</li>
+            <li><strong>Issue:</strong> global edit state does not say which floor will be affected.</li>
+          </ul>
+        </article>
+
+        <article class="comparison recommended right">
+          <div>
+            <p class="eyebrow">Recommended view</p>
+            <h3>Floor selector plus selected-floor read state</h3>
+            <p class="copy">The selected floor is readable first. Editing is scoped to that floor.</p>
+          </div>
+          <div class="mock">
+            <div class="page">
+              <div class="toolbar">
+                <div class="tabs"><span>Overview</span><span class="active">Floors</span><span>Rooms</span></div>
+                <span class="button-secondary">Add floor</span>
+              </div>
+              <div class="floor-layout">
+                <div class="selector">
+                  <div class="house-stack">
+                    <div class="roof"></div>
+                    <div class="house-floor">Floor 2</div>
+                    <div class="house-floor active">Main floor</div>
+                    <div class="house-floor">Basement</div>
+                  </div>
+                </div>
+                <div class="detail-panel">
+                  <div class="detail-heading">
+                    <div>
+                      <h5>Main floor</h5>
+                      <span class="label">Floor-level defaults</span>
+                    </div>
+                    <span class="button-secondary">Edit floor</span>
+                  </div>
+                  <div class="content-band">
+                    <div class="floor-row"><strong>Surfaces</strong><span>None set</span></div>
+                    <div class="floor-row"><strong>Pet impact</strong><span>None</span></div>
+                    <div class="floor-row"><strong>Vacuum / mop coverage</strong><span>None / none</span></div>
+                    <div class="floor-row"><strong>Rooms on this floor</strong><span>0</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <ul class="notes">
+            <li><strong>Content:</strong> selected floor details only.</li>
+            <li><strong>Actions:</strong> "Edit floor", "Add floor", "Add basement" if needed.</li>
+            <li><strong>Do not show:</strong> household profile form or overview stats.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="view-section">
+      <header class="view-header">
+        <p class="eyebrow">Rooms view</p>
+        <h2>Room list by selected floor</h2>
+        <p>Rooms should answer: "What rooms are on this floor, and what needs room-specific detail?"</p>
+      </header>
+      <div class="comparison-grid">
+        <article class="comparison wrong">
+          <div>
+            <p class="eyebrow">Problem pattern</p>
+            <h3>Room management under unrelated page state</h3>
+            <p class="copy">Rooms are hidden below global edit state and overview data, so the task feels indirect.</p>
+          </div>
+          <div class="mock">
+            <div class="page">
+              <div class="toolbar">
+                <div class="tabs"><span>Overview</span><span>Floors</span><span class="active">Rooms</span></div>
+                <span class="button-secondary">Done editing</span>
+              </div>
+              <div class="always-on-data">
+                <div class="stat-grid">
+                  <div class="stat"><span class="label">Selected floor</span><strong>Main</strong></div>
+                  <div class="stat"><span class="label">Rooms</span><strong>0</strong></div>
+                  <div class="stat"><span class="label">Surfaces</span><strong>None</strong></div>
+                </div>
+              </div>
+              <div class="rooms-layout">
+                <div class="selector">
+                  <span class="floor-button">Floor 2</span>
+                  <span class="floor-button active">Main floor</span>
+                  <span class="floor-button">Basement</span>
+                </div>
+                <div class="detail-panel">
+                  <div class="detail-heading">
+                    <h5>Main floor rooms</h5>
+                    <span class="button">Add room</span>
+                  </div>
+                  <div class="empty-state">
+                    <strong>No rooms modeled for this floor yet.</strong>
+                    <span class="label">The empty state is useful, but it appears after unrelated data.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <ul class="notes">
+            <li><strong>Issue:</strong> rooms do not get immediate focus.</li>
+            <li><strong>Issue:</strong> "Done editing" is unclear if no room form is open.</li>
+            <li><strong>Issue:</strong> the page feels like a tool surface instead of a home model.</li>
+          </ul>
+        </article>
+
+        <article class="comparison recommended right">
+          <div>
+            <p class="eyebrow">Recommended view</p>
+            <h3>Rooms are the main object; edit one at a time</h3>
+            <p class="copy">The floor selector remains, but the right side is entirely about rooms on that floor.</p>
+          </div>
+          <div class="mock">
+            <div class="page">
+              <div class="toolbar">
+                <div class="tabs"><span>Overview</span><span>Floors</span><span class="active">Rooms</span></div>
                 <span class="button">Add room</span>
               </div>
-              <div class="segmented"><span class="active">Main</span><span>Upstairs</span><span>Basement</span></div>
-              <div class="room-list">
-                <div class="room"><strong>Kitchen</strong><span class="mini-label">Tile, high pet impact</span></div>
-                <div class="room"><strong>Living room</strong><span class="mini-label">Wood, robot vacuum</span></div>
-                <div class="room"><strong>Bathroom</strong><span class="mini-label">Tile, mop needed</span></div>
-                <div class="room"><strong>Entry</strong><span class="mini-label">Outdoor dirt</span></div>
-              </div>
-              <div class="section">
-                <h4>Floor details</h4>
-                <p class="copy">Main floor has 4 rooms and 3 chore targets.</p>
+              <div class="rooms-layout">
+                <div class="selector">
+                  <span class="label">Choose a floor</span>
+                  <div class="house-stack">
+                    <div class="roof"></div>
+                    <div class="house-floor">Floor 2</div>
+                    <div class="house-floor active">Main floor</div>
+                    <div class="house-floor">Basement</div>
+                  </div>
+                </div>
+                <div class="detail-panel">
+                  <div class="detail-heading">
+                    <div>
+                      <h5>Main floor rooms</h5>
+                      <span class="label">0 rooms modeled</span>
+                    </div>
+                  </div>
+                  <div class="empty-state">
+                    <strong>No rooms on this floor yet.</strong>
+                    <span>Add rooms so Cleanly can tune chores by surface, pet impact, and robot coverage.</span>
+                    <div><span class="button">Add first room</span></div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-        <div class="option-body">
-          <p class="copy">Best if users naturally think in rooms and want fast editing without understanding the full household model.</p>
-          <ul class="tradeoff">
-            <li><strong>Pros:</strong> Very concrete, maps closely to chores, easier scanning.</li>
-            <li><strong>Cons:</strong> De-emphasizes profile/floor metadata that still matters for recommendations.</li>
+          <ul class="notes">
+            <li><strong>Content:</strong> the same 2D floor selector plus room cards or room empty state.</li>
+            <li><strong>Actions:</strong> "Add room", "Edit room", "Save room", "Cancel".</li>
+            <li><strong>Do not show:</strong> profile summary, floor edit form, or overview stats.</li>
           </ul>
-        </div>
-      </article>
+        </article>
+      </div>
+    </section>
 
-      <article class="option single">
-        <div class="option-header">
-          <p class="eyebrow">Option 5</p>
-          <h2>Settings-style home profile</h2>
-          <p>Remove dashboard language and make the page a direct configuration surface.</p>
-        </div>
-        <div class="mock">
-          <div class="app-frame">
-            <div class="topbar">
-              <div class="brand">Cleanly</div>
-              <div class="nav"><span>Today</span><span>Calendar</span><span class="active">Home</span><span>Settings</span></div>
-            </div>
+    <section class="view-section">
+      <header class="view-header">
+        <p class="eyebrow">Edit states</p>
+        <h2>Use local save and cancel, not global done editing</h2>
+        <p>Each edit state should be attached to the object being changed.</p>
+      </header>
+      <div class="comparison-grid">
+        <article class="comparison wrong">
+          <div>
+            <p class="eyebrow">Problem pattern</p>
+            <h3>Two completion actions compete</h3>
+            <p class="copy">A global "Done editing" and local "Save household profile" create uncertainty.</p>
+          </div>
+          <div class="mock">
             <div class="page">
-              <div class="page-title">
-                <div>
-                  <p class="eyebrow">Configuration</p>
-                  <h3>Home profile</h3>
-                </div>
-                <span class="button">Save changes</span>
+              <div class="toolbar">
+                <div class="tabs"><span class="active">Overview</span><span>Floors</span><span>Rooms</span></div>
+                <span class="button-secondary">Done editing</span>
               </div>
-              <div class="two-col">
-                <div class="section">
-                  <h4>Sections</h4>
-                  <div class="rows">
-                    <div class="row"><span class="dot done"></span><strong>Profile</strong><span></span></div>
-                    <div class="row"><span class="dot"></span><strong>Floors</strong><span></span></div>
-                    <div class="row"><span class="dot"></span><strong>Rooms</strong><span></span></div>
-                    <div class="row"><span class="dot"></span><strong>Cleaning constraints</strong><span></span></div>
+              <div class="edit-panel">
+                <div class="field-grid">
+                  <div class="field"><span>Household name</span><span class="input">New household</span></div>
+                  <div class="field"><span>Home type</span><span class="input">House</span></div>
+                </div>
+                <span class="button">Save household profile</span>
+              </div>
+            </div>
+          </div>
+          <ul class="notes">
+            <li><strong>Question created:</strong> does "Done editing" save?</li>
+            <li><strong>Question created:</strong> why is save so visually dominant?</li>
+          </ul>
+        </article>
+
+        <article class="comparison recommended right">
+          <div>
+            <p class="eyebrow">Recommended pattern</p>
+            <h3>One local form action set</h3>
+            <p class="copy">Every edit form gets compact "Save" and "Cancel" actions at the bottom right.</p>
+          </div>
+          <div class="mock">
+            <div class="page">
+              <div class="toolbar">
+                <div class="tabs"><span class="active">Overview</span><span>Floors</span><span>Rooms</span></div>
+              </div>
+              <div class="edit-panel">
+                <div class="detail-heading">
+                  <div>
+                    <h5>Edit home details</h5>
+                    <span class="label">These details apply to the whole home.</span>
                   </div>
                 </div>
-                <div class="section">
-                  <h4>Profile</h4>
-                  <div class="form-grid">
-                    <div class="field">Household name <span class="input">New household</span></div>
-                    <div class="field">Home type <span class="input">House</span></div>
-                    <div class="field">Pets <span class="input">Yes</span></div>
-                    <div class="field">Outdoor space <span class="input">No</span></div>
-                  </div>
+                <div class="field-grid">
+                  <div class="field"><span>Household name</span><span class="input">New household</span></div>
+                  <div class="field"><span>Home type</span><span class="input">House</span></div>
+                </div>
+                <div class="form-actions">
+                  <span class="button-quiet">Cancel</span>
+                  <span class="button">Save</span>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-        <div class="option-body">
-          <p class="copy">Best if the page should feel calm, editable, and utilitarian rather than like a dashboard.</p>
-          <ul class="tradeoff">
-            <li><strong>Pros:</strong> Very readable, low cognitive load, familiar settings pattern.</li>
-            <li><strong>Cons:</strong> Less guided than a checklist and less visual than room-centered editing.</li>
+          <ul class="notes">
+            <li><strong>Rule:</strong> local Save persists and returns to read state.</li>
+            <li><strong>Rule:</strong> Cancel exits without saving local edits.</li>
+            <li><strong>Rule:</strong> no global edit mode for the whole page.</li>
           </ul>
-        </div>
-      </article>
+        </article>
+      </div>
     </section>
   </main>
 </body>

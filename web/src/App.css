@@ -3516,13 +3516,6 @@ button.chore-row-summary[aria-expanded="true"] {
   accent-color: var(--color-primary-strong);
 }
 
-.overview-stat-grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-}
-
-.overview-stat-grid div,
 .floor-surface-summary {
   background: transparent;
   border: 1px solid var(--color-border);
@@ -3531,7 +3524,6 @@ button.chore-row-summary[aria-expanded="true"] {
   padding: 13px 0 0;
 }
 
-.overview-stat-grid span,
 .floor-surface-summary span {
   color: #667085;
   display: block;
@@ -3541,7 +3533,6 @@ button.chore-row-summary[aria-expanded="true"] {
   text-transform: uppercase;
 }
 
-.overview-stat-grid strong,
 .floor-surface-summary strong {
   color: #24352e;
 }
@@ -3572,16 +3563,19 @@ button.chore-row-summary[aria-expanded="true"] {
   align-items: center;
   background: var(--color-surface-elevated);
   border: 2px solid var(--color-primary-strong);
+  border-radius: 0;
   border-top: 0;
   color: var(--color-primary-strong);
+  cursor: pointer;
   display: flex;
   font-weight: 850;
   height: 44px;
   justify-content: center;
+  padding: 0;
   width: 140px;
 }
 
-.home-preview-floor-main {
+.home-preview-floor:hover {
   background: var(--color-primary-soft);
 }
 
@@ -3678,14 +3672,12 @@ button.chore-row-summary[aria-expanded="true"] {
 }
 
 .compact-house-floor.active,
-.floor-summary-list button[aria-pressed="true"],
 .chip-list button[aria-pressed="true"] {
   background: var(--color-primary-soft);
   box-shadow: inset 0 0 0 3px rgba(21, 94, 117, 0.26);
   color: var(--color-primary-strong);
 }
 
-.floor-summary-list,
 .floor-actions,
 .chip-list {
   display: grid;
@@ -3696,17 +3688,6 @@ button.chore-row-summary[aria-expanded="true"] {
   margin-top: 14px;
 }
 
-.floor-summary-list button {
-  background: var(--color-surface-elevated);
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  color: #2f3a34;
-  display: flex;
-  justify-content: space-between;
-  padding: 9px 10px;
-}
-
-.floor-summary-list button:hover,
 .chip-list button:hover {
   background: var(--color-primary-soft);
   color: #2f3a34;
