@@ -5,6 +5,16 @@ import type { ChoreOccurrence, CompletionCheckInInput, HouseholdAppData, Househo
 import { completeOccurrence, getCurrentUser, listHouseholdMembers, listOccurrences, updateCompletionCheckIn } from "../api";
 import type { Navigate } from "../types";
 import { formatHouseholdSummary } from "../utils/household";
+import {
+  CalendarIcon,
+  CheckIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  CircleIcon,
+  ClockIcon,
+  HomeIcon,
+  UsersIcon
+} from "../components/AppIcons";
 
 type TodayDashboardProps = {
   households: HouseholdAppData[];
@@ -153,35 +163,51 @@ export function TodayDashboard({ households, isLoading, loadError, onNavigate }:
   const selectedDateSkippedCount = selectedRows.filter(
     (row) => row.occurrence.status === "skipped"
   ).length;
+  const selectedDateRemainingMinutes = selectedRows
+    .filter((row) => row.occurrence.status === "planned")
+    .reduce((total, row) => total + row.occurrence.estimatedMinutes, 0);
   const memberCount = Object.values(membersByHousehold).reduce((total, members) => total + members.length, 0);
+  const selectedDateLabel = format(new Date(`${selectedDateKey}T00:00:00`), "EEEE, MMM d");
+
+  function remainingHoursLabel(minutes: number) {
+    if (minutes === 0) return "0";
+    const hours = minutes / 60;
+    return Number.isInteger(hours) ? String(hours) : hours.toFixed(1);
+  }
 
   function renderChoreRow(row: TodayOccurrenceRow, options: { showHousehold?: boolean; compact?: boolean } = {}) {
     const isCompleted = row.occurrence.status === "completed";
     const isSkipped = row.occurrence.status === "skipped";
     const canComplete = row.occurrence.status === "planned" && row.occurrence.assignedUserId === currentUserId;
+    const statusLabel = isCompleted ? "Completed" : isSkipped ? "Skipped" : "Due";
 
     return (
       <article
         className={`today-chore-row ${isCompleted ? "is-completed" : ""} ${isSkipped ? "is-skipped" : ""}`}
         key={row.occurrence.id}
       >
-        <div className="today-chore-status" aria-hidden="true">{isCompleted ? "Completed" : isSkipped ? "Skip" : "Due"}</div>
+        <div className="today-chore-status" aria-label={statusLabel}>
+          {isCompleted ? <CheckIcon /> : isSkipped ? "-" : <CircleIcon />}
+        </div>
         <div className="today-chore-main">
           <strong>{row.title}</strong>
           <span className="today-chore-meta">
-            {options.showHousehold ? `${row.household.name} / ` : ""}
-            {timeLabel(row.occurrence, row.household.timeZone)} / {durationLabel(row.occurrence)} / {row.assigneeLabel}
+            {timeLabel(row.occurrence, row.household.timeZone)} / {durationLabel(row.occurrence)}
           </span>
         </div>
+        {options.showHousehold ? <span className="today-household-chip">{row.household.name}</span> : null}
+        {!options.compact ? <span className="today-row-assignee">{row.assigneeLabel}</span> : null}
+        {!options.compact ? <span className="today-row-time">{durationLabel(row.occurrence)}</span> : null}
         {!options.compact && canComplete ? (
-          <button className="section-action" onClick={() => void completeFromToday(row)} type="button">
-            Complete {row.title}
+          <button className="today-row-complete" onClick={() => void completeFromToday(row)} type="button">
+            <CheckIcon aria-hidden="true" />
+            <span className="sr-only">Complete {row.title}</span>
           </button>
         ) : null}
         {!options.compact && isCompleted ? (
           <button
             aria-label={`Improve future suggestions for ${row.title}`}
-            className="section-action"
+            className="today-row-improve"
             onClick={() => openCheckInSheet(row)}
             type="button"
           >
@@ -220,11 +246,11 @@ export function TodayDashboard({ households, isLoading, loadError, onNavigate }:
   }
 
   function renderStatusGroup(label: string, rows: TodayOccurrenceRow[]) {
+    const headingLabel = `${label.toUpperCase()} (${rows.length})`;
     return (
       <section className="today-status-group" aria-label={`${label} chores`}>
         <div className="today-status-heading">
-          <h3>{label}</h3>
-          <span>{rows.length}</span>
+          <h3>{headingLabel}</h3>
         </div>
         {rows.length > 0 ? (
           <div className="today-chore-list">
@@ -277,20 +303,30 @@ export function TodayDashboard({ households, isLoading, loadError, onNavigate }:
 
   return (
     <div className="dashboard-page today-page">
-      <header className="workspace-hero first-time-hero">
-        <div>
-          <p className="eyebrow">Home command center</p>
+      <header className="today-command-header">
+        <div className="today-command-copy">
           <h1>Today</h1>
-          <p className="lede">
-            {households.length === 0
-              ? "Set up your first household to start organizing routines."
-              : `Keep ${households.length} household${households.length === 1 ? "" : "s"} moving with clear next actions.`}
-          </p>
+          {households.length === 0 ? (
+            <p>Set up your first household to start organizing routines.</p>
+          ) : (
+            <>
+              <div className="today-metric-row" aria-label="Today status summary">
+                <span><CheckIcon /> <strong>{selectedDateCompletedCount}</strong> done</span>
+                <span><CircleIcon /> <strong>{selectedDatePlannedCount}</strong> to do</span>
+                <span><CalendarIcon /> <strong>{selectedDateSkippedCount}</strong> skipped</span>
+                <span><ClockIcon /> <strong>{remainingHoursLabel(selectedDateRemainingMinutes)}</strong> hrs remaining</span>
+              </div>
+              <p>{selectedDatePlannedCount === 0 ? "You're all caught up! Keep it going." : `${selectedDatePlannedCount} chore${selectedDatePlannedCount === 1 ? "" : "s"} ready for ${selectedDateLabel}.`}</p>
+            </>
+          )}
         </div>
         {households.length === 0 ? (
           <button onClick={() => onNavigate("/households")} type="button">Set up household</button>
         ) : (
-          <button onClick={() => onNavigate("/calendar")} type="button">Manage chores</button>
+          <button className="today-calendar-link" onClick={() => onNavigate("/calendar")} type="button">
+            View full calendar
+            <ChevronRightIcon />
+          </button>
         )}
       </header>
 
@@ -302,126 +338,133 @@ export function TodayDashboard({ households, isLoading, loadError, onNavigate }:
         </section>
       ) : (
         <>
-          <section aria-label="Seven day chore strip" className="panel today-date-strip">
-            {stripDates.map((date) => {
-              const dateKey = format(date, "yyyy-MM-dd");
-              const dueCount = allRows.filter((row) => occurrenceDateKey(row.occurrence, row.household.timeZone) === dateKey).length;
-              return (
-                <button
-                  aria-label={`${format(date, "EEEE MMM d")} ${dueCount} due`}
-                  aria-pressed={selectedDateKey === dateKey}
-                  className="today-date-button"
-                  key={dateKey}
-                  onClick={() => setSelectedDateKey(dateKey)}
-                  type="button"
-                >
-                  <span>{format(date, "EEE")}</span>
-                  <strong>{format(date, "d")}</strong>
-                  <small>{dueCount} due</small>
-                </button>
-              );
-            })}
+          <section aria-label="Seven day chore strip" className="today-week-rail">
+            <button aria-label="Previous week" className="today-rail-arrow" type="button">
+              <ChevronLeftIcon />
+            </button>
+            <div className="today-date-strip">
+              {stripDates.map((date) => {
+                const dateKey = format(date, "yyyy-MM-dd");
+                const dueCount = allRows.filter((row) => occurrenceDateKey(row.occurrence, row.household.timeZone) === dateKey).length;
+                return (
+                  <button
+                    aria-label={`${format(date, "EEEE MMM d")} ${dueCount} due`}
+                    aria-pressed={selectedDateKey === dateKey}
+                    className="today-date-button"
+                    key={dateKey}
+                    onClick={() => setSelectedDateKey(dateKey)}
+                    type="button"
+                  >
+                    <span>{format(date, "EEE")}</span>
+                    <small>{format(date, "MMM d")}</small>
+                    <strong>{dueCount}</strong>
+                    <small>due</small>
+                  </button>
+                );
+              })}
+            </div>
+            <button aria-label="Next week" className="today-rail-arrow" type="button">
+              <ChevronRightIcon />
+            </button>
           </section>
 
-          <section aria-label="Selected day chores" className="panel today-selected-day">
-            <div className="panel-heading">
-              <div>
-                <p className="eyebrow">Today dashboard</p>
-                <h2>{format(new Date(`${selectedDateKey}T00:00:00`), "EEEE, MMM d")}</h2>
+          <div className="today-operating-grid">
+            <section aria-label="Selected day chores" className="today-agenda-panel">
+              <div className="today-agenda-header">
+                <h2>{selectedDateLabel}</h2>
+                <div className="today-view-toggle" role="group" aria-label="Today chore grouping">
+                  <button aria-pressed={viewMode === "merged"} onClick={() => setViewMode("merged")} type="button">
+                    <UsersIcon />
+                    Merged
+                  </button>
+                  <button aria-pressed={viewMode === "grouped"} onClick={() => setViewMode("grouped")} type="button">
+                    <HomeIcon />
+                    By household
+                  </button>
+                </div>
               </div>
-              <div className="today-view-toggle" role="group" aria-label="Today chore grouping">
-                <button aria-pressed={viewMode === "merged"} onClick={() => setViewMode("merged")} type="button">
-                  Merged
-                </button>
-                <button aria-pressed={viewMode === "grouped"} onClick={() => setViewMode("grouped")} type="button">
-                  By household
-                </button>
-              </div>
-            </div>
-            <p>
-              {todayDataStatus === "error"
-                ? "We could not load the latest chore schedule."
-                : todayDataStatus === "loading"
-                  ? "Loading chore schedule..."
-                  : `${selectedDatePlannedCount} chore${selectedDatePlannedCount === 1 ? "" : "s"} ready to work.`}
-            </p>
-            <div className="today-household-chip-row">
-              <span>{households.length} household{households.length === 1 ? "" : "s"}</span>
-              <span>{viewMode === "merged" ? "Merged schedule" : "Grouped by household"}</span>
-            </div>
-            <div className="overview-stat-grid today-status-summary">
-              <div><span>Ready</span><strong>{selectedDatePlannedCount}</strong></div>
-              <div><span>Completed</span><strong>{selectedDateCompletedCount}</strong></div>
-              <div><span>Missed</span><strong>{selectedDateSkippedCount}</strong></div>
-            </div>
-            <div className="today-dashboard-grid">
-              <div className="today-selected-list">
-                {viewMode === "merged" ? renderSelectedRows(selectedRows) : (
-                  <div className="today-household-sections">
-                    {households.map((household) => {
-                      const householdRows = selectedRows.filter((row) => row.household.id === household.id);
-                      return (
-                        <section aria-label={`${household.name} chores`} className="today-household-section" key={household.id}>
-                          <div className="today-status-heading">
-                            <h3>{household.name}</h3>
-                            <span>{householdRows.length}</span>
-                          </div>
-                          {householdRows.length > 0 ? renderSelectedRows(householdRows) : <p className="empty-state">No chores due.</p>}
-                        </section>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          </section>
-
-          <section aria-label="Upcoming chores" className="panel today-upcoming-panel">
-            <div className="panel-heading">
-              <h2>Upcoming next 7 days</h2>
-              <span>{allRows.length} scheduled</span>
-            </div>
-            <p>
-              {memberCount} household member{memberCount === 1 ? "" : "s"} included in this view
-              {currentUserId ? `, including you.` : "."}
-            </p>
-            <div className="today-chore-list">
-              {upcomingRows.length > 0 ? (
-                upcomingRows.slice(0, 5).map((row) => renderChoreRow(row, { showHousehold: households.length > 1, compact: true }))
-              ) : (
-                <p className="empty-state">No chores scheduled in the next week.</p>
+              <p>
+                {todayDataStatus === "error"
+                  ? "We could not load the latest chore schedule."
+                  : todayDataStatus === "loading"
+                    ? "Loading chore schedule..."
+                    : `${selectedDatePlannedCount} chore${selectedDatePlannedCount === 1 ? "" : "s"} ready to work.`}
+              </p>
+              {viewMode === "merged" ? renderSelectedRows(selectedRows) : (
+                <div className="today-household-sections">
+                  {households.map((household) => {
+                    const householdRows = selectedRows.filter((row) => row.household.id === household.id);
+                    return (
+                      <section aria-label={`${household.name} chores`} className="today-household-section" key={household.id}>
+                        <div className="today-status-heading">
+                          <h3>{household.name}</h3>
+                        </div>
+                        {householdRows.length > 0 ? renderSelectedRows(householdRows) : <p className="empty-state">No chores due.</p>}
+                      </section>
+                    );
+                  })}
+                </div>
               )}
-            </div>
-          </section>
+              <button className="today-day-link" type="button">View all for this day <ChevronRightIcon /></button>
+            </section>
 
-          <section className="today-household-grid" aria-label="Household overview">
-            {households.map((household) => {
-              const profileComplete = isProfileComplete(household);
-              const reviewReady = profileComplete && household.chores.length > 0;
-              return (
-                <article className="panel today-household-card" key={household.id}>
-                  <div className="panel-heading">
-                    <h2>{household.name}</h2>
-                    <span>{reviewReady ? "Ready to optimize" : profileComplete ? "Ready for chores" : "Needs setup"}</span>
-                  </div>
-                  <p>{formatHouseholdSummary(household)}</p>
-                  <div className="overview-stat-grid">
-                    <div><span>Chores</span><strong>{household.chores.length}</strong></div>
-                    <div><span>Recommendations</span><strong>{household.recommendations.length}</strong></div>
-                  </div>
-                  <div className="form-actions">
-                    {!profileComplete ? (
-                      <button onClick={() => onNavigate("/households")} type="button">Complete profile</button>
-                    ) : household.chores.length === 0 ? (
-                      <button onClick={() => onNavigate("/calendar")} type="button">Add chores</button>
-                    ) : (
-                      <button onClick={() => onNavigate("/optimize")} type="button">Optimize plan</button>
-                    )}
-                  </div>
-                </article>
-              );
-            })}
-          </section>
+            <aside className="today-right-rail">
+              <section aria-label="Upcoming chores" className="today-side-panel today-upcoming-panel">
+                <div className="panel-heading">
+                  <h2>Upcoming next 7 days</h2>
+                  <span>{allRows.length} scheduled</span>
+                </div>
+                <p>
+                  {memberCount} household member{memberCount === 1 ? "" : "s"} included in this view
+                  {currentUserId ? `, including you.` : "."}
+                </p>
+                <div className="today-chore-list">
+                  {upcomingRows.length > 0 ? (
+                    upcomingRows.slice(0, 5).map((row) => renderChoreRow(row, { showHousehold: households.length > 1, compact: true }))
+                  ) : (
+                    <p className="empty-state">No chores scheduled in the next week.</p>
+                  )}
+                </div>
+              </section>
+
+              <section className="today-side-panel today-household-grid" aria-label="Household overview">
+                <div className="panel-heading">
+                  <h2>Households</h2>
+                  <span>{households.length}</span>
+                </div>
+                {households.map((household) => {
+                  const profileComplete = isProfileComplete(household);
+                  const reviewReady = profileComplete && household.chores.length > 0;
+                  const dueToday = selectedRows.filter((row) => row.household.id === household.id && row.occurrence.status === "planned").length;
+                  return (
+                    <article className="today-household-card" key={household.id}>
+                      <div>
+                        <h3>{household.name}</h3>
+                        <p>{formatHouseholdSummary(household)}</p>
+                      </div>
+                      <div>
+                        <strong>{dueToday} due today</strong>
+                        <span>{reviewReady ? "Ready to optimize" : profileComplete ? "Ready for chores" : "Needs setup"}</span>
+                      </div>
+                      {!profileComplete ? (
+                        <button onClick={() => onNavigate("/households")} type="button" aria-label={`Complete ${household.name} profile`}>
+                          <ChevronRightIcon />
+                        </button>
+                      ) : household.chores.length === 0 ? (
+                        <button onClick={() => onNavigate("/calendar")} type="button" aria-label={`Add ${household.name} chores`}>
+                          <ChevronRightIcon />
+                        </button>
+                      ) : (
+                        <button onClick={() => onNavigate("/optimize")} type="button" aria-label={`Optimize ${household.name} plan`}>
+                          <ChevronRightIcon />
+                        </button>
+                      )}
+                    </article>
+                  );
+                })}
+              </section>
+            </aside>
+          </div>
         </>
       )}
 

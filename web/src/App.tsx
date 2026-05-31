@@ -11,6 +11,7 @@ import { TodayDashboard } from "./pages/TodayDashboard";
 import { normalizePath } from "./routes";
 import { AppDataProvider } from "./state/AppDataProvider";
 import { useAppData } from "./state/useAppData";
+import { BellIcon, CloseIcon, MenuIcon, SparklesIcon } from "./components/AppIcons";
 
 /*
   Importing CSS directly inside a React module is a bundler feature. With
@@ -128,6 +129,7 @@ function AppShell({
   currentPath: string;
   onNavigate: (path: string) => void;
 }) {
+  const [isNavOpen, setIsNavOpen] = useState(false);
   const navItems = [
     { label: "Optimize", path: "/optimize", emphasis: true },
     { label: "Today", path: "/today" },
@@ -148,13 +150,25 @@ function AppShell({
   return (
     <div className="workspace-shell">
       <header className="workspace-topbar">
-        <a className="brand-mark" href="/" onClick={(event) => {
-          event.preventDefault();
-          onNavigate("/");
-        }}>
-          Cleanly
-        </a>
-        <nav className="workspace-nav" aria-label="Primary">
+        <div className="workspace-brand-cluster">
+          <button
+            aria-label={isNavOpen ? "Close navigation menu" : "Open navigation menu"}
+            aria-expanded={isNavOpen}
+            className="workspace-menu-button"
+            onClick={() => setIsNavOpen((current) => !current)}
+            type="button"
+          >
+            {isNavOpen ? <CloseIcon /> : <MenuIcon />}
+          </button>
+          <a className="brand-mark" href="/" onClick={(event) => {
+            event.preventDefault();
+            onNavigate("/");
+            setIsNavOpen(false);
+          }}>
+            Cleanly
+          </a>
+        </div>
+        <nav className="workspace-nav" aria-label="Primary" data-open={isNavOpen ? "true" : "false"}>
           {navItems.map((item) => (
             <a
               aria-current={currentPath === item.path ? "page" : undefined}
@@ -164,13 +178,20 @@ function AppShell({
               onClick={(event) => {
                 event.preventDefault();
                 onNavigate(item.path);
+                setIsNavOpen(false);
               }}
             >
+              {item.emphasis ? <SparklesIcon /> : null}
               {item.label}
             </a>
           ))}
         </nav>
-        <UserButton />
+        <div className="workspace-user-actions">
+          <button aria-label="Notifications" className="workspace-icon-button" type="button">
+            <BellIcon />
+          </button>
+          <UserButton />
+        </div>
       </header>
 
       <main className="workspace-main">{children}</main>

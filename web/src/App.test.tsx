@@ -738,6 +738,20 @@ describe("App", () => {
     expect(screen.queryByRole("link", { name: "Setup" })).toBeNull();
   });
 
+  it("toggles the mobile navigation menu from the app shell", async () => {
+    mockEmptyAppDataFetches();
+    renderAt("/today");
+
+    const nav = await screen.findByRole("navigation", { name: "Primary" });
+    expect(nav.getAttribute("data-open")).toBe("false");
+
+    fireEvent.click(screen.getByRole("button", { name: "Open navigation menu" }));
+    expect(nav.getAttribute("data-open")).toBe("true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Close navigation menu" }));
+    expect(nav.getAttribute("data-open")).toBe("false");
+  });
+
   it("loads Today dashboard occurrences across households", async () => {
     const homeOccurrences = [{
       id: "occurrence-clean",
@@ -822,15 +836,20 @@ describe("App", () => {
 
     expect(await screen.findByRole("region", { name: "Seven day chore strip" })).toBeTruthy();
     expect(screen.getByRole("region", { name: "Selected day chores" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "View full calendar" })).toBeTruthy();
+    expect(screen.getByText("done")).toBeTruthy();
+    expect(screen.getByText("to do")).toBeTruthy();
+    expect(screen.getByText("skipped")).toBeTruthy();
+    expect(screen.getByText("hrs remaining")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Merged" }).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByRole("button", { name: "By household" })).toBeTruthy();
-    expect(screen.getByText("Home")).toBeTruthy();
-    expect(screen.getByText("Cabin")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Home" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Cabin" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Upcoming next 7 days" })).toBeTruthy();
     expect(await screen.findByRole("button", { name: "Saturday May 30 3 due" })).toBeTruthy();
-    expect(screen.getByText("To do")).toBeTruthy();
-    expect(screen.getByText("Done")).toBeTruthy();
-    expect(screen.getByText("Skipped")).toBeTruthy();
+    expect(screen.getByText("TO DO (1)")).toBeTruthy();
+    expect(screen.getByText("DONE (1)")).toBeTruthy();
+    expect(screen.getByText("SKIPPED (1)")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Complete Clean bathrooms" })).toBeTruthy();
     expect(screen.getByText("Improve future suggestions")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "By household" }));
