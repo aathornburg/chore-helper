@@ -119,9 +119,9 @@ Key changes:
 
 - Update styling from simple CSS to Tailwind
 
-### 8. Home Navigation + Today Operating Dashboard
+### 8. Home Navigation + Today Operating Dashboard + UI Revamp
 
-Update the authenticated header so Optimize is visually and spatially emphasized, then revamp Today into the daily operating dashboard now that app-owned chores and calendar occurrences are functional.
+Update the authenticated header so Optimize is visually and spatially emphasized, revamp Today into the daily operating dashboard now that app-owned chores and calendar occurrences are functional, and refresh the core authenticated UI so the product feels cohesive and operational.
 
 Key outcomes:
 
@@ -134,6 +134,13 @@ Key outcomes:
 - Completed chores remain visible but visually quiet, matching the Calendar completion treatment.
 - Today widgets link into the full Calendar page for deeper planning, filtering, and schedule editing.
 - Mobile Today prioritizes what needs doing now, then upcoming chores, then household summary context.
+- The existing Google Calendar CTA moves from Today to Calendar, where calendar setup and import expectations belong.
+- The milestone includes a UI discovery/refinement step using `docs/assets/today-operating-dashboard-ui-reference.png` as an example direction, not a pixel-perfect requirement.
+- The resulting visual direction should be applied across core authenticated pages: Today, Calendar, Optimize, Households, Family, and Settings.
+
+Suggested child doc:
+
+- `docs/superpowers/specs/2026-05-31-home-navigation-today-dashboard-design.md`
 
 ## Documentation Flow
 
