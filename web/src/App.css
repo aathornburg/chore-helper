@@ -206,10 +206,11 @@ button:hover {
   align-items: center;
   background: rgba(255, 252, 247, 0.9);
   border-bottom: 1px solid #e3d7ca;
+  box-shadow: 0 10px 30px rgba(62, 49, 37, 0.04);
   display: flex;
   gap: 24px;
   justify-content: space-between;
-  padding: 18px 34px;
+  padding: 14px 34px;
   position: sticky;
   top: 0;
   z-index: 10;
@@ -249,7 +250,7 @@ button:hover {
 }
 
 .workspace-main {
-  padding: 34px;
+  padding: 28px 34px 40px;
 }
 
 .dashboard-page,
@@ -1459,7 +1460,7 @@ button.calendar-event:hover {
 
 .workspace-hero {
   align-items: end;
-  border-radius: 24px;
+  border-radius: 18px;
   display: grid;
   gap: 24px;
   grid-template-columns: 1fr auto;
@@ -1475,6 +1476,11 @@ button.calendar-event:hover {
 
 .compact-hero {
   background: #fffdf9;
+  padding: 22px 26px;
+}
+
+.compact-hero h1 {
+  font-size: 3rem;
 }
 
 .header-action {
@@ -1752,6 +1758,14 @@ button.calendar-event:hover {
   gap: 8px;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   padding: 12px;
+}
+
+.today-page .workspace-hero {
+  padding: 26px;
+}
+
+.today-page .workspace-hero h1 {
+  font-size: 3.2rem;
 }
 
 .today-date-button {
