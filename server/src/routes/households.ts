@@ -735,6 +735,34 @@ export function createHouseholdRouter(
     return res.status(200).json(completed);
   });
 
+  router.put("/:householdId/occurrences/:occurrenceId/check-in", async (req, res) => {
+    const access = await requireHouseholdAccess(req, res);
+    if (!access) return;
+
+    const parsed = completionCheckInSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid completion payload" });
+
+    const occurrence = await store.getOccurrence(access.household.id, req.params.occurrenceId);
+    if (!occurrence) return res.status(404).json({ error: "Occurrence not found" });
+    if (occurrence.status !== "completed" || !occurrence.completedAt || !occurrence.completedByUserId) {
+      return res.status(409).json({ error: "Occurrence is not completed" });
+    }
+    if (occurrence.completedByUserId !== access.user.id) {
+      return res.status(403).json({ error: "Only the completing member can update this check-in" });
+    }
+
+    const checkIn = normalizeCompletionCheckIn(parsed.data);
+    const saved = await store.recordCompletionCheckIn({
+      householdId: access.household.id,
+      occurrenceId: occurrence.id,
+      completedByUserId: access.user.id,
+      completedAt: occurrence.completedAt,
+      ...checkIn
+    });
+
+    return res.status(200).json(saved);
+  });
+
   router.post("/:householdId/chores/:choreId/schedules", async (req, res) => {
     const access = await requireHouseholdOwner(req, res);
     if (!access) return;

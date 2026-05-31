@@ -194,6 +194,44 @@ describe("chore schedules", () => {
     }));
   });
 
+  it("lets the completing member update completion check-in answers later", async () => {
+    const { app, links } = createScheduleTestApp();
+    const household = await prepareHousehold(app, links);
+    await addMember(app, links, household.householdId, "other-member@example.com");
+    const occurrence = await createAssignedFlexibleOccurrence(app, household);
+
+    await request(app)
+      .post(`/api/households/${household.householdId}/occurrences/${occurrence.id}/complete`)
+      .set(auth("member@example.com"))
+      .send({})
+      .expect(200);
+
+    await request(app)
+      .put(`/api/households/${household.householdId}/occurrences/${occurrence.id}/check-in`)
+      .set(auth("other-member@example.com"))
+      .send({ completedOnTime: false })
+      .expect(403);
+
+    await request(app)
+      .put(`/api/households/${household.householdId}/occurrences/${occurrence.id}/check-in`)
+      .set(auth("member@example.com"))
+      .send({
+        completedOnTime: false,
+        durationAccurate: false,
+        rebaseFutureOccurrences: false
+      })
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toEqual(expect.objectContaining({
+          occurrenceId: occurrence.id,
+          completedByUserId: household.memberId,
+          completedOnTime: false,
+          durationAccurate: false,
+          rebaseFutureOccurrences: false
+        }));
+      });
+  });
+
   it("does not let a different ordinary member complete assigned work", async () => {
     const { app, links } = createScheduleTestApp();
     const household = await prepareHousehold(app, links);
