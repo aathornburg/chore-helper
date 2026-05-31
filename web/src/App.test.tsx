@@ -2136,6 +2136,7 @@ describe("App", () => {
     expect(within(screen.getByRole("tabpanel", { name: "Floors" })).getByText("hardwood, rugs")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Edit surfaces" })).toBeNull();
     await editSelectedFloor();
+    expect(screen.queryByRole("button", { name: "Add floor" })).toBeNull();
     expect(screen.queryByRole("button", { name: "hardwood" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Edit surfaces" }));
     expect(screen.getByRole("button", { name: "hardwood" }).getAttribute("aria-pressed")).toBe("true");
@@ -2180,7 +2181,7 @@ describe("App", () => {
         })
       );
     });
-    expect(screen.getByRole("button", { name: "Edit home details" })).toBeTruthy();
+    expect(within(screen.getByRole("region", { name: "Home profile summary" })).getByRole("button", { name: "Edit home details" })).toBeTruthy();
   });
 
   it("adds and removes a basement floor with confirmation", async () => {

@@ -339,9 +339,9 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
         </div>
         {showActions ? (
           <div className="floor-actions">
-            <button disabled={isSaving} onClick={handleAddFloor} type="button">Add floor</button>
+            <button className="secondary-action" disabled={isSaving} onClick={handleAddFloor} type="button">Add floor</button>
             {!floors.some((floor) => floor.levelType === "basement") ? (
-              <button disabled={isSaving} onClick={handleAddBasement} type="button">Add basement</button>
+              <button className="secondary-action" disabled={isSaving} onClick={handleAddBasement} type="button">Add basement</button>
             ) : null}
           </div>
         ) : null}
@@ -725,6 +725,13 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
           </form>
         ) : (
           <section className="home-profile-summary" aria-label="Home profile summary">
+            <div className="home-profile-summary-heading">
+              <div>
+                <h2>Home details</h2>
+                <p>Home-wide defaults Cleanly uses for planning.</p>
+              </div>
+              <button className="secondary-action" onClick={() => setIsEditingProfile(true)} type="button">Edit home details</button>
+            </div>
             <div className="home-summary-grid">
               <div>
                 <span>Home name</span>
@@ -754,9 +761,6 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
               </div>
             </div>
             {profile.notes ? <p>{profile.notes}</p> : null}
-            <div className="household-profile-actions">
-              <button className="secondary-action" onClick={() => setIsEditingProfile(true)} type="button">Edit home details</button>
-            </div>
           </section>
         )}
       </section>
@@ -771,7 +775,7 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
       >
         {workspaceView === "floors" && selectedFloor ? (
           <>
-            {renderFloorSelector(true)}
+            {renderFloorSelector(!isEditingFloor)}
             {isEditingFloor ? (
               <form className="floor-detail-panel" onSubmit={handleSaveFloor}>
               <div className="floor-detail-heading">
@@ -779,11 +783,6 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
                   <h2>{selectedFloor.name}</h2>
                   <p className="lede">Floor details</p>
                 </div>
-                {selectedFloor.levelType !== "main" ? (
-                  <button disabled={isSaving} onClick={() => setPendingRemoveFloorId(selectedFloor.id)} type="button">
-                    {selectedFloor.levelType === "basement" ? "Remove basement" : "Remove floor"}
-                  </button>
-                ) : null}
               </div>
               {pendingRemoveFloorId === selectedFloor.id ? (
                 <div className="inline-confirmation">
@@ -858,7 +857,7 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
                   <span>Flooring</span>
                   <strong>{selectedFloor.flooring.length > 0 ? selectedFloor.flooring.join(", ") : "No floor surfaces set"}</strong>
                 </div>
-                <button disabled={isSaving} onClick={() => setIsEditingSurfaces(true)} type="button">
+                <button className="secondary-action" disabled={isSaving} onClick={() => setIsEditingSurfaces(true)} type="button">
                   Edit surfaces
                 </button>
               </div>
@@ -877,9 +876,18 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
                   ))}
                 </div>
               ) : null}
-              <div className="form-actions">
-                <button className="secondary-action" disabled={isSaving} onClick={resetFloorEdit} type="button">Cancel</button>
-                <button disabled={isSaving} type="submit">Save floor details</button>
+              <div className="floor-edit-actions">
+                <div>
+                  {selectedFloor.levelType !== "main" ? (
+                    <button className="danger-link" disabled={isSaving} onClick={() => setPendingRemoveFloorId(selectedFloor.id)} type="button">
+                      {selectedFloor.levelType === "basement" ? "Remove basement" : "Remove floor"}
+                    </button>
+                  ) : null}
+                </div>
+                <div className="form-actions">
+                  <button className="secondary-action" disabled={isSaving} onClick={resetFloorEdit} type="button">Cancel</button>
+                  <button disabled={isSaving} type="submit">Save floor details</button>
+                </div>
               </div>
             </form>
             ) : (
