@@ -3,6 +3,7 @@ import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { useEffect, useMemo, useState } from "react";
 import type { ChoreOccurrence, ChoreSchedule, CompletionCheckInInput, HouseholdAppData, HouseholdMemberSummary, ScheduleInput } from "@chore-helper/shared";
 import { completeOccurrence, createScheduledChore, getCurrentUser, listHouseholdMembers, listOccurrences, listSchedules, skipOccurrence, updateOccurrence, updateSchedule as updateScheduleApi } from "../api";
+import type { Navigate } from "../types";
 
 type WorkspaceView = "calendar" | "list";
 type CalendarScale = "month" | "week" | "day";
@@ -24,6 +25,7 @@ type CompletionCheckInDraft = Required<Pick<CompletionCheckInInput, "completedOn
 type CalendarPageProps = {
   households: HouseholdAppData[];
   isLoading: boolean;
+  onNavigate: Navigate;
 };
 
 const scaleOptions: CalendarScale[] = ["month", "week", "day"];
@@ -203,7 +205,7 @@ function scheduleToDraft(schedule: ChoreSchedule): ScheduleDraft {
   };
 }
 
-export function CalendarPage({ households, isLoading }: CalendarPageProps) {
+export function CalendarPage({ households, isLoading, onNavigate }: CalendarPageProps) {
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>("calendar");
   const [calendarScale, setCalendarScale] = useState<CalendarScale>("month");
   const [focusDate, setFocusDate] = useState(() => new Date());
@@ -868,6 +870,17 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
           <button onClick={openCreateEditor} type="button">Add chore</button>
         </div>
       </header>
+
+      <section className="calendar-integration-strip" aria-label="Google Calendar setup">
+        <div>
+          <p className="eyebrow">Calendar integration</p>
+          <h2>Google Calendar</h2>
+          <p>Connect Google Calendar to import routines and review approved schedule changes.</p>
+        </div>
+        <button className="secondary-action" onClick={() => onNavigate("/settings#calendar")} type="button">
+          Set up Google Calendar
+        </button>
+      </section>
 
       {!selectedHousehold ? <section className="panel">Add a household to begin scheduling chores.</section> : (
         <>

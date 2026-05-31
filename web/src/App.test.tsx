@@ -923,6 +923,26 @@ describe("App", () => {
     ));
   });
 
+  it("moves the Google Calendar setup entry point from Today to Calendar", async () => {
+    mockRestoredHouseholdFetches();
+    renderAt("/today");
+
+    await screen.findByRole("heading", { name: "Today" });
+    await waitFor(() => expect(screen.getByText("Ready to optimize")).toBeTruthy());
+    expect(screen.queryByRole("heading", { name: "Google Calendar" })).toBeNull();
+
+    cleanup();
+    const fetchMock = mockCalendarPageFetches();
+    vi.stubGlobal("fetch", fetchMock);
+    renderAt("/calendar");
+
+    expect(await screen.findByRole("heading", { name: "Calendar" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Google Calendar setup" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Set up Google Calendar" }));
+    expect(window.location.pathname).toBe("/settings");
+    expect(window.location.hash).toBe("#calendar");
+  });
+
   it("loads app household data from the user-scoped households endpoint without localStorage restore", async () => {
     window.localStorage.setItem("chore-helper:household-id", "stale-household");
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {

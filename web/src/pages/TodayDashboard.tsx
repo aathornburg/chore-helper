@@ -425,17 +425,6 @@ export function TodayDashboard({ households, isLoading, loadError, onNavigate }:
         </>
       )}
 
-      <section className="panel integration-callout" aria-labelledby="today-calendar-heading">
-        <div>
-          <p className="eyebrow">Next integration</p>
-          <h2 id="today-calendar-heading">Google Calendar</h2>
-          <p>Connect your calendar to import routines and review approved schedule changes.</p>
-        </div>
-        <button className="secondary-action" onClick={() => onNavigate("/settings#calendar")} type="button">
-          Set up Calendar
-        </button>
-      </section>
-
       {toast ? (
         <aside className="today-toast" role="status">
           <strong>{toast.title} marked done</strong>

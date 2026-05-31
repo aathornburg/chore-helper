@@ -102,7 +102,7 @@ function AppRoutes() {
         <TodayDashboard households={households} isLoading={isLoading} loadError={loadError} onNavigate={navigate} />
       ) : null}
       {path === "/calendar" ? (
-        <CalendarPage households={households} isLoading={isLoading} />
+        <CalendarPage households={households} isLoading={isLoading} onNavigate={navigate} />
       ) : null}
       {path === "/households" ? (
         <HouseholdsPage households={households} isLoading={isLoading} onAddHousehold={addHousehold} onReload={reloadHouseholds} />
