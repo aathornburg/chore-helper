@@ -26,7 +26,7 @@ type HouseholdsPageProps = {
   onReload: () => Promise<void>;
 };
 
-type ManageTab = "overview" | "floors" | "rooms";
+type HomeWorkspaceView = "overview" | "floors" | "rooms";
 
 function getMainFloorId(floors: HouseholdFloor[]) {
   return floors.find((floor) => floor.levelType === "main")?.id ?? floors[0]?.id;
@@ -51,12 +51,6 @@ export function HouseholdsPage({ households, isLoading, onAddHousehold, onReload
     rooms: roomCount(household),
     setupQuality: setupQualityLabel(household)
   }));
-  const totalFloors = householdSummaries.reduce((total, { household }) => total + household.structure.floors.length, 0);
-  const totalRooms = householdSummaries.reduce((total, { rooms }) => total + rooms, 0);
-  const healthyProfiles = householdSummaries.filter(({ setupQuality }) => setupQuality === "Profile healthy").length;
-  const coverageLabel = households.length > 0
-    ? `${healthyProfiles} of ${households.length} profile${households.length === 1 ? "" : "s"} healthy`
-    : "Add a household to begin";
 
   async function handleAddHousehold() {
     if (isAddingHousehold) return;
@@ -68,80 +62,192 @@ export function HouseholdsPage({ households, isLoading, onAddHousehold, onReload
     }
   }
 
-  return (
-    <div className="households-page operational-page">
-      <header className="page-command-header">
-        <div>
-          <p className="eyebrow">Home model</p>
-          <h1>Households</h1>
-          <p className="lede">Manage floors, rooms, surfaces, pet impact, and cleaning coverage.</p>
-        </div>
-        <button disabled={isAddingHousehold} onClick={handleAddHousehold} type="button">
-          Add household
-        </button>
-      </header>
-
-      {isLoading ? (
+  if (isLoading) {
+    return (
+      <div className="households-page operational-page">
         <div className="empty-state">Loading households...</div>
-      ) : (
-        <>
-          <section className="dashboard-section property-overview" aria-label="Household overview">
-            <div className="section-heading property-overview-heading">
-              <div>
-                <p className="eyebrow">Property dashboard</p>
-                <h2>Household overview</h2>
-                <p>Track how complete each home model is before chores depend on it.</p>
-              </div>
-            </div>
-            <div className="household-health-grid">
-              <div>
-                <span>Setup quality</span>
-                <strong>{coverageLabel}</strong>
-                <p>{households.length > 0 ? "Profiles are strongest once every floor has room detail." : "Create a property profile to map cleaning coverage."}</p>
-              </div>
-              <div>
-                <span>Households</span>
-                <strong>{households.length}</strong>
-                <p>Properties in your account</p>
-              </div>
-              <div>
-                <span>Floors</span>
-                <strong>{totalFloors}</strong>
-                <p>Modeled levels across homes</p>
-              </div>
-              <div>
-                <span>Rooms</span>
-                <strong>{totalRooms}</strong>
-                <p>Room-level cleaning targets</p>
-              </div>
-            </div>
-            {households.length > 0 ? (
-              <div className="property-overview-list">
-                {householdSummaries.map(({ household, rooms, setupQuality }) => (
-                  <div key={household.id}>
-                    <strong>{household.name}</strong>
-                    <span>{setupQuality}</span>
-                    <small>{household.structure.floors.length} floor{household.structure.floors.length === 1 ? "" : "s"} / {rooms} room{rooms === 1 ? "" : "s"}</small>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="empty-state">No households yet.</div>
-            )}
-          </section>
-          {households.length > 0 ? households.map((household) => (
-            <HouseholdEditor household={household} key={household.id} onReload={onReload} />
-          )) : null}
-        </>
-      )}
+      </div>
+    );
+  }
+
+  if (households.length === 0) {
+    return (
+      <div className="households-page operational-page">
+        <section className="placeholder-page first-home-empty-state">
+          <p className="eyebrow">Home setup</p>
+          <h1>Set up your home</h1>
+          <p className="lede">Create a home model so Cleanly can understand floors, rooms, surfaces, and cleaning coverage.</p>
+          <button disabled={isAddingHousehold} onClick={handleAddHousehold} type="button">
+            Add household
+          </button>
+        </section>
+      </div>
+    );
+  }
+
+  if (households.length === 1) {
+    return (
+      <div className="households-page operational-page my-home-page">
+        <SingleHomeWorkspace
+          household={households[0]}
+          isAddingHousehold={isAddingHousehold}
+          onAddHousehold={handleAddHousehold}
+          onReload={onReload}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="households-page operational-page homes-page">
+      <HomesListWorkspace
+        households={householdSummaries}
+        isAddingHousehold={isAddingHousehold}
+        onAddHousehold={handleAddHousehold}
+        onReload={onReload}
+      />
     </div>
   );
 }
 
-function HouseholdEditor({ household, onReload }: { household: HouseholdAppData; onReload: () => Promise<void> }) {
+function HomesListWorkspace({
+  households,
+  isAddingHousehold,
+  onAddHousehold,
+  onReload
+}: {
+  households: Array<{ household: HouseholdAppData; rooms: number; setupQuality: string }>;
+  isAddingHousehold: boolean;
+  onAddHousehold: () => Promise<void>;
+  onReload: () => Promise<void>;
+}) {
+  const [expandedHouseholdId, setExpandedHouseholdId] = useState<string>(households[0]?.household.id ?? "");
+  const expanded = households.find(({ household }) => household.id === expandedHouseholdId)?.household;
+
+  return (
+    <>
+      <header className="page-command-header homes-list-header">
+        <div>
+          <h1>Homes</h1>
+          <p className="lede">Manage each home's floors, rooms, surfaces, and cleaning coverage.</p>
+        </div>
+        <button disabled={isAddingHousehold} onClick={onAddHousehold} type="button">
+          Add another home
+        </button>
+      </header>
+
+      <section className="homes-list" aria-label="Homes">
+        {households.map(({ household, rooms, setupQuality }) => (
+          <section className="homes-list-card" aria-label={`${household.name} summary`} key={household.id}>
+            <div>
+              <h2>{household.name}</h2>
+              <p>{setupQuality}</p>
+              <span>
+                {household.structure.floors.length} floor{household.structure.floors.length === 1 ? "" : "s"} / {rooms} room{rooms === 1 ? "" : "s"}
+              </span>
+            </div>
+            <button onClick={() => setExpandedHouseholdId(household.id)} type="button">
+              Manage {household.name}
+            </button>
+          </section>
+        ))}
+      </section>
+
+      {expanded ? <HouseholdWorkspace key={expanded.id} household={expanded} onReload={onReload} /> : null}
+    </>
+  );
+}
+
+function SingleHomeWorkspace({
+  household,
+  isAddingHousehold,
+  onAddHousehold,
+  onReload
+}: {
+  household: HouseholdAppData;
+  isAddingHousehold: boolean;
+  onAddHousehold: () => Promise<void>;
+  onReload: () => Promise<void>;
+}) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  return (
+    <>
+      <header className="my-home-header">
+        <div>
+          <h1>My Home</h1>
+          <p className="lede">Manage floors, rooms, surfaces, pet impact, and cleaning coverage.</p>
+        </div>
+        <div className="my-home-header-actions">
+          <button
+            aria-expanded={isMenuOpen}
+            aria-haspopup="menu"
+            aria-label="More home actions"
+            className="secondary-action my-home-more-button"
+            onClick={() => setIsMenuOpen((current) => !current)}
+            type="button"
+          >
+            More
+          </button>
+          {isMenuOpen ? (
+            <div className="my-home-menu" role="menu">
+              <button role="menuitem" type="button">
+                Rename home
+              </button>
+              <button disabled={isAddingHousehold} onClick={onAddHousehold} role="menuitem" type="button">
+                Add another home
+              </button>
+            </div>
+          ) : null}
+        </div>
+      </header>
+      <HouseholdWorkspace household={household} onReload={onReload} />
+    </>
+  );
+}
+
+function HousePreview({ floors }: { floors: HouseholdFloor[] }) {
+  if (floors.length === 0) {
+    return (
+      <section className="home-floor-preview" aria-label="Home floor preview">
+        <div className="home-preview-empty">No floors modeled yet.</div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="home-floor-preview" aria-label="Home floor preview">
+      <div className="home-preview-elevation" aria-hidden="true">
+        <div className="home-preview-roof" />
+        {floors.map((floor) => (
+          <div className={`home-preview-floor home-preview-floor-${floor.levelType}`} key={floor.id}>
+            {floor.name}
+          </div>
+        ))}
+      </div>
+      <div className="home-preview-floor-list">
+        {floors.map((floor) => (
+          <div className="home-preview-floor-row" key={floor.id}>
+            <strong>{floor.name}</strong>
+            <span>
+              {floor.rooms.length} room{floor.rooms.length === 1 ? "" : "s"}
+            </span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppData; onReload: () => Promise<void> }) {
   const saveInFlightRef = useRef(false);
-  const [isManaging, setIsManaging] = useState(false);
-  const [manageTab, setManageTab] = useState<ManageTab>("overview");
+  const [workspaceView, setWorkspaceView] = useState<HomeWorkspaceView>("overview");
+  const overviewTabId = `${household.id}-overview-tab`;
+  const overviewPanelId = `${household.id}-overview-panel`;
+  const floorsTabId = `${household.id}-floors-tab`;
+  const floorsPanelId = `${household.id}-floors-panel`;
+  const roomsTabId = `${household.id}-rooms-tab`;
+  const roomsPanelId = `${household.id}-rooms-panel`;
   const [isEditingSurfaces, setIsEditingSurfaces] = useState(false);
   const initialStructure = household.structure.floors.length > 0
     ? household.structure
@@ -166,14 +272,11 @@ function HouseholdEditor({ household, onReload }: { household: HouseholdAppData;
   const floors = useMemo(() => sortFloors(activeStructure.floors), [activeStructure]);
   const selectedFloor = floors.find((floor) => floor.id === selectedFloorId);
 
-  function handleToggleManage() {
-    setIsManaging((current) => {
-      const next = !current;
-      setManageTab("overview");
-      setIsEditingSurfaces(false);
-      setPendingRemoveFloorId(undefined);
-      return next;
-    });
+  function handleSelectWorkspaceView(nextView: HomeWorkspaceView) {
+    setWorkspaceView(nextView);
+    if (nextView !== "floors") setIsEditingSurfaces(false);
+    if (nextView !== "rooms") setEditingRoom(undefined);
+    setPendingRemoveFloorId(undefined);
   }
 
   function handleSelectFloor(floorId: string) {
@@ -492,255 +595,262 @@ function HouseholdEditor({ household, onReload }: { household: HouseholdAppData;
   }
 
   return (
-    <section className="household-instance panel household-editor-shell" aria-label={`${household.name} floor editor`}>
-      <div className="section-heading">
-        <div className="section-title">
-          <h2>{household.name}</h2>
-        </div>
-        <button onClick={handleToggleManage} type="button">
-          {isManaging ? "Done" : "Manage"}
+    <section className="household-workspace" aria-label={`${household.name} home workspace`}>
+      <div className="home-workspace-tabs" role="tablist" aria-label={`${household.name} home views`}>
+        <button
+          aria-controls={overviewPanelId}
+          aria-selected={workspaceView === "overview"}
+          id={overviewTabId}
+          onClick={() => handleSelectWorkspaceView("overview")}
+          role="tab"
+          type="button"
+        >
+          Overview
+        </button>
+        <button
+          aria-controls={floorsPanelId}
+          aria-selected={workspaceView === "floors"}
+          id={floorsTabId}
+          onClick={() => handleSelectWorkspaceView("floors")}
+          role="tab"
+          type="button"
+        >
+          Floors
+        </button>
+        <button
+          aria-controls={roomsPanelId}
+          aria-selected={workspaceView === "rooms"}
+          id={roomsTabId}
+          onClick={() => handleSelectWorkspaceView("rooms")}
+          role="tab"
+          type="button"
+        >
+          Rooms
         </button>
       </div>
-      {!isManaging ? (
-        <div className="empty-state">
-          {floors.length} floor{floors.length === 1 ? "" : "s"} / {household.chores.length} chore{household.chores.length === 1 ? "" : "s"}
-        </div>
-      ) : null}
+
       {saveError ? <div className="empty-state" role="status">{saveError}</div> : null}
       {profileError ? <div className="empty-state" role="status">{profileError}</div> : null}
 
-      {isManaging && selectedFloor ? (
-        <>
-          <div className="household-manage-tabs" role="tablist" aria-label={`${household.name} management sections`}>
-            <button
-              aria-selected={manageTab === "overview"}
-              onClick={() => setManageTab("overview")}
-              role="tab"
-              type="button"
-            >
-              Overview
-            </button>
-            <button
-              aria-selected={manageTab === "floors"}
-              onClick={() => {
-                setManageTab("floors");
-                setEditingRoom(undefined);
-              }}
-              role="tab"
-              type="button"
-            >
-              Floors
-            </button>
-            <button
-              aria-selected={manageTab === "rooms"}
-              onClick={() => {
-                setManageTab("rooms");
-                setIsEditingSurfaces(false);
-                setPendingRemoveFloorId(undefined);
-              }}
-              role="tab"
-              type="button"
-            >
-              Rooms
-            </button>
+      <section
+        aria-label={`${household.name} overview`}
+        aria-labelledby={overviewTabId}
+        className="household-overview"
+        hidden={workspaceView !== "overview"}
+        id={overviewPanelId}
+        role="tabpanel"
+      >
+        <HousePreview floors={floors} />
+        <div className="overview-stat-grid">
+          <div>
+            <span>Selected floor</span>
+            <strong>{selectedFloor?.name ?? "No floor selected"}</strong>
           </div>
+          <div>
+            <span>Rooms</span>
+            <strong>{floors.reduce((total, floor) => total + floor.rooms.length, 0)}</strong>
+          </div>
+          <div>
+            <span>Surfaces</span>
+            <strong>{selectedFloor && selectedFloor.flooring.length > 0 ? selectedFloor.flooring.join(", ") : "None set"}</strong>
+          </div>
+        </div>
+        <form className="manual-chore-form household-profile-form" onSubmit={handleSaveProfile}>
+          <div className="field-grid">
+            <label>
+              Household name
+              <input
+                disabled={isSavingProfile}
+                required
+                value={profileName}
+                onChange={(event) => setProfileName(event.target.value)}
+              />
+            </label>
+            <label>
+              Home type
+              <select
+                disabled={isSavingProfile}
+                value={profile.homeType}
+                onChange={(event) => setProfile({ ...profile, homeType: event.target.value as HouseholdProfile["homeType"] })}
+              >
+                {["house", "apartment", "condo", "townhouse", "other"].map((value) => (
+                  <option key={value} value={value}>{value}</option>
+                ))}
+              </select>
+            </label>
+            <label className="checkbox-field">
+              <input
+                checked={profile.hasPets}
+                disabled={isSavingProfile}
+                onChange={(event) => setProfile({ ...profile, hasPets: event.target.checked })}
+                type="checkbox"
+              />
+              Pets live here
+            </label>
+            <label className="checkbox-field">
+              <input
+                checked={profile.hasOutdoorSpace}
+                disabled={isSavingProfile}
+                onChange={(event) => setProfile({ ...profile, hasOutdoorSpace: event.target.checked })}
+                type="checkbox"
+              />
+              Outdoor space
+            </label>
+          </div>
+          <label>
+            Household notes
+            <textarea
+              disabled={isSavingProfile}
+              value={profile.notes ?? ""}
+              onChange={(event) => setProfile({ ...profile, notes: event.target.value })}
+            />
+          </label>
+          <button disabled={isSavingProfile} type="submit">Save household profile</button>
+        </form>
+      </section>
 
-          {manageTab === "overview" ? (
-            <section className="household-overview" aria-label={`${household.name} overview`}>
-              <div className="empty-state">
-                {floors.length} floor{floors.length === 1 ? "" : "s"} / {household.chores.length} chore{household.chores.length === 1 ? "" : "s"}
+      <section
+        aria-label="Household floor editor"
+        aria-labelledby={floorsTabId}
+        className="household-editor"
+        hidden={workspaceView !== "floors"}
+        id={floorsPanelId}
+        role="tabpanel"
+      >
+        {workspaceView === "floors" && selectedFloor ? (
+          <>
+            {renderFloorSelector(true)}
+            <form className="floor-detail-panel" onSubmit={handleSaveFloor}>
+              <div className="floor-detail-heading">
+                <div>
+                  <h2>{selectedFloor.name}</h2>
+                  <p className="lede">Floor details</p>
+                </div>
+                {selectedFloor.levelType !== "main" ? (
+                  <button disabled={isSaving} onClick={() => setPendingRemoveFloorId(selectedFloor.id)} type="button">
+                    {selectedFloor.levelType === "basement" ? "Remove basement" : "Remove floor"}
+                  </button>
+                ) : null}
               </div>
-              <div className="overview-stat-grid">
-                <div>
-                  <span>Selected floor</span>
-                  <strong>{selectedFloor.name}</strong>
+              {pendingRemoveFloorId === selectedFloor.id ? (
+                <div className="inline-confirmation">
+                  <p>Remove {selectedFloor.name} and {selectedFloor.rooms.length} rooms?</p>
+                  <div className="form-actions">
+                    <button disabled={isSaving} onClick={handleConfirmRemoveFloor} type="button">Confirm remove floor</button>
+                    <button disabled={isSaving} onClick={() => setPendingRemoveFloorId(undefined)} type="button">Cancel</button>
+                  </div>
                 </div>
-                <div>
-                  <span>Rooms</span>
-                  <strong>{floors.reduce((total, floor) => total + floor.rooms.length, 0)}</strong>
-                </div>
-                <div>
-                  <span>Surfaces</span>
-                  <strong>{selectedFloor.flooring.length > 0 ? selectedFloor.flooring.join(", ") : "None set"}</strong>
-                </div>
-              </div>
-              <form className="manual-chore-form household-profile-form" onSubmit={handleSaveProfile}>
-                <div className="field-grid">
-                  <label>
-                    Household name
-                    <input
-                      disabled={isSavingProfile}
-                      required
-                      value={profileName}
-                      onChange={(event) => setProfileName(event.target.value)}
-                    />
-                  </label>
-                  <label>
-                    Home type
-                    <select
-                      disabled={isSavingProfile}
-                      value={profile.homeType}
-                      onChange={(event) => setProfile({ ...profile, homeType: event.target.value as HouseholdProfile["homeType"] })}
-                    >
-                      {["house", "apartment", "condo", "townhouse", "other"].map((value) => (
-                        <option key={value} value={value}>{value}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="checkbox-field">
-                    <input
-                      checked={profile.hasPets}
-                      disabled={isSavingProfile}
-                      onChange={(event) => setProfile({ ...profile, hasPets: event.target.checked })}
-                      type="checkbox"
-                    />
-                    Pets live here
-                  </label>
-                  <label className="checkbox-field">
-                    <input
-                      checked={profile.hasOutdoorSpace}
-                      disabled={isSavingProfile}
-                      onChange={(event) => setProfile({ ...profile, hasOutdoorSpace: event.target.checked })}
-                      type="checkbox"
-                    />
-                    Outdoor space
-                  </label>
-                </div>
+              ) : null}
+              <div className="field-grid">
                 <label>
-                  Household notes
-                  <textarea
-                    disabled={isSavingProfile}
-                    value={profile.notes ?? ""}
-                    onChange={(event) => setProfile({ ...profile, notes: event.target.value })}
+                  Floor name
+                  <input
+                    disabled={isSaving}
+                    required
+                    value={selectedFloor.name}
+                    onChange={(event) => updateSelectedFloor({ name: event.target.value })}
                   />
                 </label>
-                <button disabled={isSavingProfile} type="submit">Save household profile</button>
-              </form>
-            </section>
-          ) : null}
-
-          {manageTab === "floors" ? (
-            <section className="household-editor" aria-label="Household floor editor">
-              {renderFloorSelector(true)}
-              <form className="floor-detail-panel" onSubmit={handleSaveFloor}>
-                <div className="floor-detail-heading">
-                  <div>
-                    <h2>{selectedFloor.name}</h2>
-                    <p className="lede">Floor details</p>
-                  </div>
-                  {selectedFloor.levelType !== "main" ? (
-                    <button disabled={isSaving} onClick={() => setPendingRemoveFloorId(selectedFloor.id)} type="button">
-                      {selectedFloor.levelType === "basement" ? "Remove basement" : "Remove floor"}
+                <label>
+                  Level type
+                  <select
+                    disabled={isSaving || selectedFloor.levelType === "main"}
+                    value={selectedFloor.levelType}
+                    onChange={(event) => updateSelectedFloor({ levelType: event.target.value as HouseholdFloor["levelType"] })}
+                  >
+                    {floorLevelOptions.map((value) => <option key={value} value={value}>{value}</option>)}
+                  </select>
+                </label>
+                <label>
+                  Pet impact
+                  <select
+                    disabled={isSaving}
+                    value={selectedFloor.petImpact}
+                    onChange={(event) => updateSelectedFloor({ petImpact: event.target.value as HouseholdFloor["petImpact"] })}
+                  >
+                    {petImpactOptions.map((value) => <option key={value} value={value}>{value}</option>)}
+                  </select>
+                </label>
+                <label>
+                  Vacuum coverage
+                  <select
+                    disabled={isSaving}
+                    value={selectedFloor.robotVacuumCoverage}
+                    onChange={(event) => updateSelectedFloor({ robotVacuumCoverage: event.target.value as HouseholdFloor["robotVacuumCoverage"] })}
+                  >
+                    {coverageOptions.map((value) => <option key={value} value={value}>{value}</option>)}
+                  </select>
+                </label>
+                <label>
+                  Mop coverage
+                  <select
+                    disabled={isSaving}
+                    value={selectedFloor.robotMopCoverage}
+                    onChange={(event) => updateSelectedFloor({ robotMopCoverage: event.target.value as HouseholdFloor["robotMopCoverage"] })}
+                  >
+                    {coverageOptions.map((value) => <option key={value} value={value}>{value}</option>)}
+                  </select>
+                </label>
+                <label>
+                  Floor notes
+                  <textarea
+                    disabled={isSaving}
+                    value={selectedFloor.notes ?? ""}
+                    onChange={(event) => updateSelectedFloor({ notes: event.target.value })}
+                  />
+                </label>
+              </div>
+              <div className="floor-surface-summary">
+                <div>
+                  <span>Flooring</span>
+                  <strong>{selectedFloor.flooring.length > 0 ? selectedFloor.flooring.join(", ") : "No floor surfaces set"}</strong>
+                </div>
+                <button disabled={isSaving} onClick={() => setIsEditingSurfaces(true)} type="button">
+                  Edit surfaces
+                </button>
+              </div>
+              {isEditingSurfaces ? (
+                <div className="chip-list" aria-label="Flooring">
+                  {flooringOptions.map((flooring) => (
+                    <button
+                      aria-pressed={selectedFloor.flooring.includes(flooring)}
+                      disabled={isSaving}
+                      key={flooring}
+                      onClick={() => handleToggleFlooring(flooring)}
+                      type="button"
+                    >
+                      {flooring}
                     </button>
-                  ) : null}
+                  ))}
                 </div>
-                {pendingRemoveFloorId === selectedFloor.id ? (
-                  <div className="inline-confirmation">
-                    <p>Remove {selectedFloor.name} and {selectedFloor.rooms.length} rooms?</p>
-                    <div className="form-actions">
-                      <button disabled={isSaving} onClick={handleConfirmRemoveFloor} type="button">Confirm remove floor</button>
-                      <button disabled={isSaving} onClick={() => setPendingRemoveFloorId(undefined)} type="button">Cancel</button>
-                    </div>
-                  </div>
-                ) : null}
-                <div className="field-grid">
-                  <label>
-                    Floor name
-                    <input
-                      disabled={isSaving}
-                      required
-                      value={selectedFloor.name}
-                      onChange={(event) => updateSelectedFloor({ name: event.target.value })}
-                    />
-                  </label>
-                  <label>
-                    Level type
-                    <select
-                      disabled={isSaving || selectedFloor.levelType === "main"}
-                      value={selectedFloor.levelType}
-                      onChange={(event) => updateSelectedFloor({ levelType: event.target.value as HouseholdFloor["levelType"] })}
-                    >
-                      {floorLevelOptions.map((value) => <option key={value} value={value}>{value}</option>)}
-                    </select>
-                  </label>
-                  <label>
-                    Pet impact
-                    <select
-                      disabled={isSaving}
-                      value={selectedFloor.petImpact}
-                      onChange={(event) => updateSelectedFloor({ petImpact: event.target.value as HouseholdFloor["petImpact"] })}
-                    >
-                      {petImpactOptions.map((value) => <option key={value} value={value}>{value}</option>)}
-                    </select>
-                  </label>
-                  <label>
-                    Vacuum coverage
-                    <select
-                      disabled={isSaving}
-                      value={selectedFloor.robotVacuumCoverage}
-                      onChange={(event) => updateSelectedFloor({ robotVacuumCoverage: event.target.value as HouseholdFloor["robotVacuumCoverage"] })}
-                    >
-                      {coverageOptions.map((value) => <option key={value} value={value}>{value}</option>)}
-                    </select>
-                  </label>
-                  <label>
-                    Mop coverage
-                    <select
-                      disabled={isSaving}
-                      value={selectedFloor.robotMopCoverage}
-                      onChange={(event) => updateSelectedFloor({ robotMopCoverage: event.target.value as HouseholdFloor["robotMopCoverage"] })}
-                    >
-                      {coverageOptions.map((value) => <option key={value} value={value}>{value}</option>)}
-                    </select>
-                  </label>
-                  <label>
-                    Floor notes
-                    <textarea
-                      disabled={isSaving}
-                      value={selectedFloor.notes ?? ""}
-                      onChange={(event) => updateSelectedFloor({ notes: event.target.value })}
-                    />
-                  </label>
-                </div>
-                <div className="floor-surface-summary">
-                  <div>
-                    <span>Flooring</span>
-                    <strong>{selectedFloor.flooring.length > 0 ? selectedFloor.flooring.join(", ") : "No floor surfaces set"}</strong>
-                  </div>
-                  <button disabled={isSaving} onClick={() => setIsEditingSurfaces(true)} type="button">
-                    Edit surfaces
-                  </button>
-                </div>
-                {isEditingSurfaces ? (
-                  <div className="chip-list" aria-label="Flooring">
-                    {flooringOptions.map((flooring) => (
-                      <button
-                        aria-pressed={selectedFloor.flooring.includes(flooring)}
-                        disabled={isSaving}
-                        key={flooring}
-                        onClick={() => handleToggleFlooring(flooring)}
-                        type="button"
-                      >
-                        {flooring}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-                <div className="form-actions">
-                  <button disabled={isSaving} type="submit">Save floor details</button>
-                </div>
-              </form>
-            </section>
-          ) : null}
+              ) : null}
+              <div className="form-actions">
+                <button disabled={isSaving} type="submit">Save floor details</button>
+              </div>
+            </form>
+          </>
+        ) : workspaceView === "floors" ? (
+          <div className="empty-state">No floors modeled yet.</div>
+        ) : null}
+      </section>
 
-          {manageTab === "rooms" ? (
-            <section className="household-editor" aria-label="Household room editor">
-              {renderFloorSelector(false)}
-              {renderRoomsPanel()}
-            </section>
-          ) : null}
-        </>
-      ) : null}
+      <section
+        aria-label="Household room editor"
+        aria-labelledby={roomsTabId}
+        className="household-editor"
+        hidden={workspaceView !== "rooms"}
+        id={roomsPanelId}
+        role="tabpanel"
+      >
+        {workspaceView === "rooms" && selectedFloor ? (
+          <>
+            {renderFloorSelector(false)}
+            {renderRoomsPanel()}
+          </>
+        ) : workspaceView === "rooms" ? (
+          <div className="empty-state">No floors modeled yet.</div>
+        ) : null}
+      </section>
     </section>
   );
 }

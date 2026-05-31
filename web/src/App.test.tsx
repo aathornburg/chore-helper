@@ -75,8 +75,7 @@ function mockClerkSignedOut() {
 }
 
 async function manageHomeHousehold() {
-  await waitFor(() => expect(screen.getByRole("button", { name: "Manage" })).toBeTruthy());
-  fireEvent.click(screen.getByRole("button", { name: "Manage" }));
+  await waitFor(() => expect(screen.getByRole("heading", { name: "My Home", level: 1 })).toBeTruthy());
 }
 
 async function openHouseholdManageTab(name: "Overview" | "Floors" | "Rooms") {
@@ -217,6 +216,7 @@ function mockEmptyAppDataFetches() {
 function mockHouseholdsPageFetches(
   structure: HouseholdStructure,
   options: {
+    allowAddHousehold?: boolean;
     saveResponse?: { ok: boolean; json: () => Promise<unknown> };
     savePromise?: Promise<{ ok: boolean; json: () => Promise<unknown> }>;
   } = {}
@@ -235,6 +235,10 @@ function mockHouseholdsPageFetches(
         ok: true,
         json: async () => [createHouseholdAppData({ structure: storedStructure })]
       };
+    }
+
+    if (url === "http://localhost:3001/api/households" && method === "POST" && options.allowAddHousehold) {
+      return { ok: true, json: async () => ({ id: "household-new", name: "New household" }) };
     }
 
     if (url === "http://localhost:3001/api/households/household-1/structure" && method === "GET") {
@@ -1066,11 +1070,75 @@ describe("App", () => {
     renderAt("/households");
 
     await waitFor(() => {
-      expect(screen.getByLabelText("Home floor editor")).toBeTruthy();
-      expect(screen.getByLabelText("Cabin floor editor")).toBeTruthy();
+      expect(screen.getByRole("region", { name: "Home summary" })).toBeTruthy();
+      expect(screen.getByRole("region", { name: "Cabin summary" })).toBeTruthy();
     });
     expect(screen.queryByText(/active household/i)).toBeNull();
     expect(fetchMock.mock.calls.some(([url]) => url === "http://localhost:3001/api/me/active-household")).toBe(false);
+  });
+
+  it("renders multiple households as a Homes list with a list-level add action", async () => {
+    const secondHousehold = {
+      ...createHouseholdAppData({
+        structure: {
+          householdId: "household-2",
+          floors: [
+            {
+              id: "floor-cabin-main",
+              householdId: "household-2",
+              name: "Main floor",
+              levelType: "main",
+              flooring: [],
+              petImpact: "none",
+              robotVacuumCoverage: "none",
+              robotMopCoverage: "none",
+              rooms: []
+            }
+          ]
+        }
+      }),
+      id: "household-2",
+      name: "Cabin"
+    };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input.toString();
+      const method = init?.method ?? "GET";
+
+      if (url === "http://localhost:3001/api/me" && method === "GET") {
+        return { ok: true, json: async () => ({ id: "app-user-1", clerkUserId: "test-user-a" }) };
+      }
+
+      if (url === "http://localhost:3001/api/households" && method === "GET") {
+        return { ok: true, json: async () => [createHouseholdAppData(), secondHousehold] };
+      }
+
+      if (url === "http://localhost:3001/api/households" && method === "POST") {
+        return { ok: true, json: async () => ({ id: "household-new", name: "New household" }) };
+      }
+
+      throw new Error(`Unhandled fetch ${method} ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderAt("/households");
+
+    expect(await screen.findByRole("heading", { name: "Homes", level: 1 })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Add another home" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Home summary" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Cabin summary" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "My Home", level: 1 })).toBeNull();
+    expect(screen.queryByText(/active household/i)).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Add another home" }));
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "http://localhost:3001/api/households",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ name: "New household" })
+        })
+      );
+    });
   });
 
   it("routes the first-time household action to Households", async () => {
@@ -1080,20 +1148,20 @@ describe("App", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Set up household" })).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "Set up household" }));
 
-    expect(screen.getByRole("heading", { name: "Households", level: 1 })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Set up your home", level: 1 })).toBeTruthy();
   });
 
   it("renders the Households page", async () => {
     mockEmptyAppDataFetches();
     renderAt("/households");
 
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Households", level: 1 })).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Set up your home", level: 1 })).toBeTruthy());
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Add household" })).toBeTruthy();
     });
   });
 
-  it("renders Households as a property dashboard", async () => {
+  it("renders the one-home overview with profile form and floor preview", async () => {
     mockHouseholdsPageFetches({
       householdId: "household-1",
       floors: [
@@ -1131,12 +1199,112 @@ describe("App", () => {
     });
     renderAt("/households");
 
-    expect(await screen.findByRole("heading", { name: "Households", level: 1 })).toBeTruthy();
-    const overview = await screen.findByRole("region", { name: "Household overview" });
-    expect(overview).toBeTruthy();
-    expect(within(overview).getByText(/setup quality/i)).toBeTruthy();
-    expect(within(overview).getAllByText("Rooms need detail").length).toBeGreaterThan(0);
-    expect(within(overview).getByText("Floors")).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "My Home", level: 1 })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Home floor preview" })).toBeTruthy();
+    expect(screen.getByLabelText("Household name")).toBeTruthy();
+    expect(screen.getByLabelText("Home type")).toBeTruthy();
+    expect(screen.queryByText("Property dashboard")).toBeNull();
+  });
+
+  it("renders one household as a My Home workspace without aggregate dashboard framing", async () => {
+    mockHouseholdsPageFetches({
+      householdId: "household-1",
+      floors: [
+        {
+          id: "floor-main",
+          householdId: "household-1",
+          name: "Main floor",
+          levelType: "main",
+          flooring: ["tile"],
+          petImpact: "medium",
+          robotVacuumCoverage: "none",
+          robotMopCoverage: "none",
+          rooms: [
+            {
+              id: "room-kitchen",
+              floorId: "floor-main",
+              name: "Kitchen",
+              flooring: ["tile"],
+              petImpact: "inherit",
+              robotVacuumCoverage: "inherit",
+              robotMopCoverage: "inherit"
+            }
+          ]
+        }
+      ]
+    });
+
+    renderAt("/households");
+
+    expect(await screen.findByRole("heading", { name: "My Home", level: 1 })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Overview" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("tab", { name: "Floors" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Rooms" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Home floor preview" })).toBeTruthy();
+    expect(screen.getAllByText("Main floor").length).toBeGreaterThan(0);
+    expect(screen.getByText("1 room")).toBeTruthy();
+
+    expect(screen.queryByRole("heading", { name: "Households", level: 1 })).toBeNull();
+    expect(screen.queryByText("Property dashboard")).toBeNull();
+    expect(screen.queryByText("Household overview")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add household" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Manage" })).toBeNull();
+  });
+
+  it("keeps the house preview in Overview and out of Floors and Rooms", async () => {
+    mockHouseholdsPageFetches({
+      householdId: "household-1",
+      floors: [
+        {
+          id: "floor-main",
+          householdId: "household-1",
+          name: "Main floor",
+          levelType: "main",
+          flooring: ["hardwood"],
+          petImpact: "medium",
+          robotVacuumCoverage: "most",
+          robotMopCoverage: "partial",
+          rooms: []
+        }
+      ]
+    });
+
+    renderAt("/households");
+
+    expect(await screen.findByRole("region", { name: "Home floor preview" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Floors" }));
+    expect(screen.queryByRole("region", { name: "Home floor preview" })).toBeNull();
+    expect(screen.getByLabelText("Select Main floor")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Rooms" }));
+    expect(screen.queryByRole("region", { name: "Home floor preview" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Add room" })).toBeTruthy();
+  });
+
+  it("keeps add another home in a low-emphasis More menu for one household", async () => {
+    const fetchMock = mockHouseholdsPageFetches(
+      { householdId: "household-1", floors: [] },
+      { allowAddHousehold: true }
+    );
+
+    renderAt("/households");
+
+    expect(await screen.findByRole("heading", { name: "My Home", level: 1 })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Add household" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "More home actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Add another home" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "http://localhost:3001/api/households",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ name: "New household" })
+        })
+      );
+    });
   });
 
   it("loads household family management and lets an owner administer members and invitations", async () => {
@@ -1856,8 +2024,8 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add household" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "New household" })).toBeTruthy();
-      expect(screen.getByRole("button", { name: "Manage" })).toBeTruthy();
+      expect(screen.getByRole("heading", { name: "My Home", level: 1 })).toBeTruthy();
+      expect(screen.getByRole("tab", { name: "Overview" })).toBeTruthy();
     });
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:3001/api/households",
@@ -1891,15 +2059,13 @@ describe("App", () => {
     renderAt("/households");
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Manage" })).toBeTruthy();
-      expect(screen.getByLabelText("Home floor editor").classList.contains("panel")).toBe(true);
+      expect(screen.getByRole("heading", { name: "My Home", level: 1 })).toBeTruthy();
+      expect(screen.getByRole("region", { name: "Home floor preview" })).toBeTruthy();
       expect(screen.queryByLabelText("Select Main floor")).toBeNull();
     });
-    fireEvent.click(screen.getByRole("button", { name: "Manage" }));
 
     await waitFor(() => {
       expect(screen.getByRole("tab", { name: "Overview" }).getAttribute("aria-selected")).toBe("true");
-      expect(screen.getByText("1 floor / 1 chore")).toBeTruthy();
       expect(screen.queryByLabelText("Select Main floor")).toBeNull();
       expect(screen.queryByRole("button", { name: "Add room" })).toBeNull();
     });
@@ -1907,7 +2073,7 @@ describe("App", () => {
 
     expect(screen.getByLabelText("Select Main floor")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Main floor" })).toBeTruthy();
-    expect(screen.getByText("hardwood, rugs")).toBeTruthy();
+    expect(within(screen.getByRole("tabpanel", { name: "Floors" })).getByText("hardwood, rugs")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "hardwood" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Edit surfaces" }));
     expect(screen.getByRole("button", { name: "hardwood" }).getAttribute("aria-pressed")).toBe("true");
@@ -2211,6 +2377,22 @@ describe("App", () => {
 
     expect(await screen.findByRole("button", { name: "Monday May 25 0 due" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Sunday May 24 0 due" })).toBeNull();
+  });
+
+  it("moves the Today week rail with the previous and next buttons", async () => {
+    await withMay2026CalendarClock(async () => {
+      mockRestoredHouseholdFetches();
+      renderAt("/today");
+
+      expect(await screen.findByRole("button", { name: "Sunday May 24 0 due" })).toBeTruthy();
+
+      fireEvent.click(screen.getByRole("button", { name: "Next week" }));
+      expect(await screen.findByRole("button", { name: "Sunday May 31 0 due" })).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Sunday May 24 0 due" })).toBeNull();
+
+      fireEvent.click(screen.getByRole("button", { name: "Previous week" }));
+      expect(await screen.findByRole("button", { name: "Sunday May 24 0 due" })).toBeTruthy();
+    });
   });
 
   it("shows the Optimize recommendation selection flow", async () => {

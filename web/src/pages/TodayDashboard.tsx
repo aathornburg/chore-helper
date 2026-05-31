@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { addDays, format, startOfDay, startOfWeek } from "date-fns";
+import { addDays, addWeeks, format, startOfDay, startOfWeek } from "date-fns";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import type { ChoreOccurrence, CompletionCheckInInput, HouseholdAppData, HouseholdMemberSummary } from "@chore-helper/shared";
 import { completeOccurrence, getCurrentUser, listHouseholdMembers, listOccurrences, updateCompletionCheckIn } from "../api";
@@ -76,12 +76,16 @@ function buildOccurrenceRange(startDate: Date, endDate: Date, timeZone: string) 
 
 export function TodayDashboard({ households, isLoading, loadError, onNavigate, weekStartDay }: TodayDashboardProps) {
   const todayStart = useMemo(() => startOfDay(new Date()), []);
+  const [weekOffset, setWeekOffset] = useState(0);
   const stripDates = useMemo(
     () => {
-      const weekStart = startOfWeek(todayStart, { weekStartsOn: weekStartDay === "monday" ? 1 : 0 });
+      const weekStart = addWeeks(
+        startOfWeek(todayStart, { weekStartsOn: weekStartDay === "monday" ? 1 : 0 }),
+        weekOffset
+      );
       return Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
     },
-    [todayStart, weekStartDay]
+    [todayStart, weekOffset, weekStartDay]
   );
   const [selectedDateKey, setSelectedDateKey] = useState(() => format(todayStart, "yyyy-MM-dd"));
   const [viewMode, setViewMode] = useState<TodayViewMode>("merged");
@@ -344,7 +348,12 @@ export function TodayDashboard({ households, isLoading, loadError, onNavigate, w
       ) : (
         <>
           <section aria-label="Seven day chore strip" className="today-week-rail">
-            <button aria-label="Previous week" className="today-rail-arrow" type="button">
+            <button
+              aria-label="Previous week"
+              className="today-rail-arrow"
+              onClick={() => setWeekOffset((currentOffset) => currentOffset - 1)}
+              type="button"
+            >
               <ChevronLeftIcon />
             </button>
             <div className="today-date-strip">
@@ -360,15 +369,20 @@ export function TodayDashboard({ households, isLoading, loadError, onNavigate, w
                     onClick={() => setSelectedDateKey(dateKey)}
                     type="button"
                   >
-                    <span>{format(date, "EEE")}</span>
-                    <small>{format(date, "MMM d")}</small>
-                    <strong>{dueCount}</strong>
-                    <small>due</small>
+                    <span className="today-date-weekday">{format(date, "EEE")}</span>
+                    <span className="today-date-month">{format(date, "MMM")}</span>
+                    <strong className="today-date-number">{format(date, "d")}</strong>
+                    <span className="today-date-due-count">{dueCount} due</span>
                   </button>
                 );
               })}
             </div>
-            <button aria-label="Next week" className="today-rail-arrow" type="button">
+            <button
+              aria-label="Next week"
+              className="today-rail-arrow"
+              onClick={() => setWeekOffset((currentOffset) => currentOffset + 1)}
+              type="button"
+            >
               <ChevronRightIcon />
             </button>
           </section>
