@@ -1,0 +1,1003 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Households Single-Home UX Options</title>
+  <style>
+    :root {
+      --bg: #edf7f9;
+      --surface: #fbfdfe;
+      --surface-soft: #eef8fa;
+      --surface-muted: #f5fafb;
+      --line: #c8e1e7;
+      --line-soft: #dcecef;
+      --text: #092f43;
+      --muted: #536173;
+      --teal: #155e75;
+      --teal-strong: #0f4c66;
+      --teal-soft: #dff1f5;
+      --done: #135c38;
+      --warning: #945f25;
+      --shadow: 0 18px 48px rgba(15, 76, 102, 0.1);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      background:
+        radial-gradient(circle at top left, rgba(203, 229, 235, 0.8), transparent 34rem),
+        linear-gradient(135deg, #eef7f9 0%, #f8fcfd 52%, #e8f3f6 100%);
+      color: var(--text);
+      font-family: "Trebuchet MS", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+      margin: 0;
+      min-height: 100vh;
+      padding: 32px;
+    }
+
+    main {
+      display: grid;
+      gap: 22px;
+      margin: 0 auto;
+      max-width: 1280px;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin: 0;
+    }
+
+    .intro {
+      background: rgba(251, 253, 254, 0.94);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 18px;
+      padding: 28px;
+    }
+
+    .intro h1 {
+      font-size: clamp(2.35rem, 5vw, 4.25rem);
+      line-height: 0.98;
+    }
+
+    .intro p {
+      color: var(--muted);
+      font-size: 1.05rem;
+      line-height: 1.55;
+      max-width: 850px;
+    }
+
+    .recommendation {
+      align-items: start;
+      background: var(--teal-soft);
+      border: 1px solid #badde5;
+      border-radius: 10px;
+      display: grid;
+      gap: 10px;
+      grid-template-columns: minmax(0, 1fr) auto;
+      padding: 16px;
+    }
+
+    .recommendation strong {
+      color: var(--teal-strong);
+      font-size: 1.05rem;
+    }
+
+    .pill {
+      background: var(--teal);
+      border-radius: 999px;
+      color: #fff;
+      display: inline-flex;
+      font-size: 0.8rem;
+      font-weight: 850;
+      justify-content: center;
+      padding: 8px 12px;
+      white-space: nowrap;
+    }
+
+    .option-grid {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .interaction-grid {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .option {
+      background: rgba(251, 253, 254, 0.95);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 0;
+      overflow: hidden;
+    }
+
+    .interaction-card {
+      background: rgba(251, 253, 254, 0.95);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 16px;
+      padding: 18px;
+    }
+
+    .interaction-card.recommended {
+      border-color: #8fc8d4;
+      box-shadow: 0 18px 48px rgba(15, 76, 102, 0.16);
+    }
+
+    .home-first .page {
+      gap: 20px;
+    }
+
+    .home-first .page-title {
+      align-items: end;
+    }
+
+    .home-first .page-actions {
+      align-items: center;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: flex-end;
+    }
+
+    .quiet-action {
+      color: var(--teal-strong);
+      font-size: 0.82rem;
+      font-weight: 850;
+      text-decoration: none;
+    }
+
+    .home-first .section {
+      background: transparent;
+      border-width: 1px 0 0;
+      border-radius: 0;
+      padding: 16px 0 0;
+    }
+
+    .home-first .section:first-of-type {
+      border-top: 0;
+      padding-top: 0;
+    }
+
+    .home-first .stat,
+    .home-first .field {
+      background: transparent;
+      border-color: var(--line);
+      border-width: 1px 0 0;
+      border-radius: 0;
+      padding: 12px 0;
+    }
+
+    .home-first .stat strong {
+      font-size: 1.65rem;
+    }
+
+    .home-overview-layout {
+      align-items: center;
+      display: grid;
+      gap: 18px;
+      grid-template-columns: minmax(120px, 0.42fr) minmax(0, 1fr);
+    }
+
+    .home-elevation {
+      display: grid;
+      justify-items: center;
+    }
+
+    .home-roof {
+      border-bottom: 34px solid var(--teal-strong);
+      border-left: 62px solid transparent;
+      border-right: 62px solid transparent;
+      height: 0;
+      width: 0;
+    }
+
+    .home-floor {
+      align-items: center;
+      background: #fff;
+      border: 2px solid var(--teal-strong);
+      border-top: 0;
+      color: var(--teal-strong);
+      display: flex;
+      font-size: 0.8rem;
+      font-weight: 900;
+      height: 42px;
+      justify-content: center;
+      width: 124px;
+    }
+
+    .home-floor.main {
+      background: var(--teal-soft);
+      box-shadow: inset 0 0 0 3px #b9dce4;
+    }
+
+    .home-floor.basement {
+      background: #eef3f5;
+    }
+
+    .home-view-summary {
+      display: grid;
+      gap: 8px;
+    }
+
+    .home-view-summary .row {
+      background: transparent;
+      border-width: 1px 0 0;
+      border-radius: 0;
+      grid-template-columns: minmax(0, 1fr) auto;
+      padding: 10px 0;
+    }
+
+    .home-view-summary .row:first-child {
+      border-top: 0;
+    }
+
+    .option-header {
+      border-bottom: 1px solid var(--line-soft);
+      display: grid;
+      gap: 10px;
+      padding: 18px;
+    }
+
+    .eyebrow {
+      color: var(--teal-strong);
+      font-size: 0.76rem;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .option-header h2 {
+      font-size: 1.45rem;
+      line-height: 1.1;
+    }
+
+    .option-header p,
+    .copy,
+    .tradeoff li {
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .mock {
+      background: linear-gradient(180deg, #f7fbfc 0%, #fdfefe 100%);
+      border-bottom: 1px solid var(--line-soft);
+      min-height: 380px;
+      padding: 18px;
+    }
+
+    .app-frame {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .topbar {
+      align-items: center;
+      border-bottom: 1px solid var(--line-soft);
+      display: flex;
+      gap: 18px;
+      justify-content: space-between;
+      padding: 12px 18px;
+    }
+
+    .brand {
+      color: var(--teal-strong);
+      font-family: "Segoe Script", "Brush Script MT", cursive;
+      font-size: 1.45rem;
+      font-weight: 850;
+    }
+
+    .nav {
+      display: flex;
+      gap: 12px;
+      font-size: 0.78rem;
+      font-weight: 850;
+    }
+
+    .nav span {
+      color: #11231b;
+    }
+
+    .nav .active {
+      color: var(--teal);
+      border-bottom: 2px solid var(--teal);
+      padding-bottom: 3px;
+    }
+
+    .page {
+      display: grid;
+      gap: 14px;
+      padding: 18px;
+    }
+
+    .page-title {
+      align-items: start;
+      display: flex;
+      gap: 14px;
+      justify-content: space-between;
+    }
+
+    .page-title h3 {
+      color: var(--teal-strong);
+      font-size: 2rem;
+      line-height: 1;
+    }
+
+    .button {
+      background: var(--teal);
+      border-radius: 999px;
+      color: #fff;
+      font-size: 0.8rem;
+      font-weight: 850;
+      padding: 9px 12px;
+      white-space: nowrap;
+    }
+
+    .ghost {
+      background: var(--teal-soft);
+      color: var(--teal-strong);
+    }
+
+    .section {
+      background: var(--surface-muted);
+      border: 1px solid var(--line-soft);
+      border-radius: 10px;
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+    }
+
+    .section h4 {
+      font-size: 1rem;
+      margin: 0;
+    }
+
+    .section-heading-inline {
+      align-items: center;
+      display: flex;
+      gap: 12px;
+      justify-content: space-between;
+    }
+
+    .mini-state {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+    }
+
+    .mini-header {
+      align-items: center;
+      display: flex;
+      gap: 10px;
+      justify-content: space-between;
+    }
+
+    .mini-header h3 {
+      color: var(--teal-strong);
+      font-size: 1.35rem;
+    }
+
+    .mini-menu {
+      background: #fff;
+      border: 1px solid var(--line-soft);
+      border-radius: 10px;
+      box-shadow: 0 12px 28px rgba(15, 76, 102, 0.1);
+      display: grid;
+      gap: 0;
+      justify-self: end;
+      min-width: 150px;
+      overflow: hidden;
+    }
+
+    .mini-menu span {
+      border-bottom: 1px solid var(--line-soft);
+      color: #24352e;
+      font-size: 0.82rem;
+      font-weight: 800;
+      padding: 9px 11px;
+    }
+
+    .mini-menu span:last-child {
+      border-bottom: 0;
+      color: var(--teal-strong);
+    }
+
+    .home-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .home-list-row {
+      align-items: center;
+      background: #fff;
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      display: grid;
+      gap: 8px;
+      grid-template-columns: minmax(0, 1fr) auto;
+      padding: 10px;
+    }
+
+    .home-list-row strong {
+      color: #24352e;
+    }
+
+    .home-list-row span {
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 800;
+    }
+
+    .stat-grid {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .stat {
+      background: #fff;
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      display: grid;
+      gap: 4px;
+      min-height: 72px;
+      padding: 10px;
+    }
+
+    .stat span,
+    .row span,
+    .mini-label {
+      color: var(--muted);
+      font-size: 0.76rem;
+      font-weight: 800;
+    }
+
+    .stat strong {
+      color: var(--teal-strong);
+      font-size: 1.35rem;
+    }
+
+    .checklist,
+    .rows,
+    .room-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .row {
+      align-items: center;
+      background: #fff;
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      display: grid;
+      gap: 8px;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      padding: 10px;
+    }
+
+    .dot {
+      border: 2px solid var(--teal);
+      border-radius: 999px;
+      height: 16px;
+      width: 16px;
+    }
+
+    .dot.done {
+      background: var(--done);
+      border-color: var(--done);
+    }
+
+    .tabs,
+    .segmented {
+      background: var(--surface-soft);
+      border-radius: 999px;
+      display: inline-flex;
+      gap: 4px;
+      padding: 4px;
+      width: max-content;
+    }
+
+    .tabs span,
+    .segmented span {
+      border-radius: 999px;
+      color: #24352e;
+      font-size: 0.78rem;
+      font-weight: 850;
+      padding: 8px 11px;
+    }
+
+    .tabs .active,
+    .segmented .active {
+      background: var(--teal);
+      color: #fff;
+    }
+
+    .two-col {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    }
+
+    .floor-stack {
+      display: grid;
+      gap: 6px;
+    }
+
+    .floor {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 11px;
+      text-align: center;
+    }
+
+    .floor.active {
+      background: var(--teal);
+      color: #fff;
+    }
+
+    .room-list {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .room {
+      background: #fff;
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      display: grid;
+      gap: 5px;
+      min-height: 70px;
+      padding: 10px;
+    }
+
+    .form-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .field {
+      background: #fff;
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      color: #24352e;
+      display: grid;
+      gap: 7px;
+      font-size: 0.84rem;
+      font-weight: 850;
+      padding: 10px;
+    }
+
+    .input {
+      background: #fafdfe;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      padding: 8px;
+    }
+
+    .option-body {
+      display: grid;
+      gap: 14px;
+      padding: 18px;
+    }
+
+    .tradeoff {
+      display: grid;
+      gap: 7px;
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    .tradeoff strong {
+      color: #24352e;
+    }
+
+    .single {
+      grid-column: 1 / -1;
+    }
+
+    @media (max-width: 980px) {
+      body {
+        padding: 18px;
+      }
+
+      .option-grid,
+      .interaction-grid,
+      .two-col,
+      .recommendation,
+      .home-overview-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .room-list,
+      .form-grid,
+      .stat-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="intro">
+      <div>
+        <p class="eyebrow">Households page UX comparison</p>
+        <h1>Designing for one home first</h1>
+      </div>
+      <p>
+        The current page behaves like a multi-property admin dashboard. These alternatives compare ways to make the common
+        single-household case feel direct while preserving the ability to support multiple homes later.
+      </p>
+      <div class="recommendation">
+        <div>
+          <strong>Recommendation: Option 2, with setup checklist cues from Option 3.</strong>
+          <p class="copy">
+            It is the smallest product shift with the clearest UX gain: one-household users land directly in "My Home,"
+            while multi-household users still get a list/dashboard when it becomes relevant.
+          </p>
+        </div>
+        <span class="pill">Best balance</span>
+      </div>
+    </section>
+
+    <section class="intro">
+      <div>
+        <p class="eyebrow">Where does "Add another home" belong?</p>
+        <h1>Multi-home interaction patterns</h1>
+      </div>
+      <p>
+        The placement only makes sense once the multiple-home state is designed. These patterns compare how the page could
+        behave before and after a user adds another home.
+      </p>
+      <div class="interaction-grid">
+        <article class="interaction-card">
+          <div>
+            <p class="eyebrow">Pattern A</p>
+            <h2>Home title menu</h2>
+            <p class="copy">The home name acts like a selector, and the add action lives inside that menu.</p>
+          </div>
+          <div class="mini-state">
+            <div class="mini-header">
+              <h3>Lake house v</h3>
+              <span class="button ghost">Overview</span>
+            </div>
+            <div class="mini-menu">
+              <span>Primary home</span>
+              <span>Lake house</span>
+              <span>Add another home</span>
+            </div>
+          </div>
+          <ul class="tradeoff">
+            <li><strong>Works if:</strong> the app supports a selected/current home model.</li>
+            <li><strong>Risk:</strong> implies an active household concept we do not want.</li>
+          </ul>
+        </article>
+
+        <article class="interaction-card">
+          <div>
+            <p class="eyebrow">Pattern B</p>
+            <h2>Homes management block</h2>
+            <p class="copy">The single-home page stays focused, and a small Homes section owns add/manage actions.</p>
+          </div>
+          <div class="mini-state">
+            <div class="mini-header">
+              <h3>My Home</h3>
+              <div class="tabs"><span class="active">Overview</span><span>Floors</span><span>Rooms</span></div>
+            </div>
+            <div class="home-list">
+              <div class="home-list-row"><strong>New household</strong><span>Current home</span></div>
+              <div class="home-list-row"><strong>Add another home</strong><span>+</span></div>
+            </div>
+          </div>
+          <ul class="tradeoff">
+            <li><strong>Works if:</strong> adding another home should be visible but clearly secondary.</li>
+            <li><strong>Risk:</strong> can feel like extra page furniture for single-home users.</li>
+          </ul>
+        </article>
+
+        <article class="interaction-card recommended">
+          <div>
+            <p class="eyebrow">Pattern C</p>
+            <h2>Single home now, list only later</h2>
+            <p class="copy">Hide the add action under a small page menu until multiple homes exist; then the page becomes a homes list.</p>
+          </div>
+          <div class="mini-state">
+            <div class="mini-header">
+              <h3>My Home</h3>
+              <span class="quiet-action">More</span>
+            </div>
+            <div class="mini-menu">
+              <span>Rename home</span>
+              <span>Add another home</span>
+            </div>
+          </div>
+          <div class="mini-state">
+            <div class="mini-header">
+              <h3>Homes</h3>
+              <span class="quiet-action">Add another home</span>
+            </div>
+            <div class="home-list">
+              <div class="home-list-row"><strong>Primary home</strong><span>8 rooms</span></div>
+              <div class="home-list-row"><strong>Lake house</strong><span>4 rooms</span></div>
+            </div>
+          </div>
+          <ul class="tradeoff">
+            <li><strong>Works if:</strong> single-home users should not see multi-home chrome by default.</li>
+            <li><strong>Why I like it:</strong> no active-home model, clean first-run UX, natural multi-home escalation.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="option-grid">
+      <article class="option home-first">
+        <div class="option-header">
+          <p class="eyebrow">Option 1</p>
+          <h2>"My Home" first, multi-home secondary</h2>
+          <p>Rename the experience around the default user and hide multi-household management behind a smaller selector.</p>
+        </div>
+        <div class="mock">
+          <div class="app-frame">
+            <div class="topbar">
+              <div class="brand">Cleanly</div>
+              <div class="nav"><span>Today</span><span>Calendar</span><span class="active">My Home</span><span>Family</span></div>
+            </div>
+            <div class="page">
+              <div class="page-title">
+                <div>
+                  <h3>My Home</h3>
+                </div>
+                <div class="page-actions">
+                  <div class="tabs"><span class="active">Overview</span><span>Floors</span><span>Rooms</span></div>
+                  <span class="quiet-action">Add another home</span>
+                </div>
+              </div>
+              <div class="section">
+                <div class="home-overview-layout">
+                  <div class="home-elevation" aria-label="Read-only house floor view">
+                    <div class="home-roof"></div>
+                    <div class="home-floor">Upstairs</div>
+                    <div class="home-floor main">Main</div>
+                    <div class="home-floor basement">Basement</div>
+                  </div>
+                  <div class="home-view-summary">
+                    <div class="row"><strong>Main floor</strong><span>4 rooms / profile healthy</span></div>
+                    <div class="row"><strong>Upstairs</strong><span>4 rooms / needs surfaces</span></div>
+                    <div class="row"><strong>Basement</strong><span>No rooms yet</span></div>
+                  </div>
+                </div>
+              </div>
+              <div class="section">
+                <h4>Profile details</h4>
+                <div class="form-grid">
+                  <div class="field">Home type <span class="input">House</span></div>
+                  <div class="field">Pets <span class="input">Yes</span></div>
+                  <div class="field">Outdoor space <span class="input">No</span></div>
+                  <div class="field">Notes <span class="input">Needs seasonal deep clean</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="option-body">
+          <p class="copy">Best when the product language should reinforce that Cleanly is for managing a home, not an account portfolio.</p>
+          <ul class="tradeoff">
+            <li><strong>Pros:</strong> Warmer and simpler mental model, better nav label, less "admin" framing.</li>
+            <li><strong>Cons:</strong> Needs careful copy for users who do manage several homes.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="option">
+        <div class="option-header">
+          <p class="eyebrow">Option 2</p>
+          <h2>Adaptive single-household layout</h2>
+          <p>Use one route, but change the page structure based on household count.</p>
+        </div>
+        <div class="mock">
+          <div class="app-frame">
+            <div class="topbar">
+              <div class="brand">Cleanly</div>
+              <div class="nav"><span>Today</span><span>Calendar</span><span class="active">Households</span><span>Family</span></div>
+            </div>
+            <div class="page">
+              <div class="page-title">
+                <div>
+                  <p class="eyebrow">Home model</p>
+                  <h3>New household</h3>
+                </div>
+                <span class="button ghost">Add another</span>
+              </div>
+              <div class="section">
+                <div class="checklist">
+                  <div class="row"><span class="dot done"></span><strong>Profile</strong><span>Complete</span></div>
+                  <div class="row"><span class="dot done"></span><strong>Floors</strong><span>2 modeled</span></div>
+                  <div class="row"><span class="dot"></span><strong>Rooms</strong><span>3 need detail</span></div>
+                </div>
+              </div>
+              <div class="section">
+                <div class="tabs"><span class="active">Overview</span><span>Floors</span><span>Rooms</span></div>
+                <div class="two-col">
+                  <div class="floor-stack"><div class="floor active">Main</div><div class="floor">Upstairs</div></div>
+                  <div class="room-list"><div class="room"><strong>Kitchen</strong><span class="mini-label">Tile</span></div><div class="room"><strong>Living room</strong><span class="mini-label">Wood</span></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="option-body">
+          <p class="copy">Best practical path: no route split, no data model change, just better conditional information architecture.</p>
+          <ul class="tradeoff">
+            <li><strong>Pros:</strong> Lowest implementation risk, removes awkward "1 household" stats, keeps current multi-home support.</li>
+            <li><strong>Cons:</strong> The nav label may still say "Households" unless renamed separately.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="option">
+        <div class="option-header">
+          <p class="eyebrow">Option 3</p>
+          <h2>Setup checklist workspace</h2>
+          <p>Make the page answer "what do I need to finish so chores work better?"</p>
+        </div>
+        <div class="mock">
+          <div class="app-frame">
+            <div class="topbar">
+              <div class="brand">Cleanly</div>
+              <div class="nav"><span>Today</span><span>Calendar</span><span class="active">Households</span><span>Settings</span></div>
+            </div>
+            <div class="page">
+              <div class="page-title">
+                <div>
+                  <p class="eyebrow">Setup progress</p>
+                  <h3>Finish your home model</h3>
+                </div>
+                <span class="pill">72%</span>
+              </div>
+              <div class="section">
+                <div class="rows">
+                  <div class="row"><span class="dot done"></span><strong>Name and home type</strong><span>Done</span></div>
+                  <div class="row"><span class="dot done"></span><strong>Add floors</strong><span>Done</span></div>
+                  <div class="row"><span class="dot"></span><strong>Describe rooms</strong><span>Start</span></div>
+                  <div class="row"><span class="dot"></span><strong>Set surfaces and pet impact</strong><span>Next</span></div>
+                </div>
+              </div>
+              <div class="section">
+                <h4>Current step</h4>
+                <div class="form-grid">
+                  <div class="field">Room name <span class="input">Kitchen</span></div>
+                  <div class="field">Floor <span class="input">Main</span></div>
+                </div>
+                <span class="button">Save and continue</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="option-body">
+          <p class="copy">Best if the page is primarily a setup experience and users only return occasionally.</p>
+          <ul class="tradeoff">
+            <li><strong>Pros:</strong> Clear next action, less overwhelming, strong onboarding.</li>
+            <li><strong>Cons:</strong> Can feel too task-oriented for power users who just want to edit a detail.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="option">
+        <div class="option-header">
+          <p class="eyebrow">Option 4</p>
+          <h2>Room-centered home model</h2>
+          <p>Put rooms at the center because that is where chores become concrete.</p>
+        </div>
+        <div class="mock">
+          <div class="app-frame">
+            <div class="topbar">
+              <div class="brand">Cleanly</div>
+              <div class="nav"><span>Today</span><span>Calendar</span><span class="active">Rooms</span><span>Family</span></div>
+            </div>
+            <div class="page">
+              <div class="page-title">
+                <div>
+                  <p class="eyebrow">Home coverage</p>
+                  <h3>Rooms</h3>
+                </div>
+                <span class="button">Add room</span>
+              </div>
+              <div class="segmented"><span class="active">Main</span><span>Upstairs</span><span>Basement</span></div>
+              <div class="room-list">
+                <div class="room"><strong>Kitchen</strong><span class="mini-label">Tile, high pet impact</span></div>
+                <div class="room"><strong>Living room</strong><span class="mini-label">Wood, robot vacuum</span></div>
+                <div class="room"><strong>Bathroom</strong><span class="mini-label">Tile, mop needed</span></div>
+                <div class="room"><strong>Entry</strong><span class="mini-label">Outdoor dirt</span></div>
+              </div>
+              <div class="section">
+                <h4>Floor details</h4>
+                <p class="copy">Main floor has 4 rooms and 3 chore targets.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="option-body">
+          <p class="copy">Best if users naturally think in rooms and want fast editing without understanding the full household model.</p>
+          <ul class="tradeoff">
+            <li><strong>Pros:</strong> Very concrete, maps closely to chores, easier scanning.</li>
+            <li><strong>Cons:</strong> De-emphasizes profile/floor metadata that still matters for recommendations.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="option single">
+        <div class="option-header">
+          <p class="eyebrow">Option 5</p>
+          <h2>Settings-style home profile</h2>
+          <p>Remove dashboard language and make the page a direct configuration surface.</p>
+        </div>
+        <div class="mock">
+          <div class="app-frame">
+            <div class="topbar">
+              <div class="brand">Cleanly</div>
+              <div class="nav"><span>Today</span><span>Calendar</span><span class="active">Home</span><span>Settings</span></div>
+            </div>
+            <div class="page">
+              <div class="page-title">
+                <div>
+                  <p class="eyebrow">Configuration</p>
+                  <h3>Home profile</h3>
+                </div>
+                <span class="button">Save changes</span>
+              </div>
+              <div class="two-col">
+                <div class="section">
+                  <h4>Sections</h4>
+                  <div class="rows">
+                    <div class="row"><span class="dot done"></span><strong>Profile</strong><span></span></div>
+                    <div class="row"><span class="dot"></span><strong>Floors</strong><span></span></div>
+                    <div class="row"><span class="dot"></span><strong>Rooms</strong><span></span></div>
+                    <div class="row"><span class="dot"></span><strong>Cleaning constraints</strong><span></span></div>
+                  </div>
+                </div>
+                <div class="section">
+                  <h4>Profile</h4>
+                  <div class="form-grid">
+                    <div class="field">Household name <span class="input">New household</span></div>
+                    <div class="field">Home type <span class="input">House</span></div>
+                    <div class="field">Pets <span class="input">Yes</span></div>
+                    <div class="field">Outdoor space <span class="input">No</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="option-body">
+          <p class="copy">Best if the page should feel calm, editable, and utilitarian rather than like a dashboard.</p>
+          <ul class="tradeoff">
+            <li><strong>Pros:</strong> Very readable, low cognitive load, familiar settings pattern.</li>
+            <li><strong>Cons:</strong> Less guided than a checklist and less visual than room-centered editing.</li>
+          </ul>
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>
