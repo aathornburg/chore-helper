@@ -738,6 +738,49 @@ describe("App", () => {
   });
 
   it("loads Today dashboard occurrences across households", async () => {
+    const homeOccurrences = [{
+      id: "occurrence-clean",
+      householdId: "household-1",
+      choreId: "chore-1",
+      scheduleId: "schedule-1",
+      sequence: 0,
+      planningMode: "flexible",
+      estimatedMinutes: 30,
+      eligibleStartOn: "2026-05-30",
+      eligibleEndOn: "2026-05-30",
+      assignedUserId: "app-user-1",
+      exceptionType: "none",
+      status: "planned"
+    }, {
+      id: "occurrence-skipped",
+      householdId: "household-1",
+      choreId: "chore-1",
+      scheduleId: "schedule-1",
+      sequence: 1,
+      planningMode: "flexible",
+      estimatedMinutes: 30,
+      eligibleStartOn: "2026-05-30",
+      eligibleEndOn: "2026-05-30",
+      assignedUserId: "app-user-1",
+      exceptionType: "skipped",
+      status: "skipped"
+    }];
+    const cabinOccurrences = [{
+      id: "occurrence-mow",
+      householdId: "household-2",
+      choreId: "chore-cabin",
+      scheduleId: "schedule-cabin",
+      sequence: 0,
+      planningMode: "flexible",
+      estimatedMinutes: 45,
+      eligibleStartOn: "2026-05-30",
+      eligibleEndOn: "2026-05-30",
+      assignedUserId: "app-user-1",
+      exceptionType: "none",
+      status: "completed",
+      completedAt: "2026-05-30T14:00:00.000Z",
+      completedByUserId: "app-user-1"
+    }];
     const secondHousehold = {
       ...createHouseholdAppData({
         chores: [{ ...cleanBathroomsChore, id: "chore-cabin", householdId: "household-2", title: "Mow lawn" }],
@@ -764,10 +807,10 @@ describe("App", () => {
         return { ok: true, json: async () => [{ householdId: "household-2", userId: "app-user-1", clerkUserId: "test-user-a", displayName: "Alex Owner", role: "owner" }] };
       }
       if (url.startsWith("http://localhost:3001/api/households/household-1/occurrences?") && method === "GET") {
-        return { ok: true, json: async () => [] };
+        return { ok: true, json: async () => homeOccurrences };
       }
       if (url.startsWith("http://localhost:3001/api/households/household-2/occurrences?") && method === "GET") {
-        return { ok: true, json: async () => [] };
+        return { ok: true, json: async () => cabinOccurrences };
       }
 
       throw new Error(`Unhandled fetch ${method} ${url}`);
@@ -783,6 +826,15 @@ describe("App", () => {
     expect(screen.getByText("Home")).toBeTruthy();
     expect(screen.getByText("Cabin")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Upcoming next 7 days" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Saturday May 30 3 due" })).toBeTruthy();
+    expect(screen.getByText("To do")).toBeTruthy();
+    expect(screen.getByText("Done")).toBeTruthy();
+    expect(screen.getByText("Skipped")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Complete Clean bathrooms" })).toBeTruthy();
+    expect(screen.getByText("Improve future suggestions")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "By household" }));
+    expect(screen.getByRole("region", { name: "Home chores" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Cabin chores" })).toBeTruthy();
     expect(fetchMock.mock.calls.some(([url]) =>
       String(url).startsWith("http://localhost:3001/api/households/household-1/occurrences?") &&
       String(url).includes("startOn=") &&
