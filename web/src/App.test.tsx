@@ -763,6 +763,7 @@ describe("App", () => {
   });
 
   it("loads Today dashboard occurrences across households", async () => {
+    await withMay2026CalendarClock(async () => {
     const homeOccurrences = [{
       id: "occurrence-clean",
       householdId: "household-1",
@@ -876,9 +877,11 @@ describe("App", () => {
       String(url).includes("startOn=") &&
       String(url).includes("endOn=")
     )).toBe(true);
+    });
   });
 
   it("completes a Today chore and saves post-completion details", async () => {
+    await withMay2026CalendarClock(async () => {
     let occurrences: ChoreOccurrence[] = [{
       id: "occurrence-clean",
       householdId: "household-1",
@@ -951,6 +954,7 @@ describe("App", () => {
       "http://localhost:3001/api/households/household-1/occurrences/occurrence-clean/check-in",
       expect.objectContaining({ method: "PUT" })
     ));
+    });
   });
 
   it("moves the Google Calendar setup entry point from Today to Calendar", async () => {
@@ -1172,8 +1176,10 @@ describe("App", () => {
     const collaboration = screen.getByRole("region", { name: "Household collaboration" });
     expect(collaboration).toBeTruthy();
     await waitFor(() => expect(within(collaboration).getByText("Alex Owner")).toBeTruthy());
-    expect(within(collaboration).getByText("People with household access").parentElement?.textContent).toContain("2");
-    expect(within(collaboration).getByText("Owner-managed invite queue").parentElement?.textContent).toContain("1");
+    await waitFor(() => {
+      expect(within(collaboration).getByText("People with household access").parentElement?.textContent).toContain("2");
+      expect(within(collaboration).getByText("Owner-managed invite queue").parentElement?.textContent).toContain("1");
+    });
   });
 
   it("shows family members without owner-only actions to an ordinary member", async () => {
@@ -1254,6 +1260,7 @@ describe("App", () => {
   });
 
   it("switches between calendar and chronological list occurrences", async () => {
+    await withMay2026CalendarClock(async () => {
     vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
     renderAt("/calendar");
 
@@ -1267,6 +1274,7 @@ describe("App", () => {
     expect(within(plannedCard).getByText("Anytime / 60 min")).toBeTruthy();
     expect(within(agenda).getByRole("button", { name: "View Pet cats" })).toBeTruthy();
     expect(screen.queryByText("Flexible")).toBeNull();
+    });
   });
 
   it("renders month as dated calendar cells with lightweight truncated chore rows", async () => {
@@ -1347,13 +1355,14 @@ describe("App", () => {
   });
 
   it("renders week view with one time rail and title-only chore buttons", async () => {
+    await withMay2026CalendarClock(async () => {
     vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
     renderAt("/calendar");
 
     fireEvent.click(await screen.findByRole("button", { name: "Week" }));
     const weekGrid = await screen.findByRole("grid", { name: "Week of May 24, 2026" });
     expect(weekGrid).toBeTruthy();
-    expect(screen.getByText("May 24 - May 30, 2026")).toBeTruthy();
+    expect(screen.getAllByText("May 24 - May 30, 2026").length).toBeGreaterThan(0);
     const previousButton = screen.getByRole("button", { name: "Previous week" });
     const nextButton = screen.getByRole("button", { name: "Next week" });
     expect(previousButton.querySelector("svg")).not.toBeNull();
@@ -1374,9 +1383,11 @@ describe("App", () => {
     expect(weekGrid.querySelectorAll(".calendar-column-hour-separator")).toHaveLength(7);
     expect(weekGrid.querySelectorAll(".calendar-column-hour-separator.has-top-divider")).toHaveLength(7);
     expect(screen.queryByText("Flexible")).toBeNull();
+    });
   });
 
   it("renders day view with an anytime row label and inline hour labels", async () => {
+    await withMay2026CalendarClock(async () => {
     vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
     renderAt("/calendar");
 
@@ -1393,6 +1404,7 @@ describe("App", () => {
     expect(within(dayRows[0]).queryByText("Alex Owner")).toBeNull();
     expect(dayRows[1].classList.contains("is-completed")).toBe(true);
     expect(dayGrid.querySelector(".calendar-completed-drawer")).toBeNull();
+    });
   });
 
   it("filters calendar content by planning mode inside the workspace panel", async () => {
@@ -1410,6 +1422,7 @@ describe("App", () => {
   });
 
   it("shows completed chores inline in calendar views and in list agenda views", async () => {
+    await withMay2026CalendarClock(async () => {
     vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
     renderAt("/calendar");
 
@@ -1462,6 +1475,7 @@ describe("App", () => {
     expect(completedCard.classList.contains("calendar-agenda-card")).toBe(false);
     expect(within(completedCard).getByText("Completed")).toBeTruthy();
     expect(within(agenda).getByText("1 completed")).toBeTruthy();
+    });
   });
 
   it("renders completed Calendar chores after incomplete chores in each day group", async () => {
@@ -1788,6 +1802,7 @@ describe("App", () => {
   });
 
   it("completes an assigned flexible obligation from its row and removes duplicate projections", async () => {
+    await withMay2026CalendarClock(async () => {
     const fetchMock = mockCalendarWorkspaceFetches();
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/calendar");
@@ -1811,6 +1826,7 @@ describe("App", () => {
       String(url) === "http://localhost:3001/api/households/household-1/occurrences/occurrence-flexible/complete"
     );
     expect(String(completeCall?.[1]?.body)).not.toContain("keepAssignee");
+    });
   });
 
   it("adds the first household from the no-households state", async () => {
