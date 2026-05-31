@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { addDays, format, startOfDay } from "date-fns";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
-import type { ChoreOccurrence, HouseholdAppData, HouseholdMemberSummary } from "@chore-helper/shared";
-import { getCurrentUser, listHouseholdMembers, listOccurrences } from "../api";
+import type { ChoreOccurrence, CompletionCheckInInput, HouseholdAppData, HouseholdMemberSummary } from "@chore-helper/shared";
+import { completeOccurrence, getCurrentUser, listHouseholdMembers, listOccurrences, updateCompletionCheckIn } from "../api";
 import type { Navigate } from "../types";
 import { formatHouseholdSummary } from "../utils/household";
 
@@ -25,6 +25,7 @@ type TodayOccurrenceRow = {
   title: string;
   assigneeLabel: string;
 };
+type CompletionCheckInDraft = Required<Pick<CompletionCheckInInput, "completedOnTime" | "durationAccurate" | "rebaseFutureOccurrences">>;
 
 function occurrenceDateKey(occurrence: ChoreOccurrence, timeZone: string) {
   return occurrence.plannedStartAt
@@ -73,6 +74,13 @@ export function TodayDashboard({ households, isLoading, loadError, onNavigate }:
   const [membersByHousehold, setMembersByHousehold] = useState<Record<string, HouseholdMemberSummary[]>>({});
   const [occurrencesByHousehold, setOccurrencesByHousehold] = useState<Record<string, ChoreOccurrence[]>>({});
   const [todayDataStatus, setTodayDataStatus] = useState<TodayDataStatus>("idle");
+  const [toast, setToast] = useState<{ occurrenceId: string; title: string; row: TodayOccurrenceRow }>();
+  const [checkInTarget, setCheckInTarget] = useState<TodayOccurrenceRow>();
+  const [checkInDraft, setCheckInDraft] = useState<CompletionCheckInDraft>({
+    completedOnTime: true,
+    durationAccurate: true,
+    rebaseFutureOccurrences: false
+  });
 
   useEffect(() => {
     if (isLoading || loadError || households.length === 0) {
@@ -166,13 +174,49 @@ export function TodayDashboard({ households, isLoading, loadError, onNavigate }:
           </span>
         </div>
         {!options.compact && canComplete ? (
-          <button className="section-action" type="button">Complete {row.title}</button>
+          <button className="section-action" onClick={() => void completeFromToday(row)} type="button">
+            Complete {row.title}
+          </button>
         ) : null}
         {!options.compact && isCompleted ? (
-          <button className="section-action" type="button">Improve future suggestions</button>
+          <button
+            aria-label={`Improve future suggestions for ${row.title}`}
+            className="section-action"
+            onClick={() => openCheckInSheet(row)}
+            type="button"
+          >
+            Improve future suggestions
+          </button>
         ) : null}
       </article>
     );
+  }
+
+  async function completeFromToday(row: TodayOccurrenceRow) {
+    const completed = await completeOccurrence(row.household.id, row.occurrence.id);
+    const completedRow = { ...row, occurrence: completed };
+    setOccurrencesByHousehold((current) => ({
+      ...current,
+      [row.household.id]: (current[row.household.id] ?? []).map((occurrence) =>
+        occurrence.id === completed.id ? completed : occurrence
+      )
+    }));
+    setToast({ occurrenceId: completed.id, title: row.title, row: completedRow });
+  }
+
+  function openCheckInSheet(row: TodayOccurrenceRow) {
+    setCheckInDraft({
+      completedOnTime: true,
+      durationAccurate: true,
+      rebaseFutureOccurrences: false
+    });
+    setCheckInTarget(row);
+  }
+
+  async function saveCheckInDetails() {
+    if (!checkInTarget) return;
+    await updateCompletionCheckIn(checkInTarget.household.id, checkInTarget.occurrence.id, checkInDraft);
+    setCheckInTarget(undefined);
   }
 
   function renderStatusGroup(label: string, rows: TodayOccurrenceRow[]) {
@@ -391,6 +435,64 @@ export function TodayDashboard({ households, isLoading, loadError, onNavigate }:
           Set up Calendar
         </button>
       </section>
+
+      {toast ? (
+        <aside className="today-toast" role="status">
+          <strong>{toast.title} marked done</strong>
+          <button className="section-action" onClick={() => openCheckInSheet(toast.row)} type="button">
+            Add details
+          </button>
+          <button className="icon-button" onClick={() => setToast(undefined)} type="button" aria-label="Dismiss completion message" />
+        </aside>
+      ) : null}
+
+      {checkInTarget ? (
+        <div className="chore-editor-backdrop" role="presentation">
+          <section className="chore-editor-modal today-check-in-sheet" aria-label="Improve future suggestions">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">Completion details</p>
+                <h2>Improve future suggestions</h2>
+              </div>
+              <button
+                aria-label="Close completion details"
+                className="icon-button modal-close-button"
+                onClick={() => setCheckInTarget(undefined)}
+                type="button"
+              />
+            </div>
+            <p>{checkInTarget.title}</p>
+            <label className="checkbox-field">
+              <input
+                checked={!checkInDraft.completedOnTime}
+                onChange={(event) => setCheckInDraft({ ...checkInDraft, completedOnTime: !event.target.checked })}
+                type="checkbox"
+              />
+              It happened later than planned
+            </label>
+            <label className="checkbox-field">
+              <input
+                checked={!checkInDraft.durationAccurate}
+                onChange={(event) => setCheckInDraft({ ...checkInDraft, durationAccurate: !event.target.checked })}
+                type="checkbox"
+              />
+              The time estimate was off
+            </label>
+            <label className="checkbox-field">
+              <input
+                checked={checkInDraft.rebaseFutureOccurrences}
+                onChange={(event) => setCheckInDraft({ ...checkInDraft, rebaseFutureOccurrences: event.target.checked })}
+                type="checkbox"
+              />
+              Base future occurrences on this completion date
+            </label>
+            <div className="form-actions">
+              <button onClick={() => void saveCheckInDetails()} type="button">Save details</button>
+              <button className="section-action" onClick={() => setCheckInTarget(undefined)} type="button">Cancel</button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }

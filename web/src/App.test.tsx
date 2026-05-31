@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type {
+  ChoreOccurrence,
   CreateScheduledChoreInput,
   HouseholdAppData,
   HouseholdInvitation,
@@ -845,6 +846,81 @@ describe("App", () => {
       String(url).includes("startOn=") &&
       String(url).includes("endOn=")
     )).toBe(true);
+  });
+
+  it("completes a Today chore and saves post-completion details", async () => {
+    let occurrences: ChoreOccurrence[] = [{
+      id: "occurrence-clean",
+      householdId: "household-1",
+      choreId: "chore-1",
+      scheduleId: "schedule-1",
+      sequence: 0,
+      planningMode: "flexible",
+      estimatedMinutes: 30,
+      eligibleStartOn: "2026-05-30",
+      eligibleEndOn: "2026-05-30",
+      assignedUserId: "app-user-1",
+      exceptionType: "none",
+      status: "planned"
+    }];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input.toString();
+      const method = init?.method ?? "GET";
+
+      if (url === "http://localhost:3001/api/me" && method === "GET") {
+        return { ok: true, json: async () => ({ id: "app-user-1", clerkUserId: "test-user-a" }) };
+      }
+      if (url === "http://localhost:3001/api/households" && method === "GET") {
+        return { ok: true, json: async () => [createHouseholdAppData()] };
+      }
+      if (url === "http://localhost:3001/api/households/household-1/members" && method === "GET") {
+        return { ok: true, json: async () => [{ householdId: "household-1", userId: "app-user-1", clerkUserId: "test-user-a", primaryEmail: "owner@example.com", displayName: "Alex Owner", role: "owner" }] };
+      }
+      if (url.startsWith("http://localhost:3001/api/households/household-1/occurrences?") && method === "GET") {
+        return { ok: true, json: async () => occurrences };
+      }
+      if (url === "http://localhost:3001/api/households/household-1/occurrences/occurrence-clean/complete" && method === "POST") {
+        occurrences = [{ ...occurrences[0], status: "completed", completedAt: "2026-05-30T14:20:00.000Z", completedByUserId: "app-user-1" }];
+        return { ok: true, json: async () => occurrences[0] };
+      }
+      if (url === "http://localhost:3001/api/households/household-1/occurrences/occurrence-clean/check-in" && method === "PUT") {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "check-in-1",
+            householdId: "household-1",
+            occurrenceId: "occurrence-clean",
+            completedOnTime: false,
+            durationAccurate: true,
+            rebaseFutureOccurrences: false,
+            createdAt: "2026-05-30T14:20:00.000Z",
+            updatedAt: "2026-05-30T14:25:00.000Z"
+          })
+        };
+      }
+
+      throw new Error(`Unhandled fetch ${method} ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderAt("/today");
+
+    fireEvent.click(await screen.findByRole("button", { name: "Complete Clean bathrooms" }));
+    await waitFor(() => expect(screen.getByText("Clean bathrooms marked done")).toBeTruthy());
+    expect(screen.getByRole("button", { name: "Add details" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Improve future suggestions for Clean bathrooms" })).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/households/household-1/occurrences/occurrence-clean/complete",
+      expect.objectContaining({ method: "POST" })
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Improve future suggestions for Clean bathrooms" }));
+    fireEvent.click(screen.getByLabelText("It happened later than planned"));
+    fireEvent.click(screen.getByRole("button", { name: "Save details" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/households/household-1/occurrences/occurrence-clean/check-in",
+      expect.objectContaining({ method: "PUT" })
+    ));
   });
 
   it("loads app household data from the user-scoped households endpoint without localStorage restore", async () => {

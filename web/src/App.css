@@ -1893,6 +1893,35 @@ button.calendar-event:hover {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.today-toast {
+  align-items: center;
+  background: #24352e;
+  border: 1px solid #2f694d;
+  border-radius: 12px;
+  bottom: 18px;
+  box-shadow: 0 18px 50px rgba(62, 49, 37, 0.2);
+  color: #fff;
+  display: flex;
+  gap: 12px;
+  max-width: min(460px, calc(100vw - 36px));
+  padding: 12px;
+  position: fixed;
+  right: 18px;
+  z-index: 20;
+}
+
+.today-toast strong {
+  flex: 1;
+}
+
+.today-toast .section-action {
+  background: #fffefa;
+}
+
+.today-check-in-sheet {
+  max-width: 560px;
+}
+
 .placeholder-page {
   border-radius: 24px;
   margin: 0 auto;
@@ -3017,6 +3046,15 @@ button.chore-row-summary[aria-expanded="true"] {
 
   .today-status-summary {
     grid-template-columns: 1fr;
+  }
+
+  .today-toast {
+    align-items: stretch;
+    bottom: 12px;
+    display: grid;
+    left: 12px;
+    max-width: none;
+    right: 12px;
   }
 
   .calendar-period-controls {
