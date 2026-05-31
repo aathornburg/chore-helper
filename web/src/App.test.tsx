@@ -1129,38 +1129,40 @@ describe("App", () => {
   });
 
   it("loads Calendar occurrences and provides equivalent planner edit actions", async () => {
-    const fetchMock = mockCalendarPageFetches();
-    renderAt("/calendar");
+    await withMay2026CalendarClock(async () => {
+      const fetchMock = mockCalendarPageFetches();
+      renderAt("/calendar");
 
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Calendar" })).toBeTruthy());
-    await waitFor(() => expect(screen.getByText("Clean bathrooms")).toBeTruthy());
-    expect(screen.getByRole("button", { name: "Month" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Week" }));
+      await waitFor(() => expect(screen.getByRole("heading", { name: "Calendar" })).toBeTruthy());
+      await waitFor(() => expect(screen.getByText("Clean bathrooms")).toBeTruthy());
+      expect(screen.getByRole("button", { name: "Month" })).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "Week" }));
 
-    fireEvent.change(screen.getByLabelText("Member"), { target: { value: "app-user-2" } });
-    await waitFor(() => expect(fetchMock.mock.calls.some(([url]) =>
-      String(url).includes("assignedUserId=app-user-2")
-    )).toBe(true));
+      fireEvent.change(screen.getByLabelText("Member"), { target: { value: "app-user-2" } });
+      await waitFor(() => expect(fetchMock.mock.calls.some(([url]) =>
+        String(url).includes("assignedUserId=app-user-2")
+      )).toBe(true));
 
-    fireEvent.click(screen.getByRole("button", { name: "View Clean bathrooms" }));
-    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
-    await waitFor(() => expect(screen.getByLabelText(/Estimated duration/)).toBeTruthy());
-    fireEvent.change(screen.getByLabelText(/Estimated duration/), { target: { value: "45" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:3001/api/households/household-1/schedules/schedule-1",
-      expect.objectContaining({ method: "PUT", body: expect.stringContaining("\"localEndTime\":\"10:45\"") })
-    ));
+      fireEvent.click(screen.getByRole("button", { name: "View Clean bathrooms" }));
+      fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+      await waitFor(() => expect(screen.getByLabelText(/Estimated duration/)).toBeTruthy());
+      fireEvent.change(screen.getByLabelText(/Estimated duration/), { target: { value: "45" } });
+      fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+        "http://localhost:3001/api/households/household-1/schedules/schedule-1",
+        expect.objectContaining({ method: "PUT", body: expect.stringContaining("\"localEndTime\":\"10:45\"") })
+      ));
 
-    fireEvent.dragStart(screen.getByRole("button", { name: "View Clean bathrooms" }));
-    fireEvent.drop(screen.getByLabelText("Monday, May 25 10:00 time slot"));
-    await waitFor(() => expect(fetchMock.mock.calls.filter(([url, init]) =>
-      url === "http://localhost:3001/api/households/household-1/occurrences/occurrence-1" &&
-      init?.method === "PUT"
-    )).toHaveLength(1));
+      fireEvent.dragStart(screen.getByRole("button", { name: "View Clean bathrooms" }));
+      fireEvent.drop(screen.getByLabelText("Monday, May 25 10:00 time slot"));
+      await waitFor(() => expect(fetchMock.mock.calls.filter(([url, init]) =>
+        url === "http://localhost:3001/api/households/household-1/occurrences/occurrence-1" &&
+        init?.method === "PUT"
+      )).toHaveLength(1));
 
-    fireEvent.click(screen.getByRole("button", { name: "Skip occurrence" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "View Clean bathrooms" }).classList.contains("is-skipped")).toBe(true));
+      fireEvent.click(screen.getByRole("button", { name: "Skip occurrence" }));
+      await waitFor(() => expect(screen.getByRole("button", { name: "View Clean bathrooms" }).classList.contains("is-skipped")).toBe(true));
+    });
   });
 
   it("uses Calendar as the only chore planning destination", async () => {

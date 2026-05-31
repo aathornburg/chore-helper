@@ -39,7 +39,6 @@ const weekdays = [
   { label: "Sat", value: 6 }
 ];
 const timedSlots = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"];
-const occurrenceStatusRank = { planned: 0, completed: 1, skipped: 2 } as const;
 
 function memberLabel(member: HouseholdMemberSummary) {
   return member.displayName ?? member.primaryEmail ?? member.clerkUserId;
@@ -152,6 +151,12 @@ function timeSlotLabel(slot: string) {
   const period = hour >= 12 ? "pm" : "am";
   const displayHour = hour % 12 || 12;
   return `${displayHour}:${String(minute).padStart(2, "0")} ${period}`;
+}
+
+function orderCompletedLast(occurrencesForDay: ChoreOccurrence[]) {
+  const completedOccurrences = occurrencesForDay.filter((occurrence) => occurrence.status === "completed");
+  const activeOccurrences = occurrencesForDay.filter((occurrence) => occurrence.status !== "completed");
+  return [...activeOccurrences, ...completedOccurrences];
 }
 
 function ChevronIcon({ direction }: { direction: "previous" | "next" }) {
@@ -697,6 +702,9 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
         title={title}
         type="button"
       >
+        {occurrence.status === "completed" ? (
+          <span className="calendar-status-icon" aria-hidden="true">✓</span>
+        ) : null}
         <span className="calendar-chore-main">
           <span className="calendar-chore-title">{title}</span>
           {density === "summary" ? (
@@ -721,6 +729,9 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
         title={title}
         type="button"
       >
+        {occurrence.status === "completed" ? (
+          <span className="calendar-status-icon" aria-hidden="true">✓</span>
+        ) : null}
         <span className="calendar-chore-main">
           <span className="calendar-chore-title">{title}</span>
         </span>
@@ -739,6 +750,9 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
         title={title}
         type="button"
       >
+        {occurrence.status === "completed" ? (
+          <span className="calendar-status-icon" aria-hidden="true">✓</span>
+        ) : null}
         <span className="calendar-chore-main">
           <span className="calendar-chore-title">{title}</span>
           <span className="calendar-chore-detail">{occurrence.status === "completed" ? occurrenceCompletionLine(occurrence) : occurrenceDateLine(occurrence)}</span>
@@ -753,42 +767,48 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
   }
 
   function renderMonthCalendar() {
+    const rangeLabel = format(focusDate, "MMMM yyyy");
     const monthWeeks = Array.from({ length: Math.ceil(monthDates.length / 7) }, (_item, index) =>
       monthDates.slice(index * 7, index * 7 + 7)
     );
     return (
-      <section className="calendar-month-panel" aria-label={`${format(focusDate, "MMMM yyyy")} month calendar`} role="grid">
-        {weekdays.map((weekday) => (
-          <div className="calendar-weekday-header" key={weekday.value} role="columnheader">{weekday.label}</div>
-        ))}
-        {monthWeeks.map((weekDatesInMonth) => (
-          <div className="calendar-month-week" key={dateKey(weekDatesInMonth[0])}>
-            {weekDatesInMonth.map((date) => {
-              const key = dateKey(date);
-              const isCurrentMonth = format(date, "yyyy-MM") === format(focusDate, "yyyy-MM");
-              const occurrencesForDay = occurrenceDateBuckets.get(key) ?? [];
-              const completedOccurrences = occurrencesForDay.filter((occurrence) => occurrence.status === "completed");
-              const activeOccurrences = occurrencesForDay.filter((occurrence) => occurrence.status !== "completed");
-              const hasAllCompleted = occurrencesForDay.length > 0 && activeOccurrences.length === 0;
-              return (
-                <section
-                  aria-label={longDateLabel(date)}
-                  className={`calendar-day-cell ${isCurrentMonth ? "" : "is-outside-month"} ${hasAllCompleted ? "is-all-completed" : ""} ${key === format(new Date(), "yyyy-MM-dd") ? "is-today" : ""}`}
-                  key={key}
-                  role="gridcell"
-                >
-                  <div className="calendar-day-cell-header">
-                    <span>{format(date, "d")}</span>
-                    {key === format(new Date(), "yyyy-MM-dd") ? <strong>Today</strong> : null}
-                  </div>
-                  <div className="calendar-day-active-events">
-                    {[...activeOccurrences, ...completedOccurrences].map((occurrence) => renderMonthOccurrence(occurrence, date))}
-                  </div>
-                </section>
-              );
-            })}
+      <section className="calendar-month-panel">
+        <div className="calendar-month-grid" role="grid" aria-label={`${rangeLabel} month calendar`}>
+          <div className="calendar-month-week calendar-month-week-header" role="row">
+            {weekdays.map((weekday) => (
+              <div className="calendar-weekday-header" key={weekday.value} role="columnheader">{weekday.label}</div>
+            ))}
           </div>
-        ))}
+          {monthWeeks.map((weekDatesInMonth) => (
+            <div className="calendar-month-week" key={dateKey(weekDatesInMonth[0])} role="row">
+              {weekDatesInMonth.map((date) => {
+                const key = dateKey(date);
+                const isCurrentMonth = format(date, "yyyy-MM") === format(focusDate, "yyyy-MM");
+                const occurrencesForDay = occurrenceDateBuckets.get(key) ?? [];
+                const completedOccurrences = occurrencesForDay.filter((occurrence) => occurrence.status === "completed");
+                const activeOccurrences = occurrencesForDay.filter((occurrence) => occurrence.status !== "completed");
+                const orderedOccurrences = [...activeOccurrences, ...completedOccurrences];
+                const hasAllCompleted = occurrencesForDay.length > 0 && activeOccurrences.length === 0;
+                return (
+                  <article
+                    aria-label={longDateLabel(date)}
+                    className={`calendar-day-cell ${isCurrentMonth ? "" : "is-outside-month"} ${hasAllCompleted ? "is-all-completed" : ""} ${key === format(new Date(), "yyyy-MM-dd") ? "is-today" : ""}`}
+                    key={key}
+                    role="gridcell"
+                  >
+                    <div className="calendar-day-cell-header">
+                      <span>{format(date, "d")}</span>
+                      {key === format(new Date(), "yyyy-MM-dd") ? <strong>Today</strong> : null}
+                    </div>
+                    <div className="calendar-day-active-events">
+                      {orderedOccurrences.map((occurrence) => renderMonthOccurrence(occurrence, date))}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          ))}
+        </div>
       </section>
     );
   }
@@ -814,15 +834,15 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
     const occurrencesForDay = occurrenceDateBuckets.get(key) ?? [];
     const completedOccurrences = occurrencesForDay.filter((occurrence) => occurrence.status === "completed");
     const activeOccurrences = occurrencesForDay.filter((occurrence) => occurrence.status !== "completed");
-    const flexibleOccurrences = activeOccurrences.filter((occurrence) => occurrence.planningMode === "flexible");
-    const completedFlexibleOccurrences = completedOccurrences.filter((occurrence) => occurrence.planningMode === "flexible");
+    const orderedOccurrences = [...activeOccurrences, ...completedOccurrences];
+    const flexibleOccurrences = orderedOccurrences.filter((occurrence) => occurrence.planningMode === "flexible");
     return (
       <section className="calendar-column" key={key}>
         <h3 aria-label={longDateLabel(date)} role="columnheader">{showSlotLabels ? longDateLabel(date) : format(date, "EEE, MMM d")}</h3>
         <div className={`calendar-column-anytime ${showSlotLabels ? "has-slot-label" : ""}`}>
           {showSlotLabels ? <span className="calendar-column-anytime-label">Anytime</span> : null}
           <div className="calendar-column-anytime-main">
-            {[...flexibleOccurrences, ...completedFlexibleOccurrences].map((occurrence) => renderOccurrenceCompact(occurrence, date, density))}
+            {flexibleOccurrences.map((occurrence) => renderOccurrenceCompact(occurrence, date, density))}
           </div>
         </div>
         <div className="calendar-column-hour-separator has-top-divider" aria-hidden="true" />
@@ -836,6 +856,7 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
               occurrence.plannedStartAt &&
               formatInTimeZone(occurrence.plannedStartAt, timeZone, "HH:mm").startsWith(slot.slice(0, 2))
             );
+            const orderedTimedOccurrences = [...timedOccurrences, ...completedTimedOccurrences];
             return (
               <div
                 aria-label={`${longDateLabel(date)} ${slot} time slot`}
@@ -846,7 +867,7 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
               >
                 {showSlotLabels ? <span>{timeSlotLabel(slot)}</span> : null}
                 <div>
-                  {[...timedOccurrences, ...completedTimedOccurrences].map((occurrence) => renderOccurrenceCompact(occurrence, date, density))}
+                  {orderedTimedOccurrences.map((occurrence) => renderOccurrenceCompact(occurrence, date, density))}
                 </div>
               </div>
             );
@@ -856,19 +877,21 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
     );
   }
 
-  if (isLoading) return <div className="calendar-page"><p>Loading calendar...</p></div>;
+  if (isLoading) return <div className="calendar-page operational-page"><p>Loading calendar...</p></div>;
 
   return (
-    <div className="calendar-page">
-      <header className="workspace-hero compact-hero">
+    <div className="calendar-page operational-page">
+      <header className="page-command-header">
         <div>
-          <p className="eyebrow">Household planner</p>
           <h1>Calendar</h1>
-          <p className="lede">Plan chores as timed appointments or flexible work windows in one place.</p>
+          <div className="command-metrics" aria-label="Calendar status summary">
+            <span>{selectedHousehold?.name ?? "No household"}</span>
+            <span>{periodLabel}</span>
+            <span>{visibleOccurrences.filter((occurrence) => occurrence.status !== "completed").length} open</span>
+            <span>{visibleOccurrences.filter((occurrence) => occurrence.status === "completed").length} completed</span>
+          </div>
         </div>
-        <div className="header-action">
-          <button onClick={openCreateEditor} type="button">Add chore</button>
-        </div>
+        <button onClick={openCreateEditor} type="button">Add chore</button>
       </header>
 
       <section className="calendar-integration-strip" aria-label="Google Calendar setup">
@@ -992,8 +1015,7 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
                 <section className="calendar-list-day" key={date}>
                   <h3>{format(parseISO(date), "EEEE, MMM d")}</h3>
                   <div className="calendar-list-day-items">
-                    {dateOccurrences
-                      .sort((first, second) => occurrenceStatusRank[first.status] - occurrenceStatusRank[second.status])
+                    {orderCompletedLast(dateOccurrences)
                       .map((occurrence) => renderAgendaOccurrence(occurrence, parseISO(date)))}
                   </div>
                 </section>
