@@ -35,12 +35,8 @@ function App() {
     <>
       <SignedOut>
         <LandingPage
-          actions={(
-            <>
-              <SignUpButton mode="modal">Sign up</SignUpButton>
-              <SignInButton mode="modal">Sign in</SignInButton>
-            </>
-          )}
+          primaryAction={<SignUpButton mode="modal">Build my home plan</SignUpButton>}
+          signInAction={<SignInButton mode="modal">Sign in</SignInButton>}
         />
       </SignedOut>
       <SignedIn>

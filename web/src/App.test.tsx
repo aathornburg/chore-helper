@@ -747,7 +747,7 @@ describe("App", () => {
     await waitFor(() => expect(screen.getByText("Ready to optimize")).toBeTruthy());
     expect(screen.getByRole("heading", { name: "Today" })).toBeTruthy();
     expect(window.location.pathname).toBe("/");
-    expect(screen.queryByText("Make household work visible, fair, and easier to adjust.")).toBeNull();
+    expect(screen.queryByText("Watch the week click into place.")).toBeNull();
   });
 
   it("renders the current primary navigation without setup", async () => {
@@ -1046,10 +1046,24 @@ describe("App", () => {
 
     renderAt("/today");
 
-    expect(screen.getByRole("heading", { name: "Cleanly" })).toBeTruthy();
-    expect(screen.getByText("Make household work visible, fair, and easier to adjust.")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Watch the week click into place." })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Build my home plan" })).toBeTruthy();
+    expect(screen.getByText(/spots routine gaps, timing problems, and workload drift/i)).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "How Cleanly works" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Why Cleanly" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "For households" })).toBeTruthy();
+
+    const nav = screen.getByRole("navigation", { name: "Landing" });
+    expect(within(nav).getByRole("link", { name: "How it works" })).toBeTruthy();
+    expect(within(nav).getByRole("link", { name: "Why Cleanly" })).toBeTruthy();
+    expect(within(nav).getByRole("link", { name: "For households" })).toBeTruthy();
+    expect(within(nav).queryByRole("link", { name: "Optimize" })).toBeNull();
+    expect(within(nav).queryByRole("link", { name: "Today" })).toBeNull();
+    expect(within(nav).queryByRole("link", { name: "Calendar" })).toBeNull();
     expect(screen.getByRole("button", { name: /sign in/i })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /sign up/i })).toBeTruthy();
+    expect(screen.getByText("duration conflict")).toBeTruthy();
+    expect(screen.getByText("fairer handoff")).toBeTruthy();
+    expect(screen.getByText("calendar slot found")).toBeTruthy();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
