@@ -276,7 +276,7 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
     setPendingRemoveFloorId(undefined);
   }
 
-  function renderFloorSelector(showActions: boolean, onSelectFloor = handleSelectFloor) {
+  function renderFloorSelector(showActions: boolean, onSelectFloor = handleSelectFloor, showSelectedFloor = true) {
     if (!selectedFloor) return null;
 
     return (
@@ -286,9 +286,9 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
           <div className="compact-house-roof" />
           {floors.map((floor) => (
             <button
-              aria-pressed={selectedFloor.id === floor.id}
-              aria-label={`Select ${floor.name}`}
-              className={`compact-house-floor ${selectedFloor.id === floor.id ? "active" : ""} compact-house-floor-${floor.levelType}`}
+              aria-label={`${showSelectedFloor ? "Select" : "View"} ${floor.name}${showSelectedFloor ? "" : " details"}`}
+              aria-pressed={showSelectedFloor ? selectedFloor.id === floor.id : undefined}
+              className={`compact-house-floor ${showSelectedFloor && selectedFloor.id === floor.id ? "active" : ""} compact-house-floor-${floor.levelType}`}
               key={floor.id}
               disabled={isSaving}
               onClick={() => onSelectFloor(floor.id)}
@@ -629,7 +629,7 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
       >
         {workspaceView === "overview" && selectedFloor ? (
           <>
-            {renderFloorSelector(false, handleOpenFloorFromOverview)}
+            {renderFloorSelector(false, handleOpenFloorFromOverview, false)}
             {isEditingProfile ? (
               <form className="manual-chore-form household-profile-form floor-detail-panel" onSubmit={handleSaveProfile}>
             <div className="floor-detail-heading">
