@@ -3233,11 +3233,6 @@ button.chore-row-summary[aria-expanded="true"] {
   color: #fff;
 }
 
-.household-overview {
-  display: grid;
-  gap: 18px;
-}
-
 .home-profile-summary {
   display: grid;
   gap: 16px;
@@ -3257,20 +3252,6 @@ button.chore-row-summary[aria-expanded="true"] {
 .readonly-notes {
   color: #536173;
   margin: 0;
-}
-
-.home-profile-summary-heading {
-  align-items: start;
-  border-top: 1px solid var(--color-border);
-  display: flex;
-  gap: 16px;
-  justify-content: space-between;
-  padding-top: 18px;
-}
-
-.home-profile-summary-heading h2 {
-  color: #24352e;
-  margin: 0 0 4px;
 }
 
 .home-summary-grid {
@@ -3529,85 +3510,6 @@ button.chore-row-summary[aria-expanded="true"] {
 
 .settings-radio-group input {
   accent-color: var(--color-primary-strong);
-}
-
-.home-floor-preview {
-  align-items: center;
-  display: grid;
-  gap: 20px;
-  grid-template-columns: minmax(150px, 0.42fr) minmax(0, 1fr);
-  padding-bottom: 4px;
-}
-
-.home-preview-elevation {
-  display: grid;
-  justify-items: center;
-}
-
-.home-preview-roof {
-  border-bottom: 38px solid var(--color-primary-strong);
-  border-left: 70px solid transparent;
-  border-right: 70px solid transparent;
-  height: 0;
-  width: 0;
-}
-
-.home-preview-floor {
-  align-items: center;
-  background: var(--color-surface-elevated);
-  border: 2px solid var(--color-primary-strong);
-  border-radius: 0;
-  border-top: 0;
-  color: var(--color-primary-strong);
-  cursor: pointer;
-  display: flex;
-  font-weight: 850;
-  height: 44px;
-  justify-content: center;
-  padding: 0;
-  width: 140px;
-}
-
-.home-preview-floor:hover {
-  background: var(--color-primary-soft);
-}
-
-.home-preview-floor-basement {
-  background: var(--color-surface-muted);
-}
-
-.home-preview-floor-list {
-  display: grid;
-  gap: 0;
-}
-
-.home-preview-floor-row {
-  align-items: center;
-  border-top: 1px solid var(--color-border);
-  display: flex;
-  gap: 12px;
-  justify-content: space-between;
-  padding: 12px 0;
-}
-
-.home-preview-floor-row:first-child {
-  border-top: 0;
-}
-
-.home-preview-floor-row strong {
-  color: #24352e;
-}
-
-.home-preview-floor-row span,
-.home-preview-empty {
-  color: #5e625b;
-}
-
-.home-preview-empty {
-  background: var(--color-surface-muted);
-  border: 1px dashed #b9dce4;
-  border-radius: 8px;
-  padding: 16px;
 }
 
 .floor-surface-panel {
@@ -4041,8 +3943,7 @@ button.chore-row-summary[aria-expanded="true"] {
 
   .my-home-header,
   .homes-list-header,
-  .homes-list-card,
-  .home-floor-preview {
+  .homes-list-card {
     display: grid;
     grid-template-columns: 1fr;
   }

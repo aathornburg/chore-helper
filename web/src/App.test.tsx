@@ -1210,7 +1210,8 @@ describe("App", () => {
     renderAt("/households");
 
     expect(await screen.findByRole("heading", { name: "My Home", level: 1 })).toBeTruthy();
-    expect(screen.getByRole("region", { name: "Home floor preview" })).toBeTruthy();
+    expect(screen.getByRole("tabpanel", { name: "Overview" }).classList.contains("household-editor")).toBe(true);
+    expect(within(screen.getByRole("tabpanel", { name: "Overview" })).getByLabelText("Select Main floor")).toBeTruthy();
     expect(screen.getByRole("region", { name: "Home profile summary" })).toBeTruthy();
     expect(screen.queryByLabelText("Household name")).toBeNull();
 
@@ -1254,9 +1255,9 @@ describe("App", () => {
     expect(screen.getByRole("tab", { name: "Overview" }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getByRole("tab", { name: "Floors" })).toBeTruthy();
     expect(screen.getByRole("tab", { name: "Rooms" })).toBeTruthy();
-    expect(screen.getByRole("region", { name: "Home floor preview" })).toBeTruthy();
+    expect(within(screen.getByRole("tabpanel", { name: "Overview" })).getByLabelText("Select Main floor")).toBeTruthy();
     expect(screen.getAllByText("Main floor").length).toBeGreaterThan(0);
-    expect(screen.getByText("1 room")).toBeTruthy();
+    expect(screen.getByText("1 floor / 1 rooms")).toBeTruthy();
 
     expect(screen.queryByRole("heading", { name: "Households", level: 1 })).toBeNull();
     expect(screen.queryByText("Property dashboard")).toBeNull();
@@ -1285,14 +1286,13 @@ describe("App", () => {
 
     renderAt("/households");
 
-    expect(await screen.findByRole("region", { name: "Home floor preview" })).toBeTruthy();
+    expect(await screen.findByLabelText("Select Main floor")).toBeTruthy();
     expect(screen.queryByText("Selected floor")).toBeNull();
-    expect(screen.queryByLabelText("Select Main floor")).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "View Main floor details" }));
+    fireEvent.click(screen.getByRole("button", { name: "Select Main floor" }));
 
     expect(screen.getByRole("tab", { name: "Floors" }).getAttribute("aria-selected")).toBe("true");
-    expect(screen.queryByRole("region", { name: "Home floor preview" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Home profile summary" })).toBeNull();
     expect(screen.getByLabelText("Select Main floor").getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByRole("button", { name: "Edit floor" })).toBeTruthy();
   });
@@ -1317,11 +1317,10 @@ describe("App", () => {
 
     renderAt("/households");
 
-    expect(await screen.findByRole("region", { name: "Home floor preview" })).toBeTruthy();
+    expect(await screen.findByLabelText("Select Main floor")).toBeTruthy();
     expect(screen.getByRole("region", { name: "Home profile summary" })).toBeTruthy();
 
     fireEvent.click(screen.getByRole("tab", { name: "Floors" }));
-    expect(screen.queryByRole("region", { name: "Home floor preview" })).toBeNull();
     expect(screen.queryByRole("region", { name: "Home profile summary" })).toBeNull();
     expect(screen.queryByText("Selected floor")).toBeNull();
     expect(screen.getByLabelText("Select Main floor")).toBeTruthy();
@@ -1333,7 +1332,6 @@ describe("App", () => {
     expect(window.getComputedStyle(roomsPanel).display).toBe("none");
 
     fireEvent.click(screen.getByRole("tab", { name: "Rooms" }));
-    expect(screen.queryByRole("region", { name: "Home floor preview" })).toBeNull();
     expect(screen.queryByRole("region", { name: "Home profile summary" })).toBeNull();
     expect(screen.queryByText("Selected floor")).toBeNull();
     expect(screen.getByRole("button", { name: "Add room" })).toBeTruthy();
@@ -2120,13 +2118,13 @@ describe("App", () => {
 
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: "My Home", level: 1 })).toBeTruthy();
-      expect(screen.getByRole("region", { name: "Home floor preview" })).toBeTruthy();
-      expect(screen.queryByLabelText("Select Main floor")).toBeNull();
+      expect(within(screen.getByRole("tabpanel", { name: "Overview" })).getByLabelText("Select Main floor")).toBeTruthy();
+      expect(within(screen.getByRole("tabpanel", { name: "Overview" })).getByRole("region", { name: "Home profile summary" })).toBeTruthy();
     });
 
     await waitFor(() => {
       expect(screen.getByRole("tab", { name: "Overview" }).getAttribute("aria-selected")).toBe("true");
-      expect(screen.queryByLabelText("Select Main floor")).toBeNull();
+      expect(within(screen.getByRole("region", { name: "Home profile summary" })).getByRole("button", { name: "Edit home details" })).toBeTruthy();
       expect(screen.queryByRole("button", { name: "Add room" })).toBeNull();
     });
     await openHouseholdManageTab("Floors");

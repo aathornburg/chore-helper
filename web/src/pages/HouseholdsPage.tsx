@@ -200,45 +200,6 @@ function SingleHomeWorkspace({
   );
 }
 
-function HousePreview({ floors, onSelectFloor }: { floors: HouseholdFloor[]; onSelectFloor: (floorId: string) => void }) {
-  if (floors.length === 0) {
-    return (
-      <section className="home-floor-preview" aria-label="Home floor preview">
-        <div className="home-preview-empty">No floors modeled yet.</div>
-      </section>
-    );
-  }
-
-  return (
-    <section className="home-floor-preview" aria-label="Home floor preview">
-      <div className="home-preview-elevation">
-        <div className="home-preview-roof" />
-        {floors.map((floor) => (
-          <button
-            aria-label={`View ${floor.name} details`}
-            className={`home-preview-floor home-preview-floor-${floor.levelType}`}
-            key={floor.id}
-            onClick={() => onSelectFloor(floor.id)}
-            type="button"
-          >
-            {floor.name}
-          </button>
-        ))}
-      </div>
-      <div className="home-preview-floor-list">
-        {floors.map((floor) => (
-          <div className="home-preview-floor-row" key={floor.id}>
-            <strong>{floor.name}</strong>
-            <span>
-              {floor.rooms.length} room{floor.rooms.length === 1 ? "" : "s"}
-            </span>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppData; onReload: () => Promise<void> }) {
   const saveInFlightRef = useRef(false);
   const [workspaceView, setWorkspaceView] = useState<HomeWorkspaceView>("overview");
@@ -315,7 +276,7 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
     setPendingRemoveFloorId(undefined);
   }
 
-  function renderFloorSelector(showActions: boolean) {
+  function renderFloorSelector(showActions: boolean, onSelectFloor = handleSelectFloor) {
     if (!selectedFloor) return null;
 
     return (
@@ -330,7 +291,7 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
               className={`compact-house-floor ${selectedFloor.id === floor.id ? "active" : ""} compact-house-floor-${floor.levelType}`}
               key={floor.id}
               disabled={isSaving}
-              onClick={() => handleSelectFloor(floor.id)}
+              onClick={() => onSelectFloor(floor.id)}
               type="button"
             >
               {floor.name}
@@ -661,14 +622,21 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
       <section
         aria-label={`${household.name} overview`}
         aria-labelledby={overviewTabId}
-        className="household-overview"
+        className="household-editor"
         hidden={workspaceView !== "overview"}
         id={overviewPanelId}
         role="tabpanel"
       >
-        <HousePreview floors={floors} onSelectFloor={handleOpenFloorFromOverview} />
-        {isEditingProfile ? (
-          <form className="manual-chore-form household-profile-form" onSubmit={handleSaveProfile}>
+        {workspaceView === "overview" && selectedFloor ? (
+          <>
+            {renderFloorSelector(false, handleOpenFloorFromOverview)}
+            {isEditingProfile ? (
+              <form className="manual-chore-form household-profile-form floor-detail-panel" onSubmit={handleSaveProfile}>
+            <div className="floor-detail-heading">
+              <div>
+                <h2>Home details</h2>
+              </div>
+            </div>
             <div className="field-grid">
               <label>
                 Household name
@@ -723,12 +691,11 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
               <button disabled={isSavingProfile} type="submit">Save</button>
             </div>
           </form>
-        ) : (
-          <section className="home-profile-summary" aria-label="Home profile summary">
-            <div className="home-profile-summary-heading">
+            ) : (
+              <section className="home-profile-summary floor-detail-panel" aria-label="Home profile summary">
+                <div className="floor-detail-heading">
               <div>
                 <h2>Home details</h2>
-                <p>Home-wide defaults Cleanly uses for planning.</p>
               </div>
               <button className="secondary-action" onClick={() => setIsEditingProfile(true)} type="button">Edit home details</button>
             </div>
@@ -762,7 +729,11 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
             </div>
             {profile.notes ? <p>{profile.notes}</p> : null}
           </section>
-        )}
+            )}
+          </>
+        ) : workspaceView === "overview" ? (
+          <div className="empty-state">No floors modeled yet.</div>
+        ) : null}
       </section>
 
       <section
@@ -781,7 +752,6 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
               <div className="floor-detail-heading">
                 <div>
                   <h2>{selectedFloor.name}</h2>
-                  <p className="lede">Floor details</p>
                 </div>
               </div>
               {pendingRemoveFloorId === selectedFloor.id ? (
@@ -897,7 +867,6 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
                 <div className="floor-detail-heading">
                   <div>
                     <h2>{selectedFloor.name}</h2>
-                    <p className="lede">Floor details</p>
                   </div>
                   <button className="secondary-action" onClick={() => setIsEditingFloor(true)} type="button">Edit floor</button>
                 </div>
