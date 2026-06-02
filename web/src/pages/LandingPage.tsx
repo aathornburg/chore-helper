@@ -12,139 +12,148 @@ export function LandingPage({ primaryAction, signInAction }: LandingPageProps) {
         </a>
         <div className="landing-nav-links">
           <a href="#how-cleanly-works">How it works</a>
+          <a href="#family-load">Family load</a>
           <a href="#why-cleanly">Why Cleanly</a>
-          <a href="#for-households">For households</a>
           <span className="landing-sign-in">{signInAction}</span>
         </div>
       </nav>
 
       <section className="landing-hero">
         <div className="hero-copy">
-          <p className="eyebrow">Less chore math. More flow.</p>
-          <h1>Watch the week click into place.</h1>
+          <h1 aria-label="Put chores where the week actually has room.">
+            <span>Put chores</span>
+            <span>where the week</span>
+            <span>actually has room.</span>
+          </h1>
           <p className="hero-statement">
-            Cleanly spots routine gaps, timing problems, and workload drift before
-            the week gets away from everyone.
+            Cleanly reads the shape of your week, tracks what got done, and suggests a plan
+            that fits calendars, people, properties, and real chore duration.
           </p>
           <p className="lede">
-            Build a home plan that adapts around real schedules, fair handoffs, and
-            the chores that usually slip through the cracks.
+            Connect Google Calendar, keep household routines visible, and spot the
+            changes that make chores shorter, better timed, and easier to share.
           </p>
           <div className="hero-actions">
             <span className="landing-primary-action">{primaryAction}</span>
             <a className="landing-secondary-action" href="#how-cleanly-works">
-              How Cleanly works
+              See the calendar flow
             </a>
           </div>
         </div>
 
-        <div className="hero-magic-stage" aria-label="Cleanly planning flow preview">
-          <div className="landing-beam" aria-hidden="true" />
-          <div className="landing-orbit" aria-hidden="true" />
-          <span className="landing-spark spark-one" aria-hidden="true" />
-          <span className="landing-spark spark-two" aria-hidden="true" />
-          <span className="planning-chip chip-duration">duration conflict</span>
-          <span className="planning-chip chip-handoff">fairer handoff</span>
-          <span className="planning-chip chip-calendar">calendar slot found</span>
-
-          <div className="landing-phone">
-            <div className="phone-topline">
-              <span>Cleanly</span>
-              <strong>Today</strong>
-            </div>
-            <div className="phone-flow-card is-active">
-              <span>Morning</span>
-              <strong>Kitchen reset</strong>
-              <small>Moved 20 min later</small>
-            </div>
-            <div className="phone-flow-row">
-              <div>
-                <span>Handoff</span>
-                <strong>Alex to Sam</strong>
-              </div>
-              <small>balanced</small>
-            </div>
-            <div className="phone-flow-card">
-              <span>Evening</span>
-              <strong>Laundry fold</strong>
-              <small>fits after dinner</small>
-            </div>
-            <div className="phone-approval">
-              <span>Week plan ready</span>
-              <strong>Approve</strong>
-            </div>
+        <div className="calendar-control-preview" aria-label="Cleanly calendar optimization preview" role="region">
+          <div className="preview-topline">
+            <strong>June chore plan</strong>
+            <span>Synced with Google Calendar</span>
           </div>
-
-          <div className="landing-plan-surface" aria-hidden="true">
-            <span className="surface-dot" />
-            <span className="surface-line wide" />
-            <span className="surface-line" />
-            <span className="surface-line short" />
+          <div className="preview-sync-banner">
+            Google Calendar added: practice, dentist, trash pickup, school event
+          </div>
+          <div className="preview-week">
+            <div className="preview-calendar-grid">
+              <div className="preview-day">
+                <div className="preview-day-header"><strong>Mon</strong><span>15</span></div>
+                <span className="preview-event is-calendar"><strong>Practice 5:30</strong></span>
+                <span className="preview-event"><strong>Kitchen reset</strong></span>
+              </div>
+              <div className="preview-day">
+                <div className="preview-day-header"><strong>Tue</strong><span>16</span></div>
+                <span className="preview-event is-optimization-source">
+                  <strong>Bathroom reset</strong>
+                  <span className="optimization-x" aria-hidden="true">
+                    <span />
+                    <span />
+                  </span>
+                </span>
+              </div>
+              <div className="preview-day">
+                <div className="preview-day-header"><strong>Wed</strong><span>17</span></div>
+                <span className="preview-event"><strong>Vacuum main floor</strong><small>30 min</small></span>
+              </div>
+              <div className="preview-day">
+                <div className="preview-day-header"><strong>Thu</strong><span>18</span></div>
+                <span className="preview-event is-calendar"><strong>Dentist</strong></span>
+                <span className="preview-event"><strong>Bathroom reset</strong></span>
+                <span className="preview-event"><strong>Laundry fold</strong><small>25 min</small></span>
+              </div>
+              <div className="preview-day">
+                <div className="preview-day-header"><strong>Fri</strong><span>19</span></div>
+                <span className="preview-event"><strong>Mop floors</strong><small>20 min</small></span>
+              </div>
+              <div className="preview-day">
+                <div className="preview-day-header"><strong>Sat</strong><span>20</span></div>
+                <span className="preview-event is-calendar"><strong>Lake house</strong></span>
+                <span className="preview-event"><strong>Property check</strong></span>
+              </div>
+              <div className="preview-day">
+                <div className="preview-day-header"><strong>Sun</strong><span>21</span></div>
+                <span className="preview-event"><strong>Entry reset</strong></span>
+              </div>
+            </div>
+            <svg className="cleanly-marker-layer" viewBox="0 0 1000 300" preserveAspectRatio="none" aria-hidden="true">
+              <defs>
+                <marker id="landing-arrow-teal" markerHeight="9" markerWidth="9" orient="auto" refX="8" refY="4.5">
+                  <path d="M 0 0 L 9 4.5 L 0 9 z" fill="#147186" />
+                </marker>
+              </defs>
+              <g className="marker-optimization-layer">
+                <ellipse className="marker-ring marker-green marker-draw delay-three" pathLength="1" cx="650" cy="176" rx="54" ry="30" />
+                <path className="marker-line marker-flow marker-draw delay-two" pathLength="1" markerEnd="url(#landing-arrow-teal)" d="M 386 88 C 462 54, 578 88, 650 176" />
+                <circle className="marker-pulse delay-two" cx="389" cy="84" r="8" />
+              </g>
+            </svg>
           </div>
         </div>
       </section>
 
       <div className="landing-sections">
-        <section className="landing-section" id="how-cleanly-works">
+        <section className="landing-section landing-story-section" id="how-cleanly-works">
           <div className="landing-section-copy">
-            <p className="eyebrow">Three simple moves</p>
+            <p className="eyebrow">Three steps, no spreadsheet</p>
             <h2>How Cleanly works</h2>
-            <p className="landing-section-lede">Start with the home, then let the plan sharpen itself.</p>
-          </div>
-          <div className="landing-card-grid">
-            <article className="landing-info-card">
-              <span>01</span>
-              <h3>Map the home</h3>
-              <p>Capture rooms, floors, routines, and the work that actually keeps the place moving.</p>
-            </article>
-            <article className="landing-info-card">
-              <span>02</span>
-              <h3>Spot plan drift</h3>
-              <p>See when chores are too long, assigned unevenly, or landing in awkward calendar gaps.</p>
-            </article>
-            <article className="landing-info-card">
-              <span>03</span>
-              <h3>Approve a better week</h3>
-              <p>Review suggested shifts before they become the household plan everyone follows.</p>
-            </article>
-          </div>
-        </section>
-
-        <section className="landing-section" id="why-cleanly">
-          <div className="landing-section-copy">
-            <p className="eyebrow">Better household rhythm</p>
-            <h2>Why Cleanly</h2>
-            <p className="landing-section-lede">The invisible work gets a little easier to see.</p>
-          </div>
-          <div className="landing-card-grid">
-            <article className="landing-info-card">
-              <h3>Visibility</h3>
-              <p>Keep recurring work, missed routines, and upcoming pressure in one readable view.</p>
-            </article>
-            <article className="landing-info-card">
-              <h3>Fairness</h3>
-              <p>Notice workload drift early, before one person silently absorbs the week.</p>
-            </article>
-            <article className="landing-info-card">
-              <h3>Calendar confidence</h3>
-              <p>Shape chores around real time, not the optimistic version of everyone&apos;s schedule.</p>
-            </article>
-          </div>
-        </section>
-
-        <section className="landing-section landing-household-panel" id="for-households">
-          <div className="landing-section-copy">
-            <p className="eyebrow">Home first</p>
-            <h2>For households</h2>
             <p className="landing-section-lede">
-              Built for one home first, with room for shared responsibility.
+              Set up the home, connect the calendar, and let Cleanly turn chore history into a better week.
             </p>
           </div>
-          <p>
-            Cleanly works whether you are setting up your own routines, coordinating with a partner,
-            or keeping a family aligned. It does not require multiple homes or complex setup to be
-            useful: start with the place you live, then invite people when the plan needs more hands.
-          </p>
+          <div className="landing-story-grid">
+            <article className="landing-story-card">
+              <span className="story-ribbon">01</span>
+              <h3>Set up the home</h3>
+              <p>Add rooms, routines, rough durations, and who usually helps so Cleanly has the context to plan around.</p>
+            </article>
+            <article className="landing-story-card is-offset">
+              <span className="story-ribbon">02</span>
+              <h3>Keep Cleanly in the loop</h3>
+              <p>Mark chores complete, skipped, or still open so Cleanly can learn what actually happened and plan the next week with better timing.</p>
+            </article>
+            <article className="landing-story-card">
+              <span className="story-ribbon">03</span>
+              <h3>Let Cleanly make it easier</h3>
+              <p>Use the suggested shifts to keep chores shorter, better timed, and easier to share.</p>
+            </article>
+          </div>
+        </section>
+
+        <section className="landing-section landing-proof-section" id="family-load">
+          <div className="landing-section-copy">
+            <p className="eyebrow">Family load</p>
+            <h2>Balanced for the household</h2>
+            <p className="landing-section-lede">
+              Workload is balanced by time and availability, not just chore count, so shared homes and multiple properties stay easier to manage.
+            </p>
+          </div>
+        </section>
+
+        <section className="landing-section landing-proof-section" id="why-cleanly">
+          <div className="landing-section-copy">
+            <p className="eyebrow">Less "whose turn?" energy</p>
+            <h2>Why Cleanly</h2>
+            <p className="landing-section-lede">
+              Cleanly keeps home context, Google Calendar import and export, completion history,
+              and recommendations together so the next week starts closer to done. Spend less time
+              re-planning the same chores.
+            </p>
+          </div>
         </section>
       </div>
     </main>

@@ -103,6 +103,7 @@ Key outcomes:
 
 - Users can connect Google Calendar.
 - The app imports likely chore events into internal chore records.
+- The app imports non-chore calendar commitments such as school, work, appointments, and practices as planning constraints that display distinctly from chores.
 - Imported chores preserve calendar source references such as calendar ID, event ID, recurrence, and duration.
 - Calendar data is treated as an integration source, not the permanent source of truth.
 - Later export support creates user-approved calendar change drafts instead of automatic background writes.

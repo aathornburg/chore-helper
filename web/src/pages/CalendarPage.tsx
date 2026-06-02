@@ -694,7 +694,7 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
     return (
       <button
         aria-label={`View ${title}`}
-        className={`calendar-chore-row ${density === "summary" ? "is-summary" : ""} ${occurrence.status === "completed" ? "is-completed" : ""} ${occurrence.status === "skipped" ? "is-skipped" : ""}`}
+        className={`calendar-work-item calendar-chore-row is-chore ${density === "summary" ? "is-summary" : ""} ${occurrence.status === "completed" ? "is-completed" : ""} ${occurrence.status === "skipped" ? "is-skipped" : ""}`}
         draggable={isOwner && calendarScale !== "month" && occurrence.status === "planned" && occurrence.planningMode === "timed"}
         key={`${occurrence.id}-${dateKey(date)}`}
         onClick={() => openViewEditor(occurrence)}
@@ -723,7 +723,7 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
     return (
       <button
         aria-label={`View ${title}`}
-        className={`calendar-chore-row ${occurrence.status === "completed" ? "is-completed" : ""} ${occurrence.status === "skipped" ? "is-skipped" : ""}`}
+        className={`calendar-work-item calendar-chore-row is-chore ${occurrence.status === "completed" ? "is-completed" : ""} ${occurrence.status === "skipped" ? "is-skipped" : ""}`}
         key={`${occurrence.id}-${dateKey(date)}`}
         onClick={() => openViewEditor(occurrence)}
         title={title}
@@ -744,7 +744,7 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
     return (
       <button
         aria-label={`View ${title}`}
-        className={`calendar-chore-row calendar-agenda-row is-${occurrence.status}`}
+        className={`calendar-work-item calendar-chore-row calendar-agenda-row is-chore is-${occurrence.status}`}
         key={`${occurrence.id}-${dateKey(date)}`}
         onClick={() => openViewEditor(occurrence)}
         title={title}
@@ -898,7 +898,7 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
         <div>
           <p className="eyebrow">Calendar integration</p>
           <h2>Google Calendar</h2>
-          <p>Connect Google Calendar to import routines and review approved schedule changes.</p>
+          <p>Connect Google Calendar to bring real commitments into chore planning when import support lands.</p>
         </div>
         <button className="secondary-action" onClick={() => onNavigate("/settings#calendar")} type="button">
           Set up Google Calendar
@@ -946,6 +946,17 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
                   </div>
                 </div>
               ) : null}
+
+              <section className="calendar-work-legend" aria-label="Calendar item types">
+                <span className="calendar-legend-item is-chore">
+                  <span aria-hidden="true" />
+                  Chores
+                </span>
+                <span className="calendar-legend-item is-commitment">
+                  <span aria-hidden="true" />
+                  Commitments
+                </span>
+              </section>
 
               <section className="calendar-filter-card" aria-label="Calendar filters">
                 <h2>Filters</h2>

@@ -1046,24 +1046,50 @@ describe("App", () => {
 
     renderAt("/today");
 
-    expect(screen.getByRole("heading", { name: "Watch the week click into place." })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Put chores where the week actually has room." })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Build my home plan" })).toBeTruthy();
-    expect(screen.getByText(/spots routine gaps, timing problems, and workload drift/i)).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "How Cleanly works" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Why Cleanly" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "For households" })).toBeTruthy();
+    expect(screen.queryByText(/calendar manager first/i)).toBeNull();
+    expect(screen.getByText(/Cleanly reads the shape of your week/i)).toBeTruthy();
 
     const nav = screen.getByRole("navigation", { name: "Landing" });
     expect(within(nav).getByRole("link", { name: "How it works" })).toBeTruthy();
+    expect(within(nav).getByRole("link", { name: "Family load" })).toBeTruthy();
     expect(within(nav).getByRole("link", { name: "Why Cleanly" })).toBeTruthy();
-    expect(within(nav).getByRole("link", { name: "For households" })).toBeTruthy();
+    expect(within(nav).queryByRole("link", { name: "Google Calendar" })).toBeNull();
     expect(within(nav).queryByRole("link", { name: "Optimize" })).toBeNull();
     expect(within(nav).queryByRole("link", { name: "Today" })).toBeNull();
     expect(within(nav).queryByRole("link", { name: "Calendar" })).toBeNull();
     expect(screen.getByRole("button", { name: /sign in/i })).toBeTruthy();
-    expect(screen.getByText("duration conflict")).toBeTruthy();
-    expect(screen.getByText("fairer handoff")).toBeTruthy();
-    expect(screen.getByText("calendar slot found")).toBeTruthy();
+
+    expect(screen.getByRole("region", { name: "Cleanly calendar optimization preview" })).toBeTruthy();
+    expect(screen.getByText("June chore plan")).toBeTruthy();
+    expect(screen.getByText("Synced with Google Calendar")).toBeTruthy();
+    expect(screen.getByText("Google Calendar added: practice, dentist, trash pickup, school event")).toBeTruthy();
+    expect(screen.getAllByText("Bathroom reset").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("Laundry fold")).toBeTruthy();
+    expect(screen.getByText("Mop floors")).toBeTruthy();
+    expect(screen.getByText("Property check")).toBeTruthy();
+    expect(screen.getByText("Entry reset")).toBeTruthy();
+    expect(screen.queryByText("Grouped with trip")).toBeNull();
+    expect(screen.queryByText("Done early")).toBeNull();
+
+    expect(screen.getByRole("heading", { name: "How Cleanly works" })).toBeTruthy();
+    expect(screen.getByText("Three steps, no spreadsheet")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Why Cleanly" })).toBeTruthy();
+    expect(screen.getByText('Less "whose turn?" energy')).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Set up the home" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Keep Cleanly in the loop" })).toBeTruthy();
+    expect(screen.getByText(/Mark chores complete, skipped, or still open/i)).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Balanced for the household" })).toBeTruthy();
+    expect(screen.getByText(/Google Calendar import and export/i)).toBeTruthy();
+
+    expect(screen.queryByText("Home model")).toBeNull();
+    expect(screen.queryByText("Choose chores")).toBeNull();
+    expect(screen.queryByText("Recommendations")).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Calendar commitments should shape chore planning." })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "For households" })).toBeNull();
+    expect(screen.queryByText("duration conflict")).toBeNull();
+    expect(screen.queryByText("calendar slot found")).toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -1490,6 +1516,10 @@ describe("App", () => {
     expect(filters.classList.contains("calendar-filter-card")).toBe(true);
     expect(within(filters).getByRole("heading", { name: "Filters" })).toBeTruthy();
     expect(within(workspace).getByLabelText("Planning mode")).toBeTruthy();
+    const legend = within(workspace).getByRole("region", { name: "Calendar item types" });
+    expect(within(legend).getByText("Chores")).toBeTruthy();
+    expect(within(legend).getByText("Commitments")).toBeTruthy();
+    expect(within(workspace).queryByRole("button", { name: /View Practice/i })).toBeNull();
   });
 
   it("normalizes the removed Chores route away", async () => {
@@ -1510,6 +1540,8 @@ describe("App", () => {
     expect(within(agenda).getByRole("heading", { name: "Upcoming and completed work" })).toBeTruthy();
     const plannedCard = within(agenda).getByRole("button", { name: "View Clean bathrooms" });
     expect(plannedCard.classList.contains("calendar-chore-row")).toBe(true);
+    expect(plannedCard.classList.contains("calendar-work-item")).toBe(true);
+    expect(plannedCard.classList.contains("is-chore")).toBe(true);
     expect(plannedCard.classList.contains("calendar-agenda-row")).toBe(true);
     expect(plannedCard.classList.contains("calendar-agenda-card")).toBe(false);
     expect(within(plannedCard).getByText("Anytime / 60 min")).toBeTruthy();
@@ -1527,6 +1559,8 @@ describe("App", () => {
     const friday = screen.getByRole("gridcell", { name: "Friday, May 29" });
     const monthChore = within(friday).getByRole("button", { name: "View Clean bathrooms" });
     expect(monthChore.classList.contains("calendar-chore-row")).toBe(true);
+    expect(monthChore.classList.contains("calendar-work-item")).toBe(true);
+    expect(monthChore.classList.contains("is-chore")).toBe(true);
     expect(monthChore.classList.contains("calendar-month-chore-row")).toBe(false);
     expect(monthChore.classList.contains("calendar-event")).toBe(false);
     expect(monthChore.getAttribute("title")).toBe("Clean bathrooms");
@@ -1618,6 +1652,8 @@ describe("App", () => {
     expect(screen.queryByText("08:00")).toBeNull();
     const weekChore = within(weekGrid).getAllByRole("button", { name: "View Clean bathrooms" })[0];
     expect(weekChore.classList.contains("calendar-chore-row")).toBe(true);
+    expect(weekChore.classList.contains("calendar-work-item")).toBe(true);
+    expect(weekChore.classList.contains("is-chore")).toBe(true);
     expect(weekChore.classList.contains("calendar-event")).toBe(false);
     expect(weekChore.getAttribute("title")).toBe("Clean bathrooms");
     expect(weekGrid.querySelector(".calendar-time-rail-separator")).not.toBeNull();
@@ -1640,6 +1676,8 @@ describe("App", () => {
     expect(within(dayGrid).getAllByText("8:00 am")).toHaveLength(1);
     const dayRows = within(dayGrid).getAllByRole("button");
     expect(dayRows.map((row) => row.getAttribute("aria-label"))).toEqual(["View Clean bathrooms", "View Pet cats"]);
+    expect(dayRows[0].classList.contains("calendar-work-item")).toBe(true);
+    expect(dayRows[0].classList.contains("is-chore")).toBe(true);
     expect(within(dayRows[0]).getByText("Anytime / 60 min · Alex Owner")).toBeTruthy();
     expect(within(dayRows[0]).queryByText("Anytime / 60 min")).toBeNull();
     expect(within(dayRows[0]).queryByText("Alex Owner")).toBeNull();
