@@ -1,0 +1,759 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>My Home Fresh Concepts</title>
+  <style>
+    :root {
+      --paper: #fbfeff;
+      --mist: #eaf7f9;
+      --mist-2: #d7f0f4;
+      --ink: #072f40;
+      --text: #193f4d;
+      --muted: #607681;
+      --teal: #155e75;
+      --teal-2: #2aa5b4;
+      --teal-dark: #0f4c66;
+      --mint: #bce8dc;
+      --gold: #f6c957;
+      --coral: #ef886f;
+      --line: #c5e1e7;
+      --shadow: -8px 8px 0 rgba(42, 165, 180, 0.14);
+      --deep-shadow: 0 34px 90px rgba(7, 47, 64, 0.18);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      background:
+        linear-gradient(90deg, rgba(20, 113, 134, 0.08) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(20, 113, 134, 0.08) 1px, transparent 1px),
+        radial-gradient(circle at 8% 4%, rgba(123, 220, 224, 0.48), transparent 30rem),
+        radial-gradient(circle at 90% 6%, rgba(246, 201, 87, 0.28), transparent 26rem),
+        linear-gradient(135deg, #f9fdfe 0%, #e8f8fa 62%, #f8fbfc 100%);
+      background-size: 42px 42px, 42px 42px, auto, auto, auto;
+      color: var(--ink);
+      font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+      margin: 0;
+      min-height: 100vh;
+      padding: 28px;
+    }
+
+    main {
+      display: grid;
+      gap: 28px;
+      margin: 0 auto;
+      max-width: 1520px;
+    }
+
+    h1, h2, h3, p { margin: 0; }
+
+    .hero,
+    .concept,
+    .takeaways {
+      background: rgba(251, 254, 255, 0.9);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+    }
+
+    .hero {
+      display: grid;
+      gap: 14px;
+      padding: 30px;
+    }
+
+    .eyebrow {
+      color: var(--teal);
+      font-size: 0.78rem;
+      font-weight: 950;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .hero h1 {
+      color: var(--teal-dark);
+      font-size: clamp(3rem, 5.5vw, 5.4rem);
+      letter-spacing: -0.045em;
+      line-height: 0.92;
+      max-width: 1040px;
+    }
+
+    .hero p,
+    .concept > p,
+    .panel p,
+    .takeaways p {
+      color: var(--text);
+      line-height: 1.52;
+    }
+
+    .concept {
+      display: grid;
+      gap: 18px;
+      padding: 24px;
+    }
+
+    .concept-head {
+      align-items: start;
+      display: grid;
+      gap: 12px;
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .concept h2 {
+      color: var(--teal-dark);
+      font-size: clamp(2rem, 3.4vw, 3.6rem);
+      letter-spacing: -0.04em;
+      line-height: 0.98;
+    }
+
+    .badge {
+      background: var(--teal);
+      color: #fff;
+      font-weight: 950;
+      padding: 9px 12px;
+    }
+
+    .screen {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      min-height: 720px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .screen::before {
+      content: "";
+      inset: 0;
+      pointer-events: none;
+      position: absolute;
+    }
+
+    .panel {
+      background: rgba(251, 254, 255, 0.94);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+
+    .panel h3 {
+      color: var(--teal-dark);
+      font-size: 1.25rem;
+      margin-bottom: 8px;
+    }
+
+    .quiet-link {
+      background: transparent;
+      border: 0;
+      color: var(--teal-dark);
+      font: inherit;
+      font-weight: 950;
+      padding: 0;
+      text-decoration: underline;
+      text-underline-offset: 4px;
+    }
+
+    .soft-button {
+      background: var(--mist-2);
+      border: 1px solid var(--line);
+      color: var(--teal-dark);
+      font: inherit;
+      font-weight: 950;
+      padding: 10px 12px;
+    }
+
+    .danger-link {
+      color: #9f3a2d;
+    }
+
+    .fresh-house {
+      filter: drop-shadow(0 28px 38px rgba(7, 47, 64, 0.18));
+      position: relative;
+    }
+
+    .fresh-roof {
+      background: linear-gradient(135deg, #0f4c66 0%, #156f87 72%);
+      clip-path: polygon(50% 0, 100% 100%, 0 100%);
+      height: 84px;
+      position: relative;
+      width: 260px;
+    }
+
+    .fresh-roof::after {
+      background: rgba(255, 255, 255, 0.2);
+      content: "";
+      height: 64px;
+      left: 50%;
+      position: absolute;
+      top: 16px;
+      transform: skewX(-28deg);
+      width: 46px;
+    }
+
+    .fresh-body {
+      background: linear-gradient(180deg, #ffffff 0%, #edf8fa 100%);
+      border: 3px solid var(--teal-dark);
+      border-top: 0;
+      width: 260px;
+    }
+
+    .fresh-floor {
+      align-items: center;
+      border-top: 3px solid var(--teal-dark);
+      display: grid;
+      gap: 8px;
+      grid-template-columns: 1fr auto;
+      min-height: 72px;
+      padding: 13px 16px;
+      position: relative;
+    }
+
+    .fresh-floor:first-child {
+      border-top: 0;
+    }
+
+    .fresh-floor strong {
+      color: var(--teal-dark);
+      display: block;
+      font-size: 1rem;
+    }
+
+    .fresh-floor span {
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .floor-dot {
+      background: var(--gold);
+      height: 14px;
+      width: 14px;
+    }
+
+    .fresh-floor.active {
+      background:
+        linear-gradient(90deg, rgba(42, 165, 180, 0.18), transparent),
+        #fbfeff;
+    }
+
+    .window-grid {
+      display: grid;
+      gap: 5px;
+      grid-template-columns: repeat(2, 10px);
+    }
+
+    .window-grid i {
+      background: var(--teal-soft, #dff1f5);
+      border: 1px solid #9fcfd8;
+      display: block;
+      height: 10px;
+      width: 10px;
+    }
+
+    .metric-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .metric {
+      background: #f4fbfc;
+      border-left: 5px solid var(--teal);
+      padding: 12px;
+    }
+
+    .metric strong {
+      color: var(--teal-dark);
+      display: block;
+      font-size: 1.25rem;
+      margin-bottom: 2px;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 0.83rem;
+    }
+
+    .room-chip {
+      align-items: center;
+      background: #fbfeff;
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--teal);
+      display: grid;
+      gap: 8px;
+      grid-template-columns: minmax(0, 1fr) auto;
+      padding: 12px;
+    }
+
+    .room-chip strong {
+      color: var(--ink);
+      display: block;
+    }
+
+    .room-chip span {
+      color: var(--muted);
+      display: block;
+      font-size: 0.82rem;
+      margin-top: 2px;
+    }
+
+    .small-label {
+      background: var(--mist);
+      color: var(--teal-dark);
+      font-size: 0.72rem;
+      font-weight: 950;
+      letter-spacing: 0.08em;
+      padding: 5px 7px;
+      text-transform: uppercase;
+    }
+
+    /* Concept A */
+    .studio {
+      background:
+        radial-gradient(circle at 28% 18%, rgba(246, 201, 87, 0.26), transparent 16rem),
+        radial-gradient(circle at 74% 22%, rgba(42, 165, 180, 0.2), transparent 18rem),
+        linear-gradient(135deg, #fbfeff 0%, #eef8fa 100%);
+      display: grid;
+      gap: 22px;
+      grid-template-columns: 360px minmax(0, 1fr);
+      padding: 26px;
+    }
+
+    .studio-stage {
+      align-content: center;
+      display: grid;
+      gap: 20px;
+      justify-items: center;
+      min-height: 660px;
+      position: relative;
+    }
+
+    .studio-stage::before {
+      background: rgba(42, 165, 180, 0.14);
+      content: "";
+      height: 36px;
+      position: absolute;
+      top: 508px;
+      transform: skewX(-18deg);
+      width: 320px;
+    }
+
+    .studio-controls {
+      display: grid;
+      gap: 14px;
+      grid-template-rows: auto auto 1fr;
+      min-height: 660px;
+    }
+
+    .step-map {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .step-map div {
+      background: #f4fbfc;
+      border: 1px solid var(--line);
+      padding: 12px;
+    }
+
+    .step-map strong {
+      color: var(--teal-dark);
+      display: block;
+      font-size: 0.96rem;
+      margin-bottom: 4px;
+    }
+
+    .room-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    /* Concept B */
+    .map-room {
+      background:
+        linear-gradient(90deg, rgba(21, 94, 117, 0.08) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(21, 94, 117, 0.08) 1px, transparent 1px),
+        linear-gradient(135deg, #fbfeff, #edf8fa);
+      background-size: 34px 34px, 34px 34px, auto;
+      display: grid;
+      gap: 22px;
+      grid-template-columns: minmax(0, 1fr) 330px;
+      padding: 26px;
+    }
+
+    .floor-map {
+      align-content: center;
+      display: grid;
+      gap: 18px;
+      min-height: 660px;
+    }
+
+    .floor-map h3 {
+      color: var(--teal-dark);
+      font-size: 2rem;
+      letter-spacing: -0.03em;
+    }
+
+    .plan {
+      background: white;
+      border: 3px solid var(--teal-dark);
+      box-shadow: var(--deep-shadow);
+      display: grid;
+      gap: 0;
+      grid-template-columns: 1.1fr 0.9fr 0.8fr;
+      grid-template-rows: 170px 140px 160px;
+      min-height: 470px;
+      overflow: hidden;
+    }
+
+    .plan-room {
+      background: #fbfeff;
+      border: 1px solid var(--line);
+      display: grid;
+      padding: 14px;
+      position: relative;
+    }
+
+    .plan-room.active {
+      background: linear-gradient(135deg, rgba(42, 165, 180, 0.2), #fbfeff);
+      box-shadow: inset 0 0 0 4px rgba(21, 94, 117, 0.2);
+    }
+
+    .plan-room strong {
+      color: var(--teal-dark);
+      font-size: 1rem;
+    }
+
+    .plan-room span {
+      align-self: end;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    .room-a { grid-column: 1 / 2; grid-row: 1 / 3; }
+    .room-b { grid-column: 2 / 4; grid-row: 1 / 2; }
+    .room-c { grid-column: 2 / 3; grid-row: 2 / 4; }
+    .room-d { grid-column: 3 / 4; grid-row: 2 / 3; }
+    .room-e { grid-column: 1 / 2; grid-row: 3 / 4; }
+    .room-f { grid-column: 3 / 4; grid-row: 3 / 4; }
+
+    .map-side {
+      display: grid;
+      gap: 14px;
+      align-content: start;
+    }
+
+    /* Concept C */
+    .flow {
+      background:
+        radial-gradient(circle at 15% 12%, rgba(246, 201, 87, 0.22), transparent 16rem),
+        linear-gradient(135deg, #fbfeff, #edf8fa);
+      display: grid;
+      gap: 18px;
+      grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+      padding: 26px;
+    }
+
+    .flow-left {
+      display: grid;
+      gap: 16px;
+      min-height: 660px;
+    }
+
+    .flow-left .fresh-house {
+      justify-self: center;
+      margin-top: 20px;
+    }
+
+    .setup-timeline {
+      display: grid;
+      gap: 12px;
+    }
+
+    .timeline-item {
+      align-items: start;
+      background: rgba(251, 254, 255, 0.96);
+      border: 1px solid var(--line);
+      display: grid;
+      gap: 12px;
+      grid-template-columns: 34px minmax(0, 1fr);
+      padding: 13px;
+    }
+
+    .timeline-number {
+      align-items: center;
+      background: var(--teal);
+      color: white;
+      display: inline-flex;
+      font-weight: 950;
+      height: 34px;
+      justify-content: center;
+      width: 34px;
+    }
+
+    .timeline-item strong {
+      color: var(--teal-dark);
+      display: block;
+      margin-bottom: 3px;
+    }
+
+    .timeline-item span {
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    .flow-right {
+      display: grid;
+      gap: 14px;
+      align-content: start;
+    }
+
+    .field-board {
+      background: white;
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 12px;
+      padding: 18px;
+    }
+
+    .fake-field {
+      border-top: 1px solid var(--line);
+      display: grid;
+      gap: 5px;
+      padding-top: 12px;
+    }
+
+    .fake-field span {
+      color: var(--muted);
+      font-size: 0.76rem;
+      font-weight: 950;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .fake-field strong {
+      color: var(--teal-dark);
+    }
+
+    .takeaways {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      padding: 22px;
+    }
+
+    .takeaways h3 {
+      color: var(--teal-dark);
+      margin-bottom: 8px;
+    }
+
+    @media (max-width: 1120px) {
+      .studio,
+      .map-room,
+      .flow,
+      .takeaways {
+        grid-template-columns: 1fr;
+      }
+
+      .screen,
+      .studio-stage,
+      .studio-controls,
+      .floor-map,
+      .flow-left {
+        min-height: auto;
+      }
+
+      .studio-stage::before {
+        display: none;
+      }
+    }
+
+    @media (max-width: 720px) {
+      body { padding: 16px; }
+      .concept, .hero, .takeaways { padding: 18px; }
+      .step-map, .metric-grid { grid-template-columns: 1fr; }
+      .plan { grid-template-columns: 1fr; grid-template-rows: none; }
+      .plan-room { grid-column: auto; grid-row: auto; min-height: 100px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <p class="eyebrow">Fresh My Home concepts</p>
+      <h1>Forget the old page. What should setting up a home feel like?</h1>
+      <p>
+        These concepts start from the user journey: help someone model a household quickly,
+        understand what Cleanly knows, and make edits without turning the page into a form cave.
+      </p>
+    </section>
+
+    <section class="concept" id="studio">
+      <div class="concept-head">
+        <div>
+          <p class="eyebrow">Concept A</p>
+          <h2>Home setup studio</h2>
+        </div>
+        <span class="badge">Recommended</span>
+      </div>
+      <p>
+        A playful, build-the-model experience. The house is large, dimensional, and always present.
+        The right side guides the user through floors, rooms, and surfaces without making every
+        action look primary.
+      </p>
+      <div class="screen studio">
+        <section class="studio-stage">
+          <div class="fresh-house">
+            <div class="fresh-roof"></div>
+            <div class="fresh-body">
+              <div class="fresh-floor active">
+                <div><strong>Floor 2</strong><span>4 rooms mapped</span></div>
+                <div class="window-grid"><i></i><i></i><i></i><i></i></div>
+              </div>
+              <div class="fresh-floor">
+                <div><strong>Main floor</strong><span>6 rooms mapped</span></div>
+                <div class="window-grid"><i></i><i></i><i></i><i></i></div>
+              </div>
+              <div class="fresh-floor">
+                <div><strong>Basement</strong><span>2 rooms mapped</span></div>
+                <span class="floor-dot"></span>
+              </div>
+            </div>
+          </div>
+          <div class="metric-grid">
+            <div class="metric"><strong>12</strong><span>rooms modeled</span></div>
+            <div class="metric"><strong>3</strong><span>floors ready</span></div>
+            <div class="metric"><strong>82%</strong><span>setup signal</span></div>
+          </div>
+        </section>
+        <section class="studio-controls">
+          <div class="panel">
+            <p class="eyebrow">Setup path</p>
+            <h3>Build the house in three passes</h3>
+            <div class="step-map">
+              <div><strong>Floors</strong><p>Name each level.</p></div>
+              <div><strong>Rooms</strong><p>Add spaces.</p></div>
+              <div><strong>Surfaces</strong><p>Tell Cleanly what matters.</p></div>
+            </div>
+          </div>
+          <div class="panel">
+            <p class="eyebrow">Selected floor</p>
+            <h3>Floor 2</h3>
+            <p>Quiet actions stay quiet: <button class="quiet-link">Edit floor</button> or <button class="quiet-link">Add room</button>.</p>
+          </div>
+          <div class="panel room-list">
+            <div class="room-chip"><div><strong>Primary bedroom</strong><span>Carpet, medium dust, weekly reset</span></div><span class="small-label">Sleep</span></div>
+            <div class="room-chip"><div><strong>Bathroom</strong><span>Tile, high reset value, frequent touch</span></div><span class="small-label">Wet</span></div>
+            <div class="room-chip"><div><strong>Office</strong><span>Hardwood, light traffic, flexible schedule</span></div><button class="quiet-link">Edit</button></div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="concept" id="room-map">
+      <div class="concept-head">
+        <div>
+          <p class="eyebrow">Concept B</p>
+          <h2>Room map canvas</h2>
+        </div>
+      </div>
+      <p>
+        This treats setup as a visual map. Instead of a stacked house, the user edits one floor as
+        a simple diagram. It is the most direct for rooms and surfaces, and it feels more tactile.
+      </p>
+      <div class="screen map-room">
+        <section class="floor-map">
+          <div>
+            <p class="eyebrow">Main floor</p>
+            <h3>Tap a room, tune what Cleanly knows.</h3>
+          </div>
+          <div class="plan">
+            <div class="plan-room room-a active"><strong>Living room</strong><span>Hardwood</span></div>
+            <div class="plan-room room-b"><strong>Kitchen</strong><span>Tile</span></div>
+            <div class="plan-room room-c"><strong>Dining</strong><span>Hardwood</span></div>
+            <div class="plan-room room-d"><strong>Bath</strong><span>Tile</span></div>
+            <div class="plan-room room-e"><strong>Entry</strong><span>High traffic</span></div>
+            <div class="plan-room room-f"><strong>Pantry</strong><span>Low touch</span></div>
+          </div>
+        </section>
+        <aside class="map-side">
+          <div class="panel">
+            <p class="eyebrow">Selected room</p>
+            <h3>Living room</h3>
+            <p>Room edits sit beside the map. Add room is a link; remove room is a quiet danger action.</p>
+          </div>
+          <div class="panel">
+            <h3>Cleaning signals</h3>
+            <div class="metric"><strong>Medium</strong><span>traffic level</span></div>
+            <div class="metric"><strong>Low</strong><span>pet impact</span></div>
+          </div>
+          <div class="panel">
+            <button class="quiet-link">Add room</button>
+            <button class="quiet-link danger-link">Remove room</button>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="concept" id="guided-flow">
+      <div class="concept-head">
+        <div>
+          <p class="eyebrow">Concept C</p>
+          <h2>Guided home builder</h2>
+        </div>
+      </div>
+      <p>
+        This is the most onboarding-friendly direction. It turns My Home into a guided setup flow
+        with a persistent model preview, then becomes a maintenance workspace after setup.
+      </p>
+      <div class="screen flow">
+        <section class="flow-left">
+          <div class="fresh-house">
+            <div class="fresh-roof"></div>
+            <div class="fresh-body">
+              <div class="fresh-floor active"><div><strong>Floors</strong><span>Done</span></div><span class="floor-dot"></span></div>
+              <div class="fresh-floor"><div><strong>Rooms</strong><span>In progress</span></div><div class="window-grid"><i></i><i></i></div></div>
+              <div class="fresh-floor"><div><strong>Surfaces</strong><span>Next</span></div><div class="window-grid"><i></i><i></i></div></div>
+            </div>
+          </div>
+          <div class="setup-timeline">
+            <div class="timeline-item"><span class="timeline-number">1</span><div><strong>Sketch the home</strong><span>Add floors and major areas.</span></div></div>
+            <div class="timeline-item"><span class="timeline-number">2</span><div><strong>Describe the rooms</strong><span>Traffic, surfaces, pets, and notes.</span></div></div>
+            <div class="timeline-item"><span class="timeline-number">3</span><div><strong>Let Cleanly plan better</strong><span>Use the model to improve routine timing.</span></div></div>
+          </div>
+        </section>
+        <section class="flow-right">
+          <div class="field-board">
+            <p class="eyebrow">Current step</p>
+            <h3>Add room details</h3>
+            <div class="fake-field"><span>Room name</span><strong>Bathroom</strong></div>
+            <div class="fake-field"><span>Surfaces</span><strong>Tile, mirror, fixtures</strong></div>
+            <div class="fake-field"><span>Cleaning impact</span><strong>High reset value</strong></div>
+            <button class="soft-button">Save room</button>
+          </div>
+          <div class="panel">
+            <h3>Why it feels good</h3>
+            <p>The page has a clear next step, so setup feels lighter for new users. Existing users can still jump into Floors or Rooms from the model.</p>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="takeaways">
+      <article>
+        <h3>Most fun and balanced</h3>
+        <p>Concept A gives the house the strongest identity while keeping the app useful for repeated editing.</p>
+      </article>
+      <article>
+        <h3>Most tactile</h3>
+        <p>Concept B is excellent if room setup is the heart of the page, but it would require the biggest interaction shift.</p>
+      </article>
+      <article>
+        <h3>Best for onboarding</h3>
+        <p>Concept C makes household setup feel easy, though it is less powerful as a long-term management view.</p>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

@@ -26,7 +26,7 @@ type HouseholdsPageProps = {
   onReload: () => Promise<void>;
 };
 
-type HomeWorkspaceView = "overview" | "floors" | "rooms";
+type HomeWorkspaceView = "overview" | "floors";
 
 function getMainFloorId(floors: HouseholdFloor[]) {
   return floors.find((floor) => floor.levelType === "main")?.id ?? floors[0]?.id;
@@ -34,6 +34,17 @@ function getMainFloorId(floors: HouseholdFloor[]) {
 
 function roomCount(household: HouseholdAppData) {
   return household.structure.floors.reduce((total, floor) => total + floor.rooms.length, 0);
+}
+
+function floorRoomCountLabel(floor: HouseholdFloor) {
+  const count = floor.rooms.length;
+  return `${count} room${count === 1 ? "" : "s"}`;
+}
+
+function floorSetupLabel(floor: HouseholdFloor) {
+  if (floor.rooms.length === 0) return "Needs rooms";
+  if (floor.flooring.length === 0) return "Needs surfaces";
+  return "Ready";
 }
 
 function setupQualityLabel(household: HouseholdAppData) {
@@ -209,8 +220,6 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
   const overviewPanelId = `${household.id}-overview-panel`;
   const floorsTabId = `${household.id}-floors-tab`;
   const floorsPanelId = `${household.id}-floors-panel`;
-  const roomsTabId = `${household.id}-rooms-tab`;
-  const roomsPanelId = `${household.id}-rooms-panel`;
   const [isEditingSurfaces, setIsEditingSurfaces] = useState(false);
   const initialStructure = household.structure.floors.length > 0
     ? household.structure
@@ -241,8 +250,8 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
     if (nextView !== "floors") {
       setIsEditingFloor(false);
       setIsEditingSurfaces(false);
+      setEditingRoom(undefined);
     }
-    if (nextView !== "rooms") setEditingRoom(undefined);
     setPendingRemoveFloorId(undefined);
   }
 
@@ -276,30 +285,62 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
     setPendingRemoveFloorId(undefined);
   }
 
-  function renderFloorSelector(showActions: boolean, onSelectFloor = handleSelectFloor, showSelectedFloor = true) {
+  function renderStudioHouseModel({
+    mode,
+    showActions = false
+  }: {
+    mode: "overview" | "select";
+    showActions?: boolean;
+  }) {
     if (!selectedFloor) return null;
 
     return (
-      <aside className="floor-selector-panel">
-        <p className="eyebrow">Floor selector</p>
-        <div className="compact-house" aria-label="House floor selector">
-          <div className="compact-house-roof" />
-          {floors.map((floor) => (
-            <button
-              aria-label={`${showSelectedFloor ? "Select" : "View"} ${floor.name}${showSelectedFloor ? "" : " details"}`}
-              aria-pressed={showSelectedFloor ? selectedFloor.id === floor.id : undefined}
-              className={`compact-house-floor ${showSelectedFloor && selectedFloor.id === floor.id ? "active" : ""} compact-house-floor-${floor.levelType}`}
-              key={floor.id}
-              disabled={isSaving}
-              onClick={() => onSelectFloor(floor.id)}
-              type="button"
-            >
-              {floor.name}
-            </button>
-          ))}
+      <aside className="home-studio-model-panel">
+        <div className="home-studio-model-heading">
+          <p className="eyebrow">Home model</p>
+          <strong>
+            {floors.length} floor{floors.length === 1 ? "" : "s"}
+          </strong>
+        </div>
+        <div className="studio-house" aria-label="Home model" role="group">
+          <span className="studio-house-sun" aria-hidden="true">
+            <span className="studio-house-sun-rays" />
+            <span className="studio-house-sun-core" />
+          </span>
+          <div className="studio-house-roof" aria-hidden="true" />
+          <div className="studio-house-body">
+            {floors.map((floor) => {
+              const isActive = mode === "select" && selectedFloor.id === floor.id;
+              const roomLabel = floorRoomCountLabel(floor);
+              const buttonLabel = mode === "overview"
+                ? `View ${floor.name} details, ${roomLabel}`
+                : `Select ${floor.name}, ${roomLabel}`;
+
+              return (
+                <button
+                  aria-label={buttonLabel}
+                  aria-pressed={mode === "select" ? isActive : undefined}
+                  className={`studio-house-floor ${isActive ? "is-active" : ""} studio-house-floor-${floor.levelType}`}
+                  disabled={isSaving}
+                  key={floor.id}
+                  onClick={() => (mode === "overview" ? handleOpenFloorFromOverview(floor.id) : handleSelectFloor(floor.id))}
+                  type="button"
+                >
+                  <span>
+                    <strong>{floor.name}</strong>
+                    <small>{roomLabel}</small>
+                  </span>
+                  <span className="studio-house-windows" aria-hidden="true">
+                    <i />
+                    <i />
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
         {showActions ? (
-          <div className="floor-actions">
+          <div className="home-studio-model-actions">
             <button className="secondary-action" disabled={isSaving} onClick={handleAddFloor} type="button">Add floor</button>
             {!floors.some((floor) => floor.levelType === "basement") ? (
               <button className="secondary-action" disabled={isSaving} onClick={handleAddBasement} type="button">Add basement</button>
@@ -314,36 +355,36 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
     if (!selectedFloor) return null;
 
     return (
-      <section className="floor-detail-panel">
+      <section className="floor-rooms-panel" aria-label={`Rooms on ${selectedFloor.name}`}>
         <div className="floor-detail-heading">
           <div>
-            <h2>{selectedFloor.name}</h2>
-            <p className="lede">Rooms</p>
+            <h2>Rooms</h2>
+            <p className="lede">{selectedFloor.name}</p>
           </div>
           <button
+            className="quiet-link"
             disabled={isSaving}
             onClick={() => setEditingRoom(createRoom(selectedFloor.id))}
             type="button"
           >
-            Add room
+            Add room to {selectedFloor.name}
           </button>
         </div>
 
-        <section className="room-card-section" aria-label="Rooms">
+        <section className="room-card-section" aria-label="Room list">
           {selectedFloor.rooms.length > 0 ? (
             <div className="room-card-grid">
               {selectedFloor.rooms.map((room) => (
-              <article className="room-card" key={room.id}>
-                <strong>{room.name}</strong>
-                <span>{room.flooring.length > 0 ? room.flooring.join(", ") : "Inherits floor surfaces"}</span>
-                <span>Pet impact: {room.petImpact}</span>
-                <span>Vacuum: {room.robotVacuumCoverage}</span>
-                <span>Mop: {room.robotMopCoverage}</span>
-                <div className="form-actions">
-                  <button disabled={isSaving} onClick={() => setEditingRoom(room)} type="button">Edit {room.name}</button>
-                  <button disabled={isSaving} onClick={() => handleRemoveRoom(room.id)} type="button">Remove {room.name}</button>
-                </div>
-              </article>
+                <article aria-label={`${room.name} room annotation`} className="room-annotation" key={room.id}>
+                  <div>
+                    <strong>{room.name}</strong>
+                    <span>{room.flooring.length > 0 ? room.flooring.join(", ") : "Inherits floor surfaces"}</span>
+                  </div>
+                  <span className="room-annotation-meta">Pet impact: {room.petImpact}</span>
+                  <span className="room-annotation-meta">Vacuum: {room.robotVacuumCoverage}</span>
+                  <span className="room-annotation-meta">Mop: {room.robotMopCoverage}</span>
+                  <button className="quiet-link" disabled={isSaving} onClick={() => setEditingRoom(room)} type="button">Edit {room.name}</button>
+                </article>
               ))}
             </div>
           ) : (
@@ -425,9 +466,23 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
                 />
               </label>
             </div>
-            <div className="form-actions">
-              <button disabled={isSaving} type="submit">Save room</button>
-              <button disabled={isSaving} onClick={() => setEditingRoom(undefined)} type="button">Cancel</button>
+            <div className="room-editor-actions">
+              <button
+                className="danger-link"
+                disabled={isSaving || !selectedFloor.rooms.some((room) => room.id === editingRoom.id)}
+                onClick={() => {
+                  const roomId = editingRoom.id;
+                  setEditingRoom(undefined);
+                  void handleRemoveRoom(roomId);
+                }}
+                type="button"
+              >
+                Remove room
+              </button>
+              <div className="form-actions">
+                <button className="secondary-action" disabled={isSaving} onClick={() => setEditingRoom(undefined)} type="button">Cancel</button>
+                <button disabled={isSaving} type="submit">Save room</button>
+              </div>
             </div>
           </form>
         ) : null}
@@ -580,7 +635,7 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
   }
 
   return (
-    <section className="household-workspace" aria-label={`${household.name} home workspace`}>
+    <section className="household-workspace" aria-label="Home setup studio">
       <div className="home-workspace-toolbar">
         <div className="home-workspace-tabs" role="tablist" aria-label={`${household.name} home views`}>
           <button
@@ -603,16 +658,6 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
           >
             Floors
           </button>
-          <button
-            aria-controls={roomsPanelId}
-            aria-selected={workspaceView === "rooms"}
-            id={roomsTabId}
-            onClick={() => handleSelectWorkspaceView("rooms")}
-            role="tab"
-            type="button"
-          >
-            Rooms
-          </button>
         </div>
       </div>
 
@@ -622,14 +667,14 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
       <section
         aria-label={`${household.name} overview`}
         aria-labelledby={overviewTabId}
-        className="household-editor"
+        className="household-editor home-studio-workspace"
         hidden={workspaceView !== "overview"}
         id={overviewPanelId}
         role="tabpanel"
       >
         {workspaceView === "overview" && selectedFloor ? (
           <>
-            {renderFloorSelector(false, handleOpenFloorFromOverview, false)}
+            {renderStudioHouseModel({ mode: "overview" })}
             {isEditingProfile ? (
               <form className="manual-chore-form household-profile-form floor-detail-panel" onSubmit={handleSaveProfile}>
             <div className="floor-detail-heading">
@@ -699,6 +744,15 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
               </div>
               <button className="secondary-action" onClick={() => setIsEditingProfile(true)} type="button">Edit home details</button>
             </div>
+            <section className="home-setup-path" aria-label="Home setup path">
+              <p className="eyebrow">Setup path</p>
+              <h3>Build the house in three passes</h3>
+              <div className="home-setup-steps">
+                <span><strong>Floors</strong> Name each level.</span>
+                <span><strong>Rooms</strong> Add spaces.</span>
+                <span><strong>Surfaces</strong> Tell Cleanly what matters.</span>
+              </div>
+            </section>
             <div className="home-summary-grid">
               <div>
                 <span>Home name</span>
@@ -727,6 +781,29 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
                 <strong>{setupQualityLabel({ ...household, structure: activeStructure })}</strong>
               </div>
             </div>
+            <section className="overview-floor-summary" aria-label="Floor setup summary">
+              <div className="overview-floor-summary-heading">
+                <p className="eyebrow">Floor snapshot</p>
+                <h3>What Cleanly knows about each level</h3>
+              </div>
+              <div className="overview-floor-list">
+                {floors.map((floor) => (
+                  <button
+                    className="overview-floor-row"
+                    key={floor.id}
+                    onClick={() => handleOpenFloorFromOverview(floor.id)}
+                    type="button"
+                  >
+                    <span>
+                      <strong>{floor.name}</strong>
+                      <small>{floorSetupLabel(floor)}</small>
+                    </span>
+                    <span>{floorRoomCountLabel(floor)}</span>
+                    <span>{formatList(floor.flooring)}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
             {profile.notes ? <p>{profile.notes}</p> : null}
           </section>
             )}
@@ -739,16 +816,17 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
       <section
         aria-label="Household floor editor"
         aria-labelledby={floorsTabId}
-        className="household-editor"
+        className="household-editor home-studio-workspace"
         hidden={workspaceView !== "floors"}
         id={floorsPanelId}
         role="tabpanel"
       >
         {workspaceView === "floors" && selectedFloor ? (
           <>
-            {renderFloorSelector(!isEditingFloor)}
-            {isEditingFloor ? (
-              <form className="floor-detail-panel" onSubmit={handleSaveFloor}>
+            {renderStudioHouseModel({ mode: "select", showActions: !isEditingFloor })}
+            <div className="floor-workspace-stack">
+              {isEditingFloor ? (
+                <form className="floor-detail-panel" onSubmit={handleSaveFloor}>
               <div className="floor-detail-heading">
                 <div>
                   <h2>{selectedFloor.name}</h2>
@@ -861,9 +939,10 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
                   <button disabled={isSaving} type="submit">Save floor details</button>
                 </div>
               </div>
-            </form>
-            ) : (
-              <section className="floor-detail-panel" aria-label={`${selectedFloor.name} floor details`}>
+                </form>
+              ) : (
+                <>
+                  <section className="floor-detail-panel" aria-label={`${selectedFloor.name} floor details`}>
                 <div className="floor-detail-heading">
                   <div>
                     <h2>{selectedFloor.name}</h2>
@@ -893,28 +972,13 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
                   </div>
                 </div>
                 {selectedFloor.notes ? <p className="readonly-notes">{selectedFloor.notes}</p> : null}
-              </section>
-            )}
+                  </section>
+                  {renderRoomsPanel()}
+                </>
+              )}
+            </div>
           </>
         ) : workspaceView === "floors" ? (
-          <div className="empty-state">No floors modeled yet.</div>
-        ) : null}
-      </section>
-
-      <section
-        aria-label="Household room editor"
-        aria-labelledby={roomsTabId}
-        className="household-editor"
-        hidden={workspaceView !== "rooms"}
-        id={roomsPanelId}
-        role="tabpanel"
-      >
-        {workspaceView === "rooms" && selectedFloor ? (
-          <>
-            {renderFloorSelector(false)}
-            {renderRoomsPanel()}
-          </>
-        ) : workspaceView === "rooms" ? (
           <div className="empty-state">No floors modeled yet.</div>
         ) : null}
       </section>

@@ -1,0 +1,919 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>My Home Revamp Comparison</title>
+  <style>
+    :root {
+      --bg: #eef7f9;
+      --page: #fbfeff;
+      --line: #c8e1e7;
+      --line-soft: #e4eef1;
+      --text: #062f3f;
+      --body: #36515d;
+      --muted: #66767f;
+      --teal: #155e75;
+      --teal-dark: #0f4c66;
+      --teal-soft: #dff1f5;
+      --gold: #f3c95b;
+      --sand: #f7ecd2;
+      --ink: #052736;
+      --shadow: -8px 8px 0 rgba(21, 94, 117, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 28px;
+      color: var(--text);
+      font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+      background:
+        linear-gradient(90deg, rgba(20, 113, 134, 0.08) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(20, 113, 134, 0.08) 1px, transparent 1px),
+        radial-gradient(circle at 10% 0%, rgba(123, 220, 224, 0.5), transparent 30rem),
+        radial-gradient(circle at 92% 8%, rgba(246, 201, 87, 0.26), transparent 24rem),
+        linear-gradient(135deg, #f8fdfe 0%, #e7f7fa 62%, #f9fbfc 100%);
+      background-size: 42px 42px, 42px 42px, auto, auto, auto;
+    }
+
+    main {
+      display: grid;
+      gap: 24px;
+      margin: 0 auto;
+      max-width: 1500px;
+    }
+
+    h1, h2, h3, p { margin: 0; }
+
+    .hero,
+    .option,
+    .notes {
+      background: rgba(251, 254, 255, 0.92);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+    }
+
+    .hero {
+      display: grid;
+      gap: 14px;
+      padding: 28px;
+    }
+
+    .kicker {
+      color: var(--teal);
+      font-size: 0.76rem;
+      font-weight: 950;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .hero h1 {
+      color: var(--teal-dark);
+      font-size: clamp(2.7rem, 5.2vw, 4.8rem);
+      line-height: 0.96;
+      letter-spacing: -0.05em;
+      max-width: 980px;
+    }
+
+    .hero p {
+      color: var(--body);
+      line-height: 1.55;
+      max-width: 980px;
+    }
+
+    .option {
+      display: grid;
+      gap: 18px;
+      padding: 22px;
+    }
+
+    .option-header {
+      align-items: start;
+      display: grid;
+      gap: 10px;
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .option h2 {
+      color: var(--teal-dark);
+      font-size: clamp(2rem, 3vw, 3.3rem);
+      letter-spacing: -0.04em;
+      line-height: 0.98;
+    }
+
+    .tag {
+      background: var(--teal);
+      color: white;
+      font-weight: 900;
+      padding: 9px 12px;
+    }
+
+    .option p {
+      color: var(--body);
+      line-height: 1.52;
+      max-width: 1100px;
+    }
+
+    .canvas {
+      border: 1px solid var(--line);
+      background: var(--page);
+      min-height: 660px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .canvas::before {
+      content: "";
+      background:
+        radial-gradient(circle at 18% 14%, rgba(95, 213, 224, 0.18), transparent 16rem),
+        radial-gradient(circle at 82% 28%, rgba(246, 201, 87, 0.18), transparent 18rem),
+        radial-gradient(circle at 52% 76%, rgba(21, 94, 117, 0.08), transparent 18rem);
+      inset: 0;
+      pointer-events: none;
+      position: absolute;
+    }
+
+    .label {
+      color: #1d3f4f;
+      font-size: 0.78rem;
+      font-weight: 950;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .house-shell {
+      filter: drop-shadow(0 28px 42px rgba(11, 44, 58, 0.18));
+      position: relative;
+    }
+
+    .house-roof {
+      border-bottom: 56px solid #0b5067;
+      border-left: 92px solid transparent;
+      border-right: 92px solid transparent;
+      height: 0;
+      position: relative;
+      width: 0;
+    }
+
+    .house-roof::before {
+      border-bottom: 56px solid rgba(255, 255, 255, 0.12);
+      border-left: 92px solid transparent;
+      border-right: 92px solid transparent;
+      bottom: -56px;
+      content: "";
+      left: -92px;
+      position: absolute;
+      width: 0;
+    }
+
+    .house-body {
+      background:
+        linear-gradient(135deg, rgba(255,255,255,0.9), rgba(237,248,250,0.98)),
+        linear-gradient(180deg, #fbfeff 0%, #edf8fa 100%);
+      border: 2px solid var(--teal-dark);
+      border-top: 0;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .house-body::before {
+      background:
+        linear-gradient(90deg, rgba(21, 94, 117, 0.06) 0 100%),
+        linear-gradient(180deg, rgba(255,255,255,0.4), transparent 55%);
+      content: "";
+      inset: 0;
+      pointer-events: none;
+      position: absolute;
+    }
+
+    .house-floor {
+      border-top: 2px solid var(--teal-dark);
+      display: grid;
+      gap: 10px;
+      padding: 12px 14px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .house-floor strong {
+      color: var(--teal-dark);
+      font-size: 0.94rem;
+      letter-spacing: -0.02em;
+    }
+
+    .house-floor span {
+      color: var(--body);
+      font-size: 0.82rem;
+      line-height: 1.35;
+    }
+
+    .pill {
+      align-self: start;
+      background: var(--teal-soft);
+      color: var(--teal-dark);
+      display: inline-flex;
+      font-size: 0.74rem;
+      font-weight: 950;
+      padding: 5px 8px;
+      text-transform: uppercase;
+    }
+
+    .shadow-note {
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 800;
+    }
+
+    .option-grid {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .side-panel,
+    .detail-panel,
+    .top-panel {
+      background: rgba(251, 254, 255, 0.96);
+      border: 1px solid var(--line);
+    }
+
+    .side-panel {
+      display: grid;
+      gap: 12px;
+      padding: 16px;
+    }
+
+    .side-panel h3 {
+      color: var(--teal-dark);
+      font-size: 1.1rem;
+    }
+
+    .metric {
+      background: #f6fbfc;
+      border-left: 4px solid var(--teal);
+      padding: 12px;
+    }
+
+    .metric strong {
+      color: var(--teal-dark);
+      display: block;
+      font-size: 1.25rem;
+      margin-bottom: 2px;
+    }
+
+    .metric span {
+      color: var(--body);
+      font-size: 0.82rem;
+    }
+
+    .btn-line {
+      align-items: center;
+      background: transparent;
+      border: 0;
+      color: var(--teal-dark);
+      display: inline-flex;
+      font: inherit;
+      font-weight: 900;
+      padding: 0;
+      text-decoration: underline;
+      text-underline-offset: 4px;
+    }
+
+    .btn-soft {
+      background: var(--teal-soft);
+      border: 1px solid var(--line);
+      color: var(--teal-dark);
+      font: inherit;
+      font-weight: 900;
+      padding: 9px 11px;
+    }
+
+    .btn-danger {
+      color: #9f3a2d;
+    }
+
+    /* Option A: Architectural cutaway */
+    .a-layout {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: 300px minmax(0, 1fr);
+      min-height: 660px;
+    }
+
+    .a-left {
+      background: linear-gradient(180deg, #fbfeff 0%, #eef8fa 100%);
+      border-right: 1px solid var(--line);
+      display: grid;
+      gap: 14px;
+      padding: 18px;
+      position: relative;
+    }
+
+    .a-left::before {
+      background: linear-gradient(180deg, rgba(255,255,255,0.8), rgba(255,255,255,0));
+      content: "";
+      inset: 0 0 auto 0;
+      height: 90px;
+      pointer-events: none;
+      position: absolute;
+    }
+
+    .a-left .house-shell {
+      margin: 0 auto;
+      width: 210px;
+      z-index: 1;
+    }
+
+    .a-left .house-roof {
+      border-bottom-width: 58px;
+      border-left-width: 105px;
+      border-right-width: 105px;
+    }
+
+    .a-left .house-body {
+      display: grid;
+    }
+
+    .a-left .house-floor {
+      min-height: 64px;
+    }
+
+    .a-right {
+      display: grid;
+      gap: 18px;
+      padding: 18px 18px 18px 0;
+    }
+
+    .model-title-row {
+      align-items: end;
+      display: flex;
+      gap: 12px;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+
+    .model-title-row h3 {
+      color: var(--teal-dark);
+      font-size: 1.18rem;
+      letter-spacing: -0.02em;
+    }
+
+    .annotation-shell {
+      border: 1px solid var(--line);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.96), rgba(244,250,251,0.92));
+      display: grid;
+      gap: 14px;
+      padding: 16px;
+      position: relative;
+    }
+
+    .annotation-shell::before {
+      background:
+        radial-gradient(circle at 14% 18%, rgba(95, 213, 224, 0.22), transparent 9rem),
+        radial-gradient(circle at 88% 88%, rgba(246, 201, 87, 0.18), transparent 10rem);
+      content: "";
+      inset: 0;
+      pointer-events: none;
+      position: absolute;
+    }
+
+    .annotation-shell > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .cutaway-top {
+      align-items: start;
+      display: grid;
+      gap: 12px;
+      grid-template-columns: minmax(0, 1fr) 280px;
+    }
+
+    .cutaway-card {
+      background: rgba(251, 254, 255, 0.96);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      padding: 16px;
+    }
+
+    .cutaway-card h3 {
+      color: var(--teal-dark);
+      font-size: 1.2rem;
+      margin-bottom: 8px;
+    }
+
+    .cutaway-card p {
+      color: var(--body);
+      line-height: 1.45;
+    }
+
+    .cutaway-room-stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .room-strip {
+      align-items: center;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,0.96), rgba(244,250,251,0.94));
+      border: 1px solid var(--line);
+      border-left: 6px solid var(--teal);
+      box-shadow: 0 10px 20px rgba(21, 94, 117, 0.05);
+      display: grid;
+      gap: 12px;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      padding: 14px 14px 14px 16px;
+    }
+
+    .room-strip strong {
+      color: var(--text);
+      display: block;
+      font-size: 1rem;
+    }
+
+    .room-strip span {
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    .room-tag {
+      background: var(--teal-soft);
+      color: var(--teal-dark);
+      font-size: 0.72rem;
+      font-weight: 950;
+      letter-spacing: 0.08em;
+      padding: 5px 7px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .room-meta {
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .room-strip .btn-line {
+      justify-self: end;
+    }
+
+    /* Option B: Editorial model board */
+    .b-layout {
+      display: grid;
+      gap: 20px;
+      grid-template-columns: minmax(0, 1.06fr) 320px;
+      min-height: 660px;
+    }
+
+    .editorial-stage {
+      background:
+        linear-gradient(135deg, rgba(255,255,255,0.9), rgba(239,247,249,0.9)),
+        var(--page);
+      border-right: 1px solid var(--line);
+      display: grid;
+      gap: 16px;
+      padding: 20px;
+    }
+
+    .editorial-stage .house-shell {
+      margin: 0 auto;
+      width: 250px;
+    }
+
+    .editorial-stage .roof {
+      border-bottom-width: 66px;
+      border-left-width: 125px;
+      border-right-width: 125px;
+    }
+
+    .editorial-stage .house-floor {
+      min-height: 68px;
+      text-align: center;
+    }
+
+    .editorial-facts {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .editorial-facts .metric {
+      background: white;
+    }
+
+    .annotation-row {
+      align-items: center;
+      background: white;
+      border: 1px solid var(--line);
+      display: grid;
+      gap: 10px;
+      grid-template-columns: 1fr auto;
+      padding: 12px 14px;
+    }
+
+    .annotation-row strong {
+      color: var(--teal-dark);
+      display: block;
+      font-size: 0.98rem;
+    }
+
+    .annotation-row span {
+      color: var(--body);
+      font-size: 0.83rem;
+    }
+
+    .b-sidebar {
+      display: grid;
+      gap: 12px;
+      padding: 18px 18px 18px 0;
+    }
+
+    .b-sidebar .detail-panel {
+      display: grid;
+      gap: 12px;
+      padding: 16px;
+    }
+
+    .b-sidebar .detail-panel h3 {
+      color: var(--teal-dark);
+      font-size: 1.05rem;
+    }
+
+    /* Option C: Blueprint theater */
+    .c-layout {
+      background:
+        linear-gradient(180deg, rgba(7, 52, 72, 0.14), rgba(7, 52, 72, 0.14)),
+        linear-gradient(90deg, rgba(222, 240, 246, 0.18) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(222, 240, 246, 0.18) 1px, transparent 1px),
+        linear-gradient(135deg, #0a2d3c 0%, #0c4054 55%, #134e66 100%);
+      background-size: auto, 36px 36px, 36px 36px, auto;
+      color: #effcff;
+      display: grid;
+      gap: 18px;
+      min-height: 660px;
+      padding: 18px;
+    }
+
+    .c-layout .kicker,
+    .c-layout p,
+    .c-layout .shadow-note,
+    .c-layout .label,
+    .c-layout .metric span,
+    .c-layout .annotation-row span,
+    .c-layout .room-strip span {
+      color: #d2edf2;
+    }
+
+    .c-layout .option-summary,
+    .c-layout .shadow-note,
+    .c-layout .metric span,
+    .c-layout .annotation-row span,
+    .c-layout .room-strip span {
+      color: #c2e6ed;
+    }
+
+    .c-layout .main-title {
+      color: #f6fdff;
+    }
+
+    .c-panel {
+      background: rgba(7, 45, 62, 0.74);
+      border: 1px solid rgba(194, 228, 237, 0.28);
+      box-shadow: 18px 18px 0 rgba(0, 0, 0, 0.16);
+      padding: 18px;
+    }
+
+    .c-top {
+      align-items: start;
+      display: grid;
+      gap: 14px;
+      grid-template-columns: minmax(0, 1fr) 300px;
+    }
+
+    .c-top .house-shell {
+      margin: 0 auto;
+      width: 240px;
+    }
+
+    .c-top .roof {
+      border-bottom-color: #f5d977;
+    }
+
+    .c-top .house-body {
+      background: rgba(255, 255, 255, 0.02);
+      border-color: rgba(194, 228, 237, 0.5);
+    }
+
+    .c-top .house-floor {
+      border-top-color: rgba(194, 228, 237, 0.5);
+    }
+
+    .c-sidebar {
+      display: grid;
+      gap: 12px;
+    }
+
+    .c-pill {
+      background: rgba(246, 201, 87, 0.14);
+      border: 1px solid rgba(246, 201, 87, 0.36);
+      color: #ffe7a3;
+      font-weight: 900;
+      padding: 7px 10px;
+      width: fit-content;
+    }
+
+    .notes {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      padding: 20px;
+    }
+
+    .notes h3 {
+      color: var(--teal-dark);
+      margin-bottom: 8px;
+    }
+
+    .notes p {
+      color: var(--body);
+      line-height: 1.5;
+    }
+
+    @media (max-width: 1200px) {
+      .option-grid,
+      .editorial-facts,
+      .notes,
+      .cutaway-top,
+      .b-layout,
+      .c-top {
+        grid-template-columns: 1fr;
+      }
+
+      .a-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .a-left,
+      .a-right,
+      .b-sidebar {
+        padding: 18px;
+      }
+
+      .a-left {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .editorial-stage {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+    }
+
+    @media (max-width: 760px) {
+      body { padding: 16px; }
+      .hero, .option, .notes { padding: 18px; }
+      .canvas, .c-layout { min-height: auto; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <p class="kicker">My Home revamp exploration</p>
+      <h1>Three bolder directions for the home model page, each with a more expressive 2D house.</h1>
+      <p>
+        These options move beyond the current safe layout. The goal is to see whether the page
+        should become a cutaway model, a more editorial product board, or a dramatic blueprint-style
+        experience.
+      </p>
+    </section>
+
+    <section class="option">
+      <div class="option-header">
+        <div>
+          <p class="kicker">Option A</p>
+          <h2>Architectural cutaway</h2>
+        </div>
+        <span class="tag">Recommended</span>
+      </div>
+      <p>
+        The 2D house becomes the hero, with the page feeling like a sectional drawing that you can
+        edit. Rooms feel like labeled parts of a model instead of a list of cards, and the details
+        ride beside the house so the layout gets wider and calmer.
+      </p>
+      <div class="a-layout canvas">
+        <aside class="a-left">
+          <p class="label">Home model</p>
+          <div class="house-shell">
+            <div class="house-roof"></div>
+            <div class="house-body">
+              <div class="house-floor active"><strong>Floor 2</strong><span>Selected</span></div>
+              <div class="house-floor"><strong>Main floor</strong><span>Shared spaces</span></div>
+              <div class="house-floor"><strong>Basement</strong><span>Storage and utility</span></div>
+            </div>
+          </div>
+          <div class="side-panel">
+            <h3>Model notes</h3>
+            <div class="metric"><strong>3 floors</strong><span>Visible at a glance</span></div>
+            <div class="metric"><strong>5 rooms</strong><span>Simple to scan</span></div>
+            <button class="btn-soft">Add another floor</button>
+          </div>
+        </aside>
+        <section class="a-right">
+          <div class="annotation-shell">
+            <div class="model-title-row">
+              <div>
+                <p class="label">Overview</p>
+                <h3>Home details stay read-first</h3>
+              </div>
+              <button class="btn-line">Edit home details</button>
+            </div>
+            <div class="cutaway-top">
+              <div class="cutaway-card">
+                <p class="label">Signals</p>
+                <h3>Room context, not form clutter</h3>
+                <p class="shadow-note">The work area gets enough vertical room to breathe and to show what Cleanly knows.</p>
+              </div>
+              <div class="cutaway-card">
+                <p class="label">Setup status</p>
+                <h3>Ready for routines</h3>
+                <p>One home profile, one set of floors, and room annotations that feel like a real model rather than a list.</p>
+              </div>
+            </div>
+            <div class="cutaway-room-stack">
+              <div class="room-strip">
+                <div>
+                  <strong>Primary bedroom</strong>
+                  <span>Carpet, medium dust, low rotation</span>
+                </div>
+                <span class="room-tag">Sleep</span>
+                <button class="btn-line">Edit</button>
+              </div>
+              <div class="room-strip">
+                <div>
+                  <strong>Bathroom</strong>
+                  <span>Tile, high reset value, frequent use</span>
+                </div>
+                <span class="room-meta">Tidy hotspot</span>
+                <button class="btn-line">Edit</button>
+              </div>
+              <div class="room-strip">
+                <div>
+                  <strong>Office</strong>
+                  <span>Hardwood, light traffic, flexible use</span>
+                </div>
+                <span class="room-tag">Focus</span>
+                <button class="btn-line">Edit</button>
+              </div>
+              <div class="room-strip">
+                <div>
+                  <strong>Guest room</strong>
+                  <span>Soft goods, occasional use, low churn</span>
+                </div>
+                <span class="room-meta">Low touch</span>
+                <button class="btn-line">Edit</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="option">
+      <div class="option-header">
+        <div>
+          <p class="kicker">Option B</p>
+          <h2>Editorial model board</h2>
+        </div>
+      </div>
+      <p>
+        This version treats the 2D house like a magazine spread. It is the most visually polished
+        and easiest to make feel “designed,” with the house centered as the main object and key
+        facts arranged like a product board around it.
+      </p>
+      <div class="b-layout canvas">
+        <section class="editorial-stage">
+          <div class="house-shell">
+            <div class="house-roof"></div>
+            <div class="house-body">
+              <div class="house-floor active"><strong>Floor 2</strong><span>House volume in focus</span></div>
+              <div class="house-floor"><strong>Main floor</strong><span>Social layer</span></div>
+              <div class="house-floor"><strong>Basement</strong><span>Utility layer</span></div>
+            </div>
+          </div>
+          <div class="editorial-facts">
+            <div class="metric"><strong>Calmer</strong><span>Less chrome, more air</span></div>
+            <div class="metric"><strong>Cleaner</strong><span>Fewer competing panels</span></div>
+            <div class="metric"><strong>Taller</strong><span>More presence in the viewport</span></div>
+          </div>
+          <div class="annotation-row">
+            <div>
+              <strong>Overview reads like a hero page</strong>
+              <span>Edit home details is a small supporting link, not a big block.</span>
+            </div>
+            <button class="btn-soft">Edit home details</button>
+          </div>
+          <div class="annotation-row">
+            <div>
+              <strong>Floors and Rooms inherit the same frame</strong>
+              <span>Only the right-side content changes; the model stays central.</span>
+            </div>
+            <button class="btn-line">Edit floor</button>
+          </div>
+        </section>
+        <aside class="b-sidebar">
+          <div class="detail-panel">
+            <p class="label">Why it works</p>
+            <h3>Feels premium without becoming complicated</h3>
+            <p>Best if the team wants the page to feel more like a designed experience than a utility screen.</p>
+          </div>
+          <div class="detail-panel">
+            <p class="label">Tradeoff</p>
+            <h3>Less efficient for frequent editing</h3>
+            <p>The layout is more beautiful, but the controls are farther from the model than in Option A.</p>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="option">
+      <div class="option-header">
+        <div>
+          <p class="kicker">Option C</p>
+          <h2>Blueprint theater</h2>
+        </div>
+      </div>
+      <p>
+        This one goes the farthest visually: a dark blueprint surface, glowing linework, and a more
+        dramatic 2D house. It has the most wow factor, but it also departs the most from the rest of
+        the app.
+      </p>
+      <div class="c-layout canvas">
+        <div class="c-top">
+          <section class="c-panel">
+            <p class="label">My Home / blueprint mode</p>
+            <h2 class="main-title">The house becomes the page.</h2>
+            <p class="option-summary">
+              Floors glow as structure, rooms become labeled slices, and the editing controls sit
+              as small field notes rather than loud buttons.
+            </p>
+            <div class="c-sidebar">
+              <div class="c-pill">Floor plan ready</div>
+              <div class="metric"><strong>3 floors</strong><span>Layered into the model</span></div>
+              <div class="metric"><strong>5 rooms</strong><span>Annotated, not boxed</span></div>
+            </div>
+          </section>
+          <section class="c-panel">
+            <div class="house-shell">
+              <div class="house-roof"></div>
+              <div class="house-body">
+                <div class="house-floor active"><strong>Floor 2</strong><span>Selected cut</span></div>
+                <div class="house-floor"><strong>Main floor</strong><span>Common flow</span></div>
+                <div class="house-floor"><strong>Basement</strong><span>Service layer</span></div>
+              </div>
+            </div>
+          </section>
+        </div>
+        <div class="option-grid">
+          <div class="c-panel">
+            <p class="label">Overview</p>
+            <h3>Profile summary as callouts</h3>
+            <p>Home details stay visible but retreat into the blueprint surface.</p>
+          </div>
+          <div class="c-panel">
+            <p class="label">Floors</p>
+            <h3>Levels as annotated bands</h3>
+            <p>Each floor gets a visual identity without becoming a card stack.</p>
+          </div>
+          <div class="c-panel">
+            <p class="label">Rooms</p>
+            <h3>Rooms as labels on the drawing</h3>
+            <p>Great for wow, but the most opinionated of the three directions.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="notes">
+      <article>
+        <h3>Most practical</h3>
+        <p>Option A is the balance point. It adds presence, fixes the button hierarchy, and gives the page more vertical room without forcing a totally new mental model.</p>
+      </article>
+      <article>
+        <h3>Most designed</h3>
+        <p>Option B has the best chance of making the 2D house feel premium and memorable while still staying understandable.</p>
+      </article>
+      <article>
+        <h3>Most dramatic</h3>
+        <p>Option C is the one to pick if “wow” matters more than staying close to the current app language.</p>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

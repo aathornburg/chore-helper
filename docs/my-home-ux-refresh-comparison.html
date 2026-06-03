@@ -1,0 +1,691 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>My Home UX Refresh Comparison</title>
+  <style>
+    :root {
+      --bg: #edf8fa;
+      --page: #fbfeff;
+      --panel: #ffffff;
+      --panel-soft: #f3fafc;
+      --line: #c9e2e8;
+      --line-soft: #e1eef1;
+      --text: #062f3f;
+      --body: #36515d;
+      --muted: #637681;
+      --teal: #155e75;
+      --teal-dark: #0f4c66;
+      --teal-soft: #dff1f5;
+      --yellow: #f6c957;
+      --danger: #9f3a2d;
+      --shadow: -6px 6px 0 rgba(42, 165, 180, 0.14);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      background:
+        linear-gradient(90deg, rgba(20, 113, 134, 0.08) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(20, 113, 134, 0.08) 1px, transparent 1px),
+        radial-gradient(circle at 12% 0%, rgba(123, 220, 224, 0.42), transparent 28rem),
+        radial-gradient(circle at 92% 8%, rgba(246, 201, 87, 0.28), transparent 24rem),
+        linear-gradient(135deg, #f8fdfe 0%, #e9f7fa 62%, #f8fbfc 100%);
+      background-size: 42px 42px, 42px 42px, auto, auto, auto;
+      color: var(--text);
+      font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+      margin: 0;
+      min-height: 100vh;
+      padding: 28px;
+    }
+
+    main {
+      display: grid;
+      gap: 26px;
+      margin: 0 auto;
+      max-width: 1480px;
+    }
+
+    h1, h2, h3, h4, p { margin: 0; }
+
+    .hero {
+      background: rgba(251, 254, 255, 0.9);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 14px;
+      padding: 28px;
+    }
+
+    .hero h1 {
+      color: var(--teal-dark);
+      font-size: clamp(2.6rem, 5vw, 4.7rem);
+      letter-spacing: -0.045em;
+      line-height: 0.96;
+    }
+
+    .hero p {
+      color: var(--body);
+      font-size: 1.05rem;
+      line-height: 1.55;
+      max-width: 900px;
+    }
+
+    .comparison {
+      display: grid;
+      gap: 24px;
+    }
+
+    .option {
+      background: rgba(251, 254, 255, 0.88);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 20px;
+      padding: 22px;
+    }
+
+    .option-header {
+      align-items: start;
+      display: grid;
+      gap: 10px;
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .option-kicker {
+      color: var(--teal);
+      font-size: 0.78rem;
+      font-weight: 950;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .option h2 {
+      color: var(--teal-dark);
+      font-size: clamp(1.8rem, 3vw, 3rem);
+      letter-spacing: -0.035em;
+      line-height: 1;
+    }
+
+    .tag {
+      background: var(--teal);
+      color: white;
+      font-weight: 900;
+      padding: 9px 12px;
+    }
+
+    .option-summary {
+      color: var(--body);
+      line-height: 1.5;
+      max-width: 980px;
+    }
+
+    .views {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .screen {
+      background: var(--page);
+      border: 1px solid var(--line);
+      min-height: 610px;
+      overflow: hidden;
+    }
+
+    .screen-head {
+      border-bottom: 1px solid var(--line);
+      display: grid;
+      gap: 12px;
+      padding: 18px;
+    }
+
+    .screen-head h3 {
+      color: var(--teal-dark);
+      font-size: 1.75rem;
+      letter-spacing: -0.025em;
+    }
+
+    .tabs {
+      align-items: center;
+      background: var(--teal-soft);
+      display: inline-flex;
+      gap: 4px;
+      justify-self: start;
+      padding: 5px;
+    }
+
+    .tabs span {
+      color: #1f3440;
+      font-weight: 900;
+      padding: 8px 12px;
+    }
+
+    .tabs .active {
+      background: var(--teal);
+      color: white;
+    }
+
+    .workspace {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: 150px minmax(0, 1fr);
+      min-height: 488px;
+      padding: 16px;
+    }
+
+    .floor-rail,
+    .main-panel,
+    .sub-panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+    }
+
+    .floor-rail {
+      align-content: start;
+      display: grid;
+      gap: 14px;
+      padding: 14px;
+    }
+
+    .rail-title {
+      color: #9a4f3f;
+      font-size: 0.72rem;
+      font-weight: 950;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .house {
+      margin: 0 auto;
+      width: 112px;
+    }
+
+    .roof {
+      border-bottom: 36px solid var(--teal-dark);
+      border-left: 56px solid transparent;
+      border-right: 56px solid transparent;
+      height: 0;
+    }
+
+    .floor {
+      background: #fbfeff;
+      border: 2px solid var(--teal-dark);
+      border-top: 0;
+      color: var(--teal-dark);
+      font-size: 0.8rem;
+      font-weight: 900;
+      padding: 8px 6px;
+      text-align: center;
+    }
+
+    .floor.active { background: var(--teal-soft); }
+    .floor.unselected { background: #fbfeff; }
+
+    .main-panel {
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 16px;
+      padding: 18px;
+    }
+
+    .panel-head {
+      align-items: start;
+      display: flex;
+      gap: 12px;
+      justify-content: space-between;
+    }
+
+    .panel-head h4 {
+      color: var(--teal-dark);
+      font-size: 1.4rem;
+    }
+
+    .quiet-action,
+    .text-action,
+    .danger-action {
+      background: transparent;
+      border: 0;
+      color: var(--teal-dark);
+      font: inherit;
+      font-weight: 900;
+      padding: 4px 0;
+      text-decoration: underline;
+      text-underline-offset: 4px;
+    }
+
+    .quiet-button {
+      background: var(--teal-soft);
+      border: 1px solid var(--line);
+      color: var(--teal-dark);
+      font-weight: 900;
+      padding: 9px 12px;
+    }
+
+    .danger-action { color: var(--danger); }
+
+    .summary-grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .summary-grid div {
+      border-top: 1px solid var(--line-soft);
+      padding-top: 10px;
+    }
+
+    .summary-grid span {
+      color: var(--muted);
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+    }
+
+    .summary-grid strong {
+      color: #172d36;
+      display: block;
+      font-size: 1rem;
+    }
+
+    .room-list {
+      display: grid;
+      gap: 0;
+    }
+
+    .room-row {
+      align-items: center;
+      background: #fbfeff;
+      border-top: 1px solid var(--line-soft);
+      display: grid;
+      gap: 12px;
+      grid-template-columns: minmax(0, 1fr) auto;
+      padding: 13px 0;
+    }
+
+    .room-row:first-child { border-top: 0; }
+
+    .room-row strong {
+      color: #172d36;
+      display: block;
+      font-size: 1rem;
+    }
+
+    .room-row span {
+      color: var(--muted);
+      display: block;
+      font-size: 0.84rem;
+      margin-top: 3px;
+    }
+
+    .sub-panel {
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+    }
+
+    .surface-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .surface-chips span {
+      background: var(--panel-soft);
+      border: 1px solid var(--line);
+      color: var(--body);
+      font-size: 0.82rem;
+      padding: 6px 8px;
+    }
+
+    .option-b .workspace {
+      grid-template-columns: minmax(0, 1fr);
+      padding: 0;
+    }
+
+    .option-b .screen-head {
+      background: linear-gradient(90deg, #fbfeff, #e7f6f8);
+    }
+
+    .option-b .main-panel {
+      border: 0;
+      box-shadow: none;
+      min-height: 488px;
+      padding: 18px;
+    }
+
+    .model-band {
+      align-items: center;
+      border-bottom: 1px solid var(--line);
+      display: grid;
+      gap: 18px;
+      grid-template-columns: 150px minmax(0, 1fr);
+      padding-bottom: 18px;
+    }
+
+    .metric-strip {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .metric-strip div {
+      background: var(--panel-soft);
+      border-left: 4px solid var(--teal);
+      padding: 12px;
+    }
+
+    .option-c .workspace {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .option-c .main-panel {
+      min-height: 488px;
+    }
+
+    .split-grid {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    }
+
+    .table {
+      border: 1px solid var(--line);
+      display: grid;
+    }
+
+    .table-row {
+      align-items: center;
+      border-top: 1px solid var(--line-soft);
+      display: grid;
+      gap: 10px;
+      grid-template-columns: minmax(0, 1fr) auto;
+      padding: 12px;
+    }
+
+    .table-row:first-child { border-top: 0; }
+    .table-row strong { color: #172d36; }
+    .table-row span { color: var(--muted); font-size: 0.84rem; }
+
+    .notes {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .note {
+      background: rgba(251, 254, 255, 0.88);
+      border: 1px solid var(--line);
+      padding: 16px;
+    }
+
+    .note h3 {
+      color: var(--teal-dark);
+      margin-bottom: 8px;
+    }
+
+    .note p {
+      color: var(--body);
+      line-height: 1.45;
+    }
+
+    @media (max-width: 1200px) {
+      .views,
+      .notes {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <h1>My Home UX refresh options</h1>
+      <p>
+        Three directions for making Overview, Floors, and Rooms feel roomier and more intentional.
+        The key tensions: primary button hierarchy, avoiding box-shadow overload, and making the
+        workspace fill more of the browser instead of stopping halfway down the viewport.
+      </p>
+    </section>
+
+    <section class="comparison">
+      <article class="option option-a" id="option-a">
+        <div class="option-header">
+          <div>
+            <p class="option-kicker">Option A</p>
+            <h2>Workspace canvas</h2>
+          </div>
+          <span class="tag">Recommended</span>
+        </div>
+        <p class="option-summary">
+          Keeps the current mental model but gives every view a taller two-column workspace:
+          floor selector on the left, one primary work panel on the right. Main panels get the
+          offset shadow; room rows stay flat inside the Rooms panel.
+        </p>
+        <div class="views">
+          <section class="screen">
+            <div class="screen-head">
+              <h3>Overview</h3>
+              <div class="tabs"><span class="active">Overview</span><span>Floors</span><span>Rooms</span></div>
+            </div>
+            <div class="workspace">
+              <aside class="floor-rail">
+                <span class="rail-title">Home model</span>
+                <div class="house">
+                  <div class="roof"></div>
+                  <div class="floor unselected">Floor 2</div>
+                  <div class="floor unselected">Main floor</div>
+                  <div class="floor unselected">Basement</div>
+                </div>
+              </aside>
+              <section class="main-panel">
+                <div class="panel-head">
+                  <h4>Home details</h4>
+                  <button class="quiet-action">Edit home details</button>
+                </div>
+                <div class="summary-grid">
+                  <div><span>Home name</span><strong>New household</strong></div>
+                  <div><span>Home type</span><strong>House</strong></div>
+                  <div><span>Pets</span><strong>No</strong></div>
+                  <div><span>Outdoor space</span><strong>No</strong></div>
+                  <div><span>Modeled structure</span><strong>3 floors / 5 rooms</strong></div>
+                  <div><span>Setup status</span><strong>Ready for routines</strong></div>
+                </div>
+                <section class="sub-panel">
+                  <h4>What Cleanly knows</h4>
+                  <p class="option-summary">A quick read-only summary can use the extra vertical space without adding more cards.</p>
+                </section>
+              </section>
+            </div>
+          </section>
+
+          <section class="screen">
+            <div class="screen-head">
+              <h3>Floors</h3>
+              <div class="tabs"><span>Overview</span><span class="active">Floors</span><span>Rooms</span></div>
+            </div>
+            <div class="workspace">
+              <aside class="floor-rail">
+                <span class="rail-title">Floor selector</span>
+                <div class="house">
+                  <div class="roof"></div>
+                  <div class="floor active">Floor 2</div>
+                  <div class="floor">Main floor</div>
+                  <div class="floor">Basement</div>
+                </div>
+                <button class="quiet-button">Add floor</button>
+              </aside>
+              <section class="main-panel">
+                <div class="panel-head">
+                  <h4>Floor 2</h4>
+                  <button class="quiet-action">Edit floor</button>
+                </div>
+                <div class="summary-grid">
+                  <div><span>Level type</span><strong>Upstairs</strong></div>
+                  <div><span>Pet impact</span><strong>None</strong></div>
+                  <div><span>Vacuum coverage</span><strong>None</strong></div>
+                  <div><span>Mop coverage</span><strong>None</strong></div>
+                </div>
+                <section class="sub-panel">
+                  <div class="panel-head"><h4>Flooring</h4><button class="quiet-action">Edit surfaces</button></div>
+                  <div class="surface-chips"><span>Hardwood</span><span>Tile</span><span>Area rugs</span></div>
+                </section>
+              </section>
+            </div>
+          </section>
+
+          <section class="screen">
+            <div class="screen-head">
+              <h3>Rooms</h3>
+              <div class="tabs"><span>Overview</span><span>Floors</span><span class="active">Rooms</span></div>
+            </div>
+            <div class="workspace">
+              <aside class="floor-rail">
+                <span class="rail-title">Floor selector</span>
+                <div class="house">
+                  <div class="roof"></div>
+                  <div class="floor active">Floor 2</div>
+                  <div class="floor">Main floor</div>
+                  <div class="floor">Basement</div>
+                </div>
+              </aside>
+              <section class="main-panel">
+                <div class="panel-head">
+                  <h4>Floor 2 rooms</h4>
+                  <button class="quiet-action">Add room</button>
+                </div>
+                <div class="room-list">
+                  <div class="room-row"><div><strong>Primary bedroom</strong><span>Sleep space / carpet / medium dust</span></div><button class="text-action">Edit</button></div>
+                  <div class="room-row"><div><strong>Bathroom</strong><span>Wet room / tile / high reset value</span></div><button class="text-action">Edit</button></div>
+                  <div class="room-row"><div><strong>Office</strong><span>Work area / hardwood / light traffic</span></div><button class="text-action">Edit</button></div>
+                  <div class="room-row"><div><strong>Guest room</strong><span>Sleep space / carpet / occasional use</span></div><button class="text-action">Edit</button></div>
+                </div>
+              </section>
+            </div>
+          </section>
+        </div>
+      </article>
+
+      <article class="option option-b" id="option-b">
+        <div class="option-header">
+          <div>
+            <p class="option-kicker">Option B</p>
+            <h2>Model-first overview</h2>
+          </div>
+        </div>
+        <p class="option-summary">
+          Turns each view into a full-width model board. The 2D house becomes the hero object,
+          with details underneath. This feels more visual and welcoming, but it makes editing
+          workflows a little farther from the selector.
+        </p>
+        <div class="views">
+          <section class="screen">
+            <div class="screen-head"><h3>Overview</h3><div class="tabs"><span class="active">Overview</span><span>Floors</span><span>Rooms</span></div></div>
+            <div class="workspace">
+              <section class="main-panel">
+                <div class="model-band">
+                  <div class="house"><div class="roof"></div><div class="floor unselected">Floor 2</div><div class="floor unselected">Main floor</div><div class="floor unselected">Basement</div></div>
+                  <div>
+                    <div class="panel-head"><h4>New household</h4><button class="quiet-action">Edit home details</button></div>
+                    <p class="option-summary">A big home-model band makes the page feel less cramped immediately.</p>
+                  </div>
+                </div>
+                <div class="metric-strip"><div><strong>3 floors</strong><br><span>modeled</span></div><div><strong>5 rooms</strong><br><span>ready</span></div><div><strong>2 surfaces</strong><br><span>known</span></div></div>
+              </section>
+            </div>
+          </section>
+          <section class="screen">
+            <div class="screen-head"><h3>Floors</h3><div class="tabs"><span>Overview</span><span class="active">Floors</span><span>Rooms</span></div></div>
+            <div class="workspace">
+              <section class="main-panel">
+                <div class="model-band">
+                  <div class="house"><div class="roof"></div><div class="floor active">Floor 2</div><div class="floor">Main floor</div><div class="floor">Basement</div></div>
+                  <div><div class="panel-head"><h4>Floor 2 details</h4><button class="quiet-action">Edit floor</button></div><p class="option-summary">Selected floor information sits beside the model instead of below it.</p></div>
+                </div>
+                <section class="sub-panel"><h4>Flooring</h4><div class="surface-chips"><span>Hardwood</span><span>Tile</span></div></section>
+              </section>
+            </div>
+          </section>
+          <section class="screen">
+            <div class="screen-head"><h3>Rooms</h3><div class="tabs"><span>Overview</span><span>Floors</span><span class="active">Rooms</span></div></div>
+            <div class="workspace">
+              <section class="main-panel">
+                <div class="model-band">
+                  <div class="house"><div class="roof"></div><div class="floor active">Floor 2</div><div class="floor">Main floor</div><div class="floor">Basement</div></div>
+                  <div><div class="panel-head"><h4>Rooms on Floor 2</h4><button class="quiet-action">Add room</button></div><p class="option-summary">Rooms stay flat, but the model remains the dominant visual.</p></div>
+                </div>
+                <div class="room-list"><div class="room-row"><div><strong>Primary bedroom</strong><span>Carpet / medium dust</span></div><button class="text-action">Edit</button></div><div class="room-row"><div><strong>Bathroom</strong><span>Tile / high reset value</span></div><button class="text-action">Edit</button></div></div>
+              </section>
+            </div>
+          </section>
+        </div>
+      </article>
+
+      <article class="option option-c" id="option-c">
+        <div class="option-header">
+          <div>
+            <p class="option-kicker">Option C</p>
+            <h2>Dense operations board</h2>
+          </div>
+        </div>
+        <p class="option-summary">
+          Treats My Home like a compact configuration tool. It is efficient for users with many
+          floors and rooms, but feels less warm than Option A and less visual than Option B.
+        </p>
+        <div class="views">
+          <section class="screen">
+            <div class="screen-head"><h3>Overview</h3><div class="tabs"><span class="active">Overview</span><span>Floors</span><span>Rooms</span></div></div>
+            <div class="workspace">
+              <section class="main-panel">
+                <div class="panel-head"><h4>Home setup board</h4><button class="quiet-action">Edit home details</button></div>
+                <div class="split-grid">
+                  <div class="house"><div class="roof"></div><div class="floor unselected">Floor 2</div><div class="floor unselected">Main floor</div><div class="floor unselected">Basement</div></div>
+                  <div class="table"><div class="table-row"><strong>Home type</strong><span>House</span></div><div class="table-row"><strong>Pets</strong><span>No</span></div><div class="table-row"><strong>Modeled</strong><span>3 floors / 5 rooms</span></div></div>
+                </div>
+              </section>
+            </div>
+          </section>
+          <section class="screen">
+            <div class="screen-head"><h3>Floors</h3><div class="tabs"><span>Overview</span><span class="active">Floors</span><span>Rooms</span></div></div>
+            <div class="workspace">
+              <section class="main-panel">
+                <div class="panel-head"><h4>Floors table</h4><button class="quiet-action">Add floor</button></div>
+                <div class="table"><div class="table-row"><strong>Floor 2</strong><span>0 rooms - Edit</span></div><div class="table-row"><strong>Main floor</strong><span>3 rooms - Edit</span></div><div class="table-row"><strong>Basement</strong><span>2 rooms - Edit</span></div></div>
+                <section class="sub-panel"><h4>Selected floor details</h4><p class="option-summary">Details appear under the table, reducing visual switching.</p></section>
+              </section>
+            </div>
+          </section>
+          <section class="screen">
+            <div class="screen-head"><h3>Rooms</h3><div class="tabs"><span>Overview</span><span>Floors</span><span class="active">Rooms</span></div></div>
+            <div class="workspace">
+              <section class="main-panel">
+                <div class="panel-head"><h4>All rooms</h4><button class="quiet-action">Add room</button></div>
+                <div class="table"><div class="table-row"><strong>Primary bedroom</strong><span>Floor 2 - Edit</span></div><div class="table-row"><strong>Bathroom</strong><span>Floor 2 - Edit</span></div><div class="table-row"><strong>Kitchen</strong><span>Main floor - Edit</span></div><div class="table-row"><strong>Laundry</strong><span>Basement - Edit</span></div></div>
+              </section>
+            </div>
+          </section>
+        </div>
+      </article>
+    </section>
+
+    <section class="notes">
+      <article class="note">
+        <h3>Best fit</h3>
+        <p>Option A is the safest implementation path. It fixes the current complaints while preserving the current tab and floor-selector model.</p>
+      </article>
+      <article class="note">
+        <h3>Most visual</h3>
+        <p>Option B gives the 2D house the most presence and feels friendlier, but it changes the layout rhythm more dramatically.</p>
+      </article>
+      <article class="note">
+        <h3>Most efficient</h3>
+        <p>Option C is strongest for large homes or multiple properties, but it feels more like admin software.</p>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

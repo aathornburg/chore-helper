@@ -1,0 +1,687 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cleanly Settings + Calendar Queue Options</title>
+  <style>
+    :root {
+      --ink: #072f3d;
+      --muted: #586f78;
+      --teal: #155e75;
+      --teal-soft: #e1f3f6;
+      --teal-line: #cfe5ea;
+      --paper: #fbfeff;
+      --wash: #eef9fb;
+      --yellow: #ffd36f;
+      --yellow-soft: #fff4ce;
+      --green: #5f9d6d;
+      --red: #d66b59;
+      --shadow: -6px 6px 0 rgba(42, 165, 180, 0.14);
+      color: var(--ink);
+      font-family: "Aptos", "Segoe UI", sans-serif;
+      line-height: 1.35;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      background:
+        linear-gradient(rgba(207, 229, 234, 0.52) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(207, 229, 234, 0.52) 1px, transparent 1px),
+        radial-gradient(circle at 82% 8%, rgba(255, 211, 111, 0.18), transparent 26%),
+        linear-gradient(135deg, #edf9fb, #fbfeff 56%, #eff8f4);
+      background-size: 52px 52px, 52px 52px, auto, auto;
+      margin: 0;
+      padding: 32px;
+    }
+
+    main {
+      display: grid;
+      gap: 34px;
+      margin: 0 auto;
+      max-width: 1580px;
+    }
+
+    h1, h2, h3, h4, p { margin-top: 0; }
+
+    h1 {
+      color: var(--teal);
+      font-size: clamp(2.8rem, 5vw, 5.4rem);
+      letter-spacing: -0.06em;
+      line-height: 0.92;
+      margin-bottom: 12px;
+      max-width: 980px;
+    }
+
+    h2 {
+      color: var(--teal);
+      font-size: clamp(2rem, 3.5vw, 3.8rem);
+      letter-spacing: -0.052em;
+      line-height: 0.95;
+      margin-bottom: 10px;
+    }
+
+    h3 {
+      color: var(--ink);
+      font-size: 1.5rem;
+      margin-bottom: 8px;
+    }
+
+    h4 {
+      color: var(--ink);
+      font-size: 1.05rem;
+      margin-bottom: 6px;
+    }
+
+    .eyebrow {
+      color: #9a4f3f;
+      font-size: 0.76rem;
+      font-weight: 950;
+      letter-spacing: 0.08em;
+      margin-bottom: 7px;
+      text-transform: uppercase;
+    }
+
+    .lede {
+      color: var(--muted);
+      font-size: 1.08rem;
+      max-width: 860px;
+    }
+
+    .jump {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+    }
+
+    .jump a {
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid var(--teal-line);
+      color: var(--teal);
+      font-weight: 850;
+      padding: 9px 12px;
+      text-decoration: none;
+    }
+
+    .section-intro {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .option {
+      background: rgba(255, 255, 255, 0.76);
+      border: 1px solid var(--teal-line);
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 18px;
+      padding: 22px;
+    }
+
+    .option-meta {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: minmax(0, 1fr) minmax(320px, 0.36fr);
+    }
+
+    .tradeoff {
+      background: var(--wash);
+      border: 1px solid var(--teal-line);
+      display: grid;
+      gap: 9px;
+      padding: 14px;
+    }
+
+    .tradeoff strong { color: var(--teal); }
+    .tradeoff span { color: var(--muted); }
+
+    .app {
+      background: #f8fcfd;
+      border: 1px solid var(--teal-line);
+      min-height: 720px;
+    }
+
+    .topbar {
+      align-items: center;
+      background: rgba(255, 255, 255, 0.94);
+      border-bottom: 1px solid var(--teal-line);
+      display: flex;
+      justify-content: space-between;
+      padding: 16px 26px;
+    }
+
+    .brand {
+      color: var(--teal);
+      font-family: "Segoe Script", "Brush Script MT", cursive;
+      font-size: 2rem;
+      font-weight: 900;
+    }
+
+    .nav {
+      display: flex;
+      gap: 20px;
+      font-weight: 850;
+    }
+
+    .nav span { color: #162f38; }
+    .nav .active { border-bottom: 2px solid var(--teal); color: var(--teal); padding-bottom: 8px; }
+
+    .page {
+      display: grid;
+      gap: 20px;
+      padding: 28px 32px 36px;
+    }
+
+    .page-header {
+      align-items: end;
+      display: grid;
+      gap: 18px;
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .page-header h3 {
+      color: var(--teal);
+      font-size: 3rem;
+      letter-spacing: -0.052em;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .button, .secondary, .link {
+      border: 1px solid var(--teal-line);
+      color: var(--teal);
+      font-weight: 900;
+      padding: 10px 14px;
+    }
+
+    .button {
+      background: var(--teal);
+      border-color: var(--teal);
+      border-radius: 999px;
+      color: white;
+    }
+
+    .secondary {
+      background: var(--teal-soft);
+      border-radius: 999px;
+    }
+
+    .link {
+      background: transparent;
+      border: 0;
+      padding-inline: 0;
+      text-decoration: underline;
+      text-underline-offset: 4px;
+    }
+
+    .panel {
+      background: white;
+      border: 1px solid var(--teal-line);
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+
+    .panel.flat {
+      box-shadow: none;
+    }
+
+    .panel-header {
+      align-items: center;
+      border-bottom: 1px solid var(--teal-line);
+      display: flex;
+      gap: 14px;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      padding-bottom: 12px;
+    }
+
+    .status {
+      background: var(--teal-soft);
+      color: var(--teal);
+      display: inline-flex;
+      font-size: 0.78rem;
+      font-weight: 950;
+      padding: 6px 9px;
+    }
+
+    .status.yellow { background: var(--yellow-soft); color: #80580b; }
+    .status.green { background: #e2f2e6; color: #2f694d; }
+    .status.red { background: #fde8e4; color: #9a3c2f; }
+
+    .grid-2 { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) minmax(340px, 0.42fr); }
+    .grid-3 { display: grid; gap: 14px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid-4 { display: grid; gap: 12px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+    .mini {
+      background: #fbfeff;
+      border: 1px solid var(--teal-line);
+      padding: 13px;
+    }
+
+    .mini span, .label {
+      color: #687985;
+      display: block;
+      font-size: 0.76rem;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .mini strong {
+      color: var(--teal);
+      display: block;
+      font-size: 1.5rem;
+      margin-top: 5px;
+    }
+
+    .lane {
+      border-left: 6px solid var(--teal);
+      display: grid;
+      gap: 12px;
+      padding-left: 14px;
+    }
+
+    .lane.export { border-left-color: var(--yellow); }
+
+    .member-row, .queue-row {
+      align-items: center;
+      border-top: 1px solid var(--teal-line);
+      display: grid;
+      gap: 12px;
+      grid-template-columns: minmax(160px, 1fr) repeat(3, minmax(110px, 0.7fr)) auto;
+      padding: 12px 0 0;
+    }
+
+    .member-row strong, .queue-row strong { display: block; }
+    .member-row small, .queue-row small, .muted { color: var(--muted); font-weight: 700; }
+
+    .selectbox {
+      background: #fbfeff;
+      border: 1px solid var(--teal-line);
+      color: var(--ink);
+      font-weight: 850;
+      padding: 9px 10px;
+    }
+
+    .matrix {
+      display: grid;
+      grid-template-columns: 160px repeat(4, minmax(130px, 1fr));
+    }
+
+    .matrix div {
+      border: 1px solid var(--teal-line);
+      padding: 12px;
+    }
+
+    .matrix .head {
+      background: #f1fafb;
+      color: var(--teal);
+      font-weight: 950;
+    }
+
+    .calendar-layout {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: minmax(0, 1fr) 360px;
+    }
+
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+    }
+
+    .day {
+      background: #fbfeff;
+      border: 1px solid var(--teal-line);
+      min-height: 108px;
+      padding: 9px;
+    }
+
+    .event, .commitment {
+      background: white;
+      border: 1px solid var(--teal-line);
+      border-left: 5px solid var(--teal);
+      color: var(--ink);
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 850;
+      margin-top: 7px;
+      padding: 6px 7px;
+    }
+
+    .commitment {
+      background: var(--yellow-soft);
+      border-left-color: var(--yellow);
+    }
+
+    .drawer {
+      display: grid;
+      gap: 12px;
+    }
+
+    .review-card {
+      background: white;
+      border: 1px solid var(--teal-line);
+      border-left: 6px solid var(--yellow);
+      padding: 14px;
+    }
+
+    .review-card.chore { border-left-color: var(--teal); }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .split-board {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    }
+
+    .queue-table {
+      display: grid;
+      gap: 0;
+    }
+
+    .queue-row {
+      grid-template-columns: minmax(210px, 1.2fr) 110px 120px 120px auto;
+    }
+
+    .rail-tabs {
+      display: flex;
+      gap: 1px;
+      margin-bottom: 14px;
+    }
+
+    .rail-tabs span {
+      background: var(--teal-soft);
+      color: var(--teal);
+      font-weight: 900;
+      padding: 9px 12px;
+    }
+
+    .rail-tabs .active {
+      background: var(--teal);
+      color: white;
+    }
+
+    @media (max-width: 980px) {
+      body { padding: 18px; }
+      .section-intro, .option-meta, .page-header, .grid-2, .grid-3, .grid-4, .calendar-layout, .split-board {
+        grid-template-columns: 1fr;
+      }
+      .nav { display: none; }
+      .member-row, .queue-row, .matrix, .calendar-grid { overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="section-intro">
+      <div>
+        <p class="eyebrow">Cleanly Settings + Calendar Queue</p>
+        <h1>Sync controls without making privacy feel scary.</h1>
+        <p class="lede">These options show how Google Calendar import/export could be configured in Settings, and how the owner-only Cleanly queue could appear on Calendar.</p>
+      </div>
+      <nav class="jump" aria-label="Sections">
+        <a href="#settings-a">Settings A</a>
+        <a href="#settings-b">Settings B</a>
+        <a href="#settings-c">Settings C</a>
+        <a href="#queue-a">Queue A</a>
+        <a href="#queue-b">Queue B</a>
+        <a href="#queue-c">Queue C</a>
+      </nav>
+    </header>
+
+    <section class="section-intro">
+      <div>
+        <p class="eyebrow">Part 1</p>
+        <h2>Settings layout options</h2>
+        <p class="lede">All three treat import and export as independent. Owners manage import policy into the Cleanly queue/calendar. Members manage export to their own Google calendars.</p>
+      </div>
+    </section>
+
+    <section class="option" id="settings-a">
+      <div class="option-meta">
+        <div>
+          <p class="eyebrow">Settings A</p>
+          <h2>Integration console</h2>
+          <p class="lede">A single Google Calendar workspace with connection status, household import policy, member privacy, and export settings. This is the most straightforward extension of the current Settings page.</p>
+        </div>
+        <div class="tradeoff">
+          <strong>Best for</strong><span>Clear setup path and implementation clarity.</span>
+          <strong>Risk</strong><span>Could become a long settings page if more providers are added.</span>
+        </div>
+      </div>
+      <div class="app">
+        <div class="topbar"><div class="brand">Cleanly</div><div class="nav"><span>Today</span><span>Calendar</span><span>My Home</span><span>Family</span><span class="active">Settings</span></div></div>
+        <div class="page">
+          <div class="page-header"><div><p class="eyebrow">Preferences and connections</p><h3>Settings</h3><p class="lede">Connect calendars, choose what enters Cleanly, and control what Cleanly writes back.</p></div><button class="button">Connect Google Calendar</button></div>
+          <section class="panel">
+            <div class="panel-header"><div><p class="eyebrow">Google Calendar</p><h3>Calendar sync console</h3></div><span class="status green">Connected</span></div>
+            <div class="grid-4">
+              <div class="mini"><span>Import</span><strong>Owner managed</strong><p class="muted">Per member</p></div>
+              <div class="mini"><span>Export</span><strong>User managed</strong><p class="muted">Independent</p></div>
+              <div class="mini"><span>Privacy</span><strong>Busy by default</strong><p class="muted">Full details opt-in</p></div>
+              <div class="mini"><span>Queue</span><strong>Owner only</strong><p class="muted">Calendar page</p></div>
+            </div>
+          </section>
+          <section class="panel">
+            <div class="panel-header"><div><p class="eyebrow">Household import policy</p><h3>New household</h3></div><span class="status">Owner controls</span></div>
+            <div class="member-row"><strong>Alex Owner<small>Connected</small></strong><span class="selectbox">Auto</span><span class="selectbox">Both</span><span class="selectbox">Full details</span><button class="link">Edit</button></div>
+            <div class="member-row"><strong>Sam<small>Connected</small></strong><span class="selectbox">Manual</span><span class="selectbox">Commitments</span><span class="selectbox">Busy only</span><button class="link">Edit</button></div>
+            <div class="member-row"><strong>Morgan<small>Not connected</small></strong><span class="selectbox">Off</span><span class="selectbox">None</span><span class="selectbox">Private</span><button class="link">Invite</button></div>
+          </section>
+          <section class="panel">
+            <div class="panel-header"><div><p class="eyebrow">My export settings</p><h3>Send Cleanly items to Google</h3></div><span class="status yellow">Independent from import</span></div>
+            <p class="lede">You can export Cleanly chores without importing private Google Calendar events.</p>
+            <div class="member-row"><strong>Destination calendar<small>Alex calendar</small></strong><span class="selectbox">Review</span><span class="selectbox">Chores</span><span class="selectbox">Cleanly Plan</span><button class="link">Change</button></div>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <section class="option" id="settings-b">
+      <div class="option-meta">
+        <div>
+          <p class="eyebrow">Settings B</p>
+          <h2>Member sync matrix</h2>
+          <p class="lede">The owner sees a matrix of members and policies. Member-owned export settings sit below as a personal panel.</p>
+        </div>
+        <div class="tradeoff">
+          <strong>Best for</strong><span>Families with several members. Easy to compare policy differences.</span>
+          <strong>Risk</strong><span>Most settings-like. Could feel a little spreadsheety.</span>
+        </div>
+      </div>
+      <div class="app">
+        <div class="topbar"><div class="brand">Cleanly</div><div class="nav"><span>Today</span><span>Calendar</span><span>My Home</span><span>Family</span><span class="active">Settings</span></div></div>
+        <div class="page">
+          <div class="page-header"><div><p class="eyebrow">Calendar sync</p><h3>Settings</h3><p class="lede">Control what each member can submit to Cleanly and what you personally export back to Google.</p></div></div>
+          <section class="panel">
+            <div class="panel-header"><div><p class="eyebrow">Owner controls</p><h3>Member import policies</h3></div><span class="status">Queue access</span></div>
+            <div class="matrix">
+              <div class="head">Member</div><div class="head">Queue mode</div><div class="head">Import type</div><div class="head">Details</div><div class="head">Calendar access</div>
+              <div><strong>Alex</strong></div><div>Auto</div><div>Both</div><div>Full</div><div class="status green">Connected</div>
+              <div><strong>Sam</strong></div><div>Manual</div><div>Commitments</div><div>Busy only</div><div class="status green">Connected</div>
+              <div><strong>Morgan</strong></div><div>Off</div><div>None</div><div>Private</div><div class="status red">Blocked</div>
+            </div>
+          </section>
+          <div class="grid-2">
+            <section class="panel">
+              <div class="panel-header"><h3>My connected Google account</h3><span class="status green">Connected</span></div>
+              <div class="member-row"><strong>Source calendars<small>Optional import source</small></strong><span class="selectbox">Home, School</span><span class="selectbox">Busy only</span><span></span><button class="link">Manage</button></div>
+            </section>
+            <section class="panel">
+              <div class="panel-header"><h3>My export</h3><span class="status yellow">Not tied to import</span></div>
+              <div class="member-row"><strong>Write Cleanly to<small>Cleanly Plan</small></strong><span class="selectbox">Auto</span><span class="selectbox">Chores</span><span></span><button class="link">Edit</button></div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="option" id="settings-c">
+      <div class="option-meta">
+        <div>
+          <p class="eyebrow">Settings C</p>
+          <h2>Two-lane import/export</h2>
+          <p class="lede">This option explicitly separates “Bring events into Cleanly” from “Send Cleanly to Google,” making independence impossible to miss.</p>
+        </div>
+        <div class="tradeoff">
+          <strong>Best for</strong><span>Clear privacy messaging. Best fit for your concern about export not implying import.</span>
+          <strong>Risk</strong><span>Needs careful copy so owner controls vs member controls remain obvious.</span>
+        </div>
+      </div>
+      <div class="app">
+        <div class="topbar"><div class="brand">Cleanly</div><div class="nav"><span>Today</span><span>Calendar</span><span>My Home</span><span>Family</span><span class="active">Settings</span></div></div>
+        <div class="page">
+          <div class="page-header"><div><p class="eyebrow">Google Calendar</p><h3>Settings</h3><p class="lede">Import and export are separate. Members choose what they share. Owners control what reaches the shared Cleanly calendar.</p></div><button class="button">Connect Google Calendar</button></div>
+          <div class="grid-2">
+            <section class="panel">
+              <div class="lane">
+                <p class="eyebrow">Bring events into Cleanly</p>
+                <h3>Import lane</h3>
+                <p class="muted">Owner controls each member’s route from submitted events to the Cleanly queue/calendar.</p>
+                <div class="member-row"><strong>Alex</strong><span class="selectbox">Auto</span><span class="selectbox">Both</span><span class="selectbox">Full details</span><button class="link">Edit</button></div>
+                <div class="member-row"><strong>Sam</strong><span class="selectbox">Manual</span><span class="selectbox">Commitments</span><span class="selectbox">Busy only</span><button class="link">Edit</button></div>
+              </div>
+            </section>
+            <section class="panel">
+              <div class="lane export">
+                <p class="eyebrow">Send Cleanly to Google</p>
+                <h3>Export lane</h3>
+                <p class="muted">Each member controls if and how Cleanly writes to their own selected Google calendar.</p>
+                <div class="mini"><span>My export mode</span><strong>Review</strong><p>Approve Cleanly writes before Google is updated.</p></div>
+                <div class="mini"><span>Destination</span><strong>Cleanly Plan</strong><p>Chores only. Import can stay off.</p></div>
+              </div>
+            </section>
+          </div>
+          <section class="panel flat">
+            <p class="lede">Suggested copy: “Export does not require importing your Google Calendar. You can send Cleanly chores to Google while keeping your private events outside Cleanly.”</p>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-intro">
+      <div>
+        <p class="eyebrow">Part 2</p>
+        <h2>Calendar owner import queue options</h2>
+        <p class="lede">Only household owners see these queue controls or can call the queue management endpoints. Members can submit allowed events, but owner review happens here.</p>
+      </div>
+    </section>
+
+    <section class="option" id="queue-a">
+      <div class="option-meta">
+        <div>
+          <p class="eyebrow">Queue A</p>
+          <h2>Right-side review drawer</h2>
+          <p class="lede">The Calendar remains primary. Owner import review appears as a persistent side drawer with queue cards.</p>
+        </div>
+        <div class="tradeoff">
+          <strong>Best for</strong><span>Quick review while preserving calendar context.</span>
+          <strong>Risk</strong><span>Can feel cramped on laptops if queue items need details.</span>
+        </div>
+      </div>
+      <div class="app">
+        <div class="topbar"><div class="brand">Cleanly</div><div class="nav"><span>Today</span><span class="active">Calendar</span><span>My Home</span><span>Family</span><span>Settings</span></div></div>
+        <div class="page calendar-layout">
+          <section class="panel">
+            <div class="panel-header"><div><p class="eyebrow">June chore plan</p><h3>Calendar</h3></div><span class="status yellow">3 queue items</span></div>
+            <div class="calendar-grid">
+              <div class="day"><strong>Mon 15</strong><span class="event">Kitchen reset</span></div>
+              <div class="day"><strong>Tue 16</strong><span class="event">Laundry fold</span></div>
+              <div class="day"><strong>Wed 17</strong><span class="commitment">Busy block</span></div>
+              <div class="day"><strong>Thu 18</strong><span class="event">Bathroom reset</span></div>
+              <div class="day"><strong>Fri 19</strong></div>
+              <div class="day"><strong>Sat 20</strong><span class="event">Mop floors</span></div>
+              <div class="day"><strong>Sun 21</strong></div>
+            </div>
+          </section>
+          <aside class="panel drawer">
+            <div class="panel-header"><h3>Cleanly queue</h3><span class="status">Owner only</span></div>
+            <article class="review-card"><p class="eyebrow">Commitment</p><h4>Busy block from Sam</h4><p class="muted">Tue 4:00-6:00 PM · Busy only</p><div class="actions"><button class="button">Add</button><button class="secondary">Reject</button></div></article>
+            <article class="review-card chore"><p class="eyebrow">Likely chore</p><h4>Trash pickup</h4><p class="muted">From Alex calendar · Weekly</p><div class="actions"><button class="button">Add as chore</button><button class="secondary">Not a chore</button></div></article>
+            <article class="review-card"><p class="eyebrow">Full details shared</p><h4>Dentist</h4><p class="muted">Morgan allowed title + time</p><div class="actions"><button class="button">Add</button><button class="secondary">Reject</button></div></article>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section class="option" id="queue-b">
+      <div class="option-meta">
+        <div>
+          <p class="eyebrow">Queue B</p>
+          <h2>Review workspace</h2>
+          <p class="lede">A dedicated owner review mode inside Calendar. The left side is the queue, the right side previews where accepted items land.</p>
+        </div>
+        <div class="tradeoff">
+          <strong>Best for</strong><span>Careful review, bulk actions, and clear owner-only management.</span>
+          <strong>Risk</strong><span>More screen than a drawer. Might feel heavier for tiny queues.</span>
+        </div>
+      </div>
+      <div class="app">
+        <div class="topbar"><div class="brand">Cleanly</div><div class="nav"><span>Today</span><span class="active">Calendar</span><span>My Home</span><span>Family</span><span>Settings</span></div></div>
+        <div class="page">
+          <div class="page-header"><div><p class="eyebrow">Owner review</p><h3>Cleanly queue</h3><p class="lede">Approve member-submitted events before they join the shared Cleanly calendar.</p></div><button class="secondary">Back to calendar</button></div>
+          <div class="split-board">
+            <section class="panel">
+              <div class="panel-header"><h3>Submitted items</h3><span class="status yellow">3 pending</span></div>
+              <article class="review-card"><p class="eyebrow">Sam · Busy only</p><h4>Busy block</h4><p class="muted">Tue 4:00-6:00 PM · Commitment</p><div class="actions"><button class="button">Approve</button><button class="secondary">Reject</button><button class="link">Ask Sam</button></div></article>
+              <article class="review-card chore"><p class="eyebrow">Alex · Full details</p><h4>Trash pickup</h4><p class="muted">Likely chore · Weekly</p><div class="actions"><button class="button">Approve chore</button><button class="secondary">Reject</button></div></article>
+            </section>
+            <section class="panel">
+              <div class="panel-header"><h3>Calendar preview</h3><span class="status">After approval</span></div>
+              <div class="calendar-grid">
+                <div class="day"><strong>Mon</strong></div><div class="day"><strong>Tue</strong><span class="commitment">Busy block</span></div><div class="day"><strong>Wed</strong></div><div class="day"><strong>Thu</strong><span class="event">Trash pickup</span></div><div class="day"><strong>Fri</strong></div><div class="day"><strong>Sat</strong></div><div class="day"><strong>Sun</strong></div>
+              </div>
+              <p class="lede">Preview helps owners avoid blindly adding conflicts to the shared Cleanly calendar.</p>
+            </section>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="option" id="queue-c">
+      <div class="option-meta">
+        <div>
+          <p class="eyebrow">Queue C</p>
+          <h2>Queue table + detail rail</h2>
+          <p class="lede">A dense operational queue with filters and a detail rail. Best if imports become high-volume.</p>
+        </div>
+        <div class="tradeoff">
+          <strong>Best for</strong><span>Owners managing many people/properties and lots of imported events.</span>
+          <strong>Risk</strong><span>Less friendly; feels more administrative.</span>
+        </div>
+      </div>
+      <div class="app">
+        <div class="topbar"><div class="brand">Cleanly</div><div class="nav"><span>Today</span><span class="active">Calendar</span><span>My Home</span><span>Family</span><span>Settings</span></div></div>
+        <div class="page calendar-layout">
+          <section class="panel">
+            <div class="panel-header"><div><p class="eyebrow">Import queue</p><h3>Owner review</h3></div><span class="status">Endpoint owner-only</span></div>
+            <div class="rail-tabs"><span class="active">Pending</span><span>Auto-added</span><span>Rejected</span><span>Needs member</span></div>
+            <div class="queue-table">
+              <div class="queue-row"><strong>Event</strong><strong>Member</strong><strong>Type</strong><strong>Privacy</strong><strong>Action</strong></div>
+              <div class="queue-row"><strong>Busy block<small>Tue 4:00 PM</small></strong><span>Sam</span><span class="status yellow">Commitment</span><span>Busy only</span><button class="link">Review</button></div>
+              <div class="queue-row"><strong>Trash pickup<small>Weekly</small></strong><span>Alex</span><span class="status">Chore</span><span>Full</span><button class="link">Review</button></div>
+              <div class="queue-row"><strong>Dentist<small>Fri 11:00 AM</small></strong><span>Morgan</span><span class="status yellow">Commitment</span><span>Full</span><button class="link">Review</button></div>
+            </div>
+          </section>
+          <aside class="panel">
+            <div class="panel-header"><h3>Selected item</h3><span class="status yellow">Manual</span></div>
+            <p class="eyebrow">Sam submitted</p>
+            <h3>Busy block</h3>
+            <p class="muted">Only start/end time is visible. Sam did not share the event title or description.</p>
+            <div class="grid-2"><button class="button">Add to Cleanly</button><button class="secondary">Reject</button></div>
+            <button class="link">Ask member for more detail</button>
+          </aside>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
