@@ -182,8 +182,21 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
                       <option value="both">Both</option>
                     </select>
                   </label>
+                  <label>
+                    Source calendars
+                    <select disabled>
+                      <option>Connect Google Calendar to choose</option>
+                    </select>
+                  </label>
+                  <label>
+                    Export destination
+                    <select disabled>
+                      <option>Choose after connecting Google Calendar</option>
+                    </select>
+                  </label>
                 </div>
               ) : null}
+              <button className="section-action" disabled type="button">Review events to share</button>
               <p className="section-summary">Export is personal. Each member chooses where Cleanly writes calendar updates.</p>
             </article>
 

@@ -1464,6 +1464,7 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
         include: { submittedByUser: true }
       });
       if (!item) throw new Error("Calendar import queue item not found");
+      if (item.queueStatus !== "pending") return toCalendarImportQueueItem(item);
 
       const cleanlyEvent = input.decision === "approve"
         ? await prisma.cleanlyCalendarEvent.create({

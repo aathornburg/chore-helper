@@ -7,7 +7,8 @@ function auth(app: ReturnType<typeof createApp>, clerkUserId: string) {
   const authorization = `Bearer ${clerkUserId}`;
   return {
     get: (url: string) => request(app).get(url).set("Authorization", authorization),
-    patch: (url: string) => request(app).patch(url).set("Authorization", authorization)
+    patch: (url: string) => request(app).patch(url).set("Authorization", authorization),
+    post: (url: string) => request(app).post(url).set("Authorization", authorization)
   };
 }
 
@@ -105,6 +106,27 @@ describe("calendar sync governance", () => {
     }));
   });
 
+  it("blocks member calendar preferences for households the user cannot access", async () => {
+    const { app, store } = await createHouseholdWithMember();
+    const otherOwner = await store.upsertUserByClerkId("other-owner", {
+      primaryEmail: "other-owner@example.com",
+      displayName: "Other Owner"
+    });
+    const otherHousehold = await store.createHouseholdForUser("Other household", otherOwner.id);
+
+    const response = await auth(app, "member")
+      .patch("/api/me/calendar/preferences")
+      .send({
+        householdId: otherHousehold.id,
+        defaultDetailLevel: "full_details",
+        selectedSourceCalendarIds: ["google-primary"],
+        exportMode: "review",
+        exportContentMode: "both"
+      });
+
+    expect(response.status).toBe(403);
+  });
+
   it("lets an owner approve a pending import queue item", async () => {
     const { app, household, member, store } = await createHouseholdWithMember();
     const queueItem = await store.createCalendarImportQueueItem({
@@ -129,5 +151,107 @@ describe("calendar sync governance", () => {
       queueStatus: "approved",
       createdCleanlyEventId: expect.any(String)
     }));
+  });
+
+  it("does not create a new Cleanly event id when approving an already approved queue item", async () => {
+    const { app, household, member, store } = await createHouseholdWithMember();
+    const queueItem = await store.createCalendarImportQueueItem({
+      householdId: household.id,
+      submittedByUserId: member.id,
+      submittedByName: "Member",
+      proposedType: "commitment",
+      detailLevel: "busy_only",
+      title: "Dentist appointment",
+      privacyTitle: "Busy",
+      startsAt: "2026-06-18T14:00:00.000Z",
+      endsAt: "2026-06-18T15:00:00.000Z"
+    });
+
+    const first = await auth(app, "owner")
+      .patch(`/api/households/${household.id}/calendar/import-queue/${queueItem.id}`)
+      .send({ decision: "approve", proposedType: "commitment" });
+    const second = await auth(app, "owner")
+      .patch(`/api/households/${household.id}/calendar/import-queue/${queueItem.id}`)
+      .send({ decision: "approve", proposedType: "commitment" });
+
+    expect(second.status).toBe(200);
+    expect(second.body.createdCleanlyEventId).toBe(first.body.createdCleanlyEventId);
+  });
+
+  it("exposes member-owned calendar queue endpoints without live provider sync", async () => {
+    const { app, household } = await createHouseholdWithMember();
+
+    await auth(app, "member")
+      .get(`/api/me/calendar/import-candidates?householdId=${household.id}`)
+      .expect(200, []);
+    await auth(app, "member")
+      .get("/api/me/calendar/export-queue")
+      .expect(200, []);
+  });
+
+  it("lets a member submit selected events to the owner import queue", async () => {
+    const { app, household } = await createHouseholdWithMember();
+
+    const response = await auth(app, "member")
+      .post("/api/me/calendar/import-queue")
+      .send({
+        householdId: household.id,
+        events: [{
+          proposedType: "commitment",
+          title: "Dentist appointment",
+          privacyTitle: "Busy",
+          startsAt: "2026-06-18T14:00:00.000Z",
+          endsAt: "2026-06-18T15:00:00.000Z"
+        }]
+      });
+
+    expect(response.status).toBe(202);
+    expect(response.body.status).toBe("queued_for_review");
+    expect(response.body.items).toEqual([
+      expect.objectContaining({
+        householdId: household.id,
+        proposedType: "commitment",
+        queueStatus: "pending",
+        privacyTitle: "Busy"
+      })
+    ]);
+
+    const ownerQueue = await auth(app, "owner").get(`/api/households/${household.id}/calendar/import-queue`);
+    expect(ownerQueue.body).toEqual([
+      expect.objectContaining({
+        title: "Dentist appointment",
+        queueStatus: "pending"
+      })
+    ]);
+  });
+
+  it("auto-approves member submitted events when the owner policy allows it", async () => {
+    const { app, household, member } = await createHouseholdWithMember();
+    await auth(app, "owner")
+      .patch(`/api/households/${household.id}/calendar/import-policies/${member.id}`)
+      .send({ importQueueMode: "auto", importContentMode: "commitments" })
+      .expect(200);
+
+    const response = await auth(app, "member")
+      .post("/api/me/calendar/import-queue")
+      .send({
+        householdId: household.id,
+        events: [{
+          proposedType: "commitment",
+          title: "Practice",
+          startsAt: "2026-06-19T21:30:00.000Z",
+          endsAt: "2026-06-19T22:30:00.000Z"
+        }]
+      });
+
+    expect(response.status).toBe(202);
+    expect(response.body.status).toBe("auto_ready");
+    expect(response.body.items).toEqual([
+      expect.objectContaining({
+        proposedType: "commitment",
+        queueStatus: "approved",
+        createdCleanlyEventId: expect.any(String)
+      })
+    ]);
   });
 });

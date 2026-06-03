@@ -845,6 +845,7 @@ export function createInMemoryStore(): HouseholdStore {
     decideCalendarImportQueueItem(householdId, queueItemId, _ownerUserId, input) {
       const item = calendarImportQueueItems.get(queueItemId);
       if (!item || item.householdId !== householdId) throw new Error("Calendar import queue item not found");
+      if (item.queueStatus !== "pending") return item;
       const updated: CalendarImportQueueItem = {
         ...item,
         proposedType: input.proposedType ?? item.proposedType,

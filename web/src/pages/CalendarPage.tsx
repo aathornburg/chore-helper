@@ -229,6 +229,7 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
   const [createdChoreTitles, setCreatedChoreTitles] = useState(() => new Map<string, string>());
   const [importQueueItems, setImportQueueItems] = useState<CalendarImportQueueItem[]>([]);
   const [selectedQueueItemId, setSelectedQueueItemId] = useState<string>();
+  const [queueTypeDrafts, setQueueTypeDrafts] = useState(() => new Map<string, CalendarImportQueueItem["proposedType"]>());
 
   const selectedHousehold = households.find((household) => household.id === filters.householdId) ?? households[0];
   const timeZone = selectedHousehold?.timeZone ?? "UTC";
@@ -595,7 +596,7 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
     if (!selectedHousehold) return;
     const updated = await decideCalendarImportQueueItem(selectedHousehold.id, item.id, {
       decision,
-      proposedType: item.proposedType
+      proposedType: queueTypeDrafts.get(item.id) ?? item.proposedType
     });
     setImportQueueItems((current) => current.map((candidate) => candidate.id === updated.id ? updated : candidate));
   }
@@ -914,6 +915,7 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
   function renderCalendarImportQueue() {
     if (!isOwner) return null;
     const pendingCount = importQueueItems.filter((item) => item.queueStatus === "pending").length;
+    const selectedQueueType = selectedQueueItem ? queueTypeDrafts.get(selectedQueueItem.id) ?? selectedQueueItem.proposedType : "commitment";
 
     return (
       <section className="calendar-import-queue" aria-labelledby="calendar-import-queue-heading">
@@ -927,6 +929,14 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
         {importQueueItems.length ? (
           <div className="calendar-queue-layout">
             <div className="calendar-queue-table" role="list">
+              <div className="calendar-queue-header" aria-hidden="true">
+                <span>Event</span>
+                <span>Submitted by</span>
+                <span>Type</span>
+                <span>Time</span>
+                <span>Detail</span>
+                <span>Status</span>
+              </div>
               {importQueueItems.map((item) => (
                 <button
                   className={`calendar-queue-row ${item.id === selectedQueueItem?.id ? "is-selected" : ""}`}
@@ -937,6 +947,8 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
                   <span>{item.privacyTitle}</span>
                   <span>{item.submittedByName}</span>
                   <span>{item.proposedType}</span>
+                  <span>{formatInTimeZone(item.startsAt, timeZone, "MMM d, h:mm a")}</span>
+                  <span>{item.detailLevel === "busy_only" ? "Busy only" : "Full details"}</span>
                   <span>{item.queueStatus}</span>
                 </button>
               ))}
@@ -946,6 +958,19 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
                 <p className="eyebrow">{selectedQueueItem.detailLevel === "busy_only" ? "Busy only" : "Full details"}</p>
                 <h3>{selectedQueueItem.privacyTitle}</h3>
                 <p>{selectedQueueItem.submittedByName} shared this as a {selectedQueueItem.proposedType}.</p>
+                <label>
+                  Type
+                  <select
+                    value={selectedQueueType}
+                    onChange={(event) => setQueueTypeDrafts((current) => new Map(current).set(
+                      selectedQueueItem.id,
+                      event.target.value as CalendarImportQueueItem["proposedType"]
+                    ))}
+                  >
+                    <option value="commitment">Commitment</option>
+                    <option value="chore">Chore</option>
+                  </select>
+                </label>
                 <div className="calendar-queue-actions">
                   <button
                     aria-label={`Approve ${selectedQueueItem.privacyTitle}`}

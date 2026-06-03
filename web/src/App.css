@@ -4630,16 +4630,28 @@ button.chore-row-summary[aria-expanded="true"] {
   border-top: 1px solid var(--color-border);
 }
 
+.calendar-queue-header,
 .calendar-queue-row {
   align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(150px, 1fr) 130px 100px 128px 104px 96px;
+}
+
+.calendar-queue-header {
+  color: var(--color-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 10px 0 8px;
+  text-transform: uppercase;
+}
+
+.calendar-queue-row {
   background: transparent;
   border: 0;
   border-bottom: 1px solid var(--color-border);
   color: #1d302a;
-  display: grid;
   font: inherit;
-  gap: 12px;
-  grid-template-columns: minmax(180px, 1fr) 140px 110px 100px;
   padding: 12px 0;
   text-align: left;
   width: 100%;
@@ -4654,6 +4666,8 @@ button.chore-row-summary[aria-expanded="true"] {
 
 .calendar-queue-detail {
   border-left: 4px solid var(--color-primary-strong);
+  display: grid;
+  gap: 10px;
   padding-left: 18px;
 }
 

@@ -1785,11 +1785,16 @@ describe("App", () => {
 
     expect(await screen.findByRole("heading", { name: "Calendar import queue" })).toBeTruthy();
     expect(screen.getAllByText("Dentist appointment").length).toBeGreaterThan(0);
+    expect(screen.getByText("Busy only")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Type"), { target: { value: "chore" } });
     fireEvent.click(screen.getByRole("button", { name: "Approve Dentist appointment" }));
     await waitFor(() => expect(screen.getByText("approved")).toBeTruthy());
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:3001/api/households/household-1/calendar/import-queue/queue-1",
-      expect.objectContaining({ method: "PATCH" })
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({ decision: "approve", proposedType: "chore" })
+      })
     );
   });
 
@@ -2775,6 +2780,9 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: "Calendar sync" })).toBeTruthy();
     expect(await screen.findByRole("heading", { name: "Your calendar connection" })).toBeTruthy();
     expect(await screen.findByRole("heading", { name: "Family import controls" })).toBeTruthy();
+    expect(screen.getByLabelText("Source calendars")).toBeTruthy();
+    expect(screen.getByLabelText("Export destination")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Review events to share" }).hasAttribute("disabled")).toBe(true);
     expect(screen.getByText("Not connected")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Connect Google Calendar" }));
     expect(await screen.findByText(/Google OAuth is ready/i)).toBeTruthy();
