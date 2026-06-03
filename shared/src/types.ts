@@ -238,3 +238,74 @@ export type HouseholdAppData = Household & {
   chores: ChoreAppData[];
   recommendations: Recommendation[];
 };
+
+export type CalendarProvider = "google";
+export type CalendarConnectionStatus = "connected" | "expired" | "revoked" | "error";
+export type CalendarSyncMode = "off" | "manual" | "auto";
+export type CalendarExportMode = "off" | "review" | "auto";
+export type CalendarContentMode = "chores" | "commitments" | "both";
+export type CalendarDetailLevel = "busy_only" | "full_details";
+export type CleanlyCalendarEventType = "chore" | "commitment";
+export type CalendarQueueStatus = "pending" | "approved" | "rejected" | "auto_added" | "needs_member";
+export type CalendarExportQueueStatus = "pending" | "approved" | "rejected" | "exported";
+
+export type CalendarConnectionSummary = {
+  id: string;
+  provider: CalendarProvider;
+  providerAccountEmail: string;
+  status: CalendarConnectionStatus;
+  scopes: string[];
+  tokenExpiresAt?: string;
+  lastSyncedAt?: string;
+};
+
+export type ExternalCalendarSummary = {
+  id: string;
+  connectionId: string;
+  providerCalendarId: string;
+  name: string;
+  color?: string;
+  timezone?: string;
+  accessRole?: string;
+  isSelectedForImport: boolean;
+  isSelectedForExport: boolean;
+};
+
+export type CalendarImportPolicy = {
+  householdId: string;
+  memberId: string;
+  memberName: string;
+  memberEmail?: string;
+  importQueueMode: CalendarSyncMode;
+  importContentMode: CalendarContentMode;
+};
+
+export type CalendarPreferences = {
+  householdId: string;
+  defaultDetailLevel: CalendarDetailLevel;
+  selectedSourceCalendarIds: string[];
+  exportMode: CalendarExportMode;
+  exportContentMode: CalendarContentMode;
+  destinationExternalCalendarId?: string;
+};
+
+export type CalendarImportQueueItem = {
+  id: string;
+  householdId: string;
+  submittedByUserId: string;
+  submittedByName: string;
+  proposedType: CleanlyCalendarEventType;
+  detailLevel: CalendarDetailLevel;
+  title: string;
+  privacyTitle: string;
+  startsAt: string;
+  endsAt: string;
+  queueStatus: CalendarQueueStatus;
+  createdCleanlyEventId?: string;
+  createdAt: string;
+};
+
+export type CalendarImportQueueDecisionInput = {
+  decision: "approve" | "reject";
+  proposedType?: CleanlyCalendarEventType;
+};

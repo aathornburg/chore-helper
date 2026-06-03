@@ -19,6 +19,12 @@ model Household {
   recommendations Recommendation[]
   members         HouseholdMember[]
   invitations     HouseholdInvitation[]
+  calendarPolicies CalendarImportPolicy[]
+  calendarSharingPreferences CalendarSharingPreference[]
+  calendarExportPreferences CalendarExportPreference[]
+  cleanlyCalendarEvents CleanlyCalendarEvent[]
+  calendarImportQueueItems CalendarImportQueueItem[]
+  calendarExportQueueItems CalendarExportQueueItem[]
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 }
@@ -33,6 +39,14 @@ model User {
   scheduleAssignees ChoreScheduleAssignee[]
   assignedOccurrences ChoreOccurrence[] @relation("OccurrenceAssignee")
   completedCheckIns ChoreCompletionCheckIn[] @relation("CheckInCompletedBy")
+  calendarConnections CalendarConnection[]
+  calendarPolicies CalendarImportPolicy[]
+  calendarSharingPreferences CalendarSharingPreference[]
+  calendarExportPreferences CalendarExportPreference[]
+  submittedCalendarImportQueueItems CalendarImportQueueItem[] @relation("SubmittedImportQueueItems")
+  decidedCalendarImportQueueItems CalendarImportQueueItem[] @relation("DecidedImportQueueItems")
+  calendarExportQueueItems CalendarExportQueueItem[]
+  cleanlyCalendarEvents CleanlyCalendarEvent[]
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
 }
@@ -248,4 +262,182 @@ model Recommendation {
   staleAt                  DateTime?
   createdAt                DateTime  @default(now())
   updatedAt                DateTime  @updatedAt
+}
+
+model CalendarConnection {
+  id                    String             @id @default(cuid())
+  userId                String
+  user                  User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider              String
+  providerAccountEmail  String
+  status                String
+  scopes                String             @default("[]")
+  accessTokenEncrypted  String?
+  refreshTokenEncrypted String?
+  tokenExpiresAt        DateTime?
+  lastSyncedAt          DateTime?
+  calendars             ExternalCalendar[]
+  eventLinks            ExternalCalendarEventLink[]
+  importQueueItems      CalendarImportQueueItem[]
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  @@index([userId, provider])
+}
+
+model ExternalCalendar {
+  id                  String                      @id @default(cuid())
+  connectionId        String
+  connection          CalendarConnection          @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  providerCalendarId  String
+  name                String
+  color               String?
+  timezone            String?
+  accessRole          String?
+  isSelectedForImport Boolean                     @default(false)
+  isSelectedForExport Boolean                     @default(false)
+  importQueueItems    CalendarImportQueueItem[]
+  exportPreferences   CalendarExportPreference[]
+  exportQueueItems    CalendarExportQueueItem[]
+  eventLinks          ExternalCalendarEventLink[]
+  createdAt           DateTime                    @default(now())
+  updatedAt           DateTime                    @updatedAt
+
+  @@unique([connectionId, providerCalendarId])
+}
+
+model CalendarImportPolicy {
+  id                String    @id @default(cuid())
+  householdId       String
+  household         Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  memberId          String
+  member            User      @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  importQueueMode   String    @default("manual")
+  importContentMode String    @default("both")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([householdId, memberId])
+}
+
+model CalendarSharingPreference {
+  id                        String    @id @default(cuid())
+  userId                    String
+  user                      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  householdId               String
+  household                 Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  defaultDetailLevel        String    @default("busy_only")
+  selectedSourceCalendarIds String    @default("[]")
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
+
+  @@unique([userId, householdId])
+}
+
+model CalendarExportPreference {
+  id                            String            @id @default(cuid())
+  userId                        String
+  user                          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  householdId                   String
+  household                     Household         @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  exportMode                    String            @default("off")
+  exportContentMode             String            @default("chores")
+  destinationExternalCalendarId String?
+  destinationExternalCalendar   ExternalCalendar? @relation(fields: [destinationExternalCalendarId], references: [id], onDelete: SetNull)
+  createdAt                     DateTime          @default(now())
+  updatedAt                     DateTime          @updatedAt
+
+  @@unique([userId, householdId])
+}
+
+model CleanlyCalendarEvent {
+  id               String                      @id @default(cuid())
+  householdId      String
+  household        Household                   @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  createdByUserId  String
+  createdByUser    User                        @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+  type             String
+  title            String
+  privacyTitle     String
+  detailLevel      String
+  description      String?
+  location         String?
+  startsAt         DateTime
+  endsAt           DateTime
+  timezone         String
+  source           String
+  status           String                      @default("active")
+  importQueueItems CalendarImportQueueItem[]
+  exportQueueItems CalendarExportQueueItem[]
+  eventLinks       ExternalCalendarEventLink[]
+  createdAt        DateTime                    @default(now())
+  updatedAt        DateTime                    @updatedAt
+
+  @@index([householdId, startsAt])
+  @@index([householdId, type])
+}
+
+model CalendarImportQueueItem {
+  id                       String                @id @default(cuid())
+  householdId              String
+  household                Household             @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  submittedByUserId        String
+  submittedByUser          User                  @relation("SubmittedImportQueueItems", fields: [submittedByUserId], references: [id], onDelete: Cascade)
+  sourceConnectionId       String?
+  sourceConnection         CalendarConnection?   @relation(fields: [sourceConnectionId], references: [id], onDelete: SetNull)
+  sourceExternalCalendarId String?
+  sourceExternalCalendar   ExternalCalendar?     @relation(fields: [sourceExternalCalendarId], references: [id], onDelete: SetNull)
+  providerEventId          String?
+  proposedType             String
+  detailLevel              String
+  title                    String
+  privacyTitle             String
+  startsAt                 DateTime
+  endsAt                   DateTime
+  timezone                 String
+  allowedPayloadJson       String                @default("{}")
+  queueStatus              String                @default("pending")
+  ownerDecisionByUserId    String?
+  ownerDecisionByUser      User?                 @relation("DecidedImportQueueItems", fields: [ownerDecisionByUserId], references: [id], onDelete: SetNull)
+  ownerDecisionAt          DateTime?
+  createdCleanlyEventId    String?
+  createdCleanlyEvent      CleanlyCalendarEvent? @relation(fields: [createdCleanlyEventId], references: [id], onDelete: SetNull)
+  createdAt                DateTime              @default(now())
+  updatedAt                DateTime              @updatedAt
+
+  @@index([householdId, queueStatus, createdAt])
+  @@index([submittedByUserId, createdAt])
+}
+
+model CalendarExportQueueItem {
+  id                            String               @id @default(cuid())
+  userId                        String
+  user                          User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  householdId                   String
+  household                     Household            @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  cleanlyCalendarEventId        String
+  cleanlyCalendarEvent          CleanlyCalendarEvent  @relation(fields: [cleanlyCalendarEventId], references: [id], onDelete: Cascade)
+  destinationExternalCalendarId String?
+  destinationExternalCalendar   ExternalCalendar?     @relation(fields: [destinationExternalCalendarId], references: [id], onDelete: SetNull)
+  queueStatus                   String                @default("pending")
+  createdAt                     DateTime              @default(now())
+  updatedAt                     DateTime              @updatedAt
+
+  @@index([userId, queueStatus, createdAt])
+}
+
+model ExternalCalendarEventLink {
+  id                     String               @id @default(cuid())
+  cleanlyCalendarEventId String
+  cleanlyCalendarEvent   CleanlyCalendarEvent @relation(fields: [cleanlyCalendarEventId], references: [id], onDelete: Cascade)
+  connectionId           String
+  connection             CalendarConnection   @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  externalCalendarId     String
+  externalCalendar       ExternalCalendar     @relation(fields: [externalCalendarId], references: [id], onDelete: Cascade)
+  providerEventId        String
+  direction              String
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+
+  @@unique([connectionId, externalCalendarId, providerEventId, direction])
 }
