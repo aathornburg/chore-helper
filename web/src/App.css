@@ -756,7 +756,6 @@ button:where(:not(.link-button)):hover {
 .workspace-shell :is(
   .preview-card,
   .metric-card,
-  .integration-card,
   .setup-focus-panel,
   .setup-progress-panel article,
   .plan-health-panel,
@@ -972,7 +971,6 @@ button:where(:not(.link-button)):hover {
 .sync-panel {
   background: rgba(255, 255, 255, 0.88);
   border: 1px solid var(--color-border);
-  box-shadow: -6px 6px 0 rgba(19, 106, 129, 0.16);
   display: grid;
   gap: 16px;
   padding: 22px;
@@ -994,16 +992,16 @@ button:where(:not(.link-button)):hover {
 }
 
 .sync-policy-table {
+  border-top: 1px solid var(--color-border);
   display: grid;
-  gap: 10px;
   margin-top: 8px;
 }
 
 .sync-policy-row {
   align-items: center;
-  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
   grid-template-columns: minmax(160px, 1fr) 150px 150px;
-  padding-top: 10px;
+  padding: 12px 0;
 }
 
 .sync-policy-row strong,
@@ -3468,7 +3466,7 @@ textarea {
 .integration-card {
   background: var(--color-surface-elevated);
   border: 1px solid var(--color-border);
-  border-radius: 16px;
+  border-radius: 0;
   display: grid;
   gap: 16px;
   margin-top: 18px;
