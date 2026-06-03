@@ -1,5 +1,14 @@
 import type { PrismaClient } from "@prisma/client";
 import type {
+  CalendarConnectionStatus,
+  CalendarContentMode,
+  CalendarDetailLevel,
+  CalendarExportMode,
+  CalendarImportQueueItem,
+  CalendarProvider,
+  CalendarQueueStatus,
+  CalendarSyncMode,
+  CleanlyCalendarEventType,
   Chore,
   ChoreCompletionCheckIn,
   ChoreOccurrence,
@@ -22,6 +31,16 @@ function serializeOptionalList<T>(values: T[]) {
 
 function deserializeOptionalList<T>(value: string) {
   return JSON.parse(value) as T[];
+}
+
+function deserializeStringList(value: string | null | undefined): string[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
 }
 
 function serializeDate(value: Date | null | undefined) {
@@ -177,6 +196,42 @@ function toChore(chore: {
     ...(chore.instructions ? { instructions: chore.instructions } : {}),
     ...(tags.length ? { tags } : {}),
     archivedAt: serializeDate(chore.archivedAt)
+  };
+}
+
+function memberDisplayName(member: { user: { displayName: string | null; primaryEmail: string | null; clerkUserId: string } }) {
+  return member.user.displayName ?? member.user.primaryEmail ?? member.user.clerkUserId;
+}
+
+function toCalendarImportQueueItem(item: {
+  id: string;
+  householdId: string;
+  submittedByUserId: string;
+  submittedByUser: { displayName: string | null; primaryEmail: string | null; clerkUserId: string };
+  proposedType: string;
+  detailLevel: string;
+  title: string;
+  privacyTitle: string;
+  startsAt: Date;
+  endsAt: Date;
+  queueStatus: string;
+  createdCleanlyEventId: string | null;
+  createdAt: Date;
+}): CalendarImportQueueItem {
+  return {
+    id: item.id,
+    householdId: item.householdId,
+    submittedByUserId: item.submittedByUserId,
+    submittedByName: item.submittedByUser.displayName ?? item.submittedByUser.primaryEmail ?? item.submittedByUser.clerkUserId,
+    proposedType: item.proposedType as CleanlyCalendarEventType,
+    detailLevel: item.detailLevel as CalendarDetailLevel,
+    title: item.title,
+    privacyTitle: item.privacyTitle,
+    startsAt: item.startsAt.toISOString(),
+    endsAt: item.endsAt.toISOString(),
+    queueStatus: item.queueStatus as CalendarQueueStatus,
+    ...(item.createdCleanlyEventId ? { createdCleanlyEventId: item.createdCleanlyEventId } : {}),
+    createdAt: item.createdAt.toISOString()
   };
 }
 
@@ -1240,6 +1295,207 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
       });
 
       return toRecommendation(updated);
+    },
+
+    async listCalendarImportPolicies(householdId) {
+      const members = await prisma.householdMember.findMany({
+        where: { householdId },
+        include: { user: true },
+        orderBy: { createdAt: "asc" }
+      });
+      const policies = await prisma.calendarImportPolicy.findMany({ where: { householdId } });
+      const policyByMember = new Map(policies.map((policy) => [policy.memberId, policy]));
+
+      return members.map((member) => {
+        const policy = policyByMember.get(member.userId);
+        return {
+          householdId,
+          memberId: member.userId,
+          memberName: memberDisplayName(member),
+          ...(member.user.primaryEmail ? { memberEmail: member.user.primaryEmail } : {}),
+          importQueueMode: (policy?.importQueueMode ?? "manual") as CalendarSyncMode,
+          importContentMode: (policy?.importContentMode ?? "both") as CalendarContentMode
+        };
+      });
+    },
+
+    async updateCalendarImportPolicy(householdId, memberId, update) {
+      const member = await prisma.householdMember.findUnique({
+        where: { householdId_userId: { householdId, userId: memberId } },
+        include: { user: true }
+      });
+      if (!member) throw new Error("Household member not found");
+
+      const policy = await prisma.calendarImportPolicy.upsert({
+        where: { householdId_memberId: { householdId, memberId } },
+        update,
+        create: { householdId, memberId, ...update }
+      });
+
+      return {
+        householdId,
+        memberId,
+        memberName: memberDisplayName(member),
+        ...(member.user.primaryEmail ? { memberEmail: member.user.primaryEmail } : {}),
+        importQueueMode: policy.importQueueMode as CalendarSyncMode,
+        importContentMode: policy.importContentMode as CalendarContentMode
+      };
+    },
+
+    async listCalendarConnections(userId) {
+      const connections = await prisma.calendarConnection.findMany({
+        where: { userId },
+        orderBy: { createdAt: "asc" }
+      });
+
+      return connections.map((connection) => ({
+        id: connection.id,
+        provider: connection.provider as CalendarProvider,
+        providerAccountEmail: connection.providerAccountEmail,
+        status: connection.status as CalendarConnectionStatus,
+        scopes: deserializeStringList(connection.scopes),
+        tokenExpiresAt: serializeDate(connection.tokenExpiresAt),
+        lastSyncedAt: serializeDate(connection.lastSyncedAt)
+      }));
+    },
+
+    async listExternalCalendars(userId) {
+      const calendars = await prisma.externalCalendar.findMany({
+        where: { connection: { userId } },
+        orderBy: { name: "asc" }
+      });
+
+      return calendars.map((calendar) => ({
+        id: calendar.id,
+        connectionId: calendar.connectionId,
+        providerCalendarId: calendar.providerCalendarId,
+        name: calendar.name,
+        ...(calendar.color ? { color: calendar.color } : {}),
+        ...(calendar.timezone ? { timezone: calendar.timezone } : {}),
+        ...(calendar.accessRole ? { accessRole: calendar.accessRole } : {}),
+        isSelectedForImport: calendar.isSelectedForImport,
+        isSelectedForExport: calendar.isSelectedForExport
+      }));
+    },
+
+    async getCalendarPreferences(userId, householdId) {
+      const [sharing, exportPreference] = await Promise.all([
+        prisma.calendarSharingPreference.findUnique({ where: { userId_householdId: { userId, householdId } } }),
+        prisma.calendarExportPreference.findUnique({ where: { userId_householdId: { userId, householdId } } })
+      ]);
+
+      return {
+        householdId,
+        defaultDetailLevel: (sharing?.defaultDetailLevel ?? "busy_only") as CalendarDetailLevel,
+        selectedSourceCalendarIds: deserializeStringList(sharing?.selectedSourceCalendarIds),
+        exportMode: (exportPreference?.exportMode ?? "off") as CalendarExportMode,
+        exportContentMode: (exportPreference?.exportContentMode ?? "chores") as CalendarContentMode,
+        ...(exportPreference?.destinationExternalCalendarId
+          ? { destinationExternalCalendarId: exportPreference.destinationExternalCalendarId }
+          : {})
+      };
+    },
+
+    async updateCalendarPreferences(userId, householdId, update) {
+      await prisma.calendarSharingPreference.upsert({
+        where: { userId_householdId: { userId, householdId } },
+        update: {
+          defaultDetailLevel: update.defaultDetailLevel,
+          selectedSourceCalendarIds: serializeOptionalList(update.selectedSourceCalendarIds)
+        },
+        create: {
+          userId,
+          householdId,
+          defaultDetailLevel: update.defaultDetailLevel,
+          selectedSourceCalendarIds: serializeOptionalList(update.selectedSourceCalendarIds)
+        }
+      });
+      await prisma.calendarExportPreference.upsert({
+        where: { userId_householdId: { userId, householdId } },
+        update: {
+          exportMode: update.exportMode,
+          exportContentMode: update.exportContentMode,
+          destinationExternalCalendarId: update.destinationExternalCalendarId
+        },
+        create: {
+          userId,
+          householdId,
+          exportMode: update.exportMode,
+          exportContentMode: update.exportContentMode,
+          destinationExternalCalendarId: update.destinationExternalCalendarId
+        }
+      });
+
+      return this.getCalendarPreferences(userId, householdId);
+    },
+
+    async listCalendarImportQueue(householdId) {
+      const items = await prisma.calendarImportQueueItem.findMany({
+        where: { householdId },
+        include: { submittedByUser: true },
+        orderBy: { createdAt: "asc" }
+      });
+      return items.map(toCalendarImportQueueItem);
+    },
+
+    async createCalendarImportQueueItem(input) {
+      const item = await prisma.calendarImportQueueItem.create({
+        data: {
+          householdId: input.householdId,
+          submittedByUserId: input.submittedByUserId,
+          proposedType: input.proposedType,
+          detailLevel: input.detailLevel,
+          title: input.title,
+          privacyTitle: input.privacyTitle,
+          startsAt: new Date(input.startsAt),
+          endsAt: new Date(input.endsAt),
+          timezone: "UTC",
+          queueStatus: "pending"
+        },
+        include: { submittedByUser: true }
+      });
+
+      return toCalendarImportQueueItem(item);
+    },
+
+    async decideCalendarImportQueueItem(householdId, queueItemId, ownerUserId, input) {
+      const item = await prisma.calendarImportQueueItem.findFirst({
+        where: { id: queueItemId, householdId },
+        include: { submittedByUser: true }
+      });
+      if (!item) throw new Error("Calendar import queue item not found");
+
+      const cleanlyEvent = input.decision === "approve"
+        ? await prisma.cleanlyCalendarEvent.create({
+            data: {
+              householdId,
+              createdByUserId: item.submittedByUserId,
+              type: input.proposedType ?? item.proposedType,
+              title: item.title,
+              privacyTitle: item.privacyTitle,
+              detailLevel: item.detailLevel,
+              startsAt: item.startsAt,
+              endsAt: item.endsAt,
+              timezone: item.timezone,
+              source: "google",
+              status: "active"
+            }
+          })
+        : undefined;
+
+      const updated = await prisma.calendarImportQueueItem.update({
+        where: { id: queueItemId },
+        data: {
+          proposedType: input.proposedType ?? item.proposedType,
+          queueStatus: input.decision === "approve" ? "approved" : "rejected",
+          ownerDecisionByUserId: ownerUserId,
+          ownerDecisionAt: new Date(),
+          createdCleanlyEventId: cleanlyEvent?.id
+        },
+        include: { submittedByUser: true }
+      });
+
+      return toCalendarImportQueueItem(updated);
     },
 
     async applyRecommendationDecisions(householdId) {

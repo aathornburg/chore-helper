@@ -1,4 +1,9 @@
 import type {
+  CalendarConnectionSummary,
+  CalendarImportPolicy,
+  CalendarImportQueueDecisionInput,
+  CalendarImportQueueItem,
+  CalendarPreferences,
   Chore,
   ChoreCompletionCheckIn,
   ChoreDefinitionInput,
@@ -13,7 +18,8 @@ import type {
   Recommendation,
   RecommendationDecision,
   ScheduleInput,
-  ScheduledChore
+  ScheduledChore,
+  ExternalCalendarSummary
 } from "@chore-helper/shared";
 
 export type StoreResult<T> = T | Promise<T>;
@@ -178,6 +184,24 @@ export type HouseholdStore = {
     update: RecommendationDecisionUpdate
   ): StoreResult<Recommendation | undefined>;
   applyRecommendationDecisions(householdId: string): StoreResult<ApplyRecommendationResult>;
+  listCalendarImportPolicies(householdId: string): StoreResult<CalendarImportPolicy[]>;
+  updateCalendarImportPolicy(
+    householdId: string,
+    memberId: string,
+    update: Pick<CalendarImportPolicy, "importQueueMode" | "importContentMode">
+  ): StoreResult<CalendarImportPolicy>;
+  listCalendarConnections(userId: string): StoreResult<CalendarConnectionSummary[]>;
+  listExternalCalendars(userId: string): StoreResult<ExternalCalendarSummary[]>;
+  getCalendarPreferences(userId: string, householdId: string): StoreResult<CalendarPreferences>;
+  updateCalendarPreferences(userId: string, householdId: string, update: CalendarPreferences): StoreResult<CalendarPreferences>;
+  listCalendarImportQueue(householdId: string): StoreResult<CalendarImportQueueItem[]>;
+  createCalendarImportQueueItem(input: Omit<CalendarImportQueueItem, "id" | "createdAt" | "queueStatus">): StoreResult<CalendarImportQueueItem>;
+  decideCalendarImportQueueItem(
+    householdId: string,
+    queueItemId: string,
+    ownerUserId: string,
+    input: CalendarImportQueueDecisionInput
+  ): StoreResult<CalendarImportQueueItem>;
 };
 
 function normalizeRecommendation(recommendation: Recommendation): Recommendation {
@@ -223,6 +247,33 @@ export function createInMemoryStore(): HouseholdStore {
   const occurrences = new Map<string, ChoreOccurrence>();
   const completionCheckIns = new Map<string, ChoreCompletionCheckIn>();
   const recommendations = new Map<string, Recommendation[]>();
+  const calendarImportPolicies = new Map<string, CalendarImportPolicy>();
+  const calendarPreferences = new Map<string, CalendarPreferences>();
+  const calendarImportQueueItems = new Map<string, CalendarImportQueueItem>();
+  const calendarConnections = new Map<string, CalendarConnectionSummary[]>();
+  const externalCalendars = new Map<string, ExternalCalendarSummary[]>();
+
+  function calendarPolicyKey(householdId: string, memberId: string) {
+    return `${householdId}:${memberId}`;
+  }
+
+  function calendarPreferenceKey(userId: string, householdId: string) {
+    return `${userId}:${householdId}`;
+  }
+
+  function defaultCalendarPreference(householdId: string): CalendarPreferences {
+    return {
+      householdId,
+      defaultDetailLevel: "busy_only",
+      selectedSourceCalendarIds: [],
+      exportMode: "off",
+      exportContentMode: "chores"
+    };
+  }
+
+  function memberDisplay(member: HouseholdMemberSummary) {
+    return member.displayName ?? member.primaryEmail ?? member.clerkUserId;
+  }
 
   function markStale(householdId: string) {
     const now = new Date().toISOString();
@@ -718,6 +769,89 @@ export function createInMemoryStore(): HouseholdStore {
           recommendation.id === recommendationId ? updated : recommendation
         )
       );
+      return updated;
+    },
+
+    async listCalendarImportPolicies(householdId) {
+      const members = await this.listHouseholdMembers(householdId);
+      return members.map((member) => {
+        const existing = calendarImportPolicies.get(calendarPolicyKey(householdId, member.userId));
+        if (existing) return existing;
+        return {
+          householdId,
+          memberId: member.userId,
+          memberName: memberDisplay(member),
+          ...(member.primaryEmail ? { memberEmail: member.primaryEmail } : {}),
+          importQueueMode: "manual",
+          importContentMode: "both"
+        };
+      });
+    },
+
+    async updateCalendarImportPolicy(householdId, memberId, update) {
+      const members = await this.listHouseholdMembers(householdId);
+      const member = members.find((item) => item.userId === memberId);
+      if (!member) throw new Error("Household member not found");
+      const policy: CalendarImportPolicy = {
+        householdId,
+        memberId,
+        memberName: memberDisplay(member),
+        ...(member.primaryEmail ? { memberEmail: member.primaryEmail } : {}),
+        importQueueMode: update.importQueueMode,
+        importContentMode: update.importContentMode
+      };
+      calendarImportPolicies.set(calendarPolicyKey(householdId, memberId), policy);
+      return policy;
+    },
+
+    listCalendarConnections(userId) {
+      return calendarConnections.get(userId) ?? [];
+    },
+
+    listExternalCalendars(userId) {
+      return externalCalendars.get(userId) ?? [];
+    },
+
+    getCalendarPreferences(userId, householdId) {
+      return calendarPreferences.get(calendarPreferenceKey(userId, householdId)) ?? defaultCalendarPreference(householdId);
+    },
+
+    updateCalendarPreferences(userId, householdId, update) {
+      const preference: CalendarPreferences = {
+        ...update,
+        householdId
+      };
+      calendarPreferences.set(calendarPreferenceKey(userId, householdId), preference);
+      return preference;
+    },
+
+    listCalendarImportQueue(householdId) {
+      return Array.from(calendarImportQueueItems.values())
+        .filter((item) => item.householdId === householdId)
+        .sort((first, second) => first.createdAt.localeCompare(second.createdAt));
+    },
+
+    createCalendarImportQueueItem(input) {
+      const item: CalendarImportQueueItem = {
+        ...input,
+        id: crypto.randomUUID(),
+        queueStatus: "pending",
+        createdAt: new Date().toISOString()
+      };
+      calendarImportQueueItems.set(item.id, item);
+      return item;
+    },
+
+    decideCalendarImportQueueItem(householdId, queueItemId, _ownerUserId, input) {
+      const item = calendarImportQueueItems.get(queueItemId);
+      if (!item || item.householdId !== householdId) throw new Error("Calendar import queue item not found");
+      const updated: CalendarImportQueueItem = {
+        ...item,
+        proposedType: input.proposedType ?? item.proposedType,
+        queueStatus: input.decision === "approve" ? "approved" : "rejected",
+        ...(input.decision === "approve" ? { createdCleanlyEventId: `cleanly-event-${queueItemId}` } : {})
+      };
+      calendarImportQueueItems.set(queueItemId, updated);
       return updated;
     },
 
