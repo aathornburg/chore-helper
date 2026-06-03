@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type {
+  CalendarImportQueueItem,
   ChoreOccurrence,
   CreateScheduledChoreInput,
   HouseholdAppData,
@@ -123,6 +124,24 @@ const cleanBathroomsChore = {
   source: "manual"
 };
 
+const ownerMember: HouseholdMemberSummary = {
+  householdId: "household-1",
+  userId: "app-user-1",
+  clerkUserId: "test-user-a",
+  primaryEmail: "owner@example.com",
+  displayName: "Alex Owner",
+  role: "owner"
+};
+
+const secondMember: HouseholdMemberSummary = {
+  householdId: "household-1",
+  userId: "app-user-2",
+  clerkUserId: "test-user-b",
+  primaryEmail: "member@example.com",
+  displayName: "Morgan Member",
+  role: "member"
+};
+
 function createHouseholdAppData({
   chores = [cleanBathroomsChore],
   recommendations = [],
@@ -177,6 +196,55 @@ function mockRestoredHouseholdFetches({
 
     if (url === "http://localhost:3001/api/households/household-1/chores" && method === "GET") {
       return { ok: true, json: async () => chores };
+    }
+
+    if (url === "http://localhost:3001/api/households/household-1/members" && method === "GET") {
+      return { ok: true, json: async () => [ownerMember, secondMember] };
+    }
+
+    if (url === "http://localhost:3001/api/me/calendar/connections" && method === "GET") {
+      return { ok: true, json: async () => [] };
+    }
+
+    if (url === "http://localhost:3001/api/me/calendar/preferences?householdId=household-1" && method === "GET") {
+      return {
+        ok: true,
+        json: async () => ({
+          householdId: "household-1",
+          defaultDetailLevel: "busy_only",
+          selectedSourceCalendarIds: [],
+          exportMode: "off",
+          exportContentMode: "chores"
+        })
+      };
+    }
+
+    if (url === "http://localhost:3001/api/households/household-1/calendar/import-policies" && method === "GET") {
+      return {
+        ok: true,
+        json: async () => [
+          {
+            householdId: "household-1",
+            memberId: "app-user-1",
+            memberName: "Alex Owner",
+            memberEmail: "owner@example.com",
+            importQueueMode: "manual",
+            importContentMode: "both"
+          },
+          {
+            householdId: "household-1",
+            memberId: "app-user-2",
+            memberName: "Morgan Member",
+            memberEmail: "member@example.com",
+            importQueueMode: "manual",
+            importContentMode: "both"
+          }
+        ]
+      };
+    }
+
+    if (url === "http://localhost:3001/api/me/calendar/google/connect" && method === "POST") {
+      return { ok: true, json: async () => ({ provider: "google", status: "not_configured", message: "Google OAuth is ready to be wired to this endpoint." }) };
     }
 
     if (url === "http://localhost:3001/api/households/household-1/recommendations" && method === "GET") {
@@ -384,7 +452,7 @@ function mockFamilyPageFetches(currentRole: "owner" | "member" = "owner") {
   return fetchMock;
 }
 
-function mockCalendarPageFetches() {
+function mockCalendarPageFetches(importQueueItems: CalendarImportQueueItem[] = []) {
   let occurrences = [{
     id: "occurrence-1",
     householdId: "household-1",
@@ -431,6 +499,20 @@ function mockCalendarPageFetches() {
     }
     if (url === "http://localhost:3001/api/households/household-1/members" && method === "GET") {
       return { ok: true, json: async () => members };
+    }
+    if (url === "http://localhost:3001/api/households/household-1/calendar/import-queue" && method === "GET") {
+      return { ok: true, json: async () => importQueueItems };
+    }
+    if (url === "http://localhost:3001/api/households/household-1/calendar/import-queue/queue-1" && method === "PATCH") {
+      const body = JSON.parse(String(init?.body));
+      return {
+        ok: true,
+        json: async () => ({
+          ...importQueueItems[0],
+          queueStatus: body.decision === "approve" ? "approved" : "rejected",
+          createdCleanlyEventId: body.decision === "approve" ? "cleanly-event-1" : undefined
+        })
+      };
     }
     if (url.startsWith("http://localhost:3001/api/households/household-1/occurrences?") && method === "GET") {
       return { ok: true, json: async () => occurrences };
@@ -558,6 +640,7 @@ function mockCalendarWorkspaceFetches({
         })]
       };
     }
+    if (url.endsWith("/api/households/household-1/calendar/import-queue")) return { ok: true, json: async () => [] };
     if (url.includes("/members")) return { ok: true, json: async () => members };
     if (url.includes("/occurrences?") && method === "GET") return { ok: true, json: async () => occurrences };
     if (url.endsWith("/api/households/household-1/chores/chore-1/schedules") && method === "GET") {
@@ -1683,6 +1766,33 @@ describe("App", () => {
     });
   });
 
+  it("shows the owner calendar import queue with approve actions", async () => {
+    const fetchMock = mockCalendarPageFetches([{
+      id: "queue-1",
+      householdId: "household-1",
+      submittedByUserId: "app-user-2",
+      submittedByName: "Morgan Member",
+      proposedType: "commitment",
+      detailLevel: "busy_only",
+      title: "Dentist appointment",
+      privacyTitle: "Dentist appointment",
+      startsAt: "2026-06-18T14:00:00.000Z",
+      endsAt: "2026-06-18T15:00:00.000Z",
+      queueStatus: "pending",
+      createdAt: "2026-06-01T12:00:00.000Z"
+    }]);
+    renderAt("/calendar");
+
+    expect(await screen.findByRole("heading", { name: "Calendar import queue" })).toBeTruthy();
+    expect(screen.getAllByText("Dentist appointment").length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: "Approve Dentist appointment" }));
+    await waitFor(() => expect(screen.getByText("approved")).toBeTruthy());
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/households/household-1/calendar/import-queue/queue-1",
+      expect.objectContaining({ method: "PATCH" })
+    );
+  });
+
   it("uses Calendar as the only chore planning destination", async () => {
     vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
     renderAt("/calendar");
@@ -2657,32 +2767,36 @@ describe("App", () => {
     });
   });
 
-  it("shows the Google Calendar connection shell in Settings", async () => {
-    mockEmptyAppDataFetches();
+  it("shows the calendar sync governance shell in Settings", async () => {
+    mockRestoredHouseholdFetches();
     renderAt("/settings#calendar");
 
     await waitFor(() => expect(screen.getByRole("heading", { name: "Settings" })).toBeTruthy());
-    expect(screen.getByRole("heading", { name: "Google Calendar" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Calendar sync" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Your calendar connection" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Family import controls" })).toBeTruthy();
     expect(screen.getByText("Not connected")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Connect Google Calendar" }));
-    expect(screen.getByText(/connection flow is coming next/i)).toBeTruthy();
+    expect(await screen.findByText(/Google OAuth is ready/i)).toBeTruthy();
   });
 
   it("lets Settings switch the Today week rail start day", async () => {
-    mockEmptyAppDataFetches();
-    renderAt("/settings");
+    await withMay2026CalendarClock(async () => {
+      mockEmptyAppDataFetches();
+      renderAt("/settings");
 
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Settings" })).toBeTruthy());
-    expect((screen.getByLabelText("Sunday") as HTMLInputElement).checked).toBe(true);
-    fireEvent.click(screen.getByLabelText("Monday"));
-    expect(window.localStorage.getItem("cleanly:week-start-day")).toBe("monday");
+      await waitFor(() => expect(screen.getByRole("heading", { name: "Settings" })).toBeTruthy());
+      expect((screen.getByLabelText("Sunday") as HTMLInputElement).checked).toBe(true);
+      fireEvent.click(screen.getByLabelText("Monday"));
+      expect(window.localStorage.getItem("cleanly:week-start-day")).toBe("monday");
 
-    cleanup();
-    mockRestoredHouseholdFetches();
-    renderAt("/today");
+      cleanup();
+      mockRestoredHouseholdFetches();
+      renderAt("/today");
 
-    expect(await screen.findByRole("button", { name: "Monday May 25 0 due" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Sunday May 24 0 due" })).toBeNull();
+      expect(await screen.findByRole("button", { name: "Monday May 25 0 due" })).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Sunday May 24 0 due" })).toBeNull();
+    });
   });
 
   it("moves the Today week rail with the previous and next buttons", async () => {

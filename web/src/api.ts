@@ -1,5 +1,10 @@
 import type {
   AppUserProfile,
+  CalendarConnectionSummary,
+  CalendarImportPolicy,
+  CalendarImportQueueDecisionInput,
+  CalendarImportQueueItem,
+  CalendarPreferences,
   Chore,
   ChoreDefinitionInput,
   ChoreCompletionCheckIn,
@@ -456,5 +461,81 @@ export async function askAssistantQuestion(
   });
 
   if (!response.ok) throw new Error("Failed to ask assistant question");
+  return response.json();
+}
+
+export async function listCalendarImportPolicies(householdId: string): Promise<CalendarImportPolicy[]> {
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/calendar/import-policies`);
+
+  if (!response.ok) throw new Error("Failed to fetch calendar import policies");
+  return response.json();
+}
+
+export async function updateCalendarImportPolicy(
+  householdId: string,
+  memberId: string,
+  update: Pick<CalendarImportPolicy, "importQueueMode" | "importContentMode">
+): Promise<CalendarImportPolicy> {
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/calendar/import-policies/${memberId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(update)
+  });
+
+  if (!response.ok) throw new Error("Failed to update calendar import policy");
+  return response.json();
+}
+
+export async function listCalendarImportQueue(householdId: string): Promise<CalendarImportQueueItem[]> {
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/calendar/import-queue`);
+
+  if (!response.ok) throw new Error("Failed to fetch calendar import queue");
+  return response.json();
+}
+
+export async function decideCalendarImportQueueItem(
+  householdId: string,
+  queueItemId: string,
+  input: CalendarImportQueueDecisionInput
+): Promise<CalendarImportQueueItem> {
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/calendar/import-queue/${queueItemId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input)
+  });
+
+  if (!response.ok) throw new Error("Failed to update calendar import queue item");
+  return response.json();
+}
+
+export async function listCalendarConnections(): Promise<CalendarConnectionSummary[]> {
+  const response = await apiFetch(`${API_BASE_URL}/api/me/calendar/connections`);
+
+  if (!response.ok) throw new Error("Failed to fetch calendar connections");
+  return response.json();
+}
+
+export async function startGoogleCalendarConnection(): Promise<{ provider: "google"; status: string; message: string }> {
+  const response = await apiFetch(`${API_BASE_URL}/api/me/calendar/google/connect`, { method: "POST" });
+
+  if (!response.ok) throw new Error("Failed to start Google Calendar connection");
+  return response.json();
+}
+
+export async function getCalendarPreferences(householdId: string): Promise<CalendarPreferences> {
+  const response = await apiFetch(`${API_BASE_URL}/api/me/calendar/preferences?householdId=${encodeURIComponent(householdId)}`);
+
+  if (!response.ok) throw new Error("Failed to fetch calendar preferences");
+  return response.json();
+}
+
+export async function updateCalendarPreferences(input: CalendarPreferences): Promise<CalendarPreferences> {
+  const response = await apiFetch(`${API_BASE_URL}/api/me/calendar/preferences`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input)
+  });
+
+  if (!response.ok) throw new Error("Failed to update calendar preferences");
   return response.json();
 }

@@ -1,8 +1,8 @@
 import { addDays, addMinutes, addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format, parseISO, startOfMonth, startOfWeek } from "date-fns";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { useEffect, useMemo, useState } from "react";
-import type { ChoreOccurrence, ChoreSchedule, CompletionCheckInInput, HouseholdAppData, HouseholdMemberSummary, ScheduleInput } from "@chore-helper/shared";
-import { completeOccurrence, createScheduledChore, getCurrentUser, listHouseholdMembers, listOccurrences, listSchedules, skipOccurrence, updateOccurrence, updateSchedule as updateScheduleApi } from "../api";
+import type { CalendarImportQueueItem, ChoreOccurrence, ChoreSchedule, CompletionCheckInInput, HouseholdAppData, HouseholdMemberSummary, ScheduleInput } from "@chore-helper/shared";
+import { completeOccurrence, createScheduledChore, decideCalendarImportQueueItem, getCurrentUser, listCalendarImportQueue, listHouseholdMembers, listOccurrences, listSchedules, skipOccurrence, updateOccurrence, updateSchedule as updateScheduleApi } from "../api";
 import type { Navigate } from "../types";
 
 type WorkspaceView = "calendar" | "list";
@@ -227,6 +227,8 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
   const [completionCheckIn, setCompletionCheckIn] = useState<CompletionCheckInDraft>();
   const [draggingId, setDraggingId] = useState<string>();
   const [createdChoreTitles, setCreatedChoreTitles] = useState(() => new Map<string, string>());
+  const [importQueueItems, setImportQueueItems] = useState<CalendarImportQueueItem[]>([]);
+  const [selectedQueueItemId, setSelectedQueueItemId] = useState<string>();
 
   const selectedHousehold = households.find((household) => household.id === filters.householdId) ?? households[0];
   const timeZone = selectedHousehold?.timeZone ?? "UTC";
@@ -236,6 +238,7 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
     (!filters.planningMode || filters.planningMode === "all" || occurrence.planningMode === filters.planningMode)
   );
   const selectedOccurrence = occurrences.find((occurrence) => occurrence.id === selectedOccurrenceId);
+  const selectedQueueItem = importQueueItems.find((item) => item.id === selectedQueueItemId) ?? importQueueItems[0];
 
   useEffect(() => {
     if (!selectedHousehold) return;
@@ -259,6 +262,28 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
       cancelled = true;
     };
   }, [selectedHousehold?.id]);
+
+  useEffect(() => {
+    if (!selectedHousehold || !isOwner) {
+      setImportQueueItems([]);
+      setSelectedQueueItemId(undefined);
+      return;
+    }
+    let cancelled = false;
+    void listCalendarImportQueue(selectedHousehold.id)
+      .then((items) => {
+        if (!cancelled) {
+          setImportQueueItems(items);
+          setSelectedQueueItemId(items[0]?.id);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setImportQueueItems([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOwner, selectedHousehold?.id]);
 
   useEffect(() => {
     if (!selectedHousehold) return;
@@ -564,6 +589,15 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
       setEditorMode("closed");
       setSelectedOccurrenceId(undefined);
     }
+  }
+
+  async function decideQueueItem(item: CalendarImportQueueItem, decision: "approve" | "reject") {
+    if (!selectedHousehold) return;
+    const updated = await decideCalendarImportQueueItem(selectedHousehold.id, item.id, {
+      decision,
+      proposedType: item.proposedType
+    });
+    setImportQueueItems((current) => current.map((candidate) => candidate.id === updated.id ? updated : candidate));
   }
 
   async function handleDrop(slot: string) {
@@ -877,6 +911,70 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
     );
   }
 
+  function renderCalendarImportQueue() {
+    if (!isOwner) return null;
+    const pendingCount = importQueueItems.filter((item) => item.queueStatus === "pending").length;
+
+    return (
+      <section className="calendar-import-queue" aria-labelledby="calendar-import-queue-heading">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Owner review</p>
+            <h2 id="calendar-import-queue-heading">Calendar import queue</h2>
+          </div>
+          <span>{pendingCount} pending</span>
+        </div>
+        {importQueueItems.length ? (
+          <div className="calendar-queue-layout">
+            <div className="calendar-queue-table" role="list">
+              {importQueueItems.map((item) => (
+                <button
+                  className={`calendar-queue-row ${item.id === selectedQueueItem?.id ? "is-selected" : ""}`}
+                  key={item.id}
+                  onClick={() => setSelectedQueueItemId(item.id)}
+                  type="button"
+                >
+                  <span>{item.privacyTitle}</span>
+                  <span>{item.submittedByName}</span>
+                  <span>{item.proposedType}</span>
+                  <span>{item.queueStatus}</span>
+                </button>
+              ))}
+            </div>
+            {selectedQueueItem ? (
+              <aside className="calendar-queue-detail">
+                <p className="eyebrow">{selectedQueueItem.detailLevel === "busy_only" ? "Busy only" : "Full details"}</p>
+                <h3>{selectedQueueItem.privacyTitle}</h3>
+                <p>{selectedQueueItem.submittedByName} shared this as a {selectedQueueItem.proposedType}.</p>
+                <div className="calendar-queue-actions">
+                  <button
+                    aria-label={`Approve ${selectedQueueItem.privacyTitle}`}
+                    disabled={selectedQueueItem.queueStatus !== "pending"}
+                    onClick={() => void decideQueueItem(selectedQueueItem, "approve")}
+                    type="button"
+                  >
+                    Approve
+                  </button>
+                  <button
+                    aria-label={`Reject ${selectedQueueItem.privacyTitle}`}
+                    className="section-action"
+                    disabled={selectedQueueItem.queueStatus !== "pending"}
+                    onClick={() => void decideQueueItem(selectedQueueItem, "reject")}
+                    type="button"
+                  >
+                    Reject
+                  </button>
+                </div>
+              </aside>
+            ) : null}
+          </div>
+        ) : (
+          <p className="empty-state">No imported calendar events are waiting for review.</p>
+        )}
+      </section>
+    );
+  }
+
   if (isLoading) return <div className="calendar-page operational-page"><p>Loading calendar...</p></div>;
 
   return (
@@ -893,6 +991,7 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
         </div>
         <button onClick={openCreateEditor} type="button">Add chore</button>
       </header>
+      {renderCalendarImportQueue()}
 
       <section className="calendar-integration-strip" aria-label="Google Calendar setup">
         <div>

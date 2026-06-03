@@ -133,7 +133,7 @@ function AppRoutes() {
       ) : null}
       {path === "/family" ? <FamilyPage households={households} isLoading={isLoading} /> : null}
       {path === "/settings" ? (
-        <SettingsPage onWeekStartDayChange={setWeekStartDay} weekStartDay={weekStartDay} />
+        <SettingsPage households={households} onWeekStartDayChange={setWeekStartDay} weekStartDay={weekStartDay} />
       ) : null}
     </AppShell>
   );
