@@ -2803,7 +2803,7 @@ describe("App", () => {
     renderAt("/settings#calendar");
 
     await waitFor(() => expect(screen.getByRole("heading", { name: "Settings" })).toBeTruthy());
-    expect(await screen.findByRole("heading", { name: "Calendar sync" })).toBeTruthy();
+    expect(await screen.findByRole("region", { name: "Calendar sync" })).toBeTruthy();
     expect(await screen.findByRole("heading", { name: "Your calendar connection" })).toBeTruthy();
     expect(await screen.findByRole("heading", { name: "Family import controls" })).toBeTruthy();
     expect(screen.getByLabelText("Source calendars")).toBeTruthy();

@@ -169,15 +169,7 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
         </div>
       </header>
 
-      <section className={`dashboard-section calendar-sync-section ${highlighted ? "highlighted" : ""}`} id="calendar" aria-labelledby="calendar-sync-heading">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Connections</p>
-            <h2 id="calendar-sync-heading">Calendar sync</h2>
-          </div>
-          <span>{connectionStatus(connections)}</span>
-        </div>
-
+      <section className={`calendar-sync-section ${highlighted ? "highlighted" : ""}`} id="calendar" aria-label="Calendar sync">
         {!selectedHousehold ? (
           <p className="empty-state">Create a home before setting up calendar sync.</p>
         ) : (
@@ -188,6 +180,7 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
                   <p className="eyebrow">{isOwner ? "Your connection" : "Your controls"}</p>
                   <h3>{isOwner ? "Your calendar connection" : "Personal sync center"}</h3>
                 </div>
+                <span>{connectionStatus(connections)}</span>
               </div>
               <p>
                 Choose what you share with Cleanly and where Cleanly exports your calendar updates.

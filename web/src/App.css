@@ -954,10 +954,12 @@ button:where(:not(.link-button)):hover {
 }
 
 .calendar-sync-section {
+  display: grid;
+  gap: 14px;
   position: relative;
 }
 
-.calendar-sync-section.highlighted {
+.calendar-sync-section.highlighted .sync-panel {
   border-color: #a8d3dd;
   box-shadow: -6px 6px 0 rgba(19, 106, 129, 0.18);
 }
@@ -972,6 +974,7 @@ button:where(:not(.link-button)):hover {
   align-content: start;
   background: rgba(255, 255, 255, 0.88);
   border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-section-offset);
   display: grid;
   gap: 14px;
   padding: 26px;
