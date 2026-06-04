@@ -3640,6 +3640,10 @@ textarea {
   padding: 12px 13px;
 }
 
+select {
+  padding-right: 42px;
+}
+
 input:focus,
 select:focus,
 textarea:focus {
