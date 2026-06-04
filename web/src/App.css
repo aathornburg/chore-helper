@@ -5078,6 +5078,61 @@ button.chore-row-summary[aria-expanded="true"] {
   margin: 0;
 }
 
+.household-profile-form.floor-detail-panel {
+  align-self: start;
+  background:
+    linear-gradient(180deg, rgba(246, 251, 252, 0.72), rgba(255, 255, 255, 0.96)),
+    var(--color-surface-elevated);
+  border-color: #c8e1e7;
+  display: grid;
+  gap: 18px;
+  padding: 20px;
+}
+
+.household-profile-form .floor-detail-heading {
+  border-bottom: 1px solid #d5e8ea;
+  margin-bottom: 0;
+  padding-bottom: 14px;
+}
+
+.household-profile-form .floor-detail-heading p:not(.eyebrow) {
+  color: #536173;
+  margin: 6px 0 0;
+}
+
+.household-profile-grid {
+  gap: 14px 16px;
+}
+
+.household-profile-check {
+  background: transparent;
+  border-radius: 0;
+  justify-content: flex-start;
+  padding: 10px 0;
+}
+
+.household-notes-field textarea {
+  min-height: 118px;
+}
+
+.household-profile-actions {
+  border-top: 1px solid #d5e8ea;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 2px;
+  padding-top: 16px;
+}
+
+.household-profile-actions button {
+  min-width: 0;
+  width: auto;
+}
+
+.household-profile-actions button[type="submit"] {
+  min-width: 128px;
+}
+
 .inline-confirmation {
   background: #fffbeb;
   border: 1px solid #f59e0b;

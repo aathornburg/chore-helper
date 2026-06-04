@@ -686,65 +686,67 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
             {renderStudioHouseModel({ mode: "overview" })}
             {isEditingProfile ? (
               <form className="manual-chore-form household-profile-form floor-detail-panel" onSubmit={handleSaveProfile}>
-            <div className="floor-detail-heading">
-              <div>
-                <h2>Home details</h2>
-              </div>
-            </div>
-            <div className="field-grid">
-              <label>
-                Household name
-                <input
-                  disabled={isSavingProfile}
-                  required
-                  value={profileName}
-                  onChange={(event) => setProfileName(event.target.value)}
-                />
-              </label>
-              <label>
-                Home type
-                <select
-                  disabled={isSavingProfile}
-                  value={profile.homeType}
-                  onChange={(event) => setProfile({ ...profile, homeType: event.target.value as HouseholdProfile["homeType"] })}
-                >
-                  {["house", "apartment", "condo", "townhouse", "other"].map((value) => (
-                    <option key={value} value={value}>{value}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="checkbox-field">
-                <input
-                  checked={profile.hasPets}
-                  disabled={isSavingProfile}
-                  onChange={(event) => setProfile({ ...profile, hasPets: event.target.checked })}
-                  type="checkbox"
-                />
-                Pets live here
-              </label>
-              <label className="checkbox-field">
-                <input
-                  checked={profile.hasOutdoorSpace}
-                  disabled={isSavingProfile}
-                  onChange={(event) => setProfile({ ...profile, hasOutdoorSpace: event.target.checked })}
-                  type="checkbox"
-                />
-                Outdoor space
-              </label>
-            </div>
-            <label>
-              Household notes
-              <textarea
-                disabled={isSavingProfile}
-                value={profile.notes ?? ""}
-                onChange={(event) => setProfile({ ...profile, notes: event.target.value })}
-              />
-            </label>
-            <div className="household-profile-actions">
-              <button className="secondary-action" disabled={isSavingProfile} onClick={resetProfileDraft} type="button">Cancel</button>
-              <button disabled={isSavingProfile} type="submit">Save</button>
-            </div>
-          </form>
+                <div className="floor-detail-heading">
+                  <div>
+                    <p className="eyebrow">Edit profile</p>
+                    <h2>Home details</h2>
+                    <p>These details help Cleanly tune setup prompts and coverage assumptions.</p>
+                  </div>
+                </div>
+                <div className="field-grid household-profile-grid">
+                  <label>
+                    Household name
+                    <input
+                      disabled={isSavingProfile}
+                      required
+                      value={profileName}
+                      onChange={(event) => setProfileName(event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Home type
+                    <select
+                      disabled={isSavingProfile}
+                      value={profile.homeType}
+                      onChange={(event) => setProfile({ ...profile, homeType: event.target.value as HouseholdProfile["homeType"] })}
+                    >
+                      {["house", "apartment", "condo", "townhouse", "other"].map((value) => (
+                        <option key={value} value={value}>{value}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="checkbox-field household-profile-check">
+                    <input
+                      checked={profile.hasPets}
+                      disabled={isSavingProfile}
+                      onChange={(event) => setProfile({ ...profile, hasPets: event.target.checked })}
+                      type="checkbox"
+                    />
+                    Pets live here
+                  </label>
+                  <label className="checkbox-field household-profile-check">
+                    <input
+                      checked={profile.hasOutdoorSpace}
+                      disabled={isSavingProfile}
+                      onChange={(event) => setProfile({ ...profile, hasOutdoorSpace: event.target.checked })}
+                      type="checkbox"
+                    />
+                    Outdoor space
+                  </label>
+                </div>
+                <label className="household-notes-field">
+                  Household notes
+                  <textarea
+                    disabled={isSavingProfile}
+                    value={profile.notes ?? ""}
+                    onChange={(event) => setProfile({ ...profile, notes: event.target.value })}
+                  />
+                </label>
+                <div className="household-profile-actions">
+                  <button className="secondary-action" disabled={isSavingProfile} onClick={resetProfileDraft} type="button">Cancel</button>
+                  <button disabled={isSavingProfile} type="submit">Save</button>
+                </div>
+              </form>
             ) : (
               <section className="home-profile-summary floor-detail-panel" aria-label="Home profile summary">
                 <div className="floor-detail-heading">
