@@ -175,9 +175,12 @@ export function FamilyPage({ households, isLoading }: FamilyPageProps) {
 
         {isLoading ? <div className="empty-state">Loading household members...</div> : null}
         {!isLoading && households.length === 0 ? (
-          <section className="placeholder-page">
-            <h2>No households yet</h2>
-            <p className="lede">Add a household before inviting family members.</p>
+          <section className="setup-empty-state family-empty-state" aria-labelledby="family-empty-heading">
+            <div>
+              <p className="eyebrow">No household access yet</p>
+              <h2 id="family-empty-heading">Add a home before inviting family</h2>
+              <p>Once a home exists, this page becomes the coordination board for members, invites, shared load, and weekly handoffs.</p>
+            </div>
           </section>
         ) : null}
         <div className="family-household-list">

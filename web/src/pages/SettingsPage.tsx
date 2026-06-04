@@ -100,8 +100,8 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
   }
 
   return (
-    <div className="settings-page">
-      <header className="workspace-hero compact-hero">
+    <div className="settings-page operational-page">
+      <header className="page-command-header">
         <div>
           <p className="eyebrow">Preferences and connections</p>
           <h1>Settings</h1>

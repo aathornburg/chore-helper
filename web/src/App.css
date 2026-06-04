@@ -3108,6 +3108,34 @@ button.calendar-event:hover {
   padding: 34px;
 }
 
+.setup-empty-state {
+  align-items: center;
+  background:
+    linear-gradient(90deg, rgba(42, 165, 180, 0.12), transparent 42%),
+    var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-section-offset);
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  min-height: 180px;
+  padding: 28px;
+}
+
+.setup-empty-state h2 {
+  color: var(--color-primary-strong);
+  font-size: 2rem;
+  line-height: 1.1;
+  margin: 0 0 10px;
+}
+
+.setup-empty-state p:not(.eyebrow) {
+  color: #3f4a43;
+  line-height: 1.55;
+  margin: 0;
+  max-width: 680px;
+}
+
 .dashboard-section {
   display: grid;
   gap: 16px;
@@ -3952,7 +3980,7 @@ button.chore-row-summary[aria-expanded="true"] {
 .empty-state {
   background: var(--color-surface-muted);
   border: 1px dashed #b9dce4;
-  border-radius: 12px;
+  border-radius: 0;
   padding: 18px;
 }
 
@@ -5413,6 +5441,13 @@ button.chore-row-summary[aria-expanded="true"] {
     border-radius: 0;
     padding: 20px 14px 24px;
     width: 100%;
+  }
+
+  .setup-empty-state {
+    align-items: start;
+    display: grid;
+    min-height: 0;
+    padding: 22px;
   }
 
   .page-command-header h1 {

@@ -92,10 +92,19 @@ export function HouseholdsPage({ households, isLoading, onAddHousehold, onReload
   if (households.length === 0) {
     return (
       <div className="households-page operational-page">
-        <section className="placeholder-page first-home-empty-state">
-          <p className="eyebrow">Home setup</p>
-          <h1>Set up your home</h1>
-          <p className="lede">Create a home model so Cleanly can understand floors, rooms, surfaces, and cleaning coverage.</p>
+        <header className="page-command-header">
+          <div>
+            <p className="eyebrow">Home setup</p>
+            <h1>My Home</h1>
+            <p className="lede">Start with the home model Cleanly uses for floors, rooms, surfaces, and cleaning coverage.</p>
+          </div>
+        </header>
+        <section className="setup-empty-state first-home-empty-state" aria-labelledby="first-home-heading">
+          <div>
+            <p className="eyebrow">No home data yet</p>
+            <h2 id="first-home-heading">Build your first home model</h2>
+            <p>Create a home before tuning floor coverage, room details, pet impact, and schedule recommendations.</p>
+          </div>
           <button disabled={isAddingHousehold} onClick={handleAddHousehold} type="button">
             Add household
           </button>

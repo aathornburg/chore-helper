@@ -1311,14 +1311,16 @@ describe("App", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Set up household" })).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "Set up household" }));
 
-    expect(screen.getByRole("heading", { name: "Set up your home", level: 1 })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "My Home", level: 1 })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Build your first home model", level: 2 })).toBeTruthy();
   });
 
   it("renders the Households page", async () => {
     mockEmptyAppDataFetches();
     renderAt("/households");
 
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Set up your home", level: 1 })).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole("heading", { name: "My Home", level: 1 })).toBeTruthy());
+    expect(screen.getByRole("heading", { name: "Build your first home model", level: 2 })).toBeTruthy();
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Add household" })).toBeTruthy();
     });
