@@ -977,6 +977,19 @@ button:where(:not(.link-button)):hover {
   padding: 22px;
 }
 
+.sync-panel .panel-heading {
+  margin-bottom: 0;
+}
+
+.sync-panel > button {
+  justify-self: start;
+  width: auto;
+}
+
+.sync-panel > .section-action {
+  padding-inline: 16px;
+}
+
 .wide-sync-panel {
   min-height: 0;
 }
