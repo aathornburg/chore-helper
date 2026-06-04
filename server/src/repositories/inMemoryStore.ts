@@ -191,6 +191,10 @@ export type HouseholdStore = {
     update: Pick<CalendarImportPolicy, "importQueueMode" | "importContentMode">
   ): StoreResult<CalendarImportPolicy>;
   listCalendarConnections(userId: string): StoreResult<CalendarConnectionSummary[]>;
+  upsertCalendarConnection(
+    userId: string,
+    input: Omit<CalendarConnectionSummary, "id" | "status"> & { status?: CalendarConnectionSummary["status"] }
+  ): StoreResult<CalendarConnectionSummary>;
   listExternalCalendars(userId: string): StoreResult<ExternalCalendarSummary[]>;
   getCalendarPreferences(userId: string, householdId: string): StoreResult<CalendarPreferences>;
   updateCalendarPreferences(userId: string, householdId: string, update: CalendarPreferences): StoreResult<CalendarPreferences>;
@@ -806,6 +810,22 @@ export function createInMemoryStore(): HouseholdStore {
 
     listCalendarConnections(userId) {
       return calendarConnections.get(userId) ?? [];
+    },
+
+    upsertCalendarConnection(userId, input) {
+      const existing = (calendarConnections.get(userId) ?? []).find((connection) =>
+        connection.provider === input.provider && connection.providerAccountEmail === input.providerAccountEmail
+      );
+      const connection: CalendarConnectionSummary = {
+        ...input,
+        id: existing?.id ?? crypto.randomUUID(),
+        status: input.status ?? "connected"
+      };
+      calendarConnections.set(userId, [
+        ...(calendarConnections.get(userId) ?? []).filter((item) => item.id !== connection.id),
+        connection
+      ]);
+      return connection;
     },
 
     listExternalCalendars(userId) {

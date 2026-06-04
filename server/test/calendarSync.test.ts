@@ -106,6 +106,40 @@ describe("calendar sync governance", () => {
     }));
   });
 
+  it("reports setup requirements when Google OAuth config is missing", async () => {
+    const { app } = await createHouseholdWithMember();
+    const response = await auth(app, "member").post("/api/me/calendar/google/connect");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(expect.objectContaining({
+      provider: "google",
+      status: "setup_required"
+    }));
+  });
+
+  it("starts Google OAuth when provider config is present", async () => {
+    const previousClientId = process.env.GOOGLE_CLIENT_ID;
+    const previousClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    const previousRedirectUri = process.env.GOOGLE_CALENDAR_REDIRECT_URI;
+    process.env.GOOGLE_CLIENT_ID = "google-client-id";
+    process.env.GOOGLE_CLIENT_SECRET = "google-client-secret";
+    process.env.GOOGLE_CALENDAR_REDIRECT_URI = "http://localhost:3001/api/me/calendar/google/callback";
+
+    try {
+      const { app } = await createHouseholdWithMember();
+      const response = await auth(app, "member").post("/api/me/calendar/google/connect");
+
+      expect(response.status).toBe(202);
+      expect(response.body.status).toBe("redirect");
+      expect(response.body.authUrl).toContain("https://accounts.google.com/o/oauth2/v2/auth");
+      expect(response.body.authUrl).toContain("client_id=google-client-id");
+    } finally {
+      process.env.GOOGLE_CLIENT_ID = previousClientId;
+      process.env.GOOGLE_CLIENT_SECRET = previousClientSecret;
+      process.env.GOOGLE_CALENDAR_REDIRECT_URI = previousRedirectUri;
+    }
+  });
+
   it("blocks member calendar preferences for households the user cannot access", async () => {
     const { app, store } = await createHouseholdWithMember();
     const otherOwner = await store.upsertUserByClerkId("other-owner", {

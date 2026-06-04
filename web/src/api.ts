@@ -515,10 +515,25 @@ export async function listCalendarConnections(): Promise<CalendarConnectionSumma
   return response.json();
 }
 
-export async function startGoogleCalendarConnection(): Promise<{ provider: "google"; status: string; message: string }> {
+export async function startGoogleCalendarConnection(): Promise<{ provider: "google"; status: string; message: string; authUrl?: string }> {
   const response = await apiFetch(`${API_BASE_URL}/api/me/calendar/google/connect`, { method: "POST" });
 
   if (!response.ok) throw new Error("Failed to start Google Calendar connection");
+  return response.json();
+}
+
+export type CalendarImportCandidate = {
+  id: string;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  proposedType: "chore" | "commitment";
+};
+
+export async function listCalendarImportCandidates(householdId: string): Promise<CalendarImportCandidate[]> {
+  const response = await apiFetch(`${API_BASE_URL}/api/me/calendar/import-candidates?householdId=${encodeURIComponent(householdId)}`);
+
+  if (!response.ok) throw new Error("Failed to fetch calendar import candidates");
   return response.json();
 }
 

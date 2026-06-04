@@ -1062,6 +1062,40 @@ button:where(:not(.link-button)):hover {
   margin-top: 2px;
 }
 
+.calendar-review-panel {
+  background: #f6fbfc;
+  border: 1px solid var(--color-border);
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.calendar-review-panel h4,
+.calendar-review-panel p {
+  margin: 0;
+}
+
+.calendar-review-panel p:not(.eyebrow) {
+  color: #536173;
+}
+
+.calendar-review-panel ul {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.calendar-review-panel li {
+  align-items: center;
+  border-top: 1px solid #d5e8ea;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding-top: 8px;
+}
+
 .operational-page {
   background: var(--color-surface);
   border: 1px solid var(--color-border);

@@ -9,6 +9,7 @@ import type {
 import {
   getCalendarPreferences,
   getCurrentUser,
+  listCalendarImportCandidates,
   listCalendarConnections,
   listCalendarImportPolicies,
   listHouseholdMembers,
@@ -16,6 +17,7 @@ import {
   updateCalendarImportPolicy,
   updateCalendarPreferences
 } from "../api";
+import type { CalendarImportCandidate } from "../api";
 import type { WeekStartDay } from "../types";
 
 type SettingsPageProps = {
@@ -38,6 +40,8 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
   const [policies, setPolicies] = useState<CalendarImportPolicy[]>([]);
   const [preferences, setPreferences] = useState<CalendarPreferences>();
   const [calendarStatus, setCalendarStatus] = useState<string>();
+  const [isReviewingImports, setIsReviewingImports] = useState(false);
+  const [importCandidates, setImportCandidates] = useState<CalendarImportCandidate[]>([]);
   const highlighted = window.location.hash === "#calendar";
   const isOwner = useMemo(
     () => members.some((member) => member.userId === currentUserId && member.role === "owner"),
@@ -99,6 +103,26 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
       .catch(() => setCalendarStatus("Could not save family import controls."));
   }
 
+  function handleConnectGoogleCalendar() {
+    void startGoogleCalendarConnection()
+      .then((result) => {
+        if (result.authUrl) {
+          window.location.assign(result.authUrl);
+          return;
+        }
+        setCalendarStatus(result.message);
+      })
+      .catch(() => setCalendarStatus("Could not start Google Calendar connection."));
+  }
+
+  function handleReviewEventsToShare() {
+    setIsReviewingImports(true);
+    if (!selectedHousehold) return;
+    void listCalendarImportCandidates(selectedHousehold.id)
+      .then(setImportCandidates)
+      .catch(() => setCalendarStatus("Could not load calendar events to review."));
+  }
+
   return (
     <div className="settings-page operational-page">
       <header className="page-command-header">
@@ -134,7 +158,7 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
                 Export does not require importing personal events.
               </p>
               <button
-                onClick={() => void startGoogleCalendarConnection().then((result) => setCalendarStatus(result.message))}
+                onClick={handleConnectGoogleCalendar}
                 type="button"
               >
                 Connect Google Calendar
@@ -196,8 +220,30 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
                   </label>
                 </div>
               ) : null}
-              <button className="section-action" disabled type="button">Review events to share</button>
+              <button className="section-action" onClick={handleReviewEventsToShare} type="button">Review events to share</button>
               <p className="section-summary">Export is personal. Each member chooses where Cleanly writes calendar updates.</p>
+              {isReviewingImports ? (
+                <section className="calendar-review-panel" aria-live="polite" aria-label="Events to share">
+                  <div>
+                    <p className="eyebrow">Events to share</p>
+                    <h4>Choose what reaches Cleanly</h4>
+                  </div>
+                  {connections.length === 0 ? (
+                    <p>Connect Google Calendar before reviewing events.</p>
+                  ) : importCandidates.length === 0 ? (
+                    <p>No Google Calendar events are available to review yet.</p>
+                  ) : (
+                    <ul>
+                      {importCandidates.map((candidate) => (
+                        <li key={candidate.id}>
+                          <strong>{candidate.title}</strong>
+                          <span>{candidate.proposedType}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              ) : null}
             </article>
 
             {isOwner ? (

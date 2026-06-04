@@ -244,7 +244,11 @@ function mockRestoredHouseholdFetches({
     }
 
     if (url === "http://localhost:3001/api/me/calendar/google/connect" && method === "POST") {
-      return { ok: true, json: async () => ({ provider: "google", status: "not_configured", message: "Google OAuth is ready to be wired to this endpoint." }) };
+      return { ok: true, json: async () => ({ provider: "google", status: "setup_required", message: "Google Calendar login needs Google client configuration." }) };
+    }
+
+    if (url === "http://localhost:3001/api/me/calendar/import-candidates?householdId=household-1" && method === "GET") {
+      return { ok: true, json: async () => [] };
     }
 
     if (url === "http://localhost:3001/api/households/household-1/recommendations" && method === "GET") {
@@ -2784,10 +2788,11 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: "Family import controls" })).toBeTruthy();
     expect(screen.getByLabelText("Source calendars")).toBeTruthy();
     expect(screen.getByLabelText("Export destination")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Review events to share" }).hasAttribute("disabled")).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Review events to share" }));
+    expect(await screen.findByText("Connect Google Calendar before reviewing events.")).toBeTruthy();
     expect(screen.getByText("Not connected")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Connect Google Calendar" }));
-    expect(await screen.findByText(/Google OAuth is ready/i)).toBeTruthy();
+    expect(await screen.findByText(/Google Calendar login needs/i)).toBeTruthy();
   });
 
   it("lets Settings switch the Today week rail start day", async () => {

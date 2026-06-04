@@ -1,4 +1,5 @@
 import { Router } from "express";
+import crypto from "node:crypto";
 import type {
   CalendarContentMode,
   CalendarDetailLevel,
@@ -16,6 +17,11 @@ const exportModes: CalendarExportMode[] = ["off", "review", "auto"];
 const contentModes: CalendarContentMode[] = ["chores", "commitments", "both"];
 const detailLevels: CalendarDetailLevel[] = ["busy_only", "full_details"];
 const cleanlyEventTypes: CleanlyCalendarEventType[] = ["chore", "commitment"];
+const googleCalendarScopes = [
+  "https://www.googleapis.com/auth/calendar.events",
+  "https://www.googleapis.com/auth/calendar.readonly",
+  "https://www.googleapis.com/auth/userinfo.email"
+];
 
 function isOneOf<T extends string>(value: unknown, options: readonly T[]): value is T {
   return typeof value === "string" && options.includes(value as T);
@@ -36,6 +42,44 @@ function isAllowedImportType(proposedType: CleanlyCalendarEventType, mode: Calen
 
 function displayName(user: { displayName?: string; primaryEmail?: string; clerkUserId: string }) {
   return user.displayName ?? user.primaryEmail ?? user.clerkUserId;
+}
+
+function googleOAuthConfig() {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const redirectUri = process.env.GOOGLE_CALENDAR_REDIRECT_URI;
+  if (!clientId || !clientSecret || !redirectUri) return undefined;
+  return { clientId, clientSecret, redirectUri };
+}
+
+function createGoogleOAuthState(userId: string) {
+  const secret = process.env.GOOGLE_OAUTH_STATE_SECRET ?? process.env.GOOGLE_CLIENT_SECRET ?? "dev-calendar-oauth-state";
+  const payload = Buffer.from(JSON.stringify({
+    userId,
+    nonce: crypto.randomUUID(),
+    createdAt: Date.now()
+  })).toString("base64url");
+  const signature = crypto.createHmac("sha256", secret).update(payload).digest("base64url");
+  return `${payload}.${signature}`;
+}
+
+function verifyGoogleOAuthState(state: string) {
+  const [payload, signature] = state.split(".");
+  if (!payload || !signature) return undefined;
+  const secret = process.env.GOOGLE_OAUTH_STATE_SECRET ?? process.env.GOOGLE_CLIENT_SECRET ?? "dev-calendar-oauth-state";
+  const expected = crypto.createHmac("sha256", secret).update(payload).digest("base64url");
+  if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return undefined;
+  const decoded = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as { userId?: string; createdAt?: number };
+  if (!decoded.userId || !decoded.createdAt || Date.now() - decoded.createdAt > 10 * 60 * 1000) return undefined;
+  return { userId: decoded.userId };
+}
+
+function settingsRedirect(status: string) {
+  const baseUrl = process.env.APP_BASE_URL ?? "http://localhost:5173";
+  const url = new URL("/settings", baseUrl);
+  url.hash = "calendar";
+  url.searchParams.set("calendar", status);
+  return url.toString();
 }
 
 export function createCalendarRouter(store: HouseholdStore, authMode: AuthMode) {
@@ -128,11 +172,74 @@ export function createCalendarRouter(store: HouseholdStore, authMode: AuthMode) 
   router.post("/me/calendar/google/connect", async (req, res) => {
     const user = await resolveCurrentUser(req, res, store, authMode);
     if (!user) return;
+    const config = googleOAuthConfig();
+    if (!config) {
+      return res.status(200).json({
+        provider: "google",
+        status: "setup_required",
+        message: "Google Calendar login needs GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_CALENDAR_REDIRECT_URI."
+      });
+    }
+    const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+    authUrl.searchParams.set("client_id", config.clientId);
+    authUrl.searchParams.set("redirect_uri", config.redirectUri);
+    authUrl.searchParams.set("response_type", "code");
+    authUrl.searchParams.set("access_type", "offline");
+    authUrl.searchParams.set("prompt", "consent");
+    authUrl.searchParams.set("scope", googleCalendarScopes.join(" "));
+    authUrl.searchParams.set("state", createGoogleOAuthState(user.id));
     return res.status(202).json({
       provider: "google",
-      status: "not_configured",
-      message: "Google OAuth is ready to be wired to this endpoint."
+      status: "redirect",
+      message: "Redirecting to Google Calendar login.",
+      authUrl: authUrl.toString()
     });
+  });
+
+  router.get("/me/calendar/google/callback", async (req, res) => {
+    const config = googleOAuthConfig();
+    if (!config) return res.redirect(settingsRedirect("google-setup-required"));
+    const code = typeof req.query.code === "string" ? req.query.code : "";
+    const state = typeof req.query.state === "string" ? req.query.state : "";
+    const verifiedState = verifyGoogleOAuthState(state);
+    if (!code || !verifiedState) return res.redirect(settingsRedirect("google-auth-error"));
+
+    try {
+      const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          client_id: config.clientId,
+          client_secret: config.clientSecret,
+          redirect_uri: config.redirectUri,
+          grant_type: "authorization_code",
+          code
+        })
+      });
+      if (!tokenResponse.ok) return res.redirect(settingsRedirect("google-auth-error"));
+      const tokenPayload = await tokenResponse.json() as { access_token?: string; expires_in?: number; scope?: string };
+      if (!tokenPayload.access_token) return res.redirect(settingsRedirect("google-auth-error"));
+
+      const profileResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+        headers: { Authorization: `Bearer ${tokenPayload.access_token}` }
+      });
+      if (!profileResponse.ok) return res.redirect(settingsRedirect("google-auth-error"));
+      const profile = await profileResponse.json() as { email?: string };
+      if (!profile.email) return res.redirect(settingsRedirect("google-auth-error"));
+
+      await store.upsertCalendarConnection(verifiedState.userId, {
+        provider: "google",
+        providerAccountEmail: profile.email,
+        scopes: tokenPayload.scope?.split(" ") ?? googleCalendarScopes,
+        tokenExpiresAt: tokenPayload.expires_in
+          ? new Date(Date.now() + tokenPayload.expires_in * 1000).toISOString()
+          : undefined,
+        lastSyncedAt: new Date().toISOString()
+      });
+      return res.redirect(settingsRedirect("google-connected"));
+    } catch {
+      return res.redirect(settingsRedirect("google-auth-error"));
+    }
   });
 
   router.get("/me/calendar/preferences", async (req, res) => {

@@ -1359,6 +1359,47 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
       }));
     },
 
+    async upsertCalendarConnection(userId, input) {
+      const existing = await prisma.calendarConnection.findFirst({
+        where: {
+          userId,
+          provider: input.provider,
+          providerAccountEmail: input.providerAccountEmail
+        }
+      });
+      const connection = existing
+        ? await prisma.calendarConnection.update({
+            where: { id: existing.id },
+            data: {
+              status: input.status ?? "connected",
+              scopes: JSON.stringify(input.scopes),
+              tokenExpiresAt: input.tokenExpiresAt ? new Date(input.tokenExpiresAt) : null,
+              lastSyncedAt: input.lastSyncedAt ? new Date(input.lastSyncedAt) : new Date()
+            }
+          })
+        : await prisma.calendarConnection.create({
+            data: {
+              userId,
+              provider: input.provider,
+              providerAccountEmail: input.providerAccountEmail,
+              status: input.status ?? "connected",
+              scopes: JSON.stringify(input.scopes),
+              tokenExpiresAt: input.tokenExpiresAt ? new Date(input.tokenExpiresAt) : null,
+              lastSyncedAt: input.lastSyncedAt ? new Date(input.lastSyncedAt) : new Date()
+            }
+          });
+
+      return {
+        id: connection.id,
+        provider: connection.provider as CalendarProvider,
+        providerAccountEmail: connection.providerAccountEmail,
+        status: connection.status as CalendarConnectionStatus,
+        scopes: deserializeStringList(connection.scopes),
+        tokenExpiresAt: serializeDate(connection.tokenExpiresAt),
+        lastSyncedAt: serializeDate(connection.lastSyncedAt)
+      };
+    },
+
     async listExternalCalendars(userId) {
       const calendars = await prisma.externalCalendar.findMany({
         where: { connection: { userId } },
