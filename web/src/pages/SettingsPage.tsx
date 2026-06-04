@@ -233,17 +233,17 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
                       </label>
                       <label>
                         Source calendars
-                    <select
-                      value={preferences.selectedSourceCalendarIds[0] ?? ""}
-                      onChange={(event) => savePreference({
-                        ...preferences,
-                        selectedSourceCalendarIds: event.target.value ? [event.target.value] : []
-                      })}
-                    >
-                      <option value="">Choose source calendar</option>
-                      {externalCalendars.length ? externalCalendars.map((calendar) => (
-                        <option key={calendar.id} value={calendar.id}>{calendar.name}</option>
-                      )) : <option disabled>Connect Google Calendar to choose</option>}
+                        <select
+                          value={preferences.selectedSourceCalendarIds[0] ?? ""}
+                          onChange={(event) => savePreference({
+                            ...preferences,
+                            selectedSourceCalendarIds: event.target.value ? [event.target.value] : []
+                          })}
+                        >
+                          <option value="">Choose source calendar</option>
+                          {externalCalendars.length ? externalCalendars.map((calendar) => (
+                            <option key={calendar.id} value={calendar.id}>{calendar.name}</option>
+                          )) : <option disabled>Connect Google Calendar to choose</option>}
                         </select>
                       </label>
                       <div className="sync-action-row">

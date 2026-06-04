@@ -997,6 +997,7 @@ button:where(:not(.link-button)):hover {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+  justify-content: flex-end;
 }
 
 .sync-action-row > button {
@@ -1013,6 +1014,7 @@ button:where(:not(.link-button)):hover {
   display: grid;
   gap: 22px;
   grid-template-columns: minmax(190px, 0.32fr) minmax(0, 1fr);
+  justify-items: end;
   padding: 20px 0;
 }
 
@@ -1032,6 +1034,7 @@ button:where(:not(.link-button)):hover {
   display: grid;
   gap: 6px;
   align-content: start;
+  justify-self: stretch;
 }
 
 .sync-setting-copy h4,
@@ -1066,6 +1069,8 @@ button:where(:not(.link-button)):hover {
 
 .sync-preference-grid {
   grid-template-columns: minmax(0, 1fr);
+  justify-self: end;
+  width: min(100%, 520px);
 }
 
 .sync-preference-grid {
@@ -1089,7 +1094,7 @@ button:where(:not(.link-button)):hover {
 
 .sync-preference-grid-import {
   grid-template-columns: minmax(0, 1fr);
-  max-width: 420px;
+  width: min(100%, 420px);
 }
 
 .sync-preference-grid-import label,
@@ -1103,7 +1108,7 @@ button:where(:not(.link-button)):hover {
 
 .sync-preference-grid-export {
   grid-template-columns: minmax(0, 1fr);
-  max-width: 520px;
+  width: min(100%, 520px);
 }
 
 .sync-preference-grid-export label {
