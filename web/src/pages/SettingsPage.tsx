@@ -201,12 +201,15 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
                 Choose what you share with Cleanly and where Cleanly exports your calendar updates.
                 Export does not require importing personal events.
               </p>
-              <button
-                onClick={handleConnectGoogleCalendar}
-                type="button"
-              >
-                Connect Google Calendar
-              </button>
+              <div className="sync-action-row">
+                <button
+                  onClick={handleConnectGoogleCalendar}
+                  type="button"
+                >
+                  Connect Google Calendar
+                </button>
+                <button className="section-action" onClick={handleReviewEventsToShare} type="button">Review events to share</button>
+              </div>
               {preferences ? (
                 <div className="sync-preference-grid">
                   <label>
@@ -279,7 +282,6 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
                   </label>
                 </div>
               ) : null}
-              <button className="section-action" onClick={handleReviewEventsToShare} type="button">Review events to share</button>
               <p className="section-summary">Export is personal. Each member chooses where Cleanly writes calendar updates.</p>
               {isReviewingImports ? (
                 <section className="calendar-review-panel" aria-live="polite" aria-label="Events to share">

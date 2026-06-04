@@ -973,16 +973,33 @@ button:where(:not(.link-button)):hover {
   background: rgba(255, 255, 255, 0.88);
   border: 1px solid var(--color-border);
   display: grid;
-  gap: 16px;
-  padding: 22px;
+  gap: 22px;
+  padding: 26px;
 }
 
 .sync-panel .panel-heading {
   margin-bottom: 0;
 }
 
+.sync-panel > p {
+  line-height: 1.65;
+  margin: 0;
+  max-width: 74ch;
+}
+
 .sync-panel > button {
   justify-self: start;
+  width: auto;
+}
+
+.sync-action-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.sync-action-row > button {
   width: auto;
 }
 
@@ -997,15 +1014,17 @@ button:where(:not(.link-button)):hover {
 .sync-preference-grid,
 .sync-policy-row {
   display: grid;
-  gap: 12px;
+  gap: 18px 14px;
 }
 
 .sync-preference-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
 .sync-preference-grid {
-  margin-top: 6px;
+  border-top: 1px solid #d5e8ea;
+  margin-top: 2px;
+  padding-top: 20px;
 }
 
 .sync-preference-grid label,
@@ -1019,8 +1038,17 @@ button:where(:not(.link-button)):hover {
   width: 100%;
 }
 
-.sync-preference-grid label:nth-child(5) {
+.sync-preference-grid label {
   grid-column: span 2;
+}
+
+.sync-preference-grid label:nth-child(4),
+.sync-preference-grid label:nth-child(5) {
+  grid-column: span 3;
+}
+
+.sync-preference-grid label:nth-child(5) {
+  align-self: end;
 }
 
 .sync-policy-table {
@@ -1107,7 +1135,7 @@ button:where(:not(.link-button)):hover {
 }
 
 .sync-preference-grid select[multiple] {
-  min-height: 108px;
+  min-height: 84px;
 }
 
 .operational-page {
