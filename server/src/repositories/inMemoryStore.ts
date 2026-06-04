@@ -1,9 +1,11 @@
 import type {
   CalendarConnectionSummary,
+  CalendarConnectionStatus,
   CalendarImportPolicy,
   CalendarImportQueueDecisionInput,
   CalendarImportQueueItem,
   CalendarPreferences,
+  CleanlyCalendarEvent,
   Chore,
   ChoreCompletionCheckIn,
   ChoreDefinitionInput,
@@ -66,6 +68,27 @@ export type AppUser = {
   clerkUserId: string;
   primaryEmail?: string;
   displayName?: string;
+};
+
+export type CalendarConnectionSecretInput = Omit<CalendarConnectionSummary, "id" | "status"> & {
+  status?: CalendarConnectionSummary["status"];
+  accessTokenEncrypted?: string;
+  refreshTokenEncrypted?: string;
+};
+
+export type CalendarConnectionSecrets = CalendarConnectionSummary & {
+  accessTokenEncrypted?: string;
+  refreshTokenEncrypted?: string;
+};
+
+export type ExternalCalendarInput = Omit<ExternalCalendarSummary, "id" | "connectionId" | "isSelectedForImport" | "isSelectedForExport"> & {
+  isSelectedForImport?: boolean;
+  isSelectedForExport?: boolean;
+};
+
+export type CalendarEventRange = {
+  startAt: string;
+  endAt: string;
 };
 
 export type HouseholdMembership = {
@@ -193,9 +216,19 @@ export type HouseholdStore = {
   listCalendarConnections(userId: string): StoreResult<CalendarConnectionSummary[]>;
   upsertCalendarConnection(
     userId: string,
-    input: Omit<CalendarConnectionSummary, "id" | "status"> & { status?: CalendarConnectionSummary["status"] }
+    input: CalendarConnectionSecretInput
   ): StoreResult<CalendarConnectionSummary>;
+  updateCalendarConnectionTokens(
+    userId: string,
+    connectionId: string,
+    update: Pick<CalendarConnectionSecretInput, "accessTokenEncrypted" | "refreshTokenEncrypted" | "tokenExpiresAt" | "scopes"> & {
+      status?: CalendarConnectionStatus;
+    }
+  ): StoreResult<CalendarConnectionSummary | undefined>;
+  updateCalendarConnectionStatus(userId: string, connectionId: string, status: CalendarConnectionStatus): StoreResult<CalendarConnectionSummary | undefined>;
+  getCalendarConnectionSecrets(userId: string, connectionId: string): StoreResult<CalendarConnectionSecrets | undefined>;
   listExternalCalendars(userId: string): StoreResult<ExternalCalendarSummary[]>;
+  upsertExternalCalendars(userId: string, connectionId: string, calendars: ExternalCalendarInput[]): StoreResult<ExternalCalendarSummary[]>;
   getCalendarPreferences(userId: string, householdId: string): StoreResult<CalendarPreferences>;
   updateCalendarPreferences(userId: string, householdId: string, update: CalendarPreferences): StoreResult<CalendarPreferences>;
   listCalendarImportQueue(householdId: string): StoreResult<CalendarImportQueueItem[]>;
@@ -206,6 +239,16 @@ export type HouseholdStore = {
     ownerUserId: string,
     input: CalendarImportQueueDecisionInput
   ): StoreResult<CalendarImportQueueItem>;
+  listCleanlyCalendarEvents(householdId: string, range?: CalendarEventRange): StoreResult<CleanlyCalendarEvent[]>;
+  getCleanlyCalendarEvent(householdId: string, eventId: string): StoreResult<CleanlyCalendarEvent | undefined>;
+  createExternalCalendarEventLink(input: {
+    cleanlyCalendarEventId: string;
+    connectionId: string;
+    externalCalendarId: string;
+    providerEventId: string;
+    direction: "export";
+  }): StoreResult<void>;
+  hasExternalCalendarEventLink(cleanlyCalendarEventId: string, externalCalendarId: string): StoreResult<boolean>;
 };
 
 function normalizeRecommendation(recommendation: Recommendation): Recommendation {
@@ -254,7 +297,9 @@ export function createInMemoryStore(): HouseholdStore {
   const calendarImportPolicies = new Map<string, CalendarImportPolicy>();
   const calendarPreferences = new Map<string, CalendarPreferences>();
   const calendarImportQueueItems = new Map<string, CalendarImportQueueItem>();
-  const calendarConnections = new Map<string, CalendarConnectionSummary[]>();
+  const cleanlyCalendarEvents = new Map<string, CleanlyCalendarEvent>();
+  const externalCalendarEventLinks = new Set<string>();
+  const calendarConnections = new Map<string, CalendarConnectionSecrets[]>();
   const externalCalendars = new Map<string, ExternalCalendarSummary[]>();
 
   function calendarPolicyKey(householdId: string, memberId: string) {
@@ -809,14 +854,14 @@ export function createInMemoryStore(): HouseholdStore {
     },
 
     listCalendarConnections(userId) {
-      return calendarConnections.get(userId) ?? [];
+      return (calendarConnections.get(userId) ?? []).map(({ accessTokenEncrypted, refreshTokenEncrypted, ...connection }) => connection);
     },
 
     upsertCalendarConnection(userId, input) {
       const existing = (calendarConnections.get(userId) ?? []).find((connection) =>
         connection.provider === input.provider && connection.providerAccountEmail === input.providerAccountEmail
       );
-      const connection: CalendarConnectionSummary = {
+      const connection: CalendarConnectionSecrets = {
         ...input,
         id: existing?.id ?? crypto.randomUUID(),
         status: input.status ?? "connected"
@@ -825,11 +870,67 @@ export function createInMemoryStore(): HouseholdStore {
         ...(calendarConnections.get(userId) ?? []).filter((item) => item.id !== connection.id),
         connection
       ]);
-      return connection;
+      const { accessTokenEncrypted, refreshTokenEncrypted, ...summary } = connection;
+      return summary;
+    },
+
+    updateCalendarConnectionTokens(userId, connectionId, update) {
+      const connections = calendarConnections.get(userId) ?? [];
+      const existing = connections.find((connection) => connection.id === connectionId);
+      if (!existing) return undefined;
+      const updated: CalendarConnectionSecrets = {
+        ...existing,
+        scopes: update.scopes ?? existing.scopes,
+        status: update.status ?? existing.status,
+        ...(update.tokenExpiresAt ? { tokenExpiresAt: update.tokenExpiresAt } : {}),
+        ...(update.accessTokenEncrypted ? { accessTokenEncrypted: update.accessTokenEncrypted } : {}),
+        ...(update.refreshTokenEncrypted ? { refreshTokenEncrypted: update.refreshTokenEncrypted } : {})
+      };
+      calendarConnections.set(userId, connections.map((connection) => connection.id === connectionId ? updated : connection));
+      const { accessTokenEncrypted, refreshTokenEncrypted, ...summary } = updated;
+      return summary;
+    },
+
+    updateCalendarConnectionStatus(userId, connectionId, status) {
+      const connections = calendarConnections.get(userId) ?? [];
+      const existing = connections.find((connection) => connection.id === connectionId);
+      if (!existing) return undefined;
+      const updated = { ...existing, status };
+      calendarConnections.set(userId, connections.map((connection) => connection.id === connectionId ? updated : connection));
+      const { accessTokenEncrypted, refreshTokenEncrypted, ...summary } = updated;
+      return summary;
+    },
+
+    getCalendarConnectionSecrets(userId, connectionId) {
+      return (calendarConnections.get(userId) ?? []).find((connection) => connection.id === connectionId);
     },
 
     listExternalCalendars(userId) {
       return externalCalendars.get(userId) ?? [];
+    },
+
+    upsertExternalCalendars(userId, connectionId, calendars) {
+      const existing = externalCalendars.get(userId) ?? [];
+      const upserted = calendars.map((calendar) => {
+        const existingCalendar = existing.find((item) =>
+          item.connectionId === connectionId && item.providerCalendarId === calendar.providerCalendarId
+        );
+        return {
+          ...calendar,
+          id: existingCalendar?.id ?? crypto.randomUUID(),
+          connectionId,
+          isSelectedForImport: calendar.isSelectedForImport ?? existingCalendar?.isSelectedForImport ?? false,
+          isSelectedForExport: calendar.isSelectedForExport ?? existingCalendar?.isSelectedForExport ?? false
+        };
+      });
+      externalCalendars.set(userId, [
+        ...existing.filter((calendar) =>
+          calendar.connectionId !== connectionId ||
+          !upserted.some((item) => item.providerCalendarId === calendar.providerCalendarId)
+        ),
+        ...upserted
+      ]);
+      return upserted;
     },
 
     getCalendarPreferences(userId, householdId) {
@@ -866,14 +967,51 @@ export function createInMemoryStore(): HouseholdStore {
       const item = calendarImportQueueItems.get(queueItemId);
       if (!item || item.householdId !== householdId) throw new Error("Calendar import queue item not found");
       if (item.queueStatus !== "pending") return item;
+      const cleanlyEventId = `cleanly-event-${queueItemId}`;
+      if (input.decision === "approve") {
+        cleanlyCalendarEvents.set(cleanlyEventId, {
+          id: cleanlyEventId,
+          householdId,
+          createdByUserId: item.submittedByUserId,
+          type: input.proposedType ?? item.proposedType,
+          title: item.title,
+          privacyTitle: item.privacyTitle,
+          detailLevel: item.detailLevel,
+          startsAt: item.startsAt,
+          endsAt: item.endsAt,
+          timezone: "UTC",
+          source: "google",
+          status: "active"
+        });
+      }
       const updated: CalendarImportQueueItem = {
         ...item,
         proposedType: input.proposedType ?? item.proposedType,
         queueStatus: input.decision === "approve" ? "approved" : "rejected",
-        ...(input.decision === "approve" ? { createdCleanlyEventId: `cleanly-event-${queueItemId}` } : {})
+        ...(input.decision === "approve" ? { createdCleanlyEventId: cleanlyEventId } : {})
       };
       calendarImportQueueItems.set(queueItemId, updated);
       return updated;
+    },
+
+    listCleanlyCalendarEvents(householdId, range) {
+      return Array.from(cleanlyCalendarEvents.values())
+        .filter((event) => event.householdId === householdId)
+        .filter((event) => !range || (event.startsAt < range.endAt && event.endsAt > range.startAt))
+        .sort((first, second) => first.startsAt.localeCompare(second.startsAt));
+    },
+
+    getCleanlyCalendarEvent(householdId, eventId) {
+      const event = cleanlyCalendarEvents.get(eventId);
+      return event?.householdId === householdId ? event : undefined;
+    },
+
+    createExternalCalendarEventLink(input) {
+      externalCalendarEventLinks.add(`${input.cleanlyCalendarEventId}:${input.externalCalendarId}:${input.direction}:${input.providerEventId}`);
+    },
+
+    hasExternalCalendarEventLink(cleanlyCalendarEventId, externalCalendarId) {
+      return Array.from(externalCalendarEventLinks).some((link) => link.startsWith(`${cleanlyCalendarEventId}:${externalCalendarId}:`));
     },
 
     applyRecommendationDecisions(householdId) {

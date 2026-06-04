@@ -21,6 +21,7 @@ import { createHouseholdRouter } from "./routes/households.js";
 import { createInvitationRouter } from "./routes/invitations.js";
 import { createMeRouter } from "./routes/me.js";
 import { createCalendarRouter } from "./routes/calendar.js";
+import type { GoogleCalendarProvider } from "./calendar/googleCalendarProvider.js";
 
 type AppDependencies = {
   store?: HouseholdStore;
@@ -28,6 +29,7 @@ type AppDependencies = {
   authMode?: AuthMode;
   invitationMailer?: InvitationMailer;
   invitationBaseUrl?: string;
+  calendarProvider?: GoogleCalendarProvider;
 };
 
 export function createApp(dependencies: AppDependencies = {}) {
@@ -87,7 +89,7 @@ export function createApp(dependencies: AppDependencies = {}) {
     return res.status(200).json(recommendations);
   });
   app.use("/api/me", createMeRouter(store, authMode));
-  app.use("/api", createCalendarRouter(store, authMode));
+  app.use("/api", createCalendarRouter(store, authMode, { googleProvider: dependencies.calendarProvider }));
   app.use("/api/invitations", createInvitationRouter(store, authMode));
   app.use(
     "/api/households",

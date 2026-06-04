@@ -1,8 +1,8 @@
 import { addDays, addMinutes, addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format, parseISO, startOfMonth, startOfWeek } from "date-fns";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { useEffect, useMemo, useState } from "react";
-import type { CalendarImportQueueItem, ChoreOccurrence, ChoreSchedule, CompletionCheckInInput, HouseholdAppData, HouseholdMemberSummary, ScheduleInput } from "@chore-helper/shared";
-import { completeOccurrence, createScheduledChore, decideCalendarImportQueueItem, getCurrentUser, listCalendarImportQueue, listHouseholdMembers, listOccurrences, listSchedules, skipOccurrence, updateOccurrence, updateSchedule as updateScheduleApi } from "../api";
+import type { CalendarImportQueueItem, ChoreOccurrence, ChoreSchedule, CleanlyCalendarEvent, CompletionCheckInInput, HouseholdAppData, HouseholdMemberSummary, ScheduleInput } from "@chore-helper/shared";
+import { completeOccurrence, createScheduledChore, decideCalendarImportQueueItem, exportCleanlyCalendarEvents, getCurrentUser, listCalendarImportQueue, listCleanlyCalendarEvents, listHouseholdMembers, listOccurrences, listSchedules, skipOccurrence, updateOccurrence, updateSchedule as updateScheduleApi } from "../api";
 import type { Navigate } from "../types";
 
 type WorkspaceView = "calendar" | "list";
@@ -228,8 +228,10 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
   const [draggingId, setDraggingId] = useState<string>();
   const [createdChoreTitles, setCreatedChoreTitles] = useState(() => new Map<string, string>());
   const [importQueueItems, setImportQueueItems] = useState<CalendarImportQueueItem[]>([]);
+  const [cleanlyCalendarEvents, setCleanlyCalendarEvents] = useState<CleanlyCalendarEvent[]>([]);
   const [selectedQueueItemId, setSelectedQueueItemId] = useState<string>();
   const [queueTypeDrafts, setQueueTypeDrafts] = useState(() => new Map<string, CalendarImportQueueItem["proposedType"]>());
+  const [calendarSyncStatus, setCalendarSyncStatus] = useState<string>();
 
   const selectedHousehold = households.find((household) => household.id === filters.householdId) ?? households[0];
   const timeZone = selectedHousehold?.timeZone ?? "UTC";
@@ -307,6 +309,22 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
     };
   }, [calendarScale, filters.assignedUserId, focusDate, selectedHousehold?.id, timeZone, workspaceView]);
 
+  useEffect(() => {
+    if (!selectedHousehold) return;
+    let cancelled = false;
+    const range = workspaceView === "list" ? listRange(timeZone) : rangeForView(focusDate, calendarScale, timeZone);
+    void listCleanlyCalendarEvents(selectedHousehold.id, { startAt: range.startAt, endAt: range.endAt })
+      .then((events) => {
+        if (!cancelled) setCleanlyCalendarEvents(events);
+      })
+      .catch(() => {
+        if (!cancelled) setCleanlyCalendarEvents([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [calendarScale, focusDate, selectedHousehold?.id, timeZone, workspaceView]);
+
   const choreTitles = useMemo(() => new Map(
     [...(selectedHousehold?.chores ?? []).map((chore) => [chore.id, chore.title] as const), ...createdChoreTitles]
   ), [createdChoreTitles, selectedHousehold]);
@@ -321,6 +339,15 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
     }
     return groups;
   }, [visibleOccurrences]);
+
+  const cleanlyEventDateBuckets = useMemo(() => {
+    const groups = new Map<string, CleanlyCalendarEvent[]>();
+    for (const event of cleanlyCalendarEvents) {
+      const key = formatInTimeZone(event.startsAt, timeZone, "yyyy-MM-dd");
+      groups.set(key, [...(groups.get(key) ?? []), event]);
+    }
+    return groups;
+  }, [cleanlyCalendarEvents, timeZone]);
 
   const listGroups = useMemo(() => {
     const today = format(new Date(), "yyyy-MM-dd");
@@ -801,6 +828,32 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
     );
   }
 
+  function renderCleanlyCalendarEvent(event: CleanlyCalendarEvent, compact = true) {
+    return (
+      <div
+        className={`calendar-work-item calendar-chore-row calendar-cleanly-event is-${event.type}`}
+        key={event.id}
+        title={event.privacyTitle}
+      >
+        <span className="calendar-chore-main">
+          <span className="calendar-chore-title">{event.privacyTitle}</span>
+          {!compact ? (
+            <span className="calendar-chore-detail">
+              {formatInTimeZone(event.startsAt, timeZone, "MMM d, h:mm a")} - {formatInTimeZone(event.endsAt, timeZone, "h:mm a")}
+            </span>
+          ) : null}
+        </span>
+      </div>
+    );
+  }
+
+  function handleExportCleanlyEvents() {
+    if (!selectedHousehold) return;
+    void exportCleanlyCalendarEvents(selectedHousehold.id, cleanlyCalendarEvents.map((event) => event.id))
+      .then((result) => setCalendarSyncStatus(`${result.exported} calendar event${result.exported === 1 ? "" : "s"} exported.`))
+      .catch(() => setCalendarSyncStatus("Could not export calendar events. Choose an export destination in Settings first."));
+  }
+
   function renderMonthCalendar() {
     const rangeLabel = format(focusDate, "MMMM yyyy");
     const monthWeeks = Array.from({ length: Math.ceil(monthDates.length / 7) }, (_item, index) =>
@@ -820,6 +873,7 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
                 const key = dateKey(date);
                 const isCurrentMonth = format(date, "yyyy-MM") === format(focusDate, "yyyy-MM");
                 const occurrencesForDay = occurrenceDateBuckets.get(key) ?? [];
+                const cleanlyEventsForDay = cleanlyEventDateBuckets.get(key) ?? [];
                 const completedOccurrences = occurrencesForDay.filter((occurrence) => occurrence.status === "completed");
                 const activeOccurrences = occurrencesForDay.filter((occurrence) => occurrence.status !== "completed");
                 const orderedOccurrences = [...activeOccurrences, ...completedOccurrences];
@@ -836,6 +890,7 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
                       {key === format(new Date(), "yyyy-MM-dd") ? <strong>Today</strong> : null}
                     </div>
                     <div className="calendar-day-active-events">
+                      {cleanlyEventsForDay.map((event) => renderCleanlyCalendarEvent(event))}
                       {orderedOccurrences.map((occurrence) => renderMonthOccurrence(occurrence, date))}
                     </div>
                   </article>
@@ -871,12 +926,14 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
     const activeOccurrences = occurrencesForDay.filter((occurrence) => occurrence.status !== "completed");
     const orderedOccurrences = [...activeOccurrences, ...completedOccurrences];
     const flexibleOccurrences = orderedOccurrences.filter((occurrence) => occurrence.planningMode === "flexible");
+    const cleanlyEventsForDay = cleanlyEventDateBuckets.get(key) ?? [];
     return (
       <section className="calendar-column" key={key}>
         <h3 aria-label={longDateLabel(date)} role="columnheader">{showSlotLabels ? longDateLabel(date) : format(date, "EEE, MMM d")}</h3>
         <div className={`calendar-column-anytime ${showSlotLabels ? "has-slot-label" : ""}`}>
           {showSlotLabels ? <span className="calendar-column-anytime-label">Anytime</span> : null}
           <div className="calendar-column-anytime-main">
+            {cleanlyEventsForDay.map((event) => renderCleanlyCalendarEvent(event, false))}
             {flexibleOccurrences.map((occurrence) => renderOccurrenceCompact(occurrence, date, density))}
           </div>
         </div>
@@ -1022,11 +1079,22 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
         <div>
           <p className="eyebrow">Calendar integration</p>
           <h2>Google Calendar</h2>
-          <p>Connect Google Calendar to bring real commitments into chore planning when import support lands.</p>
+          <p>Connect Google Calendar to review imported commitments and export Cleanly calendar updates when you choose.</p>
+          {calendarSyncStatus ? <p role="status" className="section-summary">{calendarSyncStatus}</p> : null}
         </div>
-        <button className="secondary-action" onClick={() => onNavigate("/settings#calendar")} type="button">
-          Set up Google Calendar
-        </button>
+        <div className="calendar-integration-actions">
+          <button className="secondary-action" onClick={() => onNavigate("/settings#calendar")} type="button">
+            Set up Google Calendar
+          </button>
+          <button
+            className="secondary-action"
+            disabled={!cleanlyCalendarEvents.length}
+            onClick={handleExportCleanlyEvents}
+            type="button"
+          >
+            Export visible events
+          </button>
+        </div>
       </section>
 
       {!selectedHousehold ? <section className="panel">Add a household to begin scheduling chores.</section> : (

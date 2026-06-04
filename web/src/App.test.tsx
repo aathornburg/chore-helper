@@ -206,6 +206,10 @@ function mockRestoredHouseholdFetches({
       return { ok: true, json: async () => [] };
     }
 
+    if (url === "http://localhost:3001/api/me/calendar/external-calendars" && method === "GET") {
+      return { ok: true, json: async () => [] };
+    }
+
     if (url === "http://localhost:3001/api/me/calendar/preferences?householdId=household-1" && method === "GET") {
       return {
         ok: true,
@@ -217,6 +221,10 @@ function mockRestoredHouseholdFetches({
           exportContentMode: "chores"
         })
       };
+    }
+
+    if (url === "http://localhost:3001/api/me/calendar/preferences" && method === "PATCH") {
+      return { ok: true, json: async () => JSON.parse(String(init?.body)) };
     }
 
     if (url === "http://localhost:3001/api/households/household-1/calendar/import-policies" && method === "GET") {
@@ -249,6 +257,10 @@ function mockRestoredHouseholdFetches({
 
     if (url === "http://localhost:3001/api/me/calendar/import-candidates?householdId=household-1" && method === "GET") {
       return { ok: true, json: async () => [] };
+    }
+
+    if (url === "http://localhost:3001/api/me/calendar/import-queue" && method === "POST") {
+      return { ok: true, json: async () => ({ status: "queued_for_review", items: [] }) };
     }
 
     if (url === "http://localhost:3001/api/households/household-1/recommendations" && method === "GET") {
@@ -421,6 +433,12 @@ function mockFamilyPageFetches(currentRole: "owner" | "member" = "owner") {
     }
     if (url.startsWith("http://localhost:3001/api/households/household-1/occurrences?") && method === "GET") {
       return { ok: true, json: async () => occurrences };
+    }
+    if (url.startsWith("http://localhost:3001/api/households/household-1/calendar/events?") && method === "GET") {
+      return { ok: true, json: async () => [] };
+    }
+    if (url === "http://localhost:3001/api/me/calendar/export" && method === "POST") {
+      return { ok: true, json: async () => ({ status: "exported", exported: 0 }) };
     }
     if (url === "http://localhost:3001/api/households/household-1/invitations" && method === "POST") {
       const body = JSON.parse(String(init?.body)) as { email: string };
@@ -647,6 +665,8 @@ function mockCalendarWorkspaceFetches({
     if (url.endsWith("/api/households/household-1/calendar/import-queue")) return { ok: true, json: async () => [] };
     if (url.includes("/members")) return { ok: true, json: async () => members };
     if (url.includes("/occurrences?") && method === "GET") return { ok: true, json: async () => occurrences };
+    if (url.includes("/calendar/events?") && method === "GET") return { ok: true, json: async () => [] };
+    if (url.endsWith("/api/me/calendar/export") && method === "POST") return { ok: true, json: async () => ({ status: "exported", exported: 0 }) };
     if (url.endsWith("/api/households/household-1/chores/chore-1/schedules") && method === "GET") {
       return {
         ok: true,

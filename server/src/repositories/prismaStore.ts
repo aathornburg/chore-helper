@@ -8,6 +8,7 @@ import type {
   CalendarProvider,
   CalendarQueueStatus,
   CalendarSyncMode,
+  CleanlyCalendarEvent,
   CleanlyCalendarEventType,
   Chore,
   ChoreCompletionCheckIn,
@@ -23,7 +24,7 @@ import type {
   RecommendationConfidence,
   RecommendationDecision
 } from "@chore-helper/shared";
-import type { AppUser, CompletionCheckInCreate, HouseholdStore, OccurrenceClearFutureCutoff } from "./inMemoryStore.js";
+import type { AppUser, CalendarConnectionSecretInput, CompletionCheckInCreate, ExternalCalendarInput, HouseholdStore, OccurrenceClearFutureCutoff } from "./inMemoryStore.js";
 
 function serializeOptionalList<T>(values: T[]) {
   return JSON.stringify(values);
@@ -208,6 +209,8 @@ function toCalendarImportQueueItem(item: {
   householdId: string;
   submittedByUserId: string;
   submittedByUser: { displayName: string | null; primaryEmail: string | null; clerkUserId: string };
+  sourceExternalCalendarId: string | null;
+  providerEventId: string | null;
   proposedType: string;
   detailLevel: string;
   title: string;
@@ -223,6 +226,8 @@ function toCalendarImportQueueItem(item: {
     householdId: item.householdId,
     submittedByUserId: item.submittedByUserId,
     submittedByName: item.submittedByUser.displayName ?? item.submittedByUser.primaryEmail ?? item.submittedByUser.clerkUserId,
+    ...(item.sourceExternalCalendarId ? { sourceExternalCalendarId: item.sourceExternalCalendarId } : {}),
+    ...(item.providerEventId ? { providerEventId: item.providerEventId } : {}),
     proposedType: item.proposedType as CleanlyCalendarEventType,
     detailLevel: item.detailLevel as CalendarDetailLevel,
     title: item.title,
@@ -1373,6 +1378,8 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
             data: {
               status: input.status ?? "connected",
               scopes: JSON.stringify(input.scopes),
+              accessTokenEncrypted: input.accessTokenEncrypted,
+              refreshTokenEncrypted: input.refreshTokenEncrypted,
               tokenExpiresAt: input.tokenExpiresAt ? new Date(input.tokenExpiresAt) : null,
               lastSyncedAt: input.lastSyncedAt ? new Date(input.lastSyncedAt) : new Date()
             }
@@ -1384,6 +1391,8 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
               providerAccountEmail: input.providerAccountEmail,
               status: input.status ?? "connected",
               scopes: JSON.stringify(input.scopes),
+              accessTokenEncrypted: input.accessTokenEncrypted,
+              refreshTokenEncrypted: input.refreshTokenEncrypted,
               tokenExpiresAt: input.tokenExpiresAt ? new Date(input.tokenExpiresAt) : null,
               lastSyncedAt: input.lastSyncedAt ? new Date(input.lastSyncedAt) : new Date()
             }
@@ -1400,6 +1409,64 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
       };
     },
 
+    async updateCalendarConnectionTokens(userId, connectionId, update) {
+      const existing = await prisma.calendarConnection.findFirst({ where: { id: connectionId, userId } });
+      if (!existing) return undefined;
+      const connection = await prisma.calendarConnection.update({
+        where: { id: connectionId },
+        data: {
+          ...(update.status ? { status: update.status } : {}),
+          ...(update.scopes ? { scopes: JSON.stringify(update.scopes) } : {}),
+          ...(update.tokenExpiresAt ? { tokenExpiresAt: new Date(update.tokenExpiresAt) } : {}),
+          ...(update.accessTokenEncrypted ? { accessTokenEncrypted: update.accessTokenEncrypted } : {}),
+          ...(update.refreshTokenEncrypted ? { refreshTokenEncrypted: update.refreshTokenEncrypted } : {})
+        }
+      });
+      return {
+        id: connection.id,
+        provider: connection.provider as CalendarProvider,
+        providerAccountEmail: connection.providerAccountEmail,
+        status: connection.status as CalendarConnectionStatus,
+        scopes: deserializeStringList(connection.scopes),
+        tokenExpiresAt: serializeDate(connection.tokenExpiresAt),
+        lastSyncedAt: serializeDate(connection.lastSyncedAt)
+      };
+    },
+
+    async updateCalendarConnectionStatus(userId, connectionId, status) {
+      const existing = await prisma.calendarConnection.findFirst({ where: { id: connectionId, userId } });
+      if (!existing) return undefined;
+      const connection = await prisma.calendarConnection.update({
+        where: { id: connectionId },
+        data: { status }
+      });
+      return {
+        id: connection.id,
+        provider: connection.provider as CalendarProvider,
+        providerAccountEmail: connection.providerAccountEmail,
+        status: connection.status as CalendarConnectionStatus,
+        scopes: deserializeStringList(connection.scopes),
+        tokenExpiresAt: serializeDate(connection.tokenExpiresAt),
+        lastSyncedAt: serializeDate(connection.lastSyncedAt)
+      };
+    },
+
+    async getCalendarConnectionSecrets(userId, connectionId) {
+      const connection = await prisma.calendarConnection.findFirst({ where: { id: connectionId, userId } });
+      if (!connection) return undefined;
+      return {
+        id: connection.id,
+        provider: connection.provider as CalendarProvider,
+        providerAccountEmail: connection.providerAccountEmail,
+        status: connection.status as CalendarConnectionStatus,
+        scopes: deserializeStringList(connection.scopes),
+        tokenExpiresAt: serializeDate(connection.tokenExpiresAt),
+        lastSyncedAt: serializeDate(connection.lastSyncedAt),
+        ...(connection.accessTokenEncrypted ? { accessTokenEncrypted: connection.accessTokenEncrypted } : {}),
+        ...(connection.refreshTokenEncrypted ? { refreshTokenEncrypted: connection.refreshTokenEncrypted } : {})
+      };
+    },
+
     async listExternalCalendars(userId) {
       const calendars = await prisma.externalCalendar.findMany({
         where: { connection: { userId } },
@@ -1407,6 +1474,50 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
       });
 
       return calendars.map((calendar) => ({
+        id: calendar.id,
+        connectionId: calendar.connectionId,
+        providerCalendarId: calendar.providerCalendarId,
+        name: calendar.name,
+        ...(calendar.color ? { color: calendar.color } : {}),
+        ...(calendar.timezone ? { timezone: calendar.timezone } : {}),
+        ...(calendar.accessRole ? { accessRole: calendar.accessRole } : {}),
+        isSelectedForImport: calendar.isSelectedForImport,
+        isSelectedForExport: calendar.isSelectedForExport
+      }));
+    },
+
+    async upsertExternalCalendars(userId, connectionId, calendars) {
+      const connection = await prisma.calendarConnection.findFirst({ where: { id: connectionId, userId } });
+      if (!connection) return [];
+      const upserted = await Promise.all(calendars.map((calendar: ExternalCalendarInput) =>
+        prisma.externalCalendar.upsert({
+          where: {
+            connectionId_providerCalendarId: {
+              connectionId,
+              providerCalendarId: calendar.providerCalendarId
+            }
+          },
+          update: {
+            name: calendar.name,
+            color: calendar.color,
+            timezone: calendar.timezone,
+            accessRole: calendar.accessRole,
+            isSelectedForImport: calendar.isSelectedForImport,
+            isSelectedForExport: calendar.isSelectedForExport
+          },
+          create: {
+            connectionId,
+            providerCalendarId: calendar.providerCalendarId,
+            name: calendar.name,
+            color: calendar.color,
+            timezone: calendar.timezone,
+            accessRole: calendar.accessRole,
+            isSelectedForImport: calendar.isSelectedForImport ?? false,
+            isSelectedForExport: calendar.isSelectedForExport ?? false
+          }
+        })
+      ));
+      return upserted.map((calendar) => ({
         id: calendar.id,
         connectionId: calendar.connectionId,
         providerCalendarId: calendar.providerCalendarId,
@@ -1484,6 +1595,8 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
         data: {
           householdId: input.householdId,
           submittedByUserId: input.submittedByUserId,
+          sourceExternalCalendarId: input.sourceExternalCalendarId,
+          providerEventId: input.providerEventId,
           proposedType: input.proposedType,
           detailLevel: input.detailLevel,
           title: input.title,
@@ -1538,6 +1651,71 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
       });
 
       return toCalendarImportQueueItem(updated);
+    },
+
+    async listCleanlyCalendarEvents(householdId, range) {
+      const events = await prisma.cleanlyCalendarEvent.findMany({
+        where: {
+          householdId,
+          ...(range ? {
+            startsAt: { lt: new Date(range.endAt) },
+            endsAt: { gt: new Date(range.startAt) }
+          } : {})
+        },
+        orderBy: { startsAt: "asc" }
+      });
+      return events.map((event): CleanlyCalendarEvent => ({
+        id: event.id,
+        householdId: event.householdId,
+        createdByUserId: event.createdByUserId,
+        type: event.type as CleanlyCalendarEventType,
+        title: event.title,
+        privacyTitle: event.privacyTitle,
+        detailLevel: event.detailLevel as CalendarDetailLevel,
+        startsAt: event.startsAt.toISOString(),
+        endsAt: event.endsAt.toISOString(),
+        timezone: event.timezone,
+        source: event.source as CleanlyCalendarEvent["source"],
+        status: event.status as CleanlyCalendarEvent["status"]
+      }));
+    },
+
+    async getCleanlyCalendarEvent(householdId, eventId) {
+      const event = await prisma.cleanlyCalendarEvent.findFirst({ where: { id: eventId, householdId } });
+      if (!event) return undefined;
+      return {
+        id: event.id,
+        householdId: event.householdId,
+        createdByUserId: event.createdByUserId,
+        type: event.type as CleanlyCalendarEventType,
+        title: event.title,
+        privacyTitle: event.privacyTitle,
+        detailLevel: event.detailLevel as CalendarDetailLevel,
+        startsAt: event.startsAt.toISOString(),
+        endsAt: event.endsAt.toISOString(),
+        timezone: event.timezone,
+        source: event.source as CleanlyCalendarEvent["source"],
+        status: event.status as CleanlyCalendarEvent["status"]
+      };
+    },
+
+    async createExternalCalendarEventLink(input) {
+      await prisma.externalCalendarEventLink.create({
+        data: {
+          cleanlyCalendarEventId: input.cleanlyCalendarEventId,
+          connectionId: input.connectionId,
+          externalCalendarId: input.externalCalendarId,
+          providerEventId: input.providerEventId,
+          direction: input.direction
+        }
+      });
+    },
+
+    async hasExternalCalendarEventLink(cleanlyCalendarEventId, externalCalendarId) {
+      const existing = await prisma.externalCalendarEventLink.findFirst({
+        where: { cleanlyCalendarEventId, externalCalendarId }
+      });
+      return Boolean(existing);
     },
 
     async applyRecommendationDecisions(householdId) {

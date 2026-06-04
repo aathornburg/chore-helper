@@ -63,6 +63,32 @@ acceptance link in the server output instead of sending outbound email. In produ
 configure a verified Resend sender and `APP_BASE_URL`; without them invitation email
 delivery fails closed.
 
+## Google Calendar Local Setup
+
+To test Google Calendar import/export locally:
+
+1. Create or select a Google Cloud project.
+2. Enable the Google Calendar API.
+3. Configure the OAuth consent screen and add your Google account as a test user while the app is in testing mode.
+4. Create a Web application OAuth client.
+5. Add this authorized redirect URI:
+
+```txt
+http://localhost:3001/api/me/calendar/google/callback
+```
+
+6. Add these values to `server/.env`:
+
+```dotenv
+GOOGLE_CLIENT_ID="..."
+GOOGLE_CLIENT_SECRET="..."
+GOOGLE_CALENDAR_REDIRECT_URI="http://localhost:3001/api/me/calendar/google/callback"
+GOOGLE_OAUTH_STATE_SECRET="replace_with_random_state_secret"
+GOOGLE_TOKEN_ENCRYPTION_KEY="replace_with_random_token_secret"
+```
+
+The local MVP uses user-triggered sync only. Users connect Google Calendar, pick source/destination calendars in Settings, review events to share, and explicitly export visible Cleanly calendar events.
+
 ## Start the Database
 
 From the repo root:

@@ -1096,6 +1096,20 @@ button:where(:not(.link-button)):hover {
   padding-top: 8px;
 }
 
+.calendar-review-panel li label {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+}
+
+.calendar-review-panel li select {
+  max-width: 176px;
+}
+
+.sync-preference-grid select[multiple] {
+  min-height: 108px;
+}
+
 .operational-page {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -1176,6 +1190,27 @@ button:where(:not(.link-button)):hover {
 .calendar-integration-strip p:not(.eyebrow) {
   color: #5e625b;
   margin-top: 4px;
+}
+
+.calendar-integration-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.calendar-cleanly-event {
+  cursor: default;
+}
+
+.calendar-cleanly-event.is-commitment {
+  background: #fff7d6;
+  border-left-color: #f3c64d;
+}
+
+.calendar-cleanly-event.is-chore {
+  border-left-color: var(--color-accent);
 }
 
 .calendar-workspace-panel {

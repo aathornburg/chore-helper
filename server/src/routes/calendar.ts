@@ -5,24 +5,21 @@ import type {
   CalendarDetailLevel,
   CalendarExportMode,
   CalendarImportQueueDecisionInput,
+  CalendarImportCandidate,
   CleanlyCalendarEventType,
   CalendarSyncMode
 } from "@chore-helper/shared";
 import type { AuthMode } from "../auth/currentUser.js";
 import { resolveCurrentUser } from "../auth/currentUser.js";
 import type { HouseholdStore } from "../repositories/inMemoryStore.js";
+import { createGoogleCalendarProvider, googleCalendarScopes, googleOAuthConfig, type GoogleCalendarProvider } from "../calendar/googleCalendarProvider.js";
+import { decryptCalendarToken, encryptCalendarToken } from "../calendar/tokenCrypto.js";
 
 const importQueueModes: CalendarSyncMode[] = ["off", "manual", "auto"];
 const exportModes: CalendarExportMode[] = ["off", "review", "auto"];
 const contentModes: CalendarContentMode[] = ["chores", "commitments", "both"];
 const detailLevels: CalendarDetailLevel[] = ["busy_only", "full_details"];
 const cleanlyEventTypes: CleanlyCalendarEventType[] = ["chore", "commitment"];
-const googleCalendarScopes = [
-  "https://www.googleapis.com/auth/calendar.events",
-  "https://www.googleapis.com/auth/calendar.readonly",
-  "https://www.googleapis.com/auth/userinfo.email"
-];
-
 function isOneOf<T extends string>(value: unknown, options: readonly T[]): value is T {
   return typeof value === "string" && options.includes(value as T);
 }
@@ -42,14 +39,6 @@ function isAllowedImportType(proposedType: CleanlyCalendarEventType, mode: Calen
 
 function displayName(user: { displayName?: string; primaryEmail?: string; clerkUserId: string }) {
   return user.displayName ?? user.primaryEmail ?? user.clerkUserId;
-}
-
-function googleOAuthConfig() {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const redirectUri = process.env.GOOGLE_CALENDAR_REDIRECT_URI;
-  if (!clientId || !clientSecret || !redirectUri) return undefined;
-  return { clientId, clientSecret, redirectUri };
 }
 
 function createGoogleOAuthState(userId: string) {
@@ -82,8 +71,39 @@ function settingsRedirect(status: string) {
   return url.toString();
 }
 
-export function createCalendarRouter(store: HouseholdStore, authMode: AuthMode) {
+export function createCalendarRouter(
+  store: HouseholdStore,
+  authMode: AuthMode,
+  dependencies: { googleProvider?: GoogleCalendarProvider } = {}
+) {
   const router = Router();
+  const googleProvider = dependencies.googleProvider ?? createGoogleCalendarProvider();
+
+  async function getGoogleAccessToken(userId: string, connectionId: string) {
+    const connection = await store.getCalendarConnectionSecrets(userId, connectionId);
+    if (!connection?.accessTokenEncrypted) throw new Error("Google Calendar is not connected.");
+    const tokenExpiresAt = connection.tokenExpiresAt ? Date.parse(connection.tokenExpiresAt) : undefined;
+    if (tokenExpiresAt && tokenExpiresAt <= Date.now() + 60_000 && connection.refreshTokenEncrypted && googleProvider) {
+      try {
+        const refreshed = await googleProvider.refreshAccessToken(decryptCalendarToken(connection.refreshTokenEncrypted));
+        await store.updateCalendarConnectionTokens(userId, connection.id, {
+          accessTokenEncrypted: encryptCalendarToken(refreshed.accessToken),
+          tokenExpiresAt: refreshed.expiresAt,
+          scopes: refreshed.scopes,
+          status: "connected"
+        });
+        return refreshed.accessToken;
+      } catch {
+        await store.updateCalendarConnectionStatus(userId, connection.id, "expired");
+        throw new Error("Google Calendar connection expired.");
+      }
+    }
+    try {
+      return decryptCalendarToken(connection.accessTokenEncrypted);
+    } catch {
+      return connection.accessTokenEncrypted;
+    }
+  }
 
   router.get("/households/:householdId/calendar/import-policies", async (req, res) => {
     const user = await resolveCurrentUser(req, res, store, authMode);
@@ -169,73 +189,57 @@ export function createCalendarRouter(store: HouseholdStore, authMode: AuthMode) 
     });
   });
 
+  router.get("/me/calendar/external-calendars", async (req, res) => {
+    const user = await resolveCurrentUser(req, res, store, authMode);
+    if (!user) return;
+    return res.status(200).json(await store.listExternalCalendars(user.id));
+  });
+
   router.post("/me/calendar/google/connect", async (req, res) => {
     const user = await resolveCurrentUser(req, res, store, authMode);
     if (!user) return;
     const config = googleOAuthConfig();
-    if (!config) {
+    if (!config || !googleProvider) {
       return res.status(200).json({
         provider: "google",
         status: "setup_required",
         message: "Google Calendar login needs GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_CALENDAR_REDIRECT_URI."
       });
     }
-    const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
-    authUrl.searchParams.set("client_id", config.clientId);
-    authUrl.searchParams.set("redirect_uri", config.redirectUri);
-    authUrl.searchParams.set("response_type", "code");
-    authUrl.searchParams.set("access_type", "offline");
-    authUrl.searchParams.set("prompt", "consent");
-    authUrl.searchParams.set("scope", googleCalendarScopes.join(" "));
-    authUrl.searchParams.set("state", createGoogleOAuthState(user.id));
     return res.status(202).json({
       provider: "google",
       status: "redirect",
       message: "Redirecting to Google Calendar login.",
-      authUrl: authUrl.toString()
+      authUrl: googleProvider.buildAuthUrl(createGoogleOAuthState(user.id))
     });
   });
 
   router.get("/me/calendar/google/callback", async (req, res) => {
     const config = googleOAuthConfig();
-    if (!config) return res.redirect(settingsRedirect("google-setup-required"));
+    if (!config || !googleProvider) return res.redirect(settingsRedirect("google-setup-required"));
     const code = typeof req.query.code === "string" ? req.query.code : "";
     const state = typeof req.query.state === "string" ? req.query.state : "";
     const verifiedState = verifyGoogleOAuthState(state);
     if (!code || !verifiedState) return res.redirect(settingsRedirect("google-auth-error"));
 
     try {
-      const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          client_id: config.clientId,
-          client_secret: config.clientSecret,
-          redirect_uri: config.redirectUri,
-          grant_type: "authorization_code",
-          code
-        })
-      });
-      if (!tokenResponse.ok) return res.redirect(settingsRedirect("google-auth-error"));
-      const tokenPayload = await tokenResponse.json() as { access_token?: string; expires_in?: number; scope?: string };
-      if (!tokenPayload.access_token) return res.redirect(settingsRedirect("google-auth-error"));
+      const tokenPayload = await googleProvider.exchangeCode(code);
+      const profile = await googleProvider.getProfile(tokenPayload.accessToken);
 
-      const profileResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
-        headers: { Authorization: `Bearer ${tokenPayload.access_token}` }
-      });
-      if (!profileResponse.ok) return res.redirect(settingsRedirect("google-auth-error"));
-      const profile = await profileResponse.json() as { email?: string };
-      if (!profile.email) return res.redirect(settingsRedirect("google-auth-error"));
-
-      await store.upsertCalendarConnection(verifiedState.userId, {
+      const connection = await store.upsertCalendarConnection(verifiedState.userId, {
         provider: "google",
         providerAccountEmail: profile.email,
-        scopes: tokenPayload.scope?.split(" ") ?? googleCalendarScopes,
-        tokenExpiresAt: tokenPayload.expires_in
-          ? new Date(Date.now() + tokenPayload.expires_in * 1000).toISOString()
-          : undefined,
-        lastSyncedAt: new Date().toISOString()
+        scopes: tokenPayload.scopes,
+        tokenExpiresAt: tokenPayload.expiresAt,
+        lastSyncedAt: new Date().toISOString(),
+        accessTokenEncrypted: encryptCalendarToken(tokenPayload.accessToken),
+        ...(tokenPayload.refreshToken ? { refreshTokenEncrypted: encryptCalendarToken(tokenPayload.refreshToken) } : {})
       });
+      await store.upsertExternalCalendars(
+        verifiedState.userId,
+        connection.id,
+        await googleProvider.listCalendars(tokenPayload.accessToken)
+      );
       return res.redirect(settingsRedirect("google-connected"));
     } catch {
       return res.redirect(settingsRedirect("google-auth-error"));
@@ -289,7 +293,48 @@ export function createCalendarRouter(store: HouseholdStore, authMode: AuthMode) 
     if (!await requireHouseholdAccess(store, householdId, user.id)) {
       return res.status(403).json({ error: "You do not have access to this household." });
     }
-    return res.status(200).json([]);
+    const policy = (await store.listCalendarImportPolicies(householdId)).find((item) => item.memberId === user.id);
+    if (policy?.importQueueMode === "off") {
+      return res.status(403).json({ error: "Calendar importing is off for this household member." });
+    }
+    if (!googleProvider) return res.status(409).json({ error: "Google Calendar is not configured." });
+    const preferences = await store.getCalendarPreferences(user.id, householdId);
+    if (!preferences.selectedSourceCalendarIds.length) return res.status(200).json([]);
+    const calendars = await store.listExternalCalendars(user.id);
+    const selectedCalendars = calendars.filter((calendar) => preferences.selectedSourceCalendarIds.includes(calendar.id));
+    if (!selectedCalendars.length) return res.status(200).json([]);
+    const connectionId = selectedCalendars[0].connectionId;
+    const accessToken = await getGoogleAccessToken(user.id, connectionId);
+    const startAt = typeof req.query.startAt === "string" && !Number.isNaN(Date.parse(req.query.startAt))
+      ? req.query.startAt
+      : new Date().toISOString();
+    const endAt = typeof req.query.endAt === "string" && !Number.isNaN(Date.parse(req.query.endAt))
+      ? req.query.endAt
+      : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+    const providerEvents = await googleProvider.listEvents({
+      accessToken,
+      calendarIds: selectedCalendars.map((calendar) => calendar.providerCalendarId),
+      startAt,
+      endAt
+    });
+    const calendarByProviderId = new Map(selectedCalendars.map((calendar) => [calendar.providerCalendarId, calendar]));
+    const candidates: CalendarImportCandidate[] = providerEvents
+      .filter((event) => calendarByProviderId.has(event.sourceProviderCalendarId))
+      .map((event) => {
+        const detailLevel = preferences.defaultDetailLevel;
+        return {
+          id: `${event.sourceProviderCalendarId}:${event.providerEventId}`,
+          sourceExternalCalendarId: calendarByProviderId.get(event.sourceProviderCalendarId)!.id,
+          providerEventId: event.providerEventId,
+          title: event.title,
+          privacyTitle: detailLevel === "full_details" ? event.title : "Busy",
+          startsAt: new Date(event.startsAt).toISOString(),
+          endsAt: new Date(event.endsAt).toISOString(),
+          proposedType: "commitment",
+          detailLevel
+        };
+      });
+    return res.status(200).json(candidates);
   });
 
   router.post("/me/calendar/import-queue", async (req, res) => {
@@ -335,6 +380,8 @@ export function createCalendarRouter(store: HouseholdStore, authMode: AuthMode) 
         householdId: req.body.householdId,
         submittedByUserId: user.id,
         submittedByName: displayName(user),
+        sourceExternalCalendarId: typeof event.sourceExternalCalendarId === "string" ? event.sourceExternalCalendarId : undefined,
+        providerEventId: typeof event.providerEventId === "string" ? event.providerEventId : undefined,
         proposedType: event.proposedType,
         detailLevel,
         title,
@@ -361,6 +408,64 @@ export function createCalendarRouter(store: HouseholdStore, authMode: AuthMode) 
     const user = await resolveCurrentUser(req, res, store, authMode);
     if (!user) return;
     return res.status(200).json([]);
+  });
+
+  router.get("/households/:householdId/calendar/events", async (req, res) => {
+    const user = await resolveCurrentUser(req, res, store, authMode);
+    if (!user) return;
+    if (!await requireHouseholdAccess(store, req.params.householdId, user.id)) {
+      return res.status(403).json({ error: "You do not have access to this household." });
+    }
+    const startAt = typeof req.query.startAt === "string" ? req.query.startAt : undefined;
+    const endAt = typeof req.query.endAt === "string" ? req.query.endAt : undefined;
+    return res.status(200).json(await store.listCleanlyCalendarEvents(
+      req.params.householdId,
+      startAt && endAt ? { startAt, endAt } : undefined
+    ));
+  });
+
+  router.post("/me/calendar/export", async (req, res) => {
+    const user = await resolveCurrentUser(req, res, store, authMode);
+    if (!user) return;
+    if (typeof req.body.householdId !== "string" || !Array.isArray(req.body.cleanlyCalendarEventIds)) {
+      return res.status(400).json({ error: "householdId and cleanlyCalendarEventIds are required." });
+    }
+    if (!await requireHouseholdAccess(store, req.body.householdId, user.id)) {
+      return res.status(403).json({ error: "You do not have access to this household." });
+    }
+    if (!googleProvider) return res.status(409).json({ error: "Google Calendar is not configured." });
+    const preferences = await store.getCalendarPreferences(user.id, req.body.householdId);
+    if (preferences.exportMode === "off") return res.status(403).json({ error: "Calendar export is off." });
+    if (!preferences.destinationExternalCalendarId) return res.status(400).json({ error: "Choose an export destination calendar first." });
+    const destination = (await store.listExternalCalendars(user.id)).find((calendar) => calendar.id === preferences.destinationExternalCalendarId);
+    if (!destination) return res.status(400).json({ error: "Choose an export destination calendar first." });
+    const accessToken = await getGoogleAccessToken(user.id, destination.connectionId);
+    let exported = 0;
+
+    for (const eventId of req.body.cleanlyCalendarEventIds) {
+      if (typeof eventId !== "string") continue;
+      const event = await store.getCleanlyCalendarEvent(req.body.householdId, eventId);
+      if (!event || !isAllowedImportType(event.type, preferences.exportContentMode)) continue;
+      if (await store.hasExternalCalendarEventLink(event.id, destination.id)) continue;
+      const created = await googleProvider.createEvent({
+        accessToken,
+        calendarId: destination.providerCalendarId,
+        title: event.privacyTitle,
+        startsAt: event.startsAt,
+        endsAt: event.endsAt,
+        timezone: event.timezone
+      });
+      await store.createExternalCalendarEventLink({
+        cleanlyCalendarEventId: event.id,
+        connectionId: destination.connectionId,
+        externalCalendarId: destination.id,
+        providerEventId: created.providerEventId,
+        direction: "export"
+      });
+      exported += 1;
+    }
+
+    return res.status(202).json({ status: "exported", exported });
   });
 
   router.patch("/me/calendar/export-queue/:queueItemId", async (req, res) => {

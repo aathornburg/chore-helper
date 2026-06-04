@@ -294,6 +294,8 @@ export type CalendarImportQueueItem = {
   householdId: string;
   submittedByUserId: string;
   submittedByName: string;
+  sourceExternalCalendarId?: string;
+  providerEventId?: string;
   proposedType: CleanlyCalendarEventType;
   detailLevel: CalendarDetailLevel;
   title: string;
@@ -308,4 +310,31 @@ export type CalendarImportQueueItem = {
 export type CalendarImportQueueDecisionInput = {
   decision: "approve" | "reject";
   proposedType?: CleanlyCalendarEventType;
+};
+
+export type CalendarImportCandidate = {
+  id: string;
+  sourceExternalCalendarId: string;
+  providerEventId: string;
+  title: string;
+  privacyTitle: string;
+  startsAt: string;
+  endsAt: string;
+  proposedType: CleanlyCalendarEventType;
+  detailLevel: CalendarDetailLevel;
+};
+
+export type CleanlyCalendarEvent = {
+  id: string;
+  householdId: string;
+  createdByUserId: string;
+  type: CleanlyCalendarEventType;
+  title: string;
+  privacyTitle: string;
+  detailLevel: CalendarDetailLevel;
+  startsAt: string;
+  endsAt: string;
+  timezone: string;
+  source: "manual" | "google";
+  status: "active" | "cancelled";
 };

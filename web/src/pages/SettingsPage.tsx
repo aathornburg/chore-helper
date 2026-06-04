@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import type {
   CalendarConnectionSummary,
+  CalendarImportCandidate,
   CalendarImportPolicy,
   CalendarPreferences,
+  ExternalCalendarSummary,
   HouseholdAppData,
   HouseholdMemberSummary
 } from "@chore-helper/shared";
@@ -11,13 +13,14 @@ import {
   getCurrentUser,
   listCalendarImportCandidates,
   listCalendarConnections,
+  listExternalCalendars,
   listCalendarImportPolicies,
   listHouseholdMembers,
   startGoogleCalendarConnection,
+  submitCalendarImportEvents,
   updateCalendarImportPolicy,
   updateCalendarPreferences
 } from "../api";
-import type { CalendarImportCandidate } from "../api";
 import type { WeekStartDay } from "../types";
 
 type SettingsPageProps = {
@@ -37,11 +40,13 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
   const [currentUserId, setCurrentUserId] = useState<string>();
   const [members, setMembers] = useState<HouseholdMemberSummary[]>([]);
   const [connections, setConnections] = useState<CalendarConnectionSummary[]>([]);
+  const [externalCalendars, setExternalCalendars] = useState<ExternalCalendarSummary[]>([]);
   const [policies, setPolicies] = useState<CalendarImportPolicy[]>([]);
   const [preferences, setPreferences] = useState<CalendarPreferences>();
   const [calendarStatus, setCalendarStatus] = useState<string>();
   const [isReviewingImports, setIsReviewingImports] = useState(false);
   const [importCandidates, setImportCandidates] = useState<CalendarImportCandidate[]>([]);
+  const [selectedImportCandidateIds, setSelectedImportCandidateIds] = useState<string[]>([]);
   const highlighted = window.location.hash === "#calendar";
   const isOwner = useMemo(
     () => members.some((member) => member.userId === currentUserId && member.role === "owner"),
@@ -55,12 +60,14 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
       getCurrentUser(),
       listHouseholdMembers(selectedHousehold.id),
       listCalendarConnections(),
+      listExternalCalendars(),
       getCalendarPreferences(selectedHousehold.id)
-    ]).then(([user, loadedMembers, loadedConnections, loadedPreferences]) => {
+    ]).then(([user, loadedMembers, loadedConnections, loadedCalendars, loadedPreferences]) => {
       if (cancelled) return;
       setCurrentUserId(user.id);
       setMembers(loadedMembers);
       setConnections(loadedConnections);
+      setExternalCalendars(loadedCalendars);
       setPreferences(loadedPreferences);
     }).catch(() => {
       if (!cancelled) setCalendarStatus("Could not load calendar sync settings.");
@@ -119,8 +126,45 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
     setIsReviewingImports(true);
     if (!selectedHousehold) return;
     void listCalendarImportCandidates(selectedHousehold.id)
-      .then(setImportCandidates)
+      .then((candidates) => {
+        setImportCandidates(candidates);
+        setSelectedImportCandidateIds(candidates.map((candidate) => candidate.id));
+      })
       .catch(() => setCalendarStatus("Could not load calendar events to review."));
+  }
+
+  function toggleImportCandidate(candidateId: string) {
+    setSelectedImportCandidateIds((current) =>
+      current.includes(candidateId)
+        ? current.filter((id) => id !== candidateId)
+        : [...current, candidateId]
+    );
+  }
+
+  function updateImportCandidateType(candidateId: string, proposedType: CalendarImportCandidate["proposedType"]) {
+    setImportCandidates((current) => current.map((candidate) =>
+      candidate.id === candidateId ? { ...candidate, proposedType } : candidate
+    ));
+  }
+
+  function handleSubmitEventsToCleanly() {
+    if (!selectedHousehold) return;
+    const selectedEvents = importCandidates.filter((candidate) => selectedImportCandidateIds.includes(candidate.id));
+    void submitCalendarImportEvents(selectedHousehold.id, selectedEvents)
+      .then((result) => {
+        setCalendarStatus(result.status === "auto_ready" ? "Selected events were added to Cleanly." : "Selected events were sent to the owner queue.");
+        setImportCandidates([]);
+        setSelectedImportCandidateIds([]);
+      })
+      .catch(() => setCalendarStatus("Could not send selected events to Cleanly."));
+  }
+
+  function updateSelectedSourceCalendars(selectedOptions: HTMLCollectionOf<HTMLOptionElement>) {
+    if (!preferences) return;
+    savePreference({
+      ...preferences,
+      selectedSourceCalendarIds: Array.from(selectedOptions).filter((option) => option.selected).map((option) => option.value)
+    });
   }
 
   return (
@@ -208,14 +252,29 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
                   </label>
                   <label>
                     Source calendars
-                    <select disabled>
-                      <option>Connect Google Calendar to choose</option>
+                    <select
+                      multiple
+                      value={preferences.selectedSourceCalendarIds}
+                      onChange={(event) => updateSelectedSourceCalendars(event.currentTarget.options)}
+                    >
+                      {externalCalendars.length ? externalCalendars.map((calendar) => (
+                        <option key={calendar.id} value={calendar.id}>{calendar.name}</option>
+                      )) : <option disabled>Connect Google Calendar to choose</option>}
                     </select>
                   </label>
                   <label>
                     Export destination
-                    <select disabled>
-                      <option>Choose after connecting Google Calendar</option>
+                    <select
+                      value={preferences.destinationExternalCalendarId ?? ""}
+                      onChange={(event) => savePreference({
+                        ...preferences,
+                        destinationExternalCalendarId: event.target.value || undefined
+                      })}
+                    >
+                      <option value="">Choose after connecting Google Calendar</option>
+                      {externalCalendars.map((calendar) => (
+                        <option key={calendar.id} value={calendar.id}>{calendar.name}</option>
+                      ))}
                     </select>
                   </label>
                 </div>
@@ -236,12 +295,37 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
                     <ul>
                       {importCandidates.map((candidate) => (
                         <li key={candidate.id}>
-                          <strong>{candidate.title}</strong>
-                          <span>{candidate.proposedType}</span>
+                          <label>
+                            <input
+                              checked={selectedImportCandidateIds.includes(candidate.id)}
+                              onChange={() => toggleImportCandidate(candidate.id)}
+                              type="checkbox"
+                            />
+                            <strong>{candidate.privacyTitle}</strong>
+                          </label>
+                          <select
+                            value={candidate.proposedType}
+                            onChange={(event) => updateImportCandidateType(
+                              candidate.id,
+                              event.target.value as CalendarImportCandidate["proposedType"]
+                            )}
+                          >
+                            <option value="commitment">Commitment</option>
+                            <option value="chore">Chore</option>
+                          </select>
                         </li>
                       ))}
                     </ul>
                   )}
+                  {importCandidates.length ? (
+                    <button
+                      disabled={selectedImportCandidateIds.length === 0}
+                      onClick={handleSubmitEventsToCleanly}
+                      type="button"
+                    >
+                      Send selected to Cleanly
+                    </button>
+                  ) : null}
                 </section>
               ) : null}
             </article>

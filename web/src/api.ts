@@ -5,6 +5,8 @@ import type {
   CalendarImportQueueDecisionInput,
   CalendarImportQueueItem,
   CalendarPreferences,
+  CalendarImportCandidate,
+  CleanlyCalendarEvent,
   Chore,
   ChoreDefinitionInput,
   ChoreCompletionCheckIn,
@@ -20,7 +22,8 @@ import type {
   HouseholdStructure,
   Recommendation,
   ScheduleInput,
-  ScheduledChore
+  ScheduledChore,
+  ExternalCalendarSummary
 } from "@chore-helper/shared";
 
 /*
@@ -515,6 +518,13 @@ export async function listCalendarConnections(): Promise<CalendarConnectionSumma
   return response.json();
 }
 
+export async function listExternalCalendars(): Promise<ExternalCalendarSummary[]> {
+  const response = await apiFetch(`${API_BASE_URL}/api/me/calendar/external-calendars`);
+
+  if (!response.ok) throw new Error("Failed to fetch external calendars");
+  return response.json();
+}
+
 export async function startGoogleCalendarConnection(): Promise<{ provider: "google"; status: string; message: string; authUrl?: string }> {
   const response = await apiFetch(`${API_BASE_URL}/api/me/calendar/google/connect`, { method: "POST" });
 
@@ -522,18 +532,49 @@ export async function startGoogleCalendarConnection(): Promise<{ provider: "goog
   return response.json();
 }
 
-export type CalendarImportCandidate = {
-  id: string;
-  title: string;
-  startsAt: string;
-  endsAt: string;
-  proposedType: "chore" | "commitment";
-};
-
 export async function listCalendarImportCandidates(householdId: string): Promise<CalendarImportCandidate[]> {
   const response = await apiFetch(`${API_BASE_URL}/api/me/calendar/import-candidates?householdId=${encodeURIComponent(householdId)}`);
 
   if (!response.ok) throw new Error("Failed to fetch calendar import candidates");
+  return response.json();
+}
+
+export async function submitCalendarImportEvents(
+  householdId: string,
+  events: CalendarImportCandidate[]
+): Promise<{ status: string; items: CalendarImportQueueItem[] }> {
+  const response = await apiFetch(`${API_BASE_URL}/api/me/calendar/import-queue`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ householdId, events })
+  });
+
+  if (!response.ok) throw new Error("Failed to submit calendar events");
+  return response.json();
+}
+
+export async function listCleanlyCalendarEvents(
+  householdId: string,
+  range: { startAt: string; endAt: string }
+): Promise<CleanlyCalendarEvent[]> {
+  const params = new URLSearchParams(range);
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/calendar/events?${params.toString()}`);
+
+  if (!response.ok) throw new Error("Failed to fetch Cleanly calendar events");
+  return response.json();
+}
+
+export async function exportCleanlyCalendarEvents(
+  householdId: string,
+  cleanlyCalendarEventIds: string[]
+): Promise<{ status: string; exported: number }> {
+  const response = await apiFetch(`${API_BASE_URL}/api/me/calendar/export`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ householdId, cleanlyCalendarEventIds })
+  });
+
+  if (!response.ok) throw new Error("Failed to export calendar events");
   return response.json();
 }
 

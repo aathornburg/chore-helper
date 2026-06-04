@@ -1,7 +1,8 @@
 import request from "supertest";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createApp } from "../src/app.js";
 import { createInMemoryStore } from "../src/repositories/inMemoryStore.js";
+import type { GoogleCalendarProvider } from "../src/calendar/googleCalendarProvider.js";
 
 function auth(app: ReturnType<typeof createApp>, clerkUserId: string) {
   const authorization = `Bearer ${clerkUserId}`;
@@ -34,6 +35,56 @@ async function createHouseholdWithMember() {
   await store.acceptInvitation(invitation.id, member.id, new Date().toISOString());
 
   return { app, household, member, owner, store };
+}
+
+function fakeGoogleProvider(): GoogleCalendarProvider {
+  return {
+    buildAuthUrl: vi.fn((state: string) => `https://accounts.google.com/o/oauth2/v2/auth?client_id=fake-client&state=${state}`),
+    exchangeCode: vi.fn(async () => ({
+      accessToken: "access-token",
+      refreshToken: "refresh-token",
+      expiresAt: "2026-06-04T18:00:00.000Z",
+      scopes: [
+        "https://www.googleapis.com/auth/userinfo.email",
+        "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
+        "https://www.googleapis.com/auth/calendar.events.readonly",
+        "https://www.googleapis.com/auth/calendar.events"
+      ]
+    })),
+    refreshAccessToken: vi.fn(async () => ({
+      accessToken: "refreshed-access-token",
+      expiresAt: "2026-06-04T19:00:00.000Z",
+      scopes: ["https://www.googleapis.com/auth/calendar.events"]
+    })),
+    getProfile: vi.fn(async () => ({ email: "member.google@example.com" })),
+    listCalendars: vi.fn(async () => [
+      {
+        providerCalendarId: "primary",
+        name: "Personal",
+        color: "#1a73e8",
+        timezone: "America/New_York",
+        accessRole: "owner"
+      },
+      {
+        providerCalendarId: "family",
+        name: "Family",
+        color: "#fbbc04",
+        timezone: "America/New_York",
+        accessRole: "writer"
+      }
+    ]),
+    listEvents: vi.fn(async () => [
+      {
+        providerEventId: "google-event-1",
+        sourceProviderCalendarId: "primary",
+        title: "Dentist appointment",
+        startsAt: "2026-06-18T14:00:00.000Z",
+        endsAt: "2026-06-18T15:00:00.000Z",
+        timezone: "America/New_York"
+      }
+    ]),
+    createEvent: vi.fn(async () => ({ providerEventId: "exported-google-event-1" }))
+  };
 }
 
 describe("calendar sync governance", () => {
@@ -140,6 +191,36 @@ describe("calendar sync governance", () => {
     }
   });
 
+  it("stores encrypted tokens and discovered calendars after Google OAuth callback", async () => {
+    const store = createInMemoryStore();
+    const provider = fakeGoogleProvider();
+    const app = createApp({ store, authMode: "test", calendarProvider: provider });
+    const member = await store.upsertUserByClerkId("member", {
+      primaryEmail: "member@example.com",
+      displayName: "Member"
+    });
+
+    const connect = await auth(app, "member").post("/api/me/calendar/google/connect");
+    const state = new URL(connect.body.authUrl).searchParams.get("state");
+    const callback = await request(app).get(`/api/me/calendar/google/callback?code=google-code&state=${state}`);
+
+    expect(callback.status).toBe(302);
+    expect(provider.exchangeCode).toHaveBeenCalledWith("google-code");
+    const connections = await store.listCalendarConnections(member.id);
+    expect(connections).toEqual([
+      expect.objectContaining({
+        provider: "google",
+        providerAccountEmail: "member.google@example.com",
+        status: "connected"
+      })
+    ]);
+    expect(await Promise.resolve(store.getCalendarConnectionSecrets(member.id, connections[0].id))).toEqual(expect.objectContaining({
+      accessTokenEncrypted: expect.not.stringContaining("access-token"),
+      refreshTokenEncrypted: expect.not.stringContaining("refresh-token")
+    }));
+    expect(await Promise.resolve(store.listExternalCalendars(member.id))).toHaveLength(2);
+  });
+
   it("blocks member calendar preferences for households the user cannot access", async () => {
     const { app, store } = await createHouseholdWithMember();
     const otherOwner = await store.upsertUserByClerkId("other-owner", {
@@ -223,6 +304,60 @@ describe("calendar sync governance", () => {
       .expect(200, []);
   });
 
+  it("pulls import candidates from selected Google source calendars", async () => {
+    const store = createInMemoryStore();
+    const provider = fakeGoogleProvider();
+    const app = createApp({ store, authMode: "test", calendarProvider: provider });
+    const owner = await store.upsertUserByClerkId("owner", { primaryEmail: "owner@example.com", displayName: "Owner" });
+    const member = await store.upsertUserByClerkId("member", { primaryEmail: "member@example.com", displayName: "Member" });
+    const household = await store.createHouseholdForUser("Home", owner.id);
+    await store.acceptInvitation((await store.createInvitation({
+      householdId: household.id,
+      recipientEmail: "member@example.com",
+      tokenDigest: "token",
+      invitedByUserId: owner.id,
+      expiresAt: new Date(Date.now() + 60_000).toISOString()
+    })).id, member.id, new Date().toISOString());
+    const connection = await store.upsertCalendarConnection(member.id, {
+      provider: "google",
+      providerAccountEmail: "member.google@example.com",
+      scopes: ["https://www.googleapis.com/auth/calendar.events.readonly"],
+      tokenExpiresAt: "2026-06-05T18:00:00.000Z",
+      lastSyncedAt: "2026-06-04T17:00:00.000Z",
+      accessTokenEncrypted: "encrypted-access",
+      refreshTokenEncrypted: "encrypted-refresh"
+    });
+    const calendars = await store.upsertExternalCalendars(member.id, connection.id, [{
+      providerCalendarId: "primary",
+      name: "Personal",
+      timezone: "America/New_York",
+      accessRole: "owner"
+    }]);
+    await store.updateCalendarPreferences(member.id, household.id, {
+      householdId: household.id,
+      defaultDetailLevel: "busy_only",
+      selectedSourceCalendarIds: [calendars[0].id],
+      exportMode: "off",
+      exportContentMode: "chores"
+    });
+
+    const response = await auth(app, "member")
+      .get(`/api/me/calendar/import-candidates?householdId=${household.id}&startAt=2026-06-15T00:00:00.000Z&endAt=2026-06-22T00:00:00.000Z`);
+
+    expect(response.status).toBe(200);
+    expect(provider.listEvents).toHaveBeenCalledWith(expect.objectContaining({
+      calendarIds: ["primary"]
+    }));
+    expect(response.body).toEqual([
+      expect.objectContaining({
+        providerEventId: "google-event-1",
+        title: "Dentist appointment",
+        privacyTitle: "Busy",
+        proposedType: "commitment"
+      })
+    ]);
+  });
+
   it("lets a member submit selected events to the owner import queue", async () => {
     const { app, household } = await createHouseholdWithMember();
 
@@ -287,5 +422,65 @@ describe("calendar sync governance", () => {
         createdCleanlyEventId: expect.any(String)
       })
     ]);
+  });
+
+  it("exports approved Cleanly calendar events to the selected Google destination calendar", async () => {
+    const store = createInMemoryStore();
+    const provider = fakeGoogleProvider();
+    const app = createApp({ store, authMode: "test", calendarProvider: provider });
+    const owner = await store.upsertUserByClerkId("owner", { primaryEmail: "owner@example.com", displayName: "Owner" });
+    const household = await store.createHouseholdForUser("Home", owner.id);
+    const connection = await store.upsertCalendarConnection(owner.id, {
+      provider: "google",
+      providerAccountEmail: "owner.google@example.com",
+      scopes: ["https://www.googleapis.com/auth/calendar.events"],
+      tokenExpiresAt: "2026-06-05T18:00:00.000Z",
+      lastSyncedAt: "2026-06-04T17:00:00.000Z",
+      accessTokenEncrypted: "encrypted-access",
+      refreshTokenEncrypted: "encrypted-refresh"
+    });
+    const calendars = await store.upsertExternalCalendars(owner.id, connection.id, [{
+      providerCalendarId: "cleanly",
+      name: "Cleanly",
+      timezone: "America/New_York",
+      accessRole: "owner"
+    }]);
+    await store.updateCalendarPreferences(owner.id, household.id, {
+      householdId: household.id,
+      defaultDetailLevel: "busy_only",
+      selectedSourceCalendarIds: [],
+      exportMode: "auto",
+      exportContentMode: "both",
+      destinationExternalCalendarId: calendars[0].id
+    });
+    const queueItem = await store.createCalendarImportQueueItem({
+      householdId: household.id,
+      submittedByUserId: owner.id,
+      submittedByName: "Owner",
+      proposedType: "commitment",
+      detailLevel: "full_details",
+      title: "Dentist appointment",
+      privacyTitle: "Dentist appointment",
+      startsAt: "2026-06-18T14:00:00.000Z",
+      endsAt: "2026-06-18T15:00:00.000Z"
+    });
+    const approved = await store.decideCalendarImportQueueItem(household.id, queueItem.id, owner.id, {
+      decision: "approve",
+      proposedType: "commitment"
+    });
+
+    const response = await auth(app, "owner")
+      .post("/api/me/calendar/export")
+      .send({ householdId: household.id, cleanlyCalendarEventIds: [approved.createdCleanlyEventId] });
+
+    expect(response.status).toBe(202);
+    expect(provider.createEvent).toHaveBeenCalledWith(expect.objectContaining({
+      calendarId: "cleanly",
+      title: "Dentist appointment"
+    }));
+    expect(response.body).toEqual(expect.objectContaining({
+      status: "exported",
+      exported: 1
+    }));
   });
 });
