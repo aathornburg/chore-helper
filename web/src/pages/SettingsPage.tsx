@@ -159,14 +159,6 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
       .catch(() => setCalendarStatus("Could not send selected events to Cleanly."));
   }
 
-  function updateSelectedSourceCalendars(selectedOptions: HTMLCollectionOf<HTMLOptionElement>) {
-    if (!preferences) return;
-    savePreference({
-      ...preferences,
-      selectedSourceCalendarIds: Array.from(selectedOptions).filter((option) => option.selected).map((option) => option.value)
-    });
-  }
-
   return (
     <div className="settings-page operational-page">
       <header className="page-command-header">
@@ -241,14 +233,17 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
                       </label>
                       <label>
                         Source calendars
-                        <select
-                          multiple
-                          value={preferences.selectedSourceCalendarIds}
-                          onChange={(event) => updateSelectedSourceCalendars(event.currentTarget.options)}
-                        >
-                          {externalCalendars.length ? externalCalendars.map((calendar) => (
-                            <option key={calendar.id} value={calendar.id}>{calendar.name}</option>
-                          )) : <option disabled>Connect Google Calendar to choose</option>}
+                    <select
+                      value={preferences.selectedSourceCalendarIds[0] ?? ""}
+                      onChange={(event) => savePreference({
+                        ...preferences,
+                        selectedSourceCalendarIds: event.target.value ? [event.target.value] : []
+                      })}
+                    >
+                      <option value="">Choose source calendar</option>
+                      {externalCalendars.length ? externalCalendars.map((calendar) => (
+                        <option key={calendar.id} value={calendar.id}>{calendar.name}</option>
+                      )) : <option disabled>Connect Google Calendar to choose</option>}
                         </select>
                       </label>
                       <div className="sync-action-row">

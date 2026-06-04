@@ -973,7 +973,7 @@ button:where(:not(.link-button)):hover {
   background: rgba(255, 255, 255, 0.88);
   border: 1px solid var(--color-border);
   display: grid;
-  gap: 22px;
+  gap: 14px;
   padding: 26px;
 }
 
@@ -982,8 +982,8 @@ button:where(:not(.link-button)):hover {
 }
 
 .sync-panel > p {
-  line-height: 1.65;
-  margin: 0;
+  line-height: 1.5;
+  margin: 4px 0 8px;
   max-width: 74ch;
 }
 
@@ -1006,13 +1006,14 @@ button:where(:not(.link-button)):hover {
 .sync-settings-stack {
   border-top: 1px solid #d5e8ea;
   display: grid;
+  margin-top: 8px;
 }
 
 .sync-setting-section {
   display: grid;
-  gap: 20px;
+  gap: 22px;
   grid-template-columns: minmax(190px, 0.32fr) minmax(0, 1fr);
-  padding: 24px 0;
+  padding: 20px 0;
 }
 
 .sync-setting-section + .sync-setting-section {
@@ -1020,7 +1021,7 @@ button:where(:not(.link-button)):hover {
 }
 
 .sync-setting-section:first-child {
-  padding-top: 22px;
+  padding-top: 18px;
 }
 
 .sync-setting-section:last-child {
@@ -1064,7 +1065,7 @@ button:where(:not(.link-button)):hover {
 }
 
 .sync-preference-grid {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .sync-preference-grid {
@@ -1083,20 +1084,12 @@ button:where(:not(.link-button)):hover {
 }
 
 .sync-preference-grid label {
-  grid-column: span 2;
-}
-
-.sync-preference-grid label:nth-child(4),
-.sync-preference-grid label:nth-child(5) {
-  grid-column: span 3;
-}
-
-.sync-preference-grid label:nth-child(5) {
-  align-self: end;
+  grid-column: auto;
 }
 
 .sync-preference-grid-import {
-  grid-template-columns: minmax(180px, 0.42fr) minmax(260px, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 420px;
 }
 
 .sync-preference-grid-import label,
@@ -1105,11 +1098,12 @@ button:where(:not(.link-button)):hover {
 }
 
 .sync-preference-grid-import .sync-action-row {
-  align-self: end;
+  align-self: start;
 }
 
 .sync-preference-grid-export {
-  grid-template-columns: minmax(150px, 0.35fr) minmax(170px, 0.4fr) minmax(260px, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 520px;
 }
 
 .sync-preference-grid-export label {
@@ -1201,6 +1195,11 @@ button:where(:not(.link-button)):hover {
 
 .sync-preference-grid select[multiple] {
   min-height: 76px;
+}
+
+.sync-setting-section select,
+.sync-setting-section button {
+  min-height: 48px;
 }
 
 .operational-page {
