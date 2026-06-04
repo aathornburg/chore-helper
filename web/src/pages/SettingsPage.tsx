@@ -210,6 +210,11 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
                 </div>
                 <p>Control how each member can send calendar events into the shared Cleanly calendar.</p>
                 <div className="sync-policy-table">
+                  <div className="sync-policy-header" aria-hidden="true">
+                    <span>Member</span>
+                    <span>Import mode</span>
+                    <span>Content</span>
+                  </div>
                   {policies.map((policy) => (
                     <div className="sync-policy-row" key={policy.memberId}>
                       <span>
