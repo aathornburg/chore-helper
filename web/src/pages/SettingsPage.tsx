@@ -201,88 +201,116 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
                 Choose what you share with Cleanly and where Cleanly exports your calendar updates.
                 Export does not require importing personal events.
               </p>
-              <div className="sync-action-row">
-                <button
-                  onClick={handleConnectGoogleCalendar}
-                  type="button"
-                >
-                  Connect Google Calendar
-                </button>
-                <button className="section-action" onClick={handleReviewEventsToShare} type="button">Review events to share</button>
-              </div>
               {preferences ? (
-                <div className="sync-preference-grid">
-                  <label>
-                    Privacy default
-                    <select
-                      value={preferences.defaultDetailLevel}
-                      onChange={(event) => savePreference({
-                        ...preferences,
-                        defaultDetailLevel: event.target.value as CalendarPreferences["defaultDetailLevel"]
-                      })}
-                    >
-                      <option value="busy_only">Busy only</option>
-                      <option value="full_details">Full details</option>
-                    </select>
-                  </label>
-                  <label>
-                    Export mode
-                    <select
-                      value={preferences.exportMode}
-                      onChange={(event) => savePreference({
-                        ...preferences,
-                        exportMode: event.target.value as CalendarPreferences["exportMode"]
-                      })}
-                    >
-                      <option value="off">Off</option>
-                      <option value="review">Review first</option>
-                      <option value="auto">Auto</option>
-                    </select>
-                  </label>
-                  <label>
-                    Export content
-                    <select
-                      value={preferences.exportContentMode}
-                      onChange={(event) => savePreference({
-                        ...preferences,
-                        exportContentMode: event.target.value as CalendarPreferences["exportContentMode"]
-                      })}
-                    >
-                      <option value="chores">Chores</option>
-                      <option value="commitments">Commitments</option>
-                      <option value="both">Both</option>
-                    </select>
-                  </label>
-                  <label>
-                    Source calendars
-                    <select
-                      multiple
-                      value={preferences.selectedSourceCalendarIds}
-                      onChange={(event) => updateSelectedSourceCalendars(event.currentTarget.options)}
-                    >
-                      {externalCalendars.length ? externalCalendars.map((calendar) => (
-                        <option key={calendar.id} value={calendar.id}>{calendar.name}</option>
-                      )) : <option disabled>Connect Google Calendar to choose</option>}
-                    </select>
-                  </label>
-                  <label>
-                    Export destination
-                    <select
-                      value={preferences.destinationExternalCalendarId ?? ""}
-                      onChange={(event) => savePreference({
-                        ...preferences,
-                        destinationExternalCalendarId: event.target.value || undefined
-                      })}
-                    >
-                      <option value="">Choose after connecting Google Calendar</option>
-                      {externalCalendars.map((calendar) => (
-                        <option key={calendar.id} value={calendar.id}>{calendar.name}</option>
-                      ))}
-                    </select>
-                  </label>
+                <div className="sync-settings-stack">
+                  <section className="sync-setting-section" aria-labelledby="calendar-connection-settings-heading">
+                    <div className="sync-setting-copy">
+                      <p className="eyebrow">Connection settings</p>
+                      <h4 id="calendar-connection-settings-heading">Google account</h4>
+                      <p>Connect the account Cleanly should read from and write to when you choose to sync.</p>
+                    </div>
+                    <div className="sync-action-row">
+                      <button
+                        onClick={handleConnectGoogleCalendar}
+                        type="button"
+                      >
+                        Connect Google Calendar
+                      </button>
+                    </div>
+                  </section>
+
+                  <section className="sync-setting-section" aria-labelledby="calendar-import-settings-heading">
+                    <div className="sync-setting-copy">
+                      <p className="eyebrow">Import settings</p>
+                      <h4 id="calendar-import-settings-heading">What Cleanly can review</h4>
+                      <p>Choose which calendars can send events toward the shared Cleanly queue.</p>
+                    </div>
+                    <div className="sync-preference-grid sync-preference-grid-import">
+                      <label>
+                        Privacy default
+                        <select
+                          value={preferences.defaultDetailLevel}
+                          onChange={(event) => savePreference({
+                            ...preferences,
+                            defaultDetailLevel: event.target.value as CalendarPreferences["defaultDetailLevel"]
+                          })}
+                        >
+                          <option value="busy_only">Busy only</option>
+                          <option value="full_details">Full details</option>
+                        </select>
+                      </label>
+                      <label>
+                        Source calendars
+                        <select
+                          multiple
+                          value={preferences.selectedSourceCalendarIds}
+                          onChange={(event) => updateSelectedSourceCalendars(event.currentTarget.options)}
+                        >
+                          {externalCalendars.length ? externalCalendars.map((calendar) => (
+                            <option key={calendar.id} value={calendar.id}>{calendar.name}</option>
+                          )) : <option disabled>Connect Google Calendar to choose</option>}
+                        </select>
+                      </label>
+                      <div className="sync-action-row">
+                        <button className="section-action" onClick={handleReviewEventsToShare} type="button">Review events to share</button>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="sync-setting-section" aria-labelledby="calendar-export-settings-heading">
+                    <div className="sync-setting-copy">
+                      <p className="eyebrow">Export settings</p>
+                      <h4 id="calendar-export-settings-heading">Where Cleanly writes</h4>
+                      <p>Export is personal. Each member chooses where Cleanly writes calendar updates.</p>
+                    </div>
+                    <div className="sync-preference-grid sync-preference-grid-export">
+                      <label>
+                        Export mode
+                        <select
+                          value={preferences.exportMode}
+                          onChange={(event) => savePreference({
+                            ...preferences,
+                            exportMode: event.target.value as CalendarPreferences["exportMode"]
+                          })}
+                        >
+                          <option value="off">Off</option>
+                          <option value="review">Review first</option>
+                          <option value="auto">Auto</option>
+                        </select>
+                      </label>
+                      <label>
+                        Export content
+                        <select
+                          value={preferences.exportContentMode}
+                          onChange={(event) => savePreference({
+                            ...preferences,
+                            exportContentMode: event.target.value as CalendarPreferences["exportContentMode"]
+                          })}
+                        >
+                          <option value="chores">Chores</option>
+                          <option value="commitments">Commitments</option>
+                          <option value="both">Both</option>
+                        </select>
+                      </label>
+                      <label>
+                        Export destination
+                        <select
+                          value={preferences.destinationExternalCalendarId ?? ""}
+                          onChange={(event) => savePreference({
+                            ...preferences,
+                            destinationExternalCalendarId: event.target.value || undefined
+                          })}
+                        >
+                          <option value="">Choose after connecting Google Calendar</option>
+                          {externalCalendars.map((calendar) => (
+                            <option key={calendar.id} value={calendar.id}>{calendar.name}</option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                  </section>
                 </div>
               ) : null}
-              <p className="section-summary">Export is personal. Each member chooses where Cleanly writes calendar updates.</p>
               {isReviewingImports ? (
                 <section className="calendar-review-panel" aria-live="polite" aria-label="Events to share">
                   <div>

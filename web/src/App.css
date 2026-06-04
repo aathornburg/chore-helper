@@ -1003,6 +1003,52 @@ button:where(:not(.link-button)):hover {
   width: auto;
 }
 
+.sync-settings-stack {
+  border-top: 1px solid #d5e8ea;
+  display: grid;
+}
+
+.sync-setting-section {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: minmax(190px, 0.32fr) minmax(0, 1fr);
+  padding: 24px 0;
+}
+
+.sync-setting-section + .sync-setting-section {
+  border-top: 1px solid #d5e8ea;
+}
+
+.sync-setting-section:first-child {
+  padding-top: 22px;
+}
+
+.sync-setting-section:last-child {
+  padding-bottom: 2px;
+}
+
+.sync-setting-copy {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+
+.sync-setting-copy h4,
+.sync-setting-copy p {
+  margin: 0;
+}
+
+.sync-setting-copy h4 {
+  color: #12251d;
+  font-size: 1.05rem;
+}
+
+.sync-setting-copy p:not(.eyebrow) {
+  color: #536173;
+  font-size: 0.94rem;
+  line-height: 1.45;
+}
+
 .sync-panel > .section-action {
   padding-inline: 16px;
 }
@@ -1022,9 +1068,7 @@ button:where(:not(.link-button)):hover {
 }
 
 .sync-preference-grid {
-  border-top: 1px solid #d5e8ea;
-  margin-top: 2px;
-  padding-top: 20px;
+  margin-top: 0;
 }
 
 .sync-preference-grid label,
@@ -1049,6 +1093,27 @@ button:where(:not(.link-button)):hover {
 
 .sync-preference-grid label:nth-child(5) {
   align-self: end;
+}
+
+.sync-preference-grid-import {
+  grid-template-columns: minmax(180px, 0.42fr) minmax(260px, 1fr) auto;
+}
+
+.sync-preference-grid-import label,
+.sync-preference-grid-import .sync-action-row {
+  grid-column: auto;
+}
+
+.sync-preference-grid-import .sync-action-row {
+  align-self: end;
+}
+
+.sync-preference-grid-export {
+  grid-template-columns: minmax(150px, 0.35fr) minmax(170px, 0.4fr) minmax(260px, 1fr);
+}
+
+.sync-preference-grid-export label {
+  grid-column: auto;
 }
 
 .sync-policy-table {
@@ -1135,7 +1200,7 @@ button:where(:not(.link-button)):hover {
 }
 
 .sync-preference-grid select[multiple] {
-  min-height: 84px;
+  min-height: 76px;
 }
 
 .operational-page {
@@ -4848,6 +4913,7 @@ button.chore-row-summary[aria-expanded="true"] {
 
 @media (max-width: 760px) {
   .sync-board,
+  .sync-setting-section,
   .sync-preference-grid,
   .sync-policy-row,
   .sync-policy-header,
