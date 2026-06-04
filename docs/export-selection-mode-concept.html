@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cleanly Export Selection Mode Concept</title>
+  <style>
+    :root {
+      --ink: #083247;
+      --body: #345661;
+      --muted: #6a8189;
+      --teal: #176f84;
+      --teal-soft: #e4f4f7;
+      --teal-wash: #f1fbfd;
+      --line: #bedce4;
+      --paper: #fbfefe;
+      --yellow: #f3c94e;
+      --yellow-soft: #fff7d7;
+      --green: #2d7a54;
+      --rust: #a54a37;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      background:
+        linear-gradient(90deg, rgba(23, 111, 132, 0.07) 1px, transparent 1px),
+        linear-gradient(rgba(23, 111, 132, 0.07) 1px, transparent 1px),
+        radial-gradient(circle at 82% 8%, rgba(243, 201, 78, 0.22), transparent 26rem),
+        #edf8fa;
+      background-size: 38px 38px, 38px 38px, auto, auto;
+      color: var(--ink);
+      font-family: "Nunito", "Segoe UI", system-ui, sans-serif;
+      margin: 0;
+      padding: 32px;
+    }
+
+    main {
+      margin: 0 auto;
+      max-width: 1440px;
+    }
+
+    header {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 22px;
+    }
+
+    .eyebrow {
+      color: var(--rust);
+      font-size: 12px;
+      font-weight: 950;
+      letter-spacing: 0.09em;
+      margin: 0;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      font-size: clamp(38px, 4vw, 70px);
+      letter-spacing: -0.02em;
+      line-height: 0.95;
+      margin: 0;
+    }
+
+    p {
+      color: var(--body);
+      line-height: 1.45;
+      margin: 0;
+    }
+
+    .app-shell {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      box-shadow: -8px 8px 0 rgba(23, 111, 132, 0.18);
+      padding: 22px;
+    }
+
+    .app-nav,
+    .command-row,
+    .mode-banner,
+    .panel-actions,
+    .summary-grid,
+    .field-row {
+      align-items: center;
+      display: flex;
+      gap: 12px;
+    }
+
+    .app-nav {
+      border-bottom: 1px solid var(--line);
+      justify-content: space-between;
+      padding-bottom: 14px;
+    }
+
+    .logo {
+      color: #075473;
+      font-size: 30px;
+      font-style: italic;
+      font-weight: 950;
+      letter-spacing: -0.04em;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 20px;
+      font-size: 14px;
+      font-weight: 900;
+    }
+
+    .command-row {
+      justify-content: space-between;
+      margin: 28px 0 18px;
+    }
+
+    h2 {
+      font-size: 46px;
+      line-height: 1;
+      margin: 0 0 8px;
+    }
+
+    .metrics {
+      color: var(--body);
+      display: flex;
+      gap: 14px;
+      font-weight: 800;
+    }
+
+    .button {
+      background: var(--teal);
+      border: 0;
+      color: white;
+      display: inline-flex;
+      font-weight: 950;
+      justify-content: center;
+      padding: 12px 16px;
+      white-space: nowrap;
+    }
+
+    .button.secondary {
+      background: var(--teal-soft);
+      color: #075473;
+    }
+
+    .button.ghost {
+      background: transparent;
+      color: var(--teal);
+      text-decoration: underline;
+    }
+
+    .mode-banner {
+      background: #fff8dc;
+      border: 1px solid #ead386;
+      color: #645000;
+      font-weight: 900;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      padding: 12px 14px;
+    }
+
+    .workspace {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: minmax(0, 1fr) 360px;
+    }
+
+    .calendar-sheet,
+    .export-panel {
+      background: white;
+      border: 1px solid var(--line);
+      box-shadow: -6px 6px 0 rgba(23, 111, 132, 0.14);
+    }
+
+    .calendar-head,
+    .export-panel header {
+      border-bottom: 1px solid var(--line);
+      padding: 14px 16px;
+    }
+
+    .calendar-head {
+      align-items: center;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .legend {
+      display: flex;
+      gap: 12px;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .legend span::before {
+      content: "";
+      display: inline-block;
+      height: 12px;
+      margin-right: 5px;
+      vertical-align: -2px;
+      width: 5px;
+    }
+
+    .legend .chore::before {
+      background: var(--teal);
+    }
+
+    .legend .commitment::before {
+      background: var(--yellow);
+    }
+
+    .days {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      min-height: 455px;
+    }
+
+    .day {
+      border-right: 1px solid #d5e8ee;
+      padding: 10px;
+      position: relative;
+    }
+
+    .day:nth-child(7) {
+      border-right: 0;
+    }
+
+    .day.in-range {
+      background: linear-gradient(#edf9fb, #edf9fb);
+    }
+
+    .day strong {
+      color: var(--ink);
+      display: block;
+      font-size: 13px;
+      margin-bottom: 10px;
+    }
+
+    .event {
+      background: #f8fbfb;
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--teal);
+      color: #102a32;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 900;
+      line-height: 1.15;
+      margin-bottom: 9px;
+      min-height: 44px;
+      padding: 7px 8px;
+      position: relative;
+    }
+
+    .event.commitment {
+      background: var(--yellow-soft);
+      border-color: #ead386;
+      border-left-color: var(--yellow);
+    }
+
+    .event.selected {
+      outline: 3px solid rgba(23, 111, 132, 0.28);
+      outline-offset: 2px;
+    }
+
+    .event.selected::after {
+      background: var(--teal);
+      color: white;
+      content: "✓";
+      display: grid;
+      font-size: 12px;
+      height: 22px;
+      place-items: center;
+      position: absolute;
+      right: 6px;
+      top: 6px;
+      width: 22px;
+    }
+
+    .event.muted {
+      opacity: 0.42;
+    }
+
+    .event small {
+      color: var(--muted);
+      display: block;
+      font-size: 10px;
+      margin-top: 4px;
+    }
+
+    .export-panel {
+      align-self: start;
+      display: grid;
+      gap: 0;
+      position: sticky;
+      top: 18px;
+    }
+
+    .export-panel h3 {
+      font-size: 25px;
+      margin: 4px 0 0;
+    }
+
+    .panel-body {
+      display: grid;
+      gap: 14px;
+      padding: 16px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .field span {
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 950;
+    }
+
+    .selectlike,
+    .datelike {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      color: var(--ink);
+      font-weight: 900;
+      padding: 11px 12px;
+    }
+
+    .range-picker {
+      background: var(--teal-wash);
+      border: 1px solid #cce5eb;
+      display: grid;
+      gap: 8px;
+      padding: 12px;
+    }
+
+    .presets {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+
+    .chip {
+      background: white;
+      border: 1px solid var(--line);
+      color: var(--teal);
+      font-size: 12px;
+      font-weight: 900;
+      padding: 7px 9px;
+    }
+
+    .chip.active {
+      background: var(--teal);
+      color: white;
+    }
+
+    .summary-grid {
+      align-items: stretch;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .summary-card {
+      background: var(--teal-wash);
+      border-top: 4px solid var(--teal);
+      padding: 10px;
+    }
+
+    .summary-card.yellow {
+      background: var(--yellow-soft);
+      border-top-color: var(--yellow);
+    }
+
+    .summary-card.gray {
+      background: #f3f7f8;
+      border-top-color: #9db2ba;
+    }
+
+    .summary-card strong {
+      display: block;
+      font-size: 26px;
+      line-height: 1;
+    }
+
+    .summary-card span {
+      color: var(--muted);
+      display: block;
+      font-size: 10px;
+      font-weight: 950;
+      margin-top: 5px;
+      text-transform: uppercase;
+    }
+
+    .panel-actions {
+      align-items: stretch;
+      border-top: 1px solid var(--line);
+      display: grid;
+      gap: 10px;
+      padding-top: 14px;
+    }
+
+    .note {
+      background: var(--teal-soft);
+      border-left: 4px solid var(--teal);
+      color: #244b56;
+      font-size: 13px;
+      font-weight: 800;
+      padding: 10px;
+    }
+
+    @media (max-width: 980px) {
+      body {
+        padding: 18px;
+      }
+
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+
+      .export-panel {
+        bottom: 0;
+        left: 18px;
+        position: fixed;
+        right: 18px;
+        top: auto;
+        z-index: 3;
+      }
+
+      .export-panel .panel-body {
+        max-height: 58vh;
+        overflow: auto;
+      }
+
+      .days {
+        grid-template-columns: 1fr;
+      }
+
+      .day {
+        border-bottom: 1px solid #d5e8ee;
+        border-right: 0;
+        min-height: 120px;
+      }
+
+      .command-row,
+      .app-nav,
+      .mode-banner {
+        align-items: stretch;
+        display: grid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">Selected export direction</p>
+      <h1>Calendar selection mode with export panel</h1>
+      <p>Clicking Export turns the Calendar into the selection surface. The panel controls range, destination, batch selection, and final confirmation.</p>
+    </header>
+
+    <section class="app-shell" aria-label="Calendar export mode concept">
+      <nav class="app-nav">
+        <span class="logo">Cleanly</span>
+        <span class="nav-links"><span>Today</span><span>Calendar</span><span>My Home</span><span>Family</span><span>Settings</span></span>
+      </nav>
+
+      <div class="command-row">
+        <div>
+          <h2>Calendar</h2>
+          <div class="metrics"><span>Home</span><span>Jun 15-21</span><span>8 open</span><span>1 completed</span></div>
+        </div>
+        <div class="field-row">
+          <button class="button secondary">Import events</button>
+          <button class="button secondary">Export</button>
+          <button class="button">Add chore</button>
+        </div>
+      </div>
+
+      <div class="mode-banner">
+        <span>Export mode: choose a range, select eligible events, then export to your calendar.</span>
+        <button class="button ghost">Exit export mode</button>
+      </div>
+
+      <div class="workspace">
+        <section class="calendar-sheet">
+          <div class="calendar-head">
+            <strong>June chore plan</strong>
+            <span class="legend"><span class="chore">Chores</span><span class="commitment">Commitments</span></span>
+          </div>
+          <div class="days">
+            <div class="day in-range">
+              <strong>Mon 15</strong>
+              <div class="event commitment selected">Practice<small>5:30 PM · selected</small></div>
+              <div class="event selected">Kitchen reset<small>30 min · selected</small></div>
+            </div>
+            <div class="day in-range">
+              <strong>Tue 16</strong>
+              <div class="event">Bathroom reset<small>Click to select</small></div>
+            </div>
+            <div class="day in-range">
+              <strong>Wed 17</strong>
+              <div class="event selected">Vacuum main floor<small>30 min · selected</small></div>
+            </div>
+            <div class="day in-range">
+              <strong>Thu 18</strong>
+              <div class="event commitment muted">Dentist<small>Already exported</small></div>
+              <div class="event selected">Laundry fold<small>25 min · selected</small></div>
+            </div>
+            <div class="day in-range">
+              <strong>Fri 19</strong>
+              <div class="event selected">Mop floors<small>20 min · selected</small></div>
+            </div>
+            <div class="day in-range">
+              <strong>Sat 20</strong>
+              <div class="event muted">Garage sweep<small>Not eligible</small></div>
+            </div>
+            <div class="day in-range">
+              <strong>Sun 21</strong>
+              <div class="event">Entry reset<small>Click to select</small></div>
+            </div>
+          </div>
+        </section>
+
+        <aside class="export-panel" aria-label="Export selected events">
+          <header>
+            <p class="eyebrow">Export</p>
+            <h3>Exporting Cleanly events</h3>
+          </header>
+          <div class="panel-body">
+            <div class="field">
+              <span>From Cleanly</span>
+              <div class="selectlike">Chores and commitments</div>
+            </div>
+            <div class="field">
+              <span>To calendar</span>
+              <div class="selectlike">Alan - Personal</div>
+            </div>
+            <div class="range-picker">
+              <div class="presets">
+                <span class="chip active">This week</span>
+                <span class="chip">Next 2 weeks</span>
+                <span class="chip">This month</span>
+                <span class="chip">Custom</span>
+              </div>
+              <div class="field-row">
+                <div class="field"><span>Start</span><div class="datelike">Jun 15</div></div>
+                <div class="field"><span>End</span><div class="datelike">Jun 21</div></div>
+              </div>
+            </div>
+            <button class="button secondary">Select 8 eligible events</button>
+            <div class="summary-grid">
+              <div class="summary-card"><strong>5</strong><span>Selected</span></div>
+              <div class="summary-card"><strong>4</strong><span>Chores</span></div>
+              <div class="summary-card yellow"><strong>1</strong><span>Commitment</span></div>
+              <div class="summary-card gray"><strong>2</strong><span>Already / not eligible</span></div>
+            </div>
+            <p class="note">Export is personal. This does not require importing Google events into Cleanly.</p>
+            <div class="panel-actions">
+              <button class="button">Export 5 selected</button>
+              <button class="button secondary">Clear selection</button>
+              <button class="button ghost">Cancel export</button>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

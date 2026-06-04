@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Export Modal Visual Options</title>
+  <style>
+    :root {
+      --ink: #082f3e;
+      --body: #31515c;
+      --muted: #647982;
+      --teal: #176f84;
+      --teal-soft: #e4f4f7;
+      --teal-wash: #f0fbfd;
+      --line: #bedce4;
+      --paper: #fbfefe;
+      --yellow: #f3c94e;
+      --yellow-soft: #fff7d7;
+      --green: #2d7a54;
+      --rust: #a54a37;
+      color-scheme: light;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      background:
+        linear-gradient(90deg, rgba(23, 111, 132, 0.08) 1px, transparent 1px),
+        linear-gradient(rgba(23, 111, 132, 0.08) 1px, transparent 1px),
+        radial-gradient(circle at 12% 8%, rgba(243, 201, 78, 0.24), transparent 28rem),
+        #edf8fa;
+      background-size: 38px 38px, 38px 38px, auto, auto;
+      color: var(--ink);
+      font-family: "Nunito", "Segoe UI", system-ui, sans-serif;
+      margin: 0;
+      padding: 32px;
+    }
+
+    main {
+      margin: 0 auto;
+      max-width: 1640px;
+    }
+
+    header {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    h1 {
+      font-size: clamp(38px, 4vw, 72px);
+      letter-spacing: -0.02em;
+      line-height: 0.95;
+      margin: 0;
+      max-width: 1040px;
+    }
+
+    .lede {
+      color: var(--body);
+      font-size: 18px;
+      line-height: 1.45;
+      margin: 0;
+      max-width: 850px;
+    }
+
+    .options {
+      display: grid;
+      gap: 22px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .option {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      box-shadow: -6px 6px 0 rgba(23, 111, 132, 0.16);
+      display: grid;
+      gap: 16px;
+      min-width: 0;
+      padding: 18px;
+    }
+
+    .option.recommended {
+      border-color: var(--teal);
+      box-shadow: -8px 8px 0 rgba(23, 111, 132, 0.24);
+    }
+
+    .eyebrow {
+      color: var(--rust);
+      font-size: 12px;
+      font-weight: 950;
+      letter-spacing: 0.09em;
+      margin: 0;
+      text-transform: uppercase;
+    }
+
+    h2 {
+      color: var(--ink);
+      font-size: 27px;
+      line-height: 1.05;
+      margin: 0;
+    }
+
+    p {
+      color: var(--body);
+      line-height: 1.42;
+      margin: 0;
+    }
+
+    .mock-browser {
+      background: #edf8fa;
+      border: 1px solid var(--line);
+      min-height: 650px;
+      padding: 14px;
+      position: relative;
+    }
+
+    .calendar-context {
+      background: white;
+      border: 1px solid #c9e2e8;
+      box-shadow: -5px 5px 0 rgba(23, 111, 132, 0.11);
+      display: grid;
+      gap: 12px;
+      padding: 13px;
+    }
+
+    .toolbar,
+    .modal-head,
+    .modal-actions,
+    .row,
+    .summary-row,
+    .range-row {
+      align-items: center;
+      display: flex;
+      gap: 10px;
+    }
+
+    .toolbar {
+      justify-content: space-between;
+    }
+
+    .page-title {
+      color: var(--ink);
+      font-size: 23px;
+      font-weight: 950;
+    }
+
+    .button {
+      background: var(--teal);
+      color: white;
+      display: inline-flex;
+      font-size: 12px;
+      font-weight: 950;
+      justify-content: center;
+      padding: 10px 13px;
+      white-space: nowrap;
+    }
+
+    .button.secondary {
+      background: var(--teal-soft);
+      color: #075473;
+    }
+
+    .calendar-grid {
+      border: 1px solid #d1e6ec;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      min-height: 240px;
+    }
+
+    .day {
+      border-right: 1px solid #d1e6ec;
+      padding: 8px;
+    }
+
+    .day:last-child {
+      border-right: 0;
+    }
+
+    .day strong {
+      color: var(--ink);
+      display: block;
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+
+    .event {
+      background: #f8fbfb;
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--teal);
+      color: #102a32;
+      font-size: 11px;
+      font-weight: 900;
+      line-height: 1.15;
+      margin-bottom: 7px;
+      padding: 6px 7px;
+    }
+
+    .event.commitment {
+      background: var(--yellow-soft);
+      border-color: #ead386;
+      border-left-color: var(--yellow);
+    }
+
+    .modal {
+      background: white;
+      border: 1px solid #bedce4;
+      box-shadow: -8px 8px 0 rgba(23, 111, 132, 0.22);
+      display: grid;
+      gap: 14px;
+      margin: -96px 16px 0;
+      padding: 18px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .modal-head {
+      align-items: start;
+      border-bottom: 1px solid #d3e7ec;
+      justify-content: space-between;
+      padding-bottom: 12px;
+    }
+
+    .modal h3 {
+      color: var(--ink);
+      font-size: 23px;
+      line-height: 1.05;
+      margin: 4px 0 0;
+    }
+
+    .close {
+      align-items: center;
+      background: var(--teal-soft);
+      color: var(--teal);
+      display: inline-flex;
+      font-weight: 950;
+      height: 34px;
+      justify-content: center;
+      width: 34px;
+    }
+
+    .control-strip {
+      background: var(--teal-wash);
+      border: 1px solid #cce5eb;
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+    }
+
+    .field {
+      display: grid;
+      gap: 5px;
+    }
+
+    .field span {
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 950;
+    }
+
+    .selectlike,
+    .datelike {
+      background: white;
+      border: 1px solid #bddbe3;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 900;
+      padding: 10px 12px;
+    }
+
+    .range-row {
+      align-items: end;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .list {
+      border-top: 1px solid #d3e7ec;
+      display: grid;
+    }
+
+    .export-row {
+      align-items: center;
+      border-bottom: 1px solid #d3e7ec;
+      display: grid;
+      gap: 10px;
+      grid-template-columns: auto 1fr auto;
+      padding: 10px 0;
+    }
+
+    .checkbox {
+      border: 2px solid var(--teal);
+      height: 18px;
+      width: 18px;
+    }
+
+    .checkbox.checked {
+      background: var(--teal);
+      box-shadow: inset 0 0 0 4px white;
+    }
+
+    .row-title {
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: 950;
+    }
+
+    .row-meta {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      margin-top: 2px;
+    }
+
+    .pill {
+      background: var(--teal-soft);
+      color: #075473;
+      font-size: 11px;
+      font-weight: 900;
+      padding: 5px 8px;
+    }
+
+    .pill.yellow {
+      background: var(--yellow-soft);
+      color: #665000;
+    }
+
+    .modal-actions {
+      border-top: 1px solid #d3e7ec;
+      justify-content: space-between;
+      padding-top: 12px;
+    }
+
+    .quiet {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .mini-calendar {
+      border: 1px solid #d1e6ec;
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+    }
+
+    .mini-cell {
+      border-bottom: 1px solid #d1e6ec;
+      border-right: 1px solid #d1e6ec;
+      min-height: 72px;
+      padding: 5px;
+    }
+
+    .mini-cell:nth-child(7n) {
+      border-right: 0;
+    }
+
+    .mini-cell small {
+      color: var(--muted);
+      display: block;
+      font-size: 10px;
+      font-weight: 900;
+      margin-bottom: 4px;
+    }
+
+    .mini-event {
+      background: #f8fbfb;
+      border-left: 4px solid var(--teal);
+      color: #102a32;
+      font-size: 9px;
+      font-weight: 900;
+      line-height: 1.1;
+      padding: 4px;
+    }
+
+    .summary-cards {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .summary-card {
+      background: var(--teal-wash);
+      border-top: 4px solid var(--teal);
+      padding: 12px;
+    }
+
+    .summary-card.yellow {
+      background: var(--yellow-soft);
+      border-top-color: var(--yellow);
+    }
+
+    .summary-card.green {
+      background: #eaf6ef;
+      border-top-color: var(--green);
+    }
+
+    .summary-card strong {
+      color: var(--ink);
+      display: block;
+      font-size: 26px;
+      line-height: 1;
+    }
+
+    .summary-card span {
+      color: var(--muted);
+      display: block;
+      font-size: 11px;
+      font-weight: 900;
+      margin-top: 5px;
+      text-transform: uppercase;
+    }
+
+    details {
+      border-top: 1px solid #d3e7ec;
+      padding-top: 10px;
+    }
+
+    summary {
+      color: var(--teal);
+      cursor: pointer;
+      font-weight: 950;
+    }
+
+    .verdict {
+      background: var(--teal-soft);
+      border-left: 5px solid var(--teal);
+      color: #14323b;
+      font-weight: 800;
+      padding: 12px;
+    }
+
+    @media (max-width: 1240px) {
+      .options {
+        grid-template-columns: 1fr;
+      }
+
+      .mock-browser {
+        min-height: auto;
+      }
+    }
+
+    @media (max-width: 620px) {
+      body {
+        padding: 18px;
+      }
+
+      .toolbar,
+      .modal-head,
+      .modal-actions {
+        align-items: stretch;
+        display: grid;
+      }
+
+      .range-row,
+      .summary-cards {
+        grid-template-columns: 1fr;
+      }
+
+      .modal {
+        margin: -42px 0 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">Export modal concepts</p>
+      <h1>How should users review Cleanly events before export?</h1>
+      <p class="lede">All options keep the same setup controls: export from a Cleanly date range, export to a selected external calendar, then confirm what leaves Cleanly. The difference is how much detail appears first.</p>
+    </header>
+
+    <section class="options" aria-label="Export modal visual options">
+      <article class="option">
+        <p class="eyebrow">A · Direct review</p>
+        <h2>Event review list</h2>
+        <p>A practical list grouped by date. The user sees every eligible event immediately and checks what should be exported.</p>
+
+        <div class="mock-browser">
+          <div class="calendar-context">
+            <div class="toolbar">
+              <span class="page-title">Calendar</span>
+              <span class="row"><span class="button secondary">Import events</span><span class="button secondary">Export</span><span class="button">Add chore</span></span>
+            </div>
+            <div class="calendar-grid">
+              <div class="day"><strong>Mon</strong><div class="event commitment">Practice 5:30</div><div class="event">Kitchen reset</div></div>
+              <div class="day"><strong>Tue</strong><div class="event">Bathroom reset</div></div>
+              <div class="day"><strong>Wed</strong><div class="event">Vacuum main floor</div></div>
+              <div class="day"><strong>Thu</strong><div class="event commitment">Dentist</div><div class="event">Laundry fold</div></div>
+              <div class="day"><strong>Fri</strong><div class="event">Mop floors</div></div>
+            </div>
+          </div>
+
+          <div class="modal">
+            <div class="modal-head">
+              <div><p class="eyebrow">Export</p><h3>Export Cleanly events</h3></div>
+              <span class="close">×</span>
+            </div>
+            <div class="control-strip">
+              <div class="field"><span>From Cleanly</span><div class="selectlike">Chores and commitments</div></div>
+              <div class="field"><span>To calendar</span><div class="selectlike">Alan - Personal</div></div>
+              <div class="range-row">
+                <div class="field"><span>Start</span><div class="datelike">Jun 15, 2026</div></div>
+                <div class="field"><span>End</span><div class="datelike">Jun 21, 2026</div></div>
+              </div>
+            </div>
+            <div class="list">
+              <div class="export-row"><span class="checkbox checked"></span><div><div class="row-title">Kitchen reset</div><div class="row-meta">Mon, Jun 15 · 30 min</div></div><span class="pill">Chore</span></div>
+              <div class="export-row"><span class="checkbox checked"></span><div><div class="row-title">Practice</div><div class="row-meta">Mon, Jun 15 · 5:30 PM</div></div><span class="pill yellow">Commitment</span></div>
+              <div class="export-row"><span class="checkbox"></span><div><div class="row-title">Laundry fold</div><div class="row-meta">Thu, Jun 18 · 25 min</div></div><span class="pill">Chore</span></div>
+              <div class="export-row"><span class="checkbox checked"></span><div><div class="row-title">Mop floors</div><div class="row-meta">Fri, Jun 19 · 20 min</div></div><span class="pill">Chore</span></div>
+            </div>
+            <div class="modal-actions"><span class="quiet">3 selected for export</span><span class="row"><span class="button secondary">Cancel</span><span class="button">Export selected</span></span></div>
+          </div>
+        </div>
+
+        <p class="verdict">Most transparent, but it can feel busy when the range has many events. Best if users usually export a small set.</p>
+      </article>
+
+      <article class="option">
+        <p class="eyebrow">B · Visual preview</p>
+        <h2>Calendar preview</h2>
+        <p>A mini calendar inside the modal shows what will be exported in context. It feels visual, but competes with the page behind it.</p>
+
+        <div class="mock-browser">
+          <div class="calendar-context">
+            <div class="toolbar">
+              <span class="page-title">Calendar</span>
+              <span class="row"><span class="button secondary">Import events</span><span class="button secondary">Export</span><span class="button">Add chore</span></span>
+            </div>
+            <div class="calendar-grid">
+              <div class="day"><strong>Mon</strong><div class="event commitment">Practice 5:30</div><div class="event">Kitchen reset</div></div>
+              <div class="day"><strong>Tue</strong><div class="event">Bathroom reset</div></div>
+              <div class="day"><strong>Wed</strong><div class="event">Vacuum main floor</div></div>
+              <div class="day"><strong>Thu</strong><div class="event commitment">Dentist</div><div class="event">Laundry fold</div></div>
+              <div class="day"><strong>Fri</strong><div class="event">Mop floors</div></div>
+            </div>
+          </div>
+
+          <div class="modal">
+            <div class="modal-head">
+              <div><p class="eyebrow">Export</p><h3>Preview export calendar</h3></div>
+              <span class="close">×</span>
+            </div>
+            <div class="control-strip">
+              <div class="field"><span>To calendar</span><div class="selectlike">Alan - Personal</div></div>
+              <div class="range-row">
+                <div class="field"><span>Start</span><div class="datelike">Jun 15, 2026</div></div>
+                <div class="field"><span>End</span><div class="datelike">Jun 21, 2026</div></div>
+              </div>
+            </div>
+            <div class="mini-calendar">
+              <div class="mini-cell"><small>Mon 15</small><div class="mini-event">Kitchen reset</div><div class="mini-event" style="border-left-color: var(--yellow)">Practice</div></div>
+              <div class="mini-cell"><small>Tue 16</small><div class="mini-event">Bathroom reset</div></div>
+              <div class="mini-cell"><small>Wed 17</small><div class="mini-event">Vacuum main floor</div></div>
+              <div class="mini-cell"><small>Thu 18</small><div class="mini-event" style="border-left-color: var(--yellow)">Dentist</div><div class="mini-event">Laundry fold</div></div>
+              <div class="mini-cell"><small>Fri 19</small><div class="mini-event">Mop floors</div></div>
+              <div class="mini-cell"><small>Sat 20</small></div>
+              <div class="mini-cell"><small>Sun 21</small></div>
+            </div>
+            <div class="modal-actions"><span class="quiet">6 events in this range</span><span class="row"><span class="button secondary">Review list</span><span class="button">Export all</span></span></div>
+          </div>
+        </div>
+
+        <p class="verdict">Pretty and contextual, but it duplicates the main Calendar page and makes selection details harder. Better as a future enhancement than MVP default.</p>
+      </article>
+
+      <article class="option recommended">
+        <p class="eyebrow">C · Recommended</p>
+        <h2>Summary first, expandable details</h2>
+        <p>Lead with confidence: what will export, where it goes, and what needs attention. Users can expand into the exact event list when they want precision.</p>
+
+        <div class="mock-browser">
+          <div class="calendar-context">
+            <div class="toolbar">
+              <span class="page-title">Calendar</span>
+              <span class="row"><span class="button secondary">Import events</span><span class="button secondary">Export</span><span class="button">Add chore</span></span>
+            </div>
+            <div class="calendar-grid">
+              <div class="day"><strong>Mon</strong><div class="event commitment">Practice 5:30</div><div class="event">Kitchen reset</div></div>
+              <div class="day"><strong>Tue</strong><div class="event">Bathroom reset</div></div>
+              <div class="day"><strong>Wed</strong><div class="event">Vacuum main floor</div></div>
+              <div class="day"><strong>Thu</strong><div class="event commitment">Dentist</div><div class="event">Laundry fold</div></div>
+              <div class="day"><strong>Fri</strong><div class="event">Mop floors</div></div>
+            </div>
+          </div>
+
+          <div class="modal">
+            <div class="modal-head">
+              <div><p class="eyebrow">Export</p><h3>Export Cleanly events</h3></div>
+              <span class="close">×</span>
+            </div>
+            <div class="control-strip">
+              <div class="field"><span>From Cleanly</span><div class="selectlike">Chores and commitments</div></div>
+              <div class="field"><span>To calendar</span><div class="selectlike">Alan - Personal</div></div>
+              <div class="range-row">
+                <div class="field"><span>Start</span><div class="datelike">Jun 15, 2026</div></div>
+                <div class="field"><span>End</span><div class="datelike">Jun 21, 2026</div></div>
+              </div>
+            </div>
+            <div class="summary-cards">
+              <div class="summary-card"><strong>4</strong><span>Chores ready</span></div>
+              <div class="summary-card yellow"><strong>2</strong><span>Commitments ready</span></div>
+              <div class="summary-card green"><strong>1</strong><span>Already exported</span></div>
+            </div>
+            <details open>
+              <summary>Review selected events</summary>
+              <div class="list">
+                <div class="export-row"><span class="checkbox checked"></span><div><div class="row-title">Kitchen reset</div><div class="row-meta">Mon, Jun 15 · 30 min</div></div><span class="pill">Chore</span></div>
+                <div class="export-row"><span class="checkbox checked"></span><div><div class="row-title">Practice</div><div class="row-meta">Mon, Jun 15 · 5:30 PM</div></div><span class="pill yellow">Commitment</span></div>
+                <div class="export-row"><span class="checkbox checked"></span><div><div class="row-title">Mop floors</div><div class="row-meta">Fri, Jun 19 · 20 min</div></div><span class="pill">Chore</span></div>
+              </div>
+            </details>
+            <div class="modal-actions"><span class="quiet">6 ready · 1 already exported</span><span class="row"><span class="button secondary">Cancel</span><span class="button">Export selected</span></span></div>
+          </div>
+        </div>
+
+        <p class="verdict">Best balance: less overwhelming than a full list, less duplicative than a calendar preview, and still lets careful users inspect every exported event.</p>
+      </article>
+    </section>
+  </main>
+</body>
+</html>
