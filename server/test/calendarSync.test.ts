@@ -118,6 +118,20 @@ describe("calendar sync governance", () => {
     expect(response.status).toBe(403);
   });
 
+  it("lets a member read only their own calendar import policy", async () => {
+    const { app, household, member } = await createHouseholdWithMember();
+
+    const response = await auth(app, "member").get(`/api/me/calendar/import-policy?householdId=${household.id}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(expect.objectContaining({
+      householdId: household.id,
+      memberId: member.id,
+      importQueueMode: "manual",
+      importContentMode: "both"
+    }));
+  });
+
   it("lets an owner update one member import policy", async () => {
     const { app, household, member } = await createHouseholdWithMember();
 

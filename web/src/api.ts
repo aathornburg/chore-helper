@@ -474,6 +474,13 @@ export async function listCalendarImportPolicies(householdId: string): Promise<C
   return response.json();
 }
 
+export async function getMyCalendarImportPolicy(householdId: string): Promise<CalendarImportPolicy> {
+  const response = await apiFetch(`${API_BASE_URL}/api/me/calendar/import-policy?householdId=${encodeURIComponent(householdId)}`);
+
+  if (!response.ok) throw new Error("Failed to fetch calendar import policy");
+  return response.json();
+}
+
 export async function updateCalendarImportPolicy(
   householdId: string,
   memberId: string,

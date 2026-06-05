@@ -115,6 +115,20 @@ export function createCalendarRouter(
     return res.status(200).json(await store.listCalendarImportPolicies(req.params.householdId));
   });
 
+  router.get("/me/calendar/import-policy", async (req, res) => {
+    const user = await resolveCurrentUser(req, res, store, authMode);
+    if (!user) return;
+    const householdId = String(req.query.householdId ?? "");
+    if (!householdId) return res.status(400).json({ error: "householdId is required." });
+    if (!await requireHouseholdAccess(store, householdId, user.id)) {
+      return res.status(403).json({ error: "You do not have access to this household." });
+    }
+
+    const policy = (await store.listCalendarImportPolicies(householdId)).find((item) => item.memberId === user.id);
+    if (!policy) return res.status(404).json({ error: "Calendar import policy not found." });
+    return res.status(200).json(policy);
+  });
+
   router.patch("/households/:householdId/calendar/import-policies/:memberId", async (req, res) => {
     const user = await resolveCurrentUser(req, res, store, authMode);
     if (!user) return;

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type {
   CalendarConnectionSummary,
-  CalendarImportCandidate,
   CalendarImportPolicy,
   CalendarPreferences,
   ExternalCalendarSummary,
@@ -11,13 +10,11 @@ import type {
 import {
   getCalendarPreferences,
   getCurrentUser,
-  listCalendarImportCandidates,
   listCalendarConnections,
   listExternalCalendars,
   listCalendarImportPolicies,
   listHouseholdMembers,
   startGoogleCalendarConnection,
-  submitCalendarImportEvents,
   updateCalendarImportPolicy,
   updateCalendarPreferences
 } from "../api";
@@ -44,9 +41,6 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
   const [policies, setPolicies] = useState<CalendarImportPolicy[]>([]);
   const [preferences, setPreferences] = useState<CalendarPreferences>();
   const [calendarStatus, setCalendarStatus] = useState<string>();
-  const [isReviewingImports, setIsReviewingImports] = useState(false);
-  const [importCandidates, setImportCandidates] = useState<CalendarImportCandidate[]>([]);
-  const [selectedImportCandidateIds, setSelectedImportCandidateIds] = useState<string[]>([]);
   const highlighted = window.location.hash === "#calendar";
   const isOwner = useMemo(
     () => members.some((member) => member.userId === currentUserId && member.role === "owner"),
@@ -122,43 +116,6 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
       .catch(() => setCalendarStatus("Could not start Google Calendar connection."));
   }
 
-  function handleReviewEventsToShare() {
-    setIsReviewingImports(true);
-    if (!selectedHousehold) return;
-    void listCalendarImportCandidates(selectedHousehold.id)
-      .then((candidates) => {
-        setImportCandidates(candidates);
-        setSelectedImportCandidateIds(candidates.map((candidate) => candidate.id));
-      })
-      .catch(() => setCalendarStatus("Could not load calendar events to review."));
-  }
-
-  function toggleImportCandidate(candidateId: string) {
-    setSelectedImportCandidateIds((current) =>
-      current.includes(candidateId)
-        ? current.filter((id) => id !== candidateId)
-        : [...current, candidateId]
-    );
-  }
-
-  function updateImportCandidateType(candidateId: string, proposedType: CalendarImportCandidate["proposedType"]) {
-    setImportCandidates((current) => current.map((candidate) =>
-      candidate.id === candidateId ? { ...candidate, proposedType } : candidate
-    ));
-  }
-
-  function handleSubmitEventsToCleanly() {
-    if (!selectedHousehold) return;
-    const selectedEvents = importCandidates.filter((candidate) => selectedImportCandidateIds.includes(candidate.id));
-    void submitCalendarImportEvents(selectedHousehold.id, selectedEvents)
-      .then((result) => {
-        setCalendarStatus(result.status === "auto_ready" ? "Selected events were added to Cleanly." : "Selected events were sent to the owner queue.");
-        setImportCandidates([]);
-        setSelectedImportCandidateIds([]);
-      })
-      .catch(() => setCalendarStatus("Could not send selected events to Cleanly."));
-  }
-
   return (
     <div className="settings-page operational-page">
       <header className="page-command-header">
@@ -183,8 +140,8 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
                 <span>{connectionStatus(connections)}</span>
               </div>
               <p>
-                Choose what you share with Cleanly and where Cleanly exports your calendar updates.
-                Export does not require importing personal events.
+                Choose what Cleanly can review and where Cleanly exports your calendar updates.
+                When you are ready to import or export events, use Calendar.
               </p>
               {preferences ? (
                 <div className="sync-settings-stack">
@@ -239,9 +196,6 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
                           )) : <option disabled>Connect Google Calendar to choose</option>}
                         </select>
                       </label>
-                      <div className="sync-action-row">
-                        <button className="section-action" onClick={handleReviewEventsToShare} type="button">Review events to share</button>
-                      </div>
                     </div>
                   </section>
 
@@ -298,53 +252,6 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
                     </div>
                   </section>
                 </div>
-              ) : null}
-              {isReviewingImports ? (
-                <section className="calendar-review-panel" aria-live="polite" aria-label="Events to share">
-                  <div>
-                    <p className="eyebrow">Events to share</p>
-                    <h4>Choose what reaches Cleanly</h4>
-                  </div>
-                  {connections.length === 0 ? (
-                    <p>Connect Google Calendar before reviewing events.</p>
-                  ) : importCandidates.length === 0 ? (
-                    <p>No Google Calendar events are available to review yet.</p>
-                  ) : (
-                    <ul>
-                      {importCandidates.map((candidate) => (
-                        <li key={candidate.id}>
-                          <label>
-                            <input
-                              checked={selectedImportCandidateIds.includes(candidate.id)}
-                              onChange={() => toggleImportCandidate(candidate.id)}
-                              type="checkbox"
-                            />
-                            <strong>{candidate.privacyTitle}</strong>
-                          </label>
-                          <select
-                            value={candidate.proposedType}
-                            onChange={(event) => updateImportCandidateType(
-                              candidate.id,
-                              event.target.value as CalendarImportCandidate["proposedType"]
-                            )}
-                          >
-                            <option value="commitment">Commitment</option>
-                            <option value="chore">Chore</option>
-                          </select>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {importCandidates.length ? (
-                    <button
-                      disabled={selectedImportCandidateIds.length === 0}
-                      onClick={handleSubmitEventsToCleanly}
-                      type="button"
-                    >
-                      Send selected to Cleanly
-                    </button>
-                  ) : null}
-                </section>
               ) : null}
             </article>
 

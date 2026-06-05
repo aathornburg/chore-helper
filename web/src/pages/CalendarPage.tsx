@@ -1,8 +1,11 @@
 import { addDays, addMinutes, addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format, parseISO, startOfMonth, startOfWeek } from "date-fns";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { useEffect, useMemo, useState } from "react";
-import type { CalendarImportQueueItem, ChoreOccurrence, ChoreSchedule, CleanlyCalendarEvent, CompletionCheckInInput, HouseholdAppData, HouseholdMemberSummary, ScheduleInput } from "@chore-helper/shared";
-import { completeOccurrence, createScheduledChore, decideCalendarImportQueueItem, exportCleanlyCalendarEvents, getCurrentUser, listCalendarImportQueue, listCleanlyCalendarEvents, listHouseholdMembers, listOccurrences, listSchedules, skipOccurrence, updateOccurrence, updateSchedule as updateScheduleApi } from "../api";
+import type { CalendarConnectionSummary, CalendarImportCandidate, CalendarImportPolicy, CalendarImportQueueItem, CalendarPreferences, ChoreOccurrence, ChoreSchedule, CleanlyCalendarEvent, CompletionCheckInInput, ExternalCalendarSummary, HouseholdAppData, HouseholdMemberSummary, ScheduleInput } from "@chore-helper/shared";
+import { completeOccurrence, createScheduledChore, decideCalendarImportQueueItem, exportCleanlyCalendarEvents, getCalendarPreferences, getCurrentUser, getMyCalendarImportPolicy, listCalendarConnections, listCalendarImportCandidates, listCalendarImportPolicies, listCalendarImportQueue, listCleanlyCalendarEvents, listExternalCalendars, listHouseholdMembers, listOccurrences, listSchedules, skipOccurrence, startGoogleCalendarConnection, submitCalendarImportEvents, updateCalendarPreferences, updateOccurrence, updateSchedule as updateScheduleApi } from "../api";
+import { DateRangePicker } from "./calendar/DateRangePicker";
+import type { CalendarDateRange, CalendarDateRangePreset } from "./calendar/dateRange";
+import { createVisibleRange, isDateInRange } from "./calendar/dateRange";
 import type { Navigate } from "../types";
 
 type WorkspaceView = "calendar" | "list";
@@ -10,6 +13,7 @@ type CalendarScale = "month" | "week" | "day";
 type CalendarFilters = { householdId?: string; assignedUserId?: string; status?: string; planningMode?: string };
 type EditorMode = "closed" | "create" | "view" | "edit";
 type OccurrenceCardDensity = "title" | "summary";
+type CalendarSyncModal = "closed" | "import" | "export";
 type ScheduleDraft = ScheduleInput & { key: string };
 type EditorDraft = {
   choreId?: string;
@@ -210,7 +214,7 @@ function scheduleToDraft(schedule: ChoreSchedule): ScheduleDraft {
   };
 }
 
-export function CalendarPage({ households, isLoading, onNavigate }: CalendarPageProps) {
+export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>("calendar");
   const [calendarScale, setCalendarScale] = useState<CalendarScale>("month");
   const [focusDate, setFocusDate] = useState(() => new Date());
@@ -232,6 +236,20 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
   const [selectedQueueItemId, setSelectedQueueItemId] = useState<string>();
   const [queueTypeDrafts, setQueueTypeDrafts] = useState(() => new Map<string, CalendarImportQueueItem["proposedType"]>());
   const [calendarSyncStatus, setCalendarSyncStatus] = useState<string>();
+  const [syncModal, setSyncModal] = useState<CalendarSyncModal>("closed");
+  const [connections, setConnections] = useState<CalendarConnectionSummary[]>([]);
+  const [externalCalendars, setExternalCalendars] = useState<ExternalCalendarSummary[]>([]);
+  const [calendarPreferences, setCalendarPreferences] = useState<CalendarPreferences>();
+  const [importPolicies, setImportPolicies] = useState<CalendarImportPolicy[]>([]);
+  const [myImportPolicy, setMyImportPolicy] = useState<CalendarImportPolicy>();
+  const [importCandidates, setImportCandidates] = useState<CalendarImportCandidate[]>([]);
+  const [selectedImportCandidateIds, setSelectedImportCandidateIds] = useState<string[]>([]);
+  const [importBatchType, setImportBatchType] = useState<CalendarImportCandidate["proposedType"]>("commitment");
+  const [importRangePreset, setImportRangePreset] = useState<CalendarDateRangePreset>("visible");
+  const [importRange, setImportRange] = useState<CalendarDateRange>(() => createVisibleRange(format(new Date(), "yyyy-MM-dd"), format(addDays(new Date(), 30), "yyyy-MM-dd")));
+  const [exportRangePreset, setExportRangePreset] = useState<CalendarDateRangePreset>("visible");
+  const [exportRange, setExportRange] = useState<CalendarDateRange>(() => createVisibleRange(format(new Date(), "yyyy-MM-dd"), format(addDays(new Date(), 30), "yyyy-MM-dd")));
+  const [selectedExportEventIds, setSelectedExportEventIds] = useState<string[]>([]);
 
   const selectedHousehold = households.find((household) => household.id === filters.householdId) ?? households[0];
   const timeZone = selectedHousehold?.timeZone ?? "UTC";
@@ -242,6 +260,13 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
   );
   const selectedOccurrence = occurrences.find((occurrence) => occurrence.id === selectedOccurrenceId);
   const selectedQueueItem = importQueueItems.find((item) => item.id === selectedQueueItemId) ?? importQueueItems[0];
+  const currentUserImportPolicy = myImportPolicy ?? importPolicies.find((policy) => policy.memberId === currentUserId);
+  const isImportBlocked = currentUserImportPolicy?.importQueueMode === "off";
+  const visibleRange = useMemo(() => {
+    const range = workspaceView === "list" ? listRange(timeZone) : rangeForView(focusDate, calendarScale, timeZone);
+    return createVisibleRange(range.startOn, range.endOn);
+  }, [calendarScale, focusDate, timeZone, workspaceView]);
+  const isCalendarConnected = connections.some((connection) => connection.status === "connected");
 
   useEffect(() => {
     if (!selectedHousehold) return;
@@ -270,6 +295,7 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
     if (!selectedHousehold || !isOwner) {
       setImportQueueItems([]);
       setSelectedQueueItemId(undefined);
+      setImportPolicies([]);
       return;
     }
     let cancelled = false;
@@ -281,12 +307,64 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
         }
       })
       .catch(() => {
-        if (!cancelled) setImportQueueItems([]);
+        if (!cancelled) {
+          setImportQueueItems([]);
+        }
+      });
+    void listCalendarImportPolicies(selectedHousehold.id)
+      .then((policies) => {
+        if (!cancelled) setImportPolicies(policies);
+      })
+      .catch(() => {
+        if (!cancelled) setImportPolicies([]);
       });
     return () => {
       cancelled = true;
     };
   }, [isOwner, selectedHousehold?.id]);
+
+  useEffect(() => {
+    if (!selectedHousehold) {
+      setMyImportPolicy(undefined);
+      return;
+    }
+    let cancelled = false;
+    void getMyCalendarImportPolicy(selectedHousehold.id)
+      .then((policy) => {
+        if (!cancelled) setMyImportPolicy(policy);
+      })
+      .catch(() => {
+        if (!cancelled) setMyImportPolicy(undefined);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedHousehold?.id]);
+
+  useEffect(() => {
+    if (!selectedHousehold) return;
+    let cancelled = false;
+    void Promise.all([
+      listCalendarConnections(),
+      listExternalCalendars(),
+      getCalendarPreferences(selectedHousehold.id)
+    ]).then(([loadedConnections, loadedCalendars, loadedPreferences]) => {
+      if (cancelled) return;
+      setConnections(loadedConnections);
+      setExternalCalendars(loadedCalendars);
+      setCalendarPreferences(loadedPreferences);
+    }).catch(() => {
+      if (!cancelled) setCalendarSyncStatus("Could not load calendar sync settings.");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedHousehold?.id]);
+
+  useEffect(() => {
+    if (importRangePreset === "visible") setImportRange(visibleRange);
+    if (exportRangePreset === "visible") setExportRange(visibleRange);
+  }, [exportRangePreset, importRangePreset, visibleRange]);
 
   useEffect(() => {
     if (!selectedHousehold) return;
@@ -364,6 +442,17 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
       skipped: listOccurrences.filter((occurrence) => occurrence.status === "skipped").length
     };
   }, [listGroups]);
+
+  const importCandidatesInRange = useMemo(() => importCandidates.filter((candidate) =>
+    isDateInRange(formatInTimeZone(candidate.startsAt, timeZone, "yyyy-MM-dd"), importRange) &&
+    (!calendarPreferences?.selectedSourceCalendarIds.length ||
+      calendarPreferences.selectedSourceCalendarIds.includes(candidate.sourceExternalCalendarId))
+  ), [calendarPreferences?.selectedSourceCalendarIds, importCandidates, importRange, timeZone]);
+
+  const exportEventsInRange = useMemo(() => cleanlyCalendarEvents.filter((event) =>
+    isDateInRange(formatInTimeZone(event.startsAt, timeZone, "yyyy-MM-dd"), exportRange) &&
+    (!calendarPreferences || calendarPreferences.exportContentMode === "both" || calendarPreferences.exportContentMode === `${event.type}s`)
+  ), [calendarPreferences, cleanlyCalendarEvents, exportRange, timeZone]);
 
   const monthDates = useMemo(() => eachDayOfInterval({
     start: startOfWeek(startOfMonth(focusDate), { weekStartsOn: 0 }),
@@ -847,11 +936,368 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
     );
   }
 
+  function saveCalendarPreference(update: CalendarPreferences) {
+    void updateCalendarPreferences(update)
+      .then(setCalendarPreferences)
+      .catch(() => setCalendarSyncStatus("Could not save calendar preferences."));
+  }
+
+  function handleConnectGoogleCalendar() {
+    void startGoogleCalendarConnection()
+      .then((result) => {
+        if (result.authUrl) {
+          window.location.assign(result.authUrl);
+          return;
+        }
+        setCalendarSyncStatus(result.message);
+      })
+      .catch(() => setCalendarSyncStatus("Could not start Google Calendar connection."));
+  }
+
+  function openImportModal() {
+    setSyncModal("import");
+    setCalendarSyncStatus(undefined);
+    if (!selectedHousehold || !isCalendarConnected) return;
+    void listCalendarImportCandidates(selectedHousehold.id)
+      .then((candidates) => {
+        setImportCandidates(candidates);
+        setSelectedImportCandidateIds([]);
+      })
+      .catch(() => setCalendarSyncStatus("Could not load calendar events to review."));
+  }
+
+  function openExportModal() {
+    setSyncModal("export");
+    setCalendarSyncStatus(undefined);
+    setSelectedExportEventIds([]);
+  }
+
+  function toggleImportCandidate(candidateId: string) {
+    setSelectedImportCandidateIds((current) =>
+      current.includes(candidateId)
+        ? current.filter((id) => id !== candidateId)
+        : [...current, candidateId]
+    );
+  }
+
+  function updateImportCandidateType(candidateId: string, proposedType: CalendarImportCandidate["proposedType"]) {
+    setImportCandidates((current) => current.map((candidate) =>
+      candidate.id === candidateId ? { ...candidate, proposedType } : candidate
+    ));
+  }
+
+  function applyImportBatchType(proposedType: CalendarImportCandidate["proposedType"]) {
+    setImportBatchType(proposedType);
+    setImportCandidates((current) => current.map((candidate) =>
+      selectedImportCandidateIds.includes(candidate.id) ? { ...candidate, proposedType } : candidate
+    ));
+  }
+
+  function handleSubmitEventsToCleanly() {
+    if (!selectedHousehold) return;
+    const selectedEvents = importCandidates.filter((candidate) => selectedImportCandidateIds.includes(candidate.id));
+    void submitCalendarImportEvents(selectedHousehold.id, selectedEvents)
+      .then((result) => {
+        setCalendarSyncStatus(result.status === "auto_ready" ? "Selected events were added to Cleanly." : "Selected events were sent to the owner queue.");
+        setSyncModal("closed");
+        setImportCandidates([]);
+        setSelectedImportCandidateIds([]);
+        if (isOwner) {
+          void listCalendarImportQueue(selectedHousehold.id).then((items) => {
+            setImportQueueItems(items);
+            setSelectedQueueItemId(items[0]?.id);
+          });
+        }
+      })
+      .catch(() => setCalendarSyncStatus("Could not send selected events to Cleanly."));
+  }
+
+  function toggleExportEvent(eventId: string) {
+    setSelectedExportEventIds((current) =>
+      current.includes(eventId)
+        ? current.filter((id) => id !== eventId)
+        : [...current, eventId]
+    );
+  }
+
+  function selectExportRangeEvents() {
+    setSelectedExportEventIds(exportEventsInRange.map((event) => event.id));
+  }
+
+  const selectedExportEvents = cleanlyCalendarEvents.filter((event) => selectedExportEventIds.includes(event.id));
+  const selectedExportChoreCount = selectedExportEvents.filter((event) => event.type === "chore").length;
+  const selectedExportCommitmentCount = selectedExportEvents.filter((event) => event.type === "commitment").length;
+
   function handleExportCleanlyEvents() {
     if (!selectedHousehold) return;
-    void exportCleanlyCalendarEvents(selectedHousehold.id, cleanlyCalendarEvents.map((event) => event.id))
-      .then((result) => setCalendarSyncStatus(`${result.exported} calendar event${result.exported === 1 ? "" : "s"} exported.`))
+    void exportCleanlyCalendarEvents(selectedHousehold.id, selectedExportEventIds)
+      .then((result) => {
+        setCalendarSyncStatus(`${result.exported} calendar event${result.exported === 1 ? "" : "s"} exported.`);
+        setSyncModal("closed");
+        setSelectedExportEventIds([]);
+      })
       .catch(() => setCalendarSyncStatus("Could not export calendar events. Choose an export destination in Settings first."));
+  }
+
+  function renderCalendarSyncModal() {
+    if (syncModal === "closed") return null;
+    const title = syncModal === "import" ? "Import calendar events" : "Export events";
+
+    return (
+      <div className="chore-editor-backdrop calendar-sync-backdrop" role="presentation">
+        <section className="chore-editor-modal calendar-sync-modal" role="dialog" aria-modal="true" aria-labelledby="calendar-sync-modal-heading">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Work my calendar</p>
+              <h2 id="calendar-sync-modal-heading">{title}</h2>
+            </div>
+            <button aria-label="Close dialog" className="icon-button modal-close-button" onClick={() => setSyncModal("closed")} type="button" />
+          </div>
+
+          {!isCalendarConnected ? (
+            <section className="calendar-sync-intro-panel">
+              <p className="eyebrow">First, connect Google Calendar</p>
+              <h3>Then Cleanly can help you choose what moves between calendars.</h3>
+              <p>
+                Import and export stay independent. You can export Cleanly work without importing personal events,
+                and imported events only reach the shared calendar after the right review path.
+              </p>
+              <button onClick={handleConnectGoogleCalendar} type="button">Connect Google Calendar</button>
+            </section>
+          ) : syncModal === "import" ? (
+            <div className="calendar-sync-modal-body">
+              <section className="calendar-sync-intro-panel">
+                <p className="eyebrow">Now you are connected</p>
+                <h3>You're connected. Choose which Google Calendar events Cleanly can use.</h3>
+                <p>Start with nothing selected, pick a source calendar and date range, then send only the events you want to the Cleanly queue.</p>
+              </section>
+              {isImportBlocked ? (
+                <section className="sync-blocked-state" aria-label="Import disabled">
+                  <p className="eyebrow">Import disabled</p>
+                  <h3>Your household owner has turned off Google Calendar imports for this member.</h3>
+                  <p>You can still manage your connection and export settings, but events cannot be sent into the shared Cleanly queue right now.</p>
+                </section>
+              ) : null}
+              {calendarPreferences ? (
+                <section className="calendar-sync-field-panel" aria-label="Import settings">
+                  <label>
+                    From calendar
+                    <select
+                      value={calendarPreferences.selectedSourceCalendarIds[0] ?? ""}
+                      onChange={(event) => saveCalendarPreference({
+                        ...calendarPreferences,
+                        selectedSourceCalendarIds: event.target.value ? [event.target.value] : []
+                      })}
+                    >
+                      <option value="">All connected calendars</option>
+                      {externalCalendars.map((calendar) => (
+                        <option key={calendar.id} value={calendar.id}>{calendar.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Shared detail
+                    <select
+                      value={calendarPreferences.defaultDetailLevel}
+                      onChange={(event) => saveCalendarPreference({
+                        ...calendarPreferences,
+                        defaultDetailLevel: event.target.value as CalendarPreferences["defaultDetailLevel"]
+                      })}
+                    >
+                      <option value="busy_only">Busy only</option>
+                      <option value="full_details">Full details</option>
+                    </select>
+                  </label>
+                  <DateRangePicker
+                    idPrefix="import-events-range"
+                    label="Import date range"
+                    onPresetChange={(nextPreset, nextRange) => {
+                      setImportRangePreset(nextPreset);
+                      setImportRange(nextRange);
+                    }}
+                    onRangeChange={(nextRange) => {
+                      setImportRangePreset("custom");
+                      setImportRange(nextRange);
+                    }}
+                    preset={importRangePreset}
+                    range={importRange}
+                    visibleRange={visibleRange}
+                  />
+                </section>
+              ) : null}
+              <section className="calendar-sync-event-panel" aria-label="Events available to import">
+                <div className="section-heading">
+                  <div>
+                    <p className="eyebrow">Available events</p>
+                    <h3>{importCandidatesInRange.length} in range</h3>
+                  </div>
+                  <span>{selectedImportCandidateIds.length} selected</span>
+                </div>
+                <fieldset className="calendar-sync-type-toggle">
+                  <legend>Set selected as</legend>
+                  <div className="segmented-control">
+                    <button
+                      aria-pressed={importBatchType === "commitment"}
+                      disabled={selectedImportCandidateIds.length === 0 || isImportBlocked}
+                      onClick={() => applyImportBatchType("commitment")}
+                      type="button"
+                    >
+                      Commitments
+                    </button>
+                    <button
+                      aria-pressed={importBatchType === "chore"}
+                      disabled={selectedImportCandidateIds.length === 0 || isImportBlocked}
+                      onClick={() => applyImportBatchType("chore")}
+                      type="button"
+                    >
+                      Chores
+                    </button>
+                  </div>
+                </fieldset>
+                {importCandidatesInRange.length ? (
+                  <ul className="calendar-sync-event-list">
+                    {importCandidatesInRange.map((candidate) => (
+                      <li key={candidate.id}>
+                        <label className="calendar-sync-event-check">
+                          <input
+                            checked={selectedImportCandidateIds.includes(candidate.id)}
+                            onChange={() => toggleImportCandidate(candidate.id)}
+                            type="checkbox"
+                          />
+                          <span>
+                            <strong>{candidate.privacyTitle}</strong>
+                            <small>{formatInTimeZone(candidate.startsAt, timeZone, "MMM d, h:mm a")} - {formatInTimeZone(candidate.endsAt, timeZone, "h:mm a")}</small>
+                          </span>
+                        </label>
+                        <select
+                          aria-label={`${candidate.privacyTitle} import type`}
+                          value={candidate.proposedType}
+                          onChange={(event) => updateImportCandidateType(candidate.id, event.target.value as CalendarImportCandidate["proposedType"])}
+                        >
+                          <option value="commitment">Commitment</option>
+                          <option value="chore">Chore</option>
+                        </select>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="empty-state">No Google Calendar events match this range yet.</p>
+                )}
+              </section>
+              <div className="form-actions modal-actions">
+                <button className="section-action" onClick={() => setSyncModal("closed")} type="button">Cancel</button>
+                <button disabled={selectedImportCandidateIds.length === 0 || isImportBlocked} onClick={handleSubmitEventsToCleanly} type="button">Send selected to Cleanly</button>
+              </div>
+            </div>
+          ) : (
+            <div className="calendar-sync-modal-body">
+              <section className="calendar-sync-intro-panel">
+                <p className="eyebrow">Export is personal</p>
+                <h3>Choose exactly what Cleanly writes to your calendar.</h3>
+                <p>Start with nothing selected. Use the range helper for batches like this week or the next two weeks, then adjust individual events.</p>
+              </section>
+              {calendarPreferences ? (
+                <section className="calendar-sync-field-panel" aria-label="Export settings">
+                  <label>
+                    To calendar
+                    <select
+                      value={calendarPreferences.destinationExternalCalendarId ?? ""}
+                      onChange={(event) => saveCalendarPreference({
+                        ...calendarPreferences,
+                        destinationExternalCalendarId: event.target.value || undefined
+                      })}
+                    >
+                      <option value="">Choose destination calendar</option>
+                      {externalCalendars.map((calendar) => (
+                        <option key={calendar.id} value={calendar.id}>{calendar.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Export content
+                    <select
+                      value={calendarPreferences.exportContentMode}
+                      onChange={(event) => saveCalendarPreference({
+                        ...calendarPreferences,
+                        exportContentMode: event.target.value as CalendarPreferences["exportContentMode"]
+                      })}
+                    >
+                      <option value="chores">Chores</option>
+                      <option value="commitments">Commitments</option>
+                      <option value="both">Both</option>
+                    </select>
+                  </label>
+                  <DateRangePicker
+                    idPrefix="export-events-range"
+                    label="Export date range"
+                    onPresetChange={(nextPreset, nextRange) => {
+                      setExportRangePreset(nextPreset);
+                      setExportRange(nextRange);
+                    }}
+                    onRangeChange={(nextRange) => {
+                      setExportRangePreset("custom");
+                      setExportRange(nextRange);
+                    }}
+                    preset={exportRangePreset}
+                    range={exportRange}
+                    visibleRange={visibleRange}
+                  />
+                </section>
+              ) : null}
+              <section className="calendar-sync-event-panel" aria-label="Events available to export">
+                <div className="section-heading">
+                  <div>
+                    <p className="eyebrow">Export batch</p>
+                    <h3>{exportEventsInRange.length} in range</h3>
+                  </div>
+                  <div className="calendar-sync-mini-actions">
+                    <button className="section-action" onClick={selectExportRangeEvents} type="button">Select range</button>
+                    <button className="section-action" onClick={() => setSelectedExportEventIds([])} type="button">Clear</button>
+                  </div>
+                </div>
+                {exportEventsInRange.length ? (
+                  <ul className="calendar-sync-event-list">
+                    {exportEventsInRange.map((event) => (
+                      <li key={event.id}>
+                        <label className="calendar-sync-event-check">
+                          <input
+                            checked={selectedExportEventIds.includes(event.id)}
+                            onChange={() => toggleExportEvent(event.id)}
+                            type="checkbox"
+                          />
+                          <span>
+                            <strong>{event.privacyTitle}</strong>
+                            <small>{formatInTimeZone(event.startsAt, timeZone, "MMM d, h:mm a")} - {formatInTimeZone(event.endsAt, timeZone, "h:mm a")} · {event.type}</small>
+                          </span>
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="empty-state">No imported Cleanly calendar events match this range yet.</p>
+                )}
+              </section>
+              <div className="calendar-sync-summary-bar">
+                <strong>{selectedExportEventIds.length} selected</strong>
+                <span>{selectedExportChoreCount} chores / {selectedExportCommitmentCount} commitments</span>
+                <span>{calendarPreferences?.destinationExternalCalendarId ? "Ready to export" : "Choose a destination calendar first"}</span>
+              </div>
+              <div className="form-actions modal-actions">
+                <button className="section-action" onClick={() => setSyncModal("closed")} type="button">Cancel</button>
+                <button
+                  disabled={selectedExportEventIds.length === 0 || !calendarPreferences?.destinationExternalCalendarId}
+                  onClick={handleExportCleanlyEvents}
+                  type="button"
+                >
+                  Export selected
+                </button>
+              </div>
+            </div>
+          )}
+          {calendarSyncStatus ? <p role="status" className="section-summary">{calendarSyncStatus}</p> : null}
+        </section>
+      </div>
+    );
   }
 
   function renderMonthCalendar() {
@@ -1071,31 +1517,15 @@ export function CalendarPage({ households, isLoading, onNavigate }: CalendarPage
             <span>{visibleOccurrences.filter((occurrence) => occurrence.status === "completed").length} completed</span>
           </div>
         </div>
-        <button onClick={openCreateEditor} type="button">Add chore</button>
+        <div className="calendar-header-actions" aria-label="Calendar actions">
+          <button className="section-action" onClick={openImportModal} type="button">Import events</button>
+          <button className="section-action" onClick={openExportModal} type="button">Export</button>
+          <button onClick={openCreateEditor} type="button">Add chore</button>
+        </div>
       </header>
+      {calendarSyncStatus && syncModal === "closed" ? <p role="status" className="section-summary">{calendarSyncStatus}</p> : null}
       {renderCalendarImportQueue()}
-
-      <section className="calendar-integration-strip" aria-label="Google Calendar setup">
-        <div>
-          <p className="eyebrow">Calendar integration</p>
-          <h2>Google Calendar</h2>
-          <p>Connect Google Calendar to review imported commitments and export Cleanly calendar updates when you choose.</p>
-          {calendarSyncStatus ? <p role="status" className="section-summary">{calendarSyncStatus}</p> : null}
-        </div>
-        <div className="calendar-integration-actions">
-          <button className="secondary-action" onClick={() => onNavigate("/settings#calendar")} type="button">
-            Set up Google Calendar
-          </button>
-          <button
-            className="secondary-action"
-            disabled={!cleanlyCalendarEvents.length}
-            onClick={handleExportCleanlyEvents}
-            type="button"
-          >
-            Export visible events
-          </button>
-        </div>
-      </section>
+      {renderCalendarSyncModal()}
 
       {!selectedHousehold ? <section className="panel">Add a household to begin scheduling chores.</section> : (
         <>

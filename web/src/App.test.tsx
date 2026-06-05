@@ -525,6 +525,65 @@ function mockCalendarPageFetches(importQueueItems: CalendarImportQueueItem[] = [
     if (url === "http://localhost:3001/api/households/household-1/calendar/import-queue" && method === "GET") {
       return { ok: true, json: async () => importQueueItems };
     }
+    if (url === "http://localhost:3001/api/households/household-1/calendar/import-policies" && method === "GET") {
+      return {
+        ok: true,
+        json: async () => members.map((member) => ({
+          householdId: "household-1",
+          memberId: member.userId,
+          memberName: member.displayName ?? member.primaryEmail ?? member.userId,
+          memberEmail: member.primaryEmail,
+          importQueueMode: "manual",
+          importContentMode: "both"
+        }))
+      };
+    }
+    if (url === "http://localhost:3001/api/me/calendar/import-policy?householdId=household-1" && method === "GET") {
+      return {
+        ok: true,
+        json: async () => ({
+          householdId: "household-1",
+          memberId: "app-user-1",
+          memberName: "Alex Owner",
+          memberEmail: "owner@example.com",
+          importQueueMode: "manual",
+          importContentMode: "both"
+        })
+      };
+    }
+    if (url === "http://localhost:3001/api/me/calendar/connections" && method === "GET") {
+      return { ok: true, json: async () => [] };
+    }
+    if (url === "http://localhost:3001/api/me/calendar/external-calendars" && method === "GET") {
+      return { ok: true, json: async () => [] };
+    }
+    if (url === "http://localhost:3001/api/me/calendar/preferences?householdId=household-1" && method === "GET") {
+      return {
+        ok: true,
+        json: async () => ({
+          householdId: "household-1",
+          defaultDetailLevel: "busy_only",
+          selectedSourceCalendarIds: [],
+          exportMode: "off",
+          exportContentMode: "chores"
+        })
+      };
+    }
+    if (url === "http://localhost:3001/api/me/calendar/preferences" && method === "PATCH") {
+      return { ok: true, json: async () => JSON.parse(String(init?.body)) };
+    }
+    if (url === "http://localhost:3001/api/me/calendar/google/connect" && method === "POST") {
+      return { ok: true, json: async () => ({ provider: "google", status: "setup_required", message: "Google Calendar login needs Google client configuration." }) };
+    }
+    if (url === "http://localhost:3001/api/me/calendar/import-candidates?householdId=household-1" && method === "GET") {
+      return { ok: true, json: async () => [] };
+    }
+    if (url === "http://localhost:3001/api/me/calendar/import-queue" && method === "POST") {
+      return { ok: true, json: async () => ({ status: "queued_for_review", items: [] }) };
+    }
+    if (url === "http://localhost:3001/api/me/calendar/export" && method === "POST") {
+      return { ok: true, json: async () => ({ status: "exported", exported: 0 }) };
+    }
     if (url === "http://localhost:3001/api/households/household-1/calendar/import-queue/queue-1" && method === "PATCH") {
       const body = JSON.parse(String(init?.body));
       return {
@@ -584,9 +643,40 @@ function mockCalendarPageFetches(importQueueItems: CalendarImportQueueItem[] = [
 }
 
 function mockCalendarWorkspaceFetches({
-  frequency = "weekly"
+  calendarConnected = false,
+  cleanlyCalendarEvents = [],
+  frequency = "weekly",
+  importCandidates = [],
+  importQueueMode = "manual"
 }: {
+  calendarConnected?: boolean;
+  cleanlyCalendarEvents?: Array<{
+    id: string;
+    householdId: string;
+    createdByUserId: string;
+    type: "chore" | "commitment";
+    title: string;
+    privacyTitle: string;
+    detailLevel: "busy_only" | "full_details";
+    startsAt: string;
+    endsAt: string;
+    timezone: string;
+    source: "manual" | "google";
+    status: "active" | "cancelled";
+  }>;
   frequency?: "daily" | "weekly" | "monthly" | "yearly";
+  importQueueMode?: "off" | "manual" | "auto";
+  importCandidates?: Array<{
+    id: string;
+    sourceExternalCalendarId: string;
+    providerEventId: string;
+    title: string;
+    privacyTitle: string;
+    startsAt: string;
+    endsAt: string;
+    proposedType: "chore" | "commitment";
+    detailLevel: "busy_only" | "full_details";
+  }>;
 } = {}) {
   let occurrences = [{
     id: "occurrence-flexible",
@@ -663,9 +753,79 @@ function mockCalendarWorkspaceFetches({
       };
     }
     if (url.endsWith("/api/households/household-1/calendar/import-queue")) return { ok: true, json: async () => [] };
+    if (url.endsWith("/api/households/household-1/calendar/import-policies")) {
+      return {
+        ok: true,
+        json: async () => members.map((member) => ({
+          householdId: "household-1",
+          memberId: member.userId,
+          memberName: member.displayName ?? member.primaryEmail ?? member.userId,
+          memberEmail: member.primaryEmail,
+          importQueueMode,
+          importContentMode: "both"
+        }))
+      };
+    }
+    if (url.endsWith("/api/me/calendar/import-policy?householdId=household-1")) {
+      return {
+        ok: true,
+        json: async () => ({
+          householdId: "household-1",
+          memberId: "app-user-1",
+          memberName: "Alex Owner",
+          memberEmail: "owner@example.com",
+          importQueueMode,
+          importContentMode: "both"
+        })
+      };
+    }
+    if (url.endsWith("/api/me/calendar/connections")) {
+      return {
+        ok: true,
+        json: async () => calendarConnected ? [{
+          id: "connection-1",
+          provider: "google",
+          providerAccountEmail: "owner@example.com",
+          status: "connected",
+          scopes: []
+        }] : []
+      };
+    }
+    if (url.endsWith("/api/me/calendar/external-calendars")) {
+      return {
+        ok: true,
+        json: async () => calendarConnected ? [{
+          id: "external-calendar-1",
+          connectionId: "connection-1",
+          providerCalendarId: "google-primary",
+          name: "Personal calendar",
+          isSelectedForImport: true,
+          isSelectedForExport: true
+        }] : []
+      };
+    }
+    if (url.endsWith("/api/me/calendar/preferences?householdId=household-1")) {
+      return {
+        ok: true,
+        json: async () => ({
+          householdId: "household-1",
+          defaultDetailLevel: "busy_only",
+          selectedSourceCalendarIds: calendarConnected ? ["external-calendar-1"] : [],
+          exportMode: calendarConnected ? "review" : "off",
+          exportContentMode: "both",
+          destinationExternalCalendarId: calendarConnected ? "external-calendar-1" : undefined
+        })
+      };
+    }
+    if (url.endsWith("/api/me/calendar/preferences") && method === "PATCH") return { ok: true, json: async () => JSON.parse(String(init?.body)) };
+    if (url.endsWith("/api/me/calendar/google/connect") && method === "POST") {
+      return { ok: true, json: async () => ({ provider: "google", status: "setup_required", message: "Google Calendar login needs Google client configuration." }) };
+    }
+    if (url.endsWith("/api/me/calendar/import-candidates?householdId=household-1")) return { ok: true, json: async () => importCandidates };
+    if (url.endsWith("/api/me/calendar/import-queue") && method === "POST") return { ok: true, json: async () => ({ status: "queued_for_review", items: [] }) };
     if (url.includes("/members")) return { ok: true, json: async () => members };
     if (url.includes("/occurrences?") && method === "GET") return { ok: true, json: async () => occurrences };
-    if (url.includes("/calendar/events?") && method === "GET") return { ok: true, json: async () => [] };
+    if (url.includes("/calendar/events?") && method === "GET") return { ok: true, json: async () => cleanlyCalendarEvents };
     if (url.endsWith("/api/me/calendar/export") && method === "POST") return { ok: true, json: async () => ({ status: "exported", exported: 0 }) };
     if (url.endsWith("/api/households/household-1/chores/chore-1/schedules") && method === "GET") {
       return {
@@ -1108,7 +1268,7 @@ describe("App", () => {
     });
   });
 
-  it("moves the Google Calendar setup entry point from Today to Calendar", async () => {
+  it("moves Google Calendar work from Today to Calendar actions", async () => {
     mockRestoredHouseholdFetches();
     renderAt("/today");
 
@@ -1122,10 +1282,11 @@ describe("App", () => {
     renderAt("/calendar");
 
     expect(await screen.findByRole("heading", { name: "Calendar" })).toBeTruthy();
-    expect(screen.getByRole("region", { name: "Google Calendar setup" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Set up Google Calendar" }));
-    expect(window.location.pathname).toBe("/settings");
-    expect(window.location.hash).toBe("#calendar");
+    expect(screen.queryByRole("region", { name: "Google Calendar setup" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Import events" }));
+    expect(await screen.findByRole("dialog", { name: "Import calendar events" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Connect Google Calendar" }));
+    expect(await screen.findByText(/Google Calendar login needs/i)).toBeTruthy();
   });
 
   it("loads app household data from the user-scoped households endpoint without localStorage restore", async () => {
@@ -1811,7 +1972,7 @@ describe("App", () => {
 
     expect(await screen.findByRole("heading", { name: "Calendar import queue" })).toBeTruthy();
     expect(screen.getAllByText("Dentist appointment").length).toBeGreaterThan(0);
-    expect(screen.getByText("Busy only")).toBeTruthy();
+    expect(screen.getAllByText("Busy only").length).toBeGreaterThan(0);
     fireEvent.change(screen.getByLabelText("Type"), { target: { value: "chore" } });
     fireEvent.click(screen.getByRole("button", { name: "Approve Dentist appointment" }));
     await waitFor(() => expect(screen.getByText("approved")).toBeTruthy());
@@ -1878,23 +2039,25 @@ describe("App", () => {
   });
 
   it("renders month as dated calendar cells with lightweight truncated chore rows", async () => {
-    vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
-    renderAt("/calendar");
+    await withMay2026CalendarClock(async () => {
+      vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
+      renderAt("/calendar");
 
-    expect(await screen.findByRole("grid", { name: "May 2026 month calendar" })).toBeTruthy();
-    expect(screen.getByText("Sun")).toBeTruthy();
-    const friday = screen.getByRole("gridcell", { name: "Friday, May 29" });
-    const monthChore = within(friday).getByRole("button", { name: "View Clean bathrooms" });
-    expect(monthChore.classList.contains("calendar-chore-row")).toBe(true);
-    expect(monthChore.classList.contains("calendar-work-item")).toBe(true);
-    expect(monthChore.classList.contains("is-chore")).toBe(true);
-    expect(monthChore.classList.contains("calendar-month-chore-row")).toBe(false);
-    expect(monthChore.classList.contains("calendar-event")).toBe(false);
-    expect(monthChore.getAttribute("title")).toBe("Clean bathrooms");
-    expect(monthChore.querySelector(".calendar-chore-title")).not.toBeNull();
-    expect(within(friday).queryByText("Anytime / 60 min")).toBeNull();
-    expect(within(friday).queryByText("Alex Owner")).toBeNull();
-    expect(screen.queryByText("Assigned member")).toBeNull();
+      expect(await screen.findByRole("grid", { name: "May 2026 month calendar" })).toBeTruthy();
+      expect(screen.getByText("Sun")).toBeTruthy();
+      const friday = screen.getByRole("gridcell", { name: "Friday, May 29" });
+      const monthChore = within(friday).getByRole("button", { name: "View Clean bathrooms" });
+      expect(monthChore.classList.contains("calendar-chore-row")).toBe(true);
+      expect(monthChore.classList.contains("calendar-work-item")).toBe(true);
+      expect(monthChore.classList.contains("is-chore")).toBe(true);
+      expect(monthChore.classList.contains("calendar-month-chore-row")).toBe(false);
+      expect(monthChore.classList.contains("calendar-event")).toBe(false);
+      expect(monthChore.getAttribute("title")).toBe("Clean bathrooms");
+      expect(monthChore.querySelector(".calendar-chore-title")).not.toBeNull();
+      expect(within(friday).queryByText("Anytime / 60 min")).toBeNull();
+      expect(within(friday).queryByText("Alex Owner")).toBeNull();
+      expect(screen.queryByText("Assigned member")).toBeNull();
+    });
   });
 
   it("keeps Calendar month view as a full month grid after the visual refresh", async () => {
@@ -2014,17 +2177,19 @@ describe("App", () => {
   });
 
   it("filters calendar content by planning mode inside the workspace panel", async () => {
-    vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
-    renderAt("/calendar");
+    await withMay2026CalendarClock(async () => {
+      vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
+      renderAt("/calendar");
 
-    const workspace = await screen.findByRole("region", { name: "Calendar workspace" });
-    await screen.findByRole("grid", { name: "May 2026 month calendar" });
-    expect(within(workspace).getAllByRole("button", { name: "View Clean bathrooms" }).length).toBeGreaterThan(0);
-    fireEvent.change(within(workspace).getByLabelText("Planning mode"), { target: { value: "timed" } });
+      const workspace = await screen.findByRole("region", { name: "Calendar workspace" });
+      await screen.findByRole("grid", { name: "May 2026 month calendar" });
+      expect(within(workspace).getAllByRole("button", { name: "View Clean bathrooms" }).length).toBeGreaterThan(0);
+      fireEvent.change(within(workspace).getByLabelText("Planning mode"), { target: { value: "timed" } });
 
-    expect(within(workspace).queryAllByRole("button", { name: "View Clean bathrooms" })).toHaveLength(0);
-    expect(within(workspace).queryByText("No chores in this range.")).toBeNull();
-    expect(within(workspace).getByRole("grid", { name: "May 2026 month calendar" })).toBeTruthy();
+      expect(within(workspace).queryAllByRole("button", { name: "View Clean bathrooms" })).toHaveLength(0);
+      expect(within(workspace).queryByText("No chores in this range.")).toBeNull();
+      expect(within(workspace).getByRole("grid", { name: "May 2026 month calendar" })).toBeTruthy();
+    });
   });
 
   it("shows completed chores inline in calendar views and in list agenda views", async () => {
@@ -2116,8 +2281,9 @@ describe("App", () => {
   });
 
   it("opens a chore view modal with upcoming and history before editing", async () => {
-    vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
-    renderAt("/calendar");
+    await withMay2026CalendarClock(async () => {
+      vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
+      renderAt("/calendar");
 
     fireEvent.click(await findPlannedCleanBathroomsButton());
 
@@ -2158,13 +2324,15 @@ describe("App", () => {
     expect(within(upcoming).getByText("Friday, May 29")).toBeTruthy();
     const history = screen.getByRole("region", { name: "Historical occurrences" });
     expect(history.classList.contains("schedule-occurrence-section")).toBe(true);
-    expect(within(history).getByText("Wednesday, May 27")).toBeTruthy();
+      expect(within(history).getByText("Wednesday, May 27")).toBeTruthy();
+    });
   });
 
   it("does not offer future occurrence rebasing for daily chores", async () => {
-    const fetchMock = mockCalendarWorkspaceFetches({ frequency: "daily" });
-    vi.stubGlobal("fetch", fetchMock);
-    renderAt("/calendar");
+    await withMay2026CalendarClock(async () => {
+      const fetchMock = mockCalendarWorkspaceFetches({ frequency: "daily" });
+      vi.stubGlobal("fetch", fetchMock);
+      renderAt("/calendar");
 
     fireEvent.click(await findPlannedCleanBathroomsButton());
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
@@ -2174,7 +2342,8 @@ describe("App", () => {
     fireEvent.click(getChoreEditor().getByRole("button", { name: "Complete chore" }));
 
     expect(screen.getByRole("region", { name: "Completion check-in" })).toBeTruthy();
-    expect(screen.queryByLabelText("Base future occurrences on this completion date")).toBeNull();
+      expect(screen.queryByLabelText("Base future occurrences on this completion date")).toBeNull();
+    });
   });
 
   it("creates a chore from occurrence fields with inline recurrence controls", async () => {
@@ -2354,8 +2523,9 @@ describe("App", () => {
   });
 
   it("opens a selected occurrence in view mode before editing", async () => {
-    vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
-    renderAt("/calendar");
+    await withMay2026CalendarClock(async () => {
+      vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
+      renderAt("/calendar");
 
     fireEvent.click(await findPlannedCleanBathroomsButton());
     expect(screen.getByRole("heading", { name: "Clean bathrooms" })).toBeTruthy();
@@ -2374,13 +2544,15 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Save changes" })).toBeTruthy();
     expect(screen.queryByRole("region", { name: "Occurrence timing" })).toBeNull();
     expect(screen.queryByRole("region", { name: "Schedule series" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "History" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "History" })).toBeNull();
+    });
   });
 
   it("saves schedule series edits from the occurrence editor", async () => {
-    const fetchMock = mockCalendarWorkspaceFetches();
-    vi.stubGlobal("fetch", fetchMock);
-    renderAt("/calendar");
+    await withMay2026CalendarClock(async () => {
+      const fetchMock = mockCalendarWorkspaceFetches();
+      vi.stubGlobal("fetch", fetchMock);
+      renderAt("/calendar");
 
     fireEvent.click(await findPlannedCleanBathroomsButton());
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
@@ -2404,7 +2576,8 @@ describe("App", () => {
         body: expect.stringContaining("\"memberUserIds\":[\"app-user-2\"]")
       })
     );
-    expect(screen.getByRole("status").textContent).toContain("Schedule saved.");
+      expect(screen.getByRole("status").textContent).toContain("Schedule saved.");
+    });
   });
 
   it("completes an assigned flexible obligation from its row and removes duplicate projections", async () => {
@@ -2806,13 +2979,141 @@ describe("App", () => {
     expect(await screen.findByRole("region", { name: "Calendar sync" })).toBeTruthy();
     expect(await screen.findByRole("heading", { name: "Your calendar connection" })).toBeTruthy();
     expect(await screen.findByRole("heading", { name: "Family import controls" })).toBeTruthy();
+    expect(screen.getByText(/When you are ready to import or export events, use Calendar\./)).toBeTruthy();
     expect(screen.getByLabelText("Source calendars")).toBeTruthy();
     expect(screen.getByLabelText("Export destination")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Review events to share" }));
-    expect(await screen.findByText("Connect Google Calendar before reviewing events.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Review events to share" })).toBeNull();
     expect(screen.getByText("Not connected")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Connect Google Calendar" }));
     expect(await screen.findByText(/Google Calendar login needs/i)).toBeTruthy();
+  });
+
+  it("opens calendar sync actions from Calendar instead of Settings", async () => {
+    vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
+    renderAt("/calendar");
+
+    expect(await screen.findByRole("heading", { name: "Calendar" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Import events" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Export" })).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "Google Calendar setup" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Import events" }));
+    expect(await screen.findByRole("dialog", { name: "Import calendar events" })).toBeTruthy();
+    expect(screen.getByText(/Import and export stay independent/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Close dialog" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Export" }));
+    expect(await screen.findByRole("dialog", { name: "Export events" })).toBeTruthy();
+    expect(screen.getByText(/Import and export stay independent/)).toBeTruthy();
+  });
+
+  it("reviews connected Google Calendar import candidates without preselecting events", async () => {
+    await withMay2026CalendarClock(async () => {
+      vi.stubGlobal("fetch", mockCalendarWorkspaceFetches({
+        calendarConnected: true,
+        importCandidates: [{
+          id: "candidate-1",
+          sourceExternalCalendarId: "external-calendar-1",
+          providerEventId: "google-event-1",
+          title: "Soccer practice",
+          privacyTitle: "Soccer practice",
+          startsAt: "2026-05-29T21:00:00.000Z",
+          endsAt: "2026-05-29T22:00:00.000Z",
+          proposedType: "commitment",
+          detailLevel: "busy_only"
+        }]
+      }));
+      renderAt("/calendar");
+
+      fireEvent.click(await screen.findByRole("button", { name: "Import events" }));
+      expect(await screen.findByRole("dialog", { name: "Import calendar events" })).toBeTruthy();
+      expect(screen.getByText(/You're connected. Choose which Google Calendar events Cleanly can use./)).toBeTruthy();
+      expect(screen.getByText("0 selected")).toBeTruthy();
+      expect((screen.getByLabelText("Soccer practice import type") as HTMLSelectElement).value).toBe("commitment");
+      expect((screen.getByRole("button", { name: "Chores" }) as HTMLButtonElement).disabled).toBe(true);
+
+      fireEvent.click(screen.getAllByLabelText(/Soccer practice/i)[0]);
+      fireEvent.click(screen.getByRole("button", { name: "Chores" }));
+
+      expect((screen.getByLabelText("Soccer practice import type") as HTMLSelectElement).value).toBe("chore");
+      expect((screen.getByRole("button", { name: "Send selected to Cleanly" }) as HTMLButtonElement).disabled).toBe(false);
+    });
+  });
+
+  it("shows a blocked import state when the member import policy is off", async () => {
+    await withMay2026CalendarClock(async () => {
+      vi.stubGlobal("fetch", mockCalendarWorkspaceFetches({
+        calendarConnected: true,
+        importCandidates: [{
+          id: "candidate-1",
+          sourceExternalCalendarId: "external-calendar-1",
+          providerEventId: "google-event-1",
+          title: "Soccer practice",
+          privacyTitle: "Soccer practice",
+          startsAt: "2026-05-29T21:00:00.000Z",
+          endsAt: "2026-05-29T22:00:00.000Z",
+          proposedType: "commitment",
+          detailLevel: "busy_only"
+        }],
+        importQueueMode: "off"
+      }));
+      renderAt("/calendar");
+
+      fireEvent.click(await screen.findByRole("button", { name: "Import events" }));
+
+      expect(await screen.findByRole("dialog", { name: "Import calendar events" })).toBeTruthy();
+      expect(screen.getByRole("region", { name: "Import disabled" })).toBeTruthy();
+      expect(screen.getByText(/household owner has turned off Google Calendar imports/i)).toBeTruthy();
+      fireEvent.click(screen.getAllByLabelText(/Soccer practice/i)[0]);
+      expect((screen.getByRole("button", { name: "Send selected to Cleanly" }) as HTMLButtonElement).disabled).toBe(true);
+    });
+  });
+
+  it("summarizes selected export events by chores and commitments", async () => {
+    await withMay2026CalendarClock(async () => {
+      vi.stubGlobal("fetch", mockCalendarWorkspaceFetches({
+        calendarConnected: true,
+        cleanlyCalendarEvents: [{
+          id: "cleanly-event-1",
+          householdId: "household-1",
+          createdByUserId: "app-user-1",
+          type: "chore",
+          title: "Clean bathrooms",
+          privacyTitle: "Clean bathrooms",
+          detailLevel: "busy_only",
+          startsAt: "2026-05-29T14:00:00.000Z",
+          endsAt: "2026-05-29T15:00:00.000Z",
+          timezone: "America/New_York",
+          source: "manual",
+          status: "active"
+        }, {
+          id: "cleanly-event-2",
+          householdId: "household-1",
+          createdByUserId: "app-user-1",
+          type: "commitment",
+          title: "Soccer practice",
+          privacyTitle: "Soccer practice",
+          detailLevel: "busy_only",
+          startsAt: "2026-05-30T14:00:00.000Z",
+          endsAt: "2026-05-30T15:00:00.000Z",
+          timezone: "America/New_York",
+          source: "google",
+          status: "active"
+        }]
+      }));
+      renderAt("/calendar");
+
+      fireEvent.click(await screen.findByRole("button", { name: "Export" }));
+      expect(await screen.findByRole("dialog", { name: "Export events" })).toBeTruthy();
+      expect(screen.getByText("0 selected")).toBeTruthy();
+      expect(screen.getByText("0 chores / 0 commitments")).toBeTruthy();
+
+      fireEvent.click(screen.getByRole("button", { name: "Select range" }));
+
+      expect(screen.getByText("2 selected")).toBeTruthy();
+      expect(screen.getByText("1 chores / 1 commitments")).toBeTruthy();
+      expect(screen.getByText("Ready to export")).toBeTruthy();
+    });
   });
 
   it("lets Settings switch the Today week rail start day", async () => {
@@ -2877,7 +3178,7 @@ describe("App", () => {
     await waitFor(() => expect(screen.getByRole("heading", { name: "Optimize" })).toBeTruthy());
     expect(screen.getByRole("region", { name: "Assistant workspace" })).toBeTruthy();
     expect(screen.getByText("What should we improve around the house?")).toBeTruthy();
-    expect(await screen.findByText(/Ready to review/i)).toBeTruthy();
+    expect((await screen.findAllByText(/Ready to review/i)).length).toBeGreaterThan(0);
   });
 
   it("shows Optimize chat prompts and renders an assistant answer", async () => {
