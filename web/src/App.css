@@ -1402,6 +1402,38 @@ button:where(:not(.link-button)):hover {
   cursor: default;
 }
 
+.calendar-cleanly-event.is-export-selectable {
+  cursor: pointer;
+  position: relative;
+}
+
+.calendar-cleanly-event.is-selected-for-export {
+  background: #e6f8fb;
+  border-color: var(--color-primary);
+  border-left-color: var(--color-primary);
+  box-shadow: inset 0 0 0 2px rgba(21, 105, 126, 0.16);
+}
+
+.calendar-cleanly-event.is-selected-for-export::after {
+  align-items: center;
+  background: var(--color-primary);
+  color: #fff;
+  content: "Selected";
+  display: inline-flex;
+  font-size: 0.66rem;
+  font-weight: 850;
+  justify-content: center;
+  letter-spacing: 0.02em;
+  padding: 2px 5px;
+  text-transform: uppercase;
+}
+
+.calendar-cleanly-event.is-export-muted {
+  cursor: not-allowed;
+  filter: grayscale(0.35);
+  opacity: 0.48;
+}
+
 .calendar-cleanly-event.is-commitment {
   background: #fff7d6;
   border-left-color: #f3c64d;
@@ -2814,6 +2846,94 @@ button.calendar-event:hover {
 .panel {
   border-radius: 0;
   padding: 22px;
+}
+
+.calendar-export-mode-banner {
+  align-items: center;
+  background: #eaf6f8;
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-section-offset);
+  color: #1e3f49;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  padding: 14px 18px;
+}
+
+.calendar-export-mode-banner span {
+  font-weight: 750;
+}
+
+.calendar-export-layout {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.34fr);
+}
+
+.calendar-export-layout.is-standard {
+  display: block;
+}
+
+.calendar-export-calendar-surface {
+  min-width: 0;
+}
+
+.calendar-export-panel {
+  align-self: start;
+  background: #fbfeff;
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-section-offset);
+  display: grid;
+  gap: 18px;
+  padding: 18px;
+  position: sticky;
+  top: 18px;
+}
+
+.calendar-export-panel-header {
+  display: grid;
+  gap: 7px;
+}
+
+.calendar-export-panel-header h2,
+.calendar-export-panel-header p {
+  margin: 0;
+}
+
+.calendar-export-panel-header p:not(.eyebrow) {
+  color: #536173;
+  line-height: 1.45;
+}
+
+.calendar-export-panel-fields {
+  border-top: 1px solid var(--color-border);
+  display: grid;
+  gap: 14px;
+  padding-top: 16px;
+}
+
+.calendar-export-batch-actions,
+.calendar-export-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.calendar-export-summary-bar {
+  background: #edf7f9;
+  border: 1px solid #c8e1e7;
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+}
+
+.calendar-export-summary-bar strong {
+  color: var(--color-primary-strong);
+}
+
+.calendar-export-summary-bar span {
+  color: #536173;
+  font-weight: 700;
 }
 
 .panel.calendar-workspace-panel {
@@ -6054,14 +6174,24 @@ button.chore-row-summary[aria-expanded="true"] {
 
 @media (max-width: 720px) {
   .calendar-header-actions,
-  .calendar-sync-summary-bar {
+  .calendar-sync-summary-bar,
+  .calendar-export-mode-banner {
     align-items: stretch;
     flex-direction: column;
   }
 
   .calendar-header-actions button,
-  .calendar-sync-summary-bar > * {
+  .calendar-sync-summary-bar > *,
+  .calendar-export-mode-banner button {
     width: 100%;
+  }
+
+  .calendar-export-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .calendar-export-panel {
+    position: static;
   }
 
   .calendar-sync-backdrop {

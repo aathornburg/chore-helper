@@ -3003,8 +3003,10 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Close dialog" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Export" }));
-    expect(await screen.findByRole("dialog", { name: "Export events" })).toBeTruthy();
-    expect(screen.getByText(/Import and export stay independent/)).toBeTruthy();
+    expect(await screen.findByRole("region", { name: "Exporting Cleanly events" })).toBeTruthy();
+    expect(screen.queryByRole("dialog", { name: "Export events" })).toBeNull();
+    expect(screen.getByText(/Export mode: choose a range, select eligible events, then export to your calendar\./)).toBeTruthy();
+    expect(screen.getByText("Choose a destination calendar first")).toBeTruthy();
   });
 
   it("reviews connected Google Calendar import candidates without preselecting events", async () => {
@@ -3104,15 +3106,20 @@ describe("App", () => {
       renderAt("/calendar");
 
       fireEvent.click(await screen.findByRole("button", { name: "Export" }));
-      expect(await screen.findByRole("dialog", { name: "Export events" })).toBeTruthy();
+      expect(await screen.findByRole("region", { name: "Exporting Cleanly events" })).toBeTruthy();
       expect(screen.getByText("0 selected")).toBeTruthy();
       expect(screen.getByText("0 chores / 0 commitments")).toBeTruthy();
 
-      fireEvent.click(screen.getByRole("button", { name: "Select range" }));
+      fireEvent.click(screen.getByRole("button", { name: "Select 2 eligible events" }));
 
       expect(screen.getByText("2 selected")).toBeTruthy();
       expect(screen.getByText("1 chores / 1 commitments")).toBeTruthy();
       expect(screen.getByText("Ready to export")).toBeTruthy();
+
+      fireEvent.click(screen.getByRole("button", { name: "Deselect Clean bathrooms" }));
+
+      expect(screen.getByText("1 selected")).toBeTruthy();
+      expect(screen.getByText("0 chores / 1 commitments")).toBeTruthy();
     });
   });
 

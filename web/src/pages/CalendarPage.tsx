@@ -3,6 +3,7 @@ import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { useEffect, useMemo, useState } from "react";
 import type { CalendarConnectionSummary, CalendarImportCandidate, CalendarImportPolicy, CalendarImportQueueItem, CalendarPreferences, ChoreOccurrence, ChoreSchedule, CleanlyCalendarEvent, CompletionCheckInInput, ExternalCalendarSummary, HouseholdAppData, HouseholdMemberSummary, ScheduleInput } from "@chore-helper/shared";
 import { completeOccurrence, createScheduledChore, decideCalendarImportQueueItem, exportCleanlyCalendarEvents, getCalendarPreferences, getCurrentUser, getMyCalendarImportPolicy, listCalendarConnections, listCalendarImportCandidates, listCalendarImportPolicies, listCalendarImportQueue, listCleanlyCalendarEvents, listExternalCalendars, listHouseholdMembers, listOccurrences, listSchedules, skipOccurrence, startGoogleCalendarConnection, submitCalendarImportEvents, updateCalendarPreferences, updateOccurrence, updateSchedule as updateScheduleApi } from "../api";
+import { CalendarExportPanel } from "./calendar/CalendarExportPanel";
 import { DateRangePicker } from "./calendar/DateRangePicker";
 import type { CalendarDateRange, CalendarDateRangePreset } from "./calendar/dateRange";
 import { createVisibleRange, isDateInRange } from "./calendar/dateRange";
@@ -13,7 +14,7 @@ type CalendarScale = "month" | "week" | "day";
 type CalendarFilters = { householdId?: string; assignedUserId?: string; status?: string; planningMode?: string };
 type EditorMode = "closed" | "create" | "view" | "edit";
 type OccurrenceCardDensity = "title" | "summary";
-type CalendarSyncModal = "closed" | "import" | "export";
+type CalendarSyncModal = "closed" | "import";
 type ScheduleDraft = ScheduleInput & { key: string };
 type EditorDraft = {
   choreId?: string;
@@ -237,6 +238,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   const [queueTypeDrafts, setQueueTypeDrafts] = useState(() => new Map<string, CalendarImportQueueItem["proposedType"]>());
   const [calendarSyncStatus, setCalendarSyncStatus] = useState<string>();
   const [syncModal, setSyncModal] = useState<CalendarSyncModal>("closed");
+  const [isExportMode, setIsExportMode] = useState(false);
   const [connections, setConnections] = useState<CalendarConnectionSummary[]>([]);
   const [externalCalendars, setExternalCalendars] = useState<ExternalCalendarSummary[]>([]);
   const [calendarPreferences, setCalendarPreferences] = useState<CalendarPreferences>();
@@ -449,7 +451,8 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
       calendarPreferences.selectedSourceCalendarIds.includes(candidate.sourceExternalCalendarId))
   ), [calendarPreferences?.selectedSourceCalendarIds, importCandidates, importRange, timeZone]);
 
-  const exportEventsInRange = useMemo(() => cleanlyCalendarEvents.filter((event) =>
+  const eligibleExportEvents = useMemo(() => cleanlyCalendarEvents.filter((event) =>
+    event.status === "active" &&
     isDateInRange(formatInTimeZone(event.startsAt, timeZone, "yyyy-MM-dd"), exportRange) &&
     (!calendarPreferences || calendarPreferences.exportContentMode === "both" || calendarPreferences.exportContentMode === `${event.type}s`)
   ), [calendarPreferences, cleanlyCalendarEvents, exportRange, timeZone]);
@@ -918,12 +921,11 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   }
 
   function renderCleanlyCalendarEvent(event: CleanlyCalendarEvent, compact = true) {
-    return (
-      <div
-        className={`calendar-work-item calendar-chore-row calendar-cleanly-event is-${event.type}`}
-        key={event.id}
-        title={event.privacyTitle}
-      >
+    const isSelectedForExport = selectedExportEventIds.includes(event.id);
+    const isEligibleForExport = eligibleExportEvents.some((eligibleEvent) => eligibleEvent.id === event.id);
+    const className = `calendar-work-item calendar-chore-row calendar-cleanly-event is-${event.type}${isExportMode ? " is-export-selectable" : ""}${isSelectedForExport ? " is-selected-for-export" : ""}${isExportMode && !isEligibleForExport ? " is-export-muted" : ""}`;
+    const content = (
+      <>
         <span className="calendar-chore-main">
           <span className="calendar-chore-title">{event.privacyTitle}</span>
           {!compact ? (
@@ -932,6 +934,29 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
             </span>
           ) : null}
         </span>
+      </>
+    );
+
+    return isExportMode ? (
+      <button
+        aria-label={`${isSelectedForExport ? "Deselect" : "Select"} ${event.privacyTitle}`}
+        aria-pressed={isSelectedForExport}
+        className={className}
+        disabled={!isEligibleForExport}
+        key={event.id}
+        onClick={() => toggleExportEvent(event.id)}
+        title={event.privacyTitle}
+        type="button"
+      >
+        {content}
+      </button>
+    ) : (
+      <div
+        className={className}
+        key={event.id}
+        title={event.privacyTitle}
+      >
+        {content}
       </div>
     );
   }
@@ -966,9 +991,17 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
       .catch(() => setCalendarSyncStatus("Could not load calendar events to review."));
   }
 
-  function openExportModal() {
-    setSyncModal("export");
+  function startExportMode() {
+    setIsExportMode(true);
+    setSyncModal("closed");
     setCalendarSyncStatus(undefined);
+    setExportRange(visibleRange);
+    setExportRangePreset("visible");
+    setSelectedExportEventIds([]);
+  }
+
+  function exitExportMode() {
+    setIsExportMode(false);
     setSelectedExportEventIds([]);
   }
 
@@ -1013,6 +1046,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   }
 
   function toggleExportEvent(eventId: string) {
+    if (!isExportMode) return;
     setSelectedExportEventIds((current) =>
       current.includes(eventId)
         ? current.filter((id) => id !== eventId)
@@ -1021,27 +1055,21 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   }
 
   function selectExportRangeEvents() {
-    setSelectedExportEventIds(exportEventsInRange.map((event) => event.id));
+    setSelectedExportEventIds(eligibleExportEvents.map((event) => event.id));
   }
-
-  const selectedExportEvents = cleanlyCalendarEvents.filter((event) => selectedExportEventIds.includes(event.id));
-  const selectedExportChoreCount = selectedExportEvents.filter((event) => event.type === "chore").length;
-  const selectedExportCommitmentCount = selectedExportEvents.filter((event) => event.type === "commitment").length;
 
   function handleExportCleanlyEvents() {
     if (!selectedHousehold) return;
     void exportCleanlyCalendarEvents(selectedHousehold.id, selectedExportEventIds)
       .then((result) => {
         setCalendarSyncStatus(`${result.exported} calendar event${result.exported === 1 ? "" : "s"} exported.`);
-        setSyncModal("closed");
-        setSelectedExportEventIds([]);
+        exitExportMode();
       })
       .catch(() => setCalendarSyncStatus("Could not export calendar events. Choose an export destination in Settings first."));
   }
 
   function renderCalendarSyncModal() {
     if (syncModal === "closed") return null;
-    const title = syncModal === "import" ? "Import calendar events" : "Export events";
 
     return (
       <div className="chore-editor-backdrop calendar-sync-backdrop" role="presentation">
@@ -1049,7 +1077,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Work my calendar</p>
-              <h2 id="calendar-sync-modal-heading">{title}</h2>
+              <h2 id="calendar-sync-modal-heading">Import calendar events</h2>
             </div>
             <button aria-label="Close dialog" className="icon-button modal-close-button" onClick={() => setSyncModal("closed")} type="button" />
           </div>
@@ -1064,7 +1092,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
               </p>
               <button onClick={handleConnectGoogleCalendar} type="button">Connect Google Calendar</button>
             </section>
-          ) : syncModal === "import" ? (
+          ) : (
             <div className="calendar-sync-modal-body">
               <section className="calendar-sync-intro-panel">
                 <p className="eyebrow">Now you are connected</p>
@@ -1187,110 +1215,6 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
               <div className="form-actions modal-actions">
                 <button className="section-action" onClick={() => setSyncModal("closed")} type="button">Cancel</button>
                 <button disabled={selectedImportCandidateIds.length === 0 || isImportBlocked} onClick={handleSubmitEventsToCleanly} type="button">Send selected to Cleanly</button>
-              </div>
-            </div>
-          ) : (
-            <div className="calendar-sync-modal-body">
-              <section className="calendar-sync-intro-panel">
-                <p className="eyebrow">Export is personal</p>
-                <h3>Choose exactly what Cleanly writes to your calendar.</h3>
-                <p>Start with nothing selected. Use the range helper for batches like this week or the next two weeks, then adjust individual events.</p>
-              </section>
-              {calendarPreferences ? (
-                <section className="calendar-sync-field-panel" aria-label="Export settings">
-                  <label>
-                    To calendar
-                    <select
-                      value={calendarPreferences.destinationExternalCalendarId ?? ""}
-                      onChange={(event) => saveCalendarPreference({
-                        ...calendarPreferences,
-                        destinationExternalCalendarId: event.target.value || undefined
-                      })}
-                    >
-                      <option value="">Choose destination calendar</option>
-                      {externalCalendars.map((calendar) => (
-                        <option key={calendar.id} value={calendar.id}>{calendar.name}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Export content
-                    <select
-                      value={calendarPreferences.exportContentMode}
-                      onChange={(event) => saveCalendarPreference({
-                        ...calendarPreferences,
-                        exportContentMode: event.target.value as CalendarPreferences["exportContentMode"]
-                      })}
-                    >
-                      <option value="chores">Chores</option>
-                      <option value="commitments">Commitments</option>
-                      <option value="both">Both</option>
-                    </select>
-                  </label>
-                  <DateRangePicker
-                    idPrefix="export-events-range"
-                    label="Export date range"
-                    onPresetChange={(nextPreset, nextRange) => {
-                      setExportRangePreset(nextPreset);
-                      setExportRange(nextRange);
-                    }}
-                    onRangeChange={(nextRange) => {
-                      setExportRangePreset("custom");
-                      setExportRange(nextRange);
-                    }}
-                    preset={exportRangePreset}
-                    range={exportRange}
-                    visibleRange={visibleRange}
-                  />
-                </section>
-              ) : null}
-              <section className="calendar-sync-event-panel" aria-label="Events available to export">
-                <div className="section-heading">
-                  <div>
-                    <p className="eyebrow">Export batch</p>
-                    <h3>{exportEventsInRange.length} in range</h3>
-                  </div>
-                  <div className="calendar-sync-mini-actions">
-                    <button className="section-action" onClick={selectExportRangeEvents} type="button">Select range</button>
-                    <button className="section-action" onClick={() => setSelectedExportEventIds([])} type="button">Clear</button>
-                  </div>
-                </div>
-                {exportEventsInRange.length ? (
-                  <ul className="calendar-sync-event-list">
-                    {exportEventsInRange.map((event) => (
-                      <li key={event.id}>
-                        <label className="calendar-sync-event-check">
-                          <input
-                            checked={selectedExportEventIds.includes(event.id)}
-                            onChange={() => toggleExportEvent(event.id)}
-                            type="checkbox"
-                          />
-                          <span>
-                            <strong>{event.privacyTitle}</strong>
-                            <small>{formatInTimeZone(event.startsAt, timeZone, "MMM d, h:mm a")} - {formatInTimeZone(event.endsAt, timeZone, "h:mm a")} · {event.type}</small>
-                          </span>
-                        </label>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="empty-state">No imported Cleanly calendar events match this range yet.</p>
-                )}
-              </section>
-              <div className="calendar-sync-summary-bar">
-                <strong>{selectedExportEventIds.length} selected</strong>
-                <span>{selectedExportChoreCount} chores / {selectedExportCommitmentCount} commitments</span>
-                <span>{calendarPreferences?.destinationExternalCalendarId ? "Ready to export" : "Choose a destination calendar first"}</span>
-              </div>
-              <div className="form-actions modal-actions">
-                <button className="section-action" onClick={() => setSyncModal("closed")} type="button">Cancel</button>
-                <button
-                  disabled={selectedExportEventIds.length === 0 || !calendarPreferences?.destinationExternalCalendarId}
-                  onClick={handleExportCleanlyEvents}
-                  type="button"
-                >
-                  Export selected
-                </button>
               </div>
             </div>
           )}
@@ -1519,13 +1443,19 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
         </div>
         <div className="calendar-header-actions" aria-label="Calendar actions">
           <button className="section-action" onClick={openImportModal} type="button">Import events</button>
-          <button className="section-action" onClick={openExportModal} type="button">Export</button>
+          <button className="section-action" onClick={startExportMode} type="button">Export</button>
           <button onClick={openCreateEditor} type="button">Add chore</button>
         </div>
       </header>
       {calendarSyncStatus && syncModal === "closed" ? <p role="status" className="section-summary">{calendarSyncStatus}</p> : null}
       {renderCalendarImportQueue()}
       {renderCalendarSyncModal()}
+      {isExportMode ? (
+        <section className="calendar-export-mode-banner" role="status">
+          <span>Export mode: choose a range, select eligible events, then export to your calendar.</span>
+          <button className="section-action" onClick={exitExportMode} type="button">Exit export mode</button>
+        </section>
+      ) : null}
 
       {!selectedHousehold ? <section className="panel">Add a household to begin scheduling chores.</section> : (
         <>
@@ -1617,44 +1547,89 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
               </section>
             </section>
 
-            {loadState === "error" ? <section className="calendar-empty-state">Could not load scheduled chores.</section> : null}
+            <div className={isExportMode ? "calendar-export-layout" : "calendar-export-layout is-standard"}>
+              <div className="calendar-export-calendar-surface">
+                {loadState === "error" ? <section className="calendar-empty-state">Could not load scheduled chores.</section> : null}
 
-            {workspaceView === "calendar" && loadState === "ready" ? (
-              <div className="calendar-workspace-content">
-                {calendarScale === "month" ? (
-                  renderMonthCalendar()
-                ) : calendarScale === "week" ? (
-                  renderCalendarColumns(weekDates, `Week of ${format(weekDates[0], "MMM d, yyyy")}`, "title")
-                ) : (
-                  renderCalendarColumns([focusDate], `${longDateLabel(focusDate)} day calendar`, "summary")
-                )}
-              </div>
-            ) : null}
-
-            {workspaceView === "list" ? (
-              <section className="calendar-list-group calendar-agenda" aria-label="Chore agenda">
-              <div className="agenda-header">
-                <div>
-                  <p className="eyebrow">Agenda</p>
-                  <h2>Upcoming and completed work</h2>
-                </div>
-                <div className="agenda-summary" aria-label="Agenda summary">
-                  <span>{listStatusCounts.planned} planned</span>
-                  <span>{listStatusCounts.completed} completed</span>
-                  <span>{listStatusCounts.skipped} skipped</span>
-                </div>
-              </div>
-              {listGroups.map(([date, dateOccurrences]) => (
-                <section className="calendar-list-day" key={date}>
-                  <h3>{format(parseISO(date), "EEEE, MMM d")}</h3>
-                  <div className="calendar-list-day-items">
-                    {orderCompletedLast(dateOccurrences)
-                      .map((occurrence) => renderAgendaOccurrence(occurrence, parseISO(date)))}
+                {workspaceView === "calendar" && loadState === "ready" ? (
+                  <div className="calendar-workspace-content">
+                    {calendarScale === "month" ? (
+                      renderMonthCalendar()
+                    ) : calendarScale === "week" ? (
+                      renderCalendarColumns(weekDates, `Week of ${format(weekDates[0], "MMM d, yyyy")}`, "title")
+                    ) : (
+                      renderCalendarColumns([focusDate], `${longDateLabel(focusDate)} day calendar`, "summary")
+                    )}
                   </div>
-                </section>
-              ))}
-              </section>
-            ) : null}
+                ) : null}
+
+                {workspaceView === "list" ? (
+                  <section className="calendar-list-group calendar-agenda" aria-label="Chore agenda">
+                  <div className="agenda-header">
+                    <div>
+                      <p className="eyebrow">Agenda</p>
+                      <h2>Upcoming and completed work</h2>
+                    </div>
+                    <div className="agenda-summary" aria-label="Agenda summary">
+                      <span>{listStatusCounts.planned} planned</span>
+                      <span>{listStatusCounts.completed} completed</span>
+                      <span>{listStatusCounts.skipped} skipped</span>
+                    </div>
+                  </div>
+                  {listGroups.map(([date, dateOccurrences]) => (
+                    <section className="calendar-list-day" key={date}>
+                      <h3>{format(parseISO(date), "EEEE, MMM d")}</h3>
+                      <div className="calendar-list-day-items">
+                        {orderCompletedLast(dateOccurrences)
+                          .map((occurrence) => renderAgendaOccurrence(occurrence, parseISO(date)))}
+                      </div>
+                    </section>
+                  ))}
+                  </section>
+                ) : null}
+              </div>
+
+              {isExportMode ? (
+                <CalendarExportPanel
+                  eligibleEvents={eligibleExportEvents}
+                  externalCalendars={externalCalendars}
+                  preferences={calendarPreferences}
+                  range={exportRange}
+                  rangePreset={exportRangePreset}
+                  selectedEventIds={selectedExportEventIds}
+                  visibleRange={visibleRange}
+                  onCancel={exitExportMode}
+                  onClearSelection={() => setSelectedExportEventIds([])}
+                  onDestinationCalendarChange={(calendarId) => {
+                    if (!calendarPreferences) return;
+                    saveCalendarPreference({
+                      ...calendarPreferences,
+                      destinationExternalCalendarId: calendarId || undefined
+                    });
+                  }}
+                  onExport={handleExportCleanlyEvents}
+                  onExportContentChange={(mode) => {
+                    if (!calendarPreferences) return;
+                    saveCalendarPreference({
+                      ...calendarPreferences,
+                      exportContentMode: mode
+                    });
+                    setSelectedExportEventIds([]);
+                  }}
+                  onRangeChange={(nextRange) => {
+                    setExportRangePreset("custom");
+                    setExportRange(nextRange);
+                    setSelectedExportEventIds([]);
+                  }}
+                  onRangePresetChange={(nextPreset, nextRange) => {
+                    setExportRangePreset(nextPreset);
+                    setExportRange(nextRange);
+                    setSelectedExportEventIds([]);
+                  }}
+                  onSelectEligible={selectExportRangeEvents}
+                />
+              ) : null}
+            </div>
             </div>
           </section>
 
