@@ -17,6 +17,7 @@ import type {
   HouseholdMemberSummary,
   HouseholdProfile,
   HouseholdStructure,
+  AppNotification,
   Recommendation,
   RecommendationDecision,
   ScheduleInput,
@@ -234,6 +235,9 @@ export type HouseholdStore = {
   updateCalendarPreferences(userId: string, householdId: string, update: CalendarPreferences): StoreResult<CalendarPreferences>;
   listCalendarImportQueue(householdId: string): StoreResult<CalendarImportQueueItem[]>;
   createCalendarImportQueueItem(input: Omit<CalendarImportQueueItem, "id" | "createdAt" | "queueStatus">): StoreResult<CalendarImportQueueItem>;
+  upsertCalendarImportQueueReviewNotifications(householdId: string): StoreResult<AppNotification[]>;
+  listNotificationsForUser(userId: string): StoreResult<AppNotification[]>;
+  markNotificationsRead(userId: string, notificationIds: string[]): StoreResult<AppNotification[]>;
   decideCalendarImportQueueItem(
     householdId: string,
     queueItemId: string,
@@ -298,6 +302,7 @@ export function createInMemoryStore(): HouseholdStore {
   const calendarImportPolicies = new Map<string, CalendarImportPolicy>();
   const calendarPreferences = new Map<string, CalendarPreferences>();
   const calendarImportQueueItems = new Map<string, CalendarImportQueueItem>();
+  const notifications = new Map<string, AppNotification>();
   const cleanlyCalendarEvents = new Map<string, CleanlyCalendarEvent>();
   const externalCalendarEventLinks = new Set<string>();
   const calendarConnections = new Map<string, CalendarConnectionSecrets[]>();
@@ -309,6 +314,45 @@ export function createInMemoryStore(): HouseholdStore {
 
   function calendarPreferenceKey(userId: string, householdId: string) {
     return `${userId}:${householdId}`;
+  }
+
+  function calendarImportReviewNotificationKey(userId: string, householdId: string) {
+    return `calendar_import_queue_review:${userId}:${householdId}`;
+  }
+
+  function pendingImportQueueCount(householdId: string) {
+    return Array.from(calendarImportQueueItems.values()).filter(
+      (item) => item.householdId === householdId && item.queueStatus === "pending"
+    ).length;
+  }
+
+  function importReviewNotificationCopy(householdName: string, pendingCount: number) {
+    const eventLabel = pendingCount === 1 ? "event is" : "events are";
+    return {
+      title: "Calendar imports need review",
+      body: `${pendingCount} ${eventLabel} waiting in ${householdName}.`,
+      targetPath: "/calendar?reviewImports=1"
+    };
+  }
+
+  function refreshNotificationPendingCount(notification: AppNotification) {
+    if (notification.type !== "calendar_import_queue_review" || !notification.householdId) {
+      return notification;
+    }
+    const pendingCount = pendingImportQueueCount(notification.householdId);
+    if (pendingCount <= 0) return undefined;
+    const householdName = households.get(notification.householdId)?.name ?? notification.householdName ?? "Home";
+    const copy = importReviewNotificationCopy(householdName, pendingCount);
+    return {
+      ...notification,
+      householdName,
+      ...copy,
+      metadata: {
+        ...notification.metadata,
+        householdId: notification.householdId,
+        pendingCount
+      }
+    };
   }
 
   function defaultCalendarPreference(householdId: string): CalendarPreferences {
@@ -971,6 +1015,65 @@ export function createInMemoryStore(): HouseholdStore {
       };
       calendarImportQueueItems.set(item.id, item);
       return item;
+    },
+
+    async upsertCalendarImportQueueReviewNotifications(householdId) {
+      const pendingCount = pendingImportQueueCount(householdId);
+      if (pendingCount <= 0) return [];
+      const household = households.get(householdId);
+      if (!household) return [];
+      const owners = (await this.listHouseholdMembers(householdId)).filter((member) => member.role === "owner");
+      const now = new Date().toISOString();
+      return owners.map((owner) => {
+        const key = calendarImportReviewNotificationKey(owner.userId, householdId);
+        const existing = notifications.get(key);
+        const copy = importReviewNotificationCopy(household.name, pendingCount);
+        const notification: AppNotification = {
+          id: existing?.id ?? crypto.randomUUID(),
+          recipientUserId: owner.userId,
+          type: "calendar_import_queue_review",
+          householdId,
+          householdName: household.name,
+          ...copy,
+          metadata: {
+            householdId,
+            pendingCount
+          },
+          readAt: null,
+          createdAt: existing?.createdAt ?? now,
+          updatedAt: now
+        };
+        notifications.set(key, notification);
+        return notification;
+      });
+    },
+
+    listNotificationsForUser(userId) {
+      return Array.from(notifications.values())
+        .filter((notification) => notification.recipientUserId === userId)
+        .flatMap((notification) => {
+          const refreshed = refreshNotificationPendingCount(notification);
+          return refreshed ? [refreshed] : [];
+        })
+        .sort((first, second) => second.updatedAt.localeCompare(first.updatedAt));
+    },
+
+    markNotificationsRead(userId, notificationIds) {
+      const requestedIds = new Set(notificationIds);
+      const now = new Date().toISOString();
+      const updated: AppNotification[] = [];
+      for (const [key, notification] of notifications.entries()) {
+        if (notification.recipientUserId !== userId || !requestedIds.has(notification.id)) continue;
+        const next = {
+          ...notification,
+          readAt: notification.readAt ?? now,
+          updatedAt: now
+        };
+        notifications.set(key, next);
+        const refreshed = refreshNotificationPendingCount(next);
+        if (refreshed) updated.push(refreshed);
+      }
+      return updated;
     },
 
     decideCalendarImportQueueItem(householdId, queueItemId, _ownerUserId, input) {

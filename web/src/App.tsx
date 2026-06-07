@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SignInButton, SignUpButton, SignedIn, SignedOut, UserButton } from "@clerk/clerk-react";
+import type { AppNotification } from "@chore-helper/shared";
+import { listMyNotifications, markMyNotificationsRead } from "./api";
 import { ApiAuthBridge } from "./auth/AuthProvider";
 import { OptimizePage } from "./pages/OptimizePage";
 import { HouseholdsPage } from "./pages/HouseholdsPage";
@@ -149,6 +151,10 @@ function AppShell({
   onNavigate: (path: string) => void;
 }) {
   const [isNavOpen, setIsNavOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [unreadTaskCount, setUnreadTaskCount] = useState(0);
+  const notificationsRef = useRef<HTMLDivElement>(null);
   const navItems = [
     { label: "Optimize", path: "/optimize", emphasis: true },
     { label: "Today", path: "/today" },
@@ -157,6 +163,80 @@ function AppShell({
     { label: "Family", path: "/family" },
     { label: "Settings", path: "/settings" }
   ];
+
+  async function refreshNotifications() {
+    try {
+      const response = await listMyNotifications();
+      setNotifications(response.notifications);
+      setUnreadTaskCount(response.unreadTaskCount);
+    } catch {
+      setNotifications([]);
+      setUnreadTaskCount(0);
+    }
+  }
+
+  useEffect(() => {
+    void refreshNotifications();
+
+    function handleFocus() {
+      void refreshNotifications();
+    }
+
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, []);
+
+  useEffect(() => {
+    if (!isNotificationsOpen) return;
+
+    function handleDocumentMouseDown(event: MouseEvent) {
+      const target = event.target;
+      if (target instanceof Node && notificationsRef.current?.contains(target)) return;
+      setIsNotificationsOpen(false);
+    }
+
+    function handleDocumentKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setIsNotificationsOpen(false);
+    }
+
+    document.addEventListener("mousedown", handleDocumentMouseDown);
+    document.addEventListener("keydown", handleDocumentKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleDocumentMouseDown);
+      document.removeEventListener("keydown", handleDocumentKeyDown);
+    };
+  }, [isNotificationsOpen]);
+
+  async function openNotifications() {
+    const nextOpen = !isNotificationsOpen;
+    setIsNotificationsOpen(nextOpen);
+    if (!nextOpen) return;
+
+    const unreadIds = notifications.filter((notification) => !notification.readAt).map((notification) => notification.id);
+    if (!unreadIds.length) return;
+    setNotifications((current) => current.map((notification) =>
+      unreadIds.includes(notification.id)
+        ? { ...notification, readAt: new Date().toISOString() }
+        : notification
+    ));
+    setUnreadTaskCount(0);
+    try {
+      const response = await markMyNotificationsRead(unreadIds);
+      setUnreadTaskCount(response.unreadTaskCount);
+    } catch {
+      void refreshNotifications();
+    }
+  }
+
+  function pendingCountLabel(notification: AppNotification) {
+    const count = typeof notification.metadata.pendingCount === "number" ? notification.metadata.pendingCount : undefined;
+    return count === undefined ? undefined : `${count} pending`;
+  }
+
+  function openNotification(notification: AppNotification) {
+    setIsNotificationsOpen(false);
+    onNavigate(notification.targetPath);
+  }
 
   /*
     AppShell functions like a shared layout component in Angular. Its
@@ -205,10 +285,45 @@ function AppShell({
             </a>
           ))}
         </nav>
-        <div className="workspace-user-actions">
-          <button aria-label="Notifications" className="workspace-icon-button" type="button">
+        <div className="workspace-user-actions" ref={notificationsRef}>
+          <button
+            aria-expanded={isNotificationsOpen}
+            aria-label={unreadTaskCount > 0 ? `Notifications, ${unreadTaskCount} unread` : "Notifications"}
+            className="workspace-icon-button workspace-notification-button"
+            onClick={() => void openNotifications()}
+            type="button"
+          >
             <BellIcon />
+            {unreadTaskCount > 0 ? <span className="workspace-notification-badge">{unreadTaskCount}</span> : null}
           </button>
+          {isNotificationsOpen ? (
+            <section className="workspace-notification-popover" role="dialog" aria-label="Notifications">
+              {notifications.length ? (
+                <div className="workspace-notification-list">
+                  {notifications.map((notification) => (
+                    <button
+                      aria-label={`${notification.title.replace("Calendar imports need review", "Review imports")} for ${notification.householdName ?? "household"}${pendingCountLabel(notification) ? `, ${pendingCountLabel(notification)}` : ""}`}
+                      className="workspace-notification-row"
+                      key={notification.id}
+                      onClick={() => openNotification(notification)}
+                      type="button"
+                    >
+                      <span>
+                        <strong>{notification.title}</strong>
+                        <small>{notification.householdName}</small>
+                      </span>
+                      <span>
+                        {pendingCountLabel(notification) ? <small>{pendingCountLabel(notification)}</small> : null}
+                        <strong>Review imports</strong>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="workspace-notification-empty">No new notifications.</p>
+              )}
+            </section>
+          ) : null}
           <UserButton />
         </div>
       </header>

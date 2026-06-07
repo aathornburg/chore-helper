@@ -324,7 +324,7 @@ export function TodayDashboard({ households, isLoading, loadError, onNavigate, w
         <div className="today-command-copy">
           <h1>Today</h1>
           {households.length === 0 ? (
-            <p>Set up your first household to start organizing routines.</p>
+            <p>Set up or join your first household to start organizing routines.</p>
           ) : (
             <>
               <div className="today-metric-row" aria-label="Today status summary">

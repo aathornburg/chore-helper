@@ -414,6 +414,10 @@ export function createCalendarRouter(
         : created);
     }
 
+    if (importQueueMode === "manual" && items.some((item) => item.queueStatus === "pending")) {
+      await store.upsertCalendarImportQueueReviewNotifications(req.body.householdId);
+    }
+
     return res.status(202).json({
       status: importQueueMode === "auto" ? "auto_ready" : "queued_for_review",
       items

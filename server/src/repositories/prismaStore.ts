@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import type {
+  AppNotification,
   CalendarConnectionStatus,
   CalendarContentMode,
   CalendarDetailLevel,
@@ -414,6 +415,53 @@ function toRecommendation(recommendation: {
     proposedCadence: recommendation.proposedCadence ?? undefined,
     proposedEstimatedMinutes: recommendation.proposedEstimatedMinutes ?? undefined,
     staleAt: serializeDate(recommendation.staleAt)
+  };
+}
+
+function toAppNotification(notification: {
+  id: string;
+  recipientUserId: string;
+  type: string;
+  householdId?: string | null;
+  household?: { name: string } | null;
+  title: string;
+  body: string;
+  targetPath: string;
+  metadataJson: unknown;
+  readAt?: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}): AppNotification {
+  const metadata = notification.metadataJson && typeof notification.metadataJson === "object" && !Array.isArray(notification.metadataJson)
+    ? notification.metadataJson as Record<string, unknown>
+    : {};
+
+  return {
+    id: notification.id,
+    recipientUserId: notification.recipientUserId,
+    type: notification.type as AppNotification["type"],
+    householdId: notification.householdId ?? undefined,
+    householdName: notification.household?.name,
+    title: notification.title,
+    body: notification.body,
+    targetPath: notification.targetPath,
+    metadata,
+    readAt: notification.readAt ? notification.readAt.toISOString() : null,
+    createdAt: notification.createdAt.toISOString(),
+    updatedAt: notification.updatedAt.toISOString()
+  };
+}
+
+function calendarImportReviewNotificationKey(userId: string, householdId: string) {
+  return `calendar_import_queue_review:${userId}:${householdId}`;
+}
+
+function importReviewNotificationCopy(householdName: string, pendingCount: number) {
+  const eventLabel = pendingCount === 1 ? "event is" : "events are";
+  return {
+    title: "Calendar imports need review",
+    body: `${pendingCount} ${eventLabel} waiting in ${householdName}.`,
+    targetPath: "/calendar?reviewImports=1"
   };
 }
 
@@ -1617,6 +1665,91 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
       });
 
       return toCalendarImportQueueItem(item);
+    },
+
+    async upsertCalendarImportQueueReviewNotifications(householdId) {
+      const [household, pendingCount, owners] = await Promise.all([
+        prisma.household.findUnique({ where: { id: householdId } }),
+        prisma.calendarImportQueueItem.count({ where: { householdId, queueStatus: "pending" } }),
+        prisma.householdMember.findMany({ where: { householdId, role: "owner" } })
+      ]);
+      if (!household || pendingCount <= 0) return [];
+      const copy = importReviewNotificationCopy(household.name, pendingCount);
+      const notifications = await Promise.all(owners.map((owner) =>
+        prisma.appNotification.upsert({
+          where: { dedupeKey: calendarImportReviewNotificationKey(owner.userId, householdId) },
+          update: {
+            ...copy,
+            metadataJson: { householdId, pendingCount },
+            readAt: null
+          },
+          create: {
+            recipientUserId: owner.userId,
+            type: "calendar_import_queue_review",
+            householdId,
+            ...copy,
+            metadataJson: { householdId, pendingCount },
+            dedupeKey: calendarImportReviewNotificationKey(owner.userId, householdId)
+          },
+          include: { household: true }
+        })
+      ));
+      return notifications.map(toAppNotification);
+    },
+
+    async listNotificationsForUser(userId) {
+      const notifications = await prisma.appNotification.findMany({
+        where: { recipientUserId: userId },
+        include: { household: true },
+        orderBy: { updatedAt: "desc" }
+      });
+      const pendingCounts = new Map<string, number>();
+      const visible: AppNotification[] = [];
+      for (const notification of notifications) {
+        if (notification.type === "calendar_import_queue_review" && notification.householdId) {
+          const cached = pendingCounts.get(notification.householdId);
+          const pendingCount = cached ?? await prisma.calendarImportQueueItem.count({
+            where: { householdId: notification.householdId, queueStatus: "pending" }
+          });
+          pendingCounts.set(notification.householdId, pendingCount);
+          if (pendingCount <= 0) continue;
+          const householdName = notification.household?.name ?? "Home";
+          const copy = importReviewNotificationCopy(householdName, pendingCount);
+          visible.push({
+            ...toAppNotification(notification),
+            householdName,
+            ...copy,
+            metadata: {
+              ...(toAppNotification(notification).metadata),
+              householdId: notification.householdId,
+              pendingCount
+            }
+          });
+          continue;
+        }
+        visible.push(toAppNotification(notification));
+      }
+      return visible;
+    },
+
+    async markNotificationsRead(userId, notificationIds) {
+      if (!notificationIds.length) return [];
+      await prisma.appNotification.updateMany({
+        where: {
+          recipientUserId: userId,
+          id: { in: notificationIds }
+        },
+        data: { readAt: new Date() }
+      });
+      const notifications = await prisma.appNotification.findMany({
+        where: {
+          recipientUserId: userId,
+          id: { in: notificationIds }
+        },
+        include: { household: true },
+        orderBy: { updatedAt: "desc" }
+      });
+      return notifications.map(toAppNotification);
     },
 
     async decideCalendarImportQueueItem(householdId, queueItemId, ownerUserId, input) {

@@ -873,6 +873,91 @@ button:where(:not(.link-button)):hover {
   width: 38px;
 }
 
+.workspace-notification-button {
+  position: relative;
+}
+
+.workspace-notification-badge {
+  align-items: center;
+  background: #9f3a2d;
+  border: 2px solid var(--color-surface-elevated);
+  border-radius: 999px;
+  color: #fff;
+  display: inline-flex;
+  font-size: 0.68rem;
+  font-weight: 950;
+  height: 18px;
+  justify-content: center;
+  min-width: 18px;
+  padding: 0 4px;
+  position: absolute;
+  right: -4px;
+  top: -3px;
+}
+
+.workspace-notification-popover {
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 16px 32px rgba(15, 76, 102, 0.14);
+  min-width: 310px;
+  padding: 8px;
+  position: absolute;
+  right: 32px;
+  top: calc(100% - 4px);
+  z-index: 20;
+}
+
+.workspace-notification-list {
+  display: grid;
+  gap: 6px;
+}
+
+.workspace-notification-row {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--color-border-soft);
+  color: #24352e;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  justify-items: stretch;
+  padding: 12px;
+  text-align: left;
+  width: 100%;
+}
+
+.workspace-notification-row:hover,
+.workspace-notification-row:focus-visible {
+  background: var(--color-primary-soft);
+  color: #24352e;
+}
+
+.workspace-notification-row span {
+  display: grid;
+  gap: 3px;
+}
+
+.workspace-notification-row span:last-child {
+  justify-items: end;
+}
+
+.workspace-notification-row strong {
+  font-size: 0.9rem;
+}
+
+.workspace-notification-row small {
+  color: #536173;
+  font-size: 0.76rem;
+  font-weight: 850;
+}
+
+.workspace-notification-empty {
+  color: #536173;
+  font-weight: 800;
+  margin: 0;
+  padding: 14px;
+}
+
 .workspace-icon-button:hover,
 .workspace-menu-button:hover {
   background: var(--color-primary-soft);
@@ -6771,6 +6856,14 @@ button.chore-row-summary[aria-expanded="true"] {
 
   .workspace-user-actions {
     gap: 6px;
+  }
+
+  .workspace-notification-popover {
+    grid-column: 1 / -1;
+    left: 14px;
+    min-width: 0;
+    right: 14px;
+    top: calc(100% + 4px);
   }
 
   .workspace-icon-button {

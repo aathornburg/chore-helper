@@ -248,6 +248,7 @@ export type CalendarDetailLevel = "busy_only" | "full_details";
 export type CleanlyCalendarEventType = "chore" | "commitment";
 export type CalendarQueueStatus = "pending" | "approved" | "rejected" | "auto_added" | "needs_member";
 export type CalendarExportQueueStatus = "pending" | "approved" | "rejected" | "exported";
+export type AppNotificationType = "calendar_import_queue_review";
 
 export type CalendarConnectionSummary = {
   id: string;
@@ -310,6 +311,26 @@ export type CalendarImportQueueItem = {
 export type CalendarImportQueueDecisionInput = {
   decision: "approve" | "reject";
   proposedType?: CleanlyCalendarEventType;
+};
+
+export type AppNotification = {
+  id: string;
+  recipientUserId: string;
+  type: AppNotificationType;
+  householdId?: string;
+  householdName?: string;
+  title: string;
+  body: string;
+  targetPath: string;
+  metadata: Record<string, unknown>;
+  readAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AppNotificationList = {
+  unreadTaskCount: number;
+  notifications: AppNotification[];
 };
 
 export type CalendarImportCandidate = {

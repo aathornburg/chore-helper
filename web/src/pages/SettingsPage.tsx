@@ -31,6 +31,16 @@ function connectionStatus(connections: CalendarConnectionSummary[]) {
   return firstConnection.status === "connected" ? "Connected" : "Needs attention";
 }
 
+function defaultDisconnectedPreferences(householdId: string): CalendarPreferences {
+  return {
+    householdId,
+    defaultDetailLevel: "busy_only",
+    selectedSourceCalendarIds: [],
+    exportMode: "off",
+    exportContentMode: "chores"
+  };
+}
+
 export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }: SettingsPageProps) {
   const selectedHousehold = households[0];
   const [currentUserId, setCurrentUserId] = useState<string>();
@@ -52,14 +62,23 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
     void Promise.all([
       getCurrentUser(),
       listHouseholdMembers(selectedHousehold.id),
-      listCalendarConnections(),
-      getCalendarPreferences(selectedHousehold.id)
-    ]).then(([user, loadedMembers, loadedConnections, loadedPreferences]) => {
+      listCalendarConnections()
+    ]).then(([user, loadedMembers, loadedConnections]) => {
       if (cancelled) return;
       setCurrentUserId(user.id);
       setMembers(loadedMembers);
       setConnections(loadedConnections);
-      setPreferences(loadedPreferences);
+      if (!loadedConnections.length) {
+        setPreferences(defaultDisconnectedPreferences(selectedHousehold.id));
+        return;
+      }
+      void getCalendarPreferences(selectedHousehold.id)
+        .then((loadedPreferences) => {
+          if (!cancelled) setPreferences(loadedPreferences);
+        })
+        .catch(() => {
+          if (!cancelled) setCalendarStatus("Could not load calendar sync settings.");
+        });
     }).catch(() => {
       if (!cancelled) setCalendarStatus("Could not load calendar sync settings.");
     });

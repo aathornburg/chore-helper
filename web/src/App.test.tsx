@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type {
+  AppNotification,
   CalendarImportQueueItem,
   ChoreOccurrence,
   CreateScheduledChoreInput,
@@ -175,11 +176,13 @@ function createHouseholdAppData({
 function mockRestoredHouseholdFetches({
   chores = [cleanBathroomsChore],
   recommendations = [],
-  chatResponses = []
+  chatResponses = [],
+  calendarPreferencesOk = true
 }: {
   chores?: typeof cleanBathroomsChore[];
   recommendations?: unknown[];
   chatResponses?: Array<{ ok: boolean; json: () => Promise<unknown> }>;
+  calendarPreferencesOk?: boolean;
 } = {}) {
   const nextChatResponses = [...chatResponses];
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -211,6 +214,7 @@ function mockRestoredHouseholdFetches({
     }
 
     if (url === "http://localhost:3001/api/me/calendar/preferences?householdId=household-1" && method === "GET") {
+      if (!calendarPreferencesOk) return { ok: false, json: async () => ({ error: "Calendar preferences unavailable." }) };
       return {
         ok: true,
         json: async () => ({
@@ -474,7 +478,8 @@ function mockFamilyPageFetches(currentRole: "owner" | "member" = "owner") {
   return fetchMock;
 }
 
-function mockCalendarPageFetches(importQueueItems: CalendarImportQueueItem[] = []) {
+function mockCalendarPageFetches(importQueueItems: CalendarImportQueueItem[] = [], notifications: AppNotification[] = []) {
+  let notificationItems = notifications;
   let occurrences = [{
     id: "occurrence-1",
     householdId: "household-1",
@@ -515,6 +520,31 @@ function mockCalendarPageFetches(importQueueItems: CalendarImportQueueItem[] = [
 
     if (url === "http://localhost:3001/api/me" && method === "GET") {
       return { ok: true, json: async () => ({ id: "app-user-1", clerkUserId: "test-user-a" }) };
+    }
+    if (url === "http://localhost:3001/api/me/notifications" && method === "GET") {
+      return {
+        ok: true,
+        json: async () => ({
+          unreadTaskCount: notificationItems.filter((notification) => !notification.readAt).length,
+          notifications: notificationItems
+        })
+      };
+    }
+    if (url === "http://localhost:3001/api/me/notifications/read" && method === "PATCH") {
+      const body = JSON.parse(String(init?.body));
+      const ids = new Set(body.notificationIds);
+      notificationItems = notificationItems.map((notification) =>
+        ids.has(notification.id)
+          ? { ...notification, readAt: "2026-06-06T20:00:00.000Z" }
+          : notification
+      );
+      return {
+        ok: true,
+        json: async () => ({
+          unreadTaskCount: notificationItems.filter((notification) => !notification.readAt).length,
+          notifications: notificationItems.filter((notification) => ids.has(notification.id))
+        })
+      };
     }
     if (url === "http://localhost:3001/api/households" && method === "GET") {
       return { ok: true, json: async () => [createHouseholdAppData()] };
@@ -2012,6 +2042,96 @@ describe("App", () => {
     );
   });
 
+  it("shows unread notification tasks in the bell and marks visible notifications read when opened", async () => {
+    const fetchMock = mockCalendarPageFetches([], [{
+      id: "notification-1",
+      recipientUserId: "app-user-1",
+      type: "calendar_import_queue_review",
+      householdId: "household-1",
+      householdName: "Home",
+      title: "Calendar imports need review",
+      body: "2 events are waiting in Home.",
+      targetPath: "/calendar?reviewImports=1",
+      metadata: { pendingCount: 2 },
+      readAt: null,
+      createdAt: "2026-06-06T19:00:00.000Z",
+      updatedAt: "2026-06-06T19:00:00.000Z"
+    }]);
+    renderAt("/calendar");
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Notifications, 1 unread" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Notifications, 1 unread" }));
+
+    const popover = await screen.findByRole("dialog", { name: "Notifications" });
+    expect(popover).toBeTruthy();
+    expect(within(popover).getByText("Calendar imports need review")).toBeTruthy();
+    expect(within(popover).getByText("Home")).toBeTruthy();
+    expect(within(popover).getByText("2 pending")).toBeTruthy();
+    expect(within(popover).getByText("Review imports")).toBeTruthy();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/me/notifications/read",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({ notificationIds: ["notification-1"] })
+      })
+    ));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Notifications" })).toBeTruthy());
+  });
+
+  it("renders an empty notification popover", async () => {
+    mockCalendarPageFetches();
+    renderAt("/calendar");
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Notifications" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Notifications" }));
+
+    expect(await screen.findByRole("dialog", { name: "Notifications" })).toBeTruthy();
+    expect(screen.getByText("No new notifications.")).toBeTruthy();
+  });
+
+  it("opens Calendar owner review from an import notification while keeping the queue badge visible", async () => {
+    const fetchMock = mockCalendarPageFetches([{
+      id: "queue-1",
+      householdId: "household-1",
+      submittedByUserId: "app-user-2",
+      submittedByName: "Morgan Member",
+      proposedType: "commitment",
+      detailLevel: "busy_only",
+      title: "Dentist appointment",
+      privacyTitle: "Dentist appointment",
+      startsAt: "2026-06-18T14:00:00.000Z",
+      endsAt: "2026-06-18T15:00:00.000Z",
+      queueStatus: "pending",
+      createdAt: "2026-06-01T12:00:00.000Z"
+    }], [{
+      id: "notification-1",
+      recipientUserId: "app-user-1",
+      type: "calendar_import_queue_review",
+      householdId: "household-1",
+      householdName: "Home",
+      title: "Calendar imports need review",
+      body: "1 event is waiting in Home.",
+      targetPath: "/calendar?reviewImports=1",
+      metadata: { pendingCount: 1 },
+      readAt: null,
+      createdAt: "2026-06-06T19:00:00.000Z",
+      updatedAt: "2026-06-06T19:00:00.000Z"
+    }]);
+    renderAt("/today");
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Notifications, 1 unread" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Notifications, 1 unread" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Review imports for Home, 1 pending" }));
+
+    expect(await screen.findByRole("heading", { name: "Calendar" })).toBeTruthy();
+    expect(await screen.findByRole("dialog", { name: "Review calendar imports" })).toBeTruthy();
+    expect(document.querySelector(".calendar-queue-badge")?.textContent).toBe("1");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/me/notifications/read",
+      expect.objectContaining({ method: "PATCH" })
+    );
+  });
+
   it("uses Calendar as the only chore planning destination", async () => {
     vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
     renderAt("/calendar");
@@ -3013,6 +3133,20 @@ describe("App", () => {
     expect(screen.getByText("Not connected")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Connect Google Calendar" }));
     expect(await screen.findByText(/Google Calendar login needs/i)).toBeTruthy();
+  });
+
+  it("does not show a calendar sync settings error just because a disconnected user has no sync preferences", async () => {
+    const fetchMock = mockRestoredHouseholdFetches({ calendarPreferencesOk: false });
+    renderAt("/settings#calendar");
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Settings" })).toBeTruthy());
+    expect(await screen.findByText("Not connected")).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Connect Google Calendar" })).toBeTruthy();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(fetchMock.mock.calls.some(([url]) =>
+      url === "http://localhost:3001/api/me/calendar/preferences?householdId=household-1"
+    )).toBe(false);
+    expect(screen.queryByText("Could not load calendar sync settings.")).toBeNull();
   });
 
   it("lets connected users disconnect Google Calendar from Settings", async () => {

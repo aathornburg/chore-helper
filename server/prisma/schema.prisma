@@ -25,6 +25,7 @@ model Household {
   cleanlyCalendarEvents CleanlyCalendarEvent[]
   calendarImportQueueItems CalendarImportQueueItem[]
   calendarExportQueueItems CalendarExportQueueItem[]
+  notifications   AppNotification[]
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 }
@@ -47,8 +48,29 @@ model User {
   decidedCalendarImportQueueItems CalendarImportQueueItem[] @relation("DecidedImportQueueItems")
   calendarExportQueueItems CalendarExportQueueItem[]
   cleanlyCalendarEvents CleanlyCalendarEvent[]
+  notifications   AppNotification[]
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
+}
+
+model AppNotification {
+  id              String    @id @default(cuid())
+  recipientUserId String
+  recipientUser   User      @relation(fields: [recipientUserId], references: [id], onDelete: Cascade)
+  type            String
+  householdId     String?
+  household       Household? @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  title           String
+  body            String
+  targetPath      String
+  metadataJson    Json      @default("{}")
+  readAt          DateTime?
+  dedupeKey       String    @unique
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([recipientUserId, readAt, updatedAt])
+  @@index([householdId, type])
 }
 
 model HouseholdMember {

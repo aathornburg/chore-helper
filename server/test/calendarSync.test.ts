@@ -455,6 +455,213 @@ describe("calendar sync governance", () => {
     ]);
   });
 
+  it("creates one unread import review notification for each household owner after manual import submission", async () => {
+    const { app, household, store, owner } = await createHouseholdWithMember();
+    const secondOwner = await store.upsertUserByClerkId("second-owner", {
+      primaryEmail: "second-owner@example.com",
+      displayName: "Second Owner"
+    });
+    const invitation = await store.createInvitation({
+      householdId: household.id,
+      recipientEmail: "second-owner@example.com",
+      tokenDigest: "second-owner-token",
+      invitedByUserId: owner.id,
+      expiresAt: new Date(Date.now() + 60_000).toISOString()
+    });
+    await store.acceptInvitation(invitation.id, secondOwner.id, new Date().toISOString());
+    await store.updateMemberRole(household.id, secondOwner.id, "owner");
+
+    await auth(app, "member")
+      .post("/api/me/calendar/import-queue")
+      .send({
+        householdId: household.id,
+        events: [{
+          proposedType: "commitment",
+          title: "Dentist appointment",
+          privacyTitle: "Busy",
+          startsAt: "2026-06-18T14:00:00.000Z",
+          endsAt: "2026-06-18T15:00:00.000Z"
+        }]
+      })
+      .expect(202);
+
+    const firstOwnerNotifications = await auth(app, "owner").get("/api/me/notifications");
+    const secondOwnerNotifications = await auth(app, "second-owner").get("/api/me/notifications");
+
+    expect(firstOwnerNotifications.status).toBe(200);
+    expect(firstOwnerNotifications.body.unreadTaskCount).toBe(1);
+    expect(firstOwnerNotifications.body.notifications).toEqual([
+      expect.objectContaining({
+        type: "calendar_import_queue_review",
+        householdId: household.id,
+        householdName: "New household",
+        title: "Calendar imports need review",
+        body: "1 event is waiting in New household.",
+        targetPath: "/calendar?reviewImports=1",
+        readAt: null,
+        metadata: expect.objectContaining({ pendingCount: 1 })
+      })
+    ]);
+    expect(secondOwnerNotifications.body.unreadTaskCount).toBe(1);
+    expect(secondOwnerNotifications.body.notifications).toEqual([
+      expect.objectContaining({
+        type: "calendar_import_queue_review",
+        householdId: household.id,
+        metadata: expect.objectContaining({ pendingCount: 1 })
+      })
+    ]);
+  });
+
+  it("dedupes import review notifications and resets read state when more pending imports arrive", async () => {
+    const { app, household } = await createHouseholdWithMember();
+
+    await auth(app, "member")
+      .post("/api/me/calendar/import-queue")
+      .send({
+        householdId: household.id,
+        events: [{
+          proposedType: "commitment",
+          title: "Dentist appointment",
+          startsAt: "2026-06-18T14:00:00.000Z",
+          endsAt: "2026-06-18T15:00:00.000Z"
+        }]
+      })
+      .expect(202);
+    const firstList = await auth(app, "owner").get("/api/me/notifications").expect(200);
+    await auth(app, "owner")
+      .patch("/api/me/notifications/read")
+      .send({ notificationIds: [firstList.body.notifications[0].id] })
+      .expect(200);
+
+    await auth(app, "member")
+      .post("/api/me/calendar/import-queue")
+      .send({
+        householdId: household.id,
+        events: [{
+          proposedType: "commitment",
+          title: "Practice",
+          startsAt: "2026-06-19T21:30:00.000Z",
+          endsAt: "2026-06-19T22:30:00.000Z"
+        }]
+      })
+      .expect(202);
+
+    const refreshed = await auth(app, "owner").get("/api/me/notifications");
+
+    expect(refreshed.body.unreadTaskCount).toBe(1);
+    expect(refreshed.body.notifications).toHaveLength(1);
+    expect(refreshed.body.notifications[0]).toEqual(expect.objectContaining({
+      id: firstList.body.notifications[0].id,
+      readAt: null,
+      body: "2 events are waiting in New household.",
+      metadata: expect.objectContaining({ pendingCount: 2 })
+    }));
+  });
+
+  it("does not create owner review notifications for auto-approved imports", async () => {
+    const { app, household, member } = await createHouseholdWithMember();
+    await auth(app, "owner")
+      .patch(`/api/households/${household.id}/calendar/import-policies/${member.id}`)
+      .send({ importQueueMode: "auto", importContentMode: "commitments" })
+      .expect(200);
+
+    await auth(app, "member")
+      .post("/api/me/calendar/import-queue")
+      .send({
+        householdId: household.id,
+        events: [{
+          proposedType: "commitment",
+          title: "Practice",
+          startsAt: "2026-06-19T21:30:00.000Z",
+          endsAt: "2026-06-19T22:30:00.000Z"
+        }]
+      })
+      .expect(202);
+
+    const response = await auth(app, "owner").get("/api/me/notifications");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ unreadTaskCount: 0, notifications: [] });
+  });
+
+  it("only returns and marks read notifications for the current user", async () => {
+    const { app, household, store, owner } = await createHouseholdWithMember();
+    const secondOwner = await store.upsertUserByClerkId("second-owner", {
+      primaryEmail: "second-owner@example.com",
+      displayName: "Second Owner"
+    });
+    const invitation = await store.createInvitation({
+      householdId: household.id,
+      recipientEmail: "second-owner@example.com",
+      tokenDigest: "second-owner-token",
+      invitedByUserId: owner.id,
+      expiresAt: new Date(Date.now() + 60_000).toISOString()
+    });
+    await store.acceptInvitation(invitation.id, secondOwner.id, new Date().toISOString());
+    await store.updateMemberRole(household.id, secondOwner.id, "owner");
+
+    await auth(app, "member")
+      .post("/api/me/calendar/import-queue")
+      .send({
+        householdId: household.id,
+        events: [{
+          proposedType: "commitment",
+          title: "Dentist appointment",
+          startsAt: "2026-06-18T14:00:00.000Z",
+          endsAt: "2026-06-18T15:00:00.000Z"
+        }]
+      })
+      .expect(202);
+    const firstOwnerNotifications = await auth(app, "owner").get("/api/me/notifications").expect(200);
+    const secondOwnerNotifications = await auth(app, "second-owner").get("/api/me/notifications").expect(200);
+
+    await auth(app, "owner")
+      .patch("/api/me/notifications/read")
+      .send({ notificationIds: [
+        firstOwnerNotifications.body.notifications[0].id,
+        secondOwnerNotifications.body.notifications[0].id
+      ] })
+      .expect(200);
+
+    const firstOwnerAfterRead = await auth(app, "owner").get("/api/me/notifications");
+    const secondOwnerAfterRead = await auth(app, "second-owner").get("/api/me/notifications");
+    const memberNotifications = await auth(app, "member").get("/api/me/notifications");
+
+    expect(firstOwnerAfterRead.body.unreadTaskCount).toBe(0);
+    expect(firstOwnerAfterRead.body.notifications[0].readAt).toEqual(expect.any(String));
+    expect(secondOwnerAfterRead.body.unreadTaskCount).toBe(1);
+    expect(secondOwnerAfterRead.body.notifications[0].readAt).toBeNull();
+    expect(memberNotifications.body).toEqual({ unreadTaskCount: 0, notifications: [] });
+  });
+
+  it("hides import review notifications once no pending queue items remain", async () => {
+    const { app, household } = await createHouseholdWithMember();
+
+    await auth(app, "member")
+      .post("/api/me/calendar/import-queue")
+      .send({
+        householdId: household.id,
+        events: [{
+          proposedType: "commitment",
+          title: "Dentist appointment",
+          startsAt: "2026-06-18T14:00:00.000Z",
+          endsAt: "2026-06-18T15:00:00.000Z"
+        }]
+      })
+      .expect(202);
+    const ownerQueue = await auth(app, "owner").get(`/api/households/${household.id}/calendar/import-queue`);
+
+    await auth(app, "owner")
+      .patch(`/api/households/${household.id}/calendar/import-queue/${ownerQueue.body[0].id}`)
+      .send({ decision: "approve", proposedType: "commitment" })
+      .expect(200);
+
+    const notifications = await auth(app, "owner").get("/api/me/notifications");
+
+    expect(notifications.status).toBe(200);
+    expect(notifications.body).toEqual({ unreadTaskCount: 0, notifications: [] });
+  });
+
   it("auto-approves member submitted events when the owner policy allows it", async () => {
     const { app, household, member } = await createHouseholdWithMember();
     await auth(app, "owner")

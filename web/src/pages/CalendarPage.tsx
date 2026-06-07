@@ -347,6 +347,16 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   }, [isOwner, selectedHousehold?.id]);
 
   useEffect(() => {
+    if (!selectedHousehold || !isOwner) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("reviewImports") !== "1") return;
+    setIsQueueReviewOpen(true);
+    params.delete("reviewImports");
+    const query = params.toString();
+    window.history.replaceState({}, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
+  }, [isOwner, selectedHousehold]);
+
+  useEffect(() => {
     if (!selectedHousehold) {
       setMyImportPolicy(undefined);
       return;

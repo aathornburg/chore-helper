@@ -1,5 +1,6 @@
 import type {
   AppUserProfile,
+  AppNotificationList,
   CalendarConnectionSummary,
   CalendarImportPolicy,
   CalendarImportQueueDecisionInput,
@@ -58,6 +59,24 @@ export async function getCurrentUser(): Promise<AppUserProfile> {
   const response = await apiFetch(`${API_BASE_URL}/api/me`);
 
   if (!response.ok) throw new Error("Failed to fetch current user");
+  return response.json();
+}
+
+export async function listMyNotifications(): Promise<AppNotificationList> {
+  const response = await apiFetch(`${API_BASE_URL}/api/me/notifications`);
+
+  if (!response.ok) throw new Error("Failed to fetch notifications");
+  return response.json();
+}
+
+export async function markMyNotificationsRead(notificationIds: string[]): Promise<AppNotificationList> {
+  const response = await apiFetch(`${API_BASE_URL}/api/me/notifications/read`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ notificationIds })
+  });
+
+  if (!response.ok) throw new Error("Failed to mark notifications read");
   return response.json();
 }
 
