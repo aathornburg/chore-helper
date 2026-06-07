@@ -226,6 +226,7 @@ export type HouseholdStore = {
     }
   ): StoreResult<CalendarConnectionSummary | undefined>;
   updateCalendarConnectionStatus(userId: string, connectionId: string, status: CalendarConnectionStatus): StoreResult<CalendarConnectionSummary | undefined>;
+  deleteCalendarConnection(userId: string, connectionId: string): StoreResult<boolean>;
   getCalendarConnectionSecrets(userId: string, connectionId: string): StoreResult<CalendarConnectionSecrets | undefined>;
   listExternalCalendars(userId: string): StoreResult<ExternalCalendarSummary[]>;
   upsertExternalCalendars(userId: string, connectionId: string, calendars: ExternalCalendarInput[]): StoreResult<ExternalCalendarSummary[]>;
@@ -899,6 +900,15 @@ export function createInMemoryStore(): HouseholdStore {
       calendarConnections.set(userId, connections.map((connection) => connection.id === connectionId ? updated : connection));
       const { accessTokenEncrypted, refreshTokenEncrypted, ...summary } = updated;
       return summary;
+    },
+
+    deleteCalendarConnection(userId, connectionId) {
+      const connections = calendarConnections.get(userId) ?? [];
+      const existing = connections.find((connection) => connection.id === connectionId);
+      if (!existing) return false;
+      calendarConnections.set(userId, connections.filter((connection) => connection.id !== connectionId));
+      externalCalendars.set(userId, (externalCalendars.get(userId) ?? []).filter((calendar) => calendar.connectionId !== connectionId));
+      return true;
     },
 
     getCalendarConnectionSecrets(userId, connectionId) {

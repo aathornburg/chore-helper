@@ -8,6 +8,7 @@ function auth(app: ReturnType<typeof createApp>, clerkUserId: string) {
   const authorization = `Bearer ${clerkUserId}`;
   return {
     get: (url: string) => request(app).get(url).set("Authorization", authorization),
+    delete: (url: string) => request(app).delete(url).set("Authorization", authorization),
     patch: (url: string) => request(app).patch(url).set("Authorization", authorization),
     post: (url: string) => request(app).post(url).set("Authorization", authorization)
   };
@@ -43,7 +44,7 @@ function fakeGoogleProvider(): GoogleCalendarProvider {
     exchangeCode: vi.fn(async () => ({
       accessToken: "access-token",
       refreshToken: "refresh-token",
-      expiresAt: "2026-06-04T18:00:00.000Z",
+      expiresAt: "2099-06-04T18:00:00.000Z",
       scopes: [
         "https://www.googleapis.com/auth/userinfo.email",
         "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
@@ -53,7 +54,7 @@ function fakeGoogleProvider(): GoogleCalendarProvider {
     })),
     refreshAccessToken: vi.fn(async () => ({
       accessToken: "refreshed-access-token",
-      expiresAt: "2026-06-04T19:00:00.000Z",
+      expiresAt: "2099-06-04T19:00:00.000Z",
       scopes: ["https://www.googleapis.com/auth/calendar.events"]
     })),
     getProfile: vi.fn(async () => ({ email: "member.google@example.com" })),
@@ -172,6 +173,14 @@ describe("calendar sync governance", () => {
   });
 
   it("reports setup requirements when Google OAuth config is missing", async () => {
+    const previousClientId = process.env.GOOGLE_CLIENT_ID;
+    const previousClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    const previousRedirectUri = process.env.GOOGLE_CALENDAR_REDIRECT_URI;
+    delete process.env.GOOGLE_CLIENT_ID;
+    delete process.env.GOOGLE_CLIENT_SECRET;
+    delete process.env.GOOGLE_CALENDAR_REDIRECT_URI;
+
+    try {
     const { app } = await createHouseholdWithMember();
     const response = await auth(app, "member").post("/api/me/calendar/google/connect");
 
@@ -180,6 +189,11 @@ describe("calendar sync governance", () => {
       provider: "google",
       status: "setup_required"
     }));
+    } finally {
+      process.env.GOOGLE_CLIENT_ID = previousClientId;
+      process.env.GOOGLE_CLIENT_SECRET = previousClientSecret;
+      process.env.GOOGLE_CALENDAR_REDIRECT_URI = previousRedirectUri;
+    }
   });
 
   it("starts Google OAuth when provider config is present", async () => {
@@ -233,6 +247,39 @@ describe("calendar sync governance", () => {
       refreshTokenEncrypted: expect.not.stringContaining("refresh-token")
     }));
     expect(await Promise.resolve(store.listExternalCalendars(member.id))).toHaveLength(2);
+  });
+
+  it("disconnects a stored Google Calendar connection", async () => {
+    const store = createInMemoryStore();
+    const provider = fakeGoogleProvider();
+    const app = createApp({ store, authMode: "test", calendarProvider: provider });
+    const member = await store.upsertUserByClerkId("member", {
+      primaryEmail: "member@example.com",
+      displayName: "Member"
+    });
+
+    const connect = await auth(app, "member").post("/api/me/calendar/google/connect");
+    const state = new URL(connect.body.authUrl).searchParams.get("state");
+    await request(app).get(`/api/me/calendar/google/callback?code=google-code&state=${state}`);
+    const [connection] = await store.listCalendarConnections(member.id);
+
+    const response = await auth(app, "member").delete(`/api/me/calendar/connections/${connection.id}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(expect.objectContaining({
+      connectionId: connection.id,
+      status: "disconnected"
+    }));
+    expect(await store.listCalendarConnections(member.id)).toEqual([]);
+    expect(await store.listExternalCalendars(member.id)).toEqual([]);
+  });
+
+  it("returns not found when disconnecting another calendar connection", async () => {
+    const { app } = await createHouseholdWithMember();
+
+    const response = await auth(app, "member").delete("/api/me/calendar/connections/connection-from-someone-else");
+
+    expect(response.status).toBe(404);
   });
 
   it("blocks member calendar preferences for households the user cannot access", async () => {
@@ -336,7 +383,7 @@ describe("calendar sync governance", () => {
       provider: "google",
       providerAccountEmail: "member.google@example.com",
       scopes: ["https://www.googleapis.com/auth/calendar.events.readonly"],
-      tokenExpiresAt: "2026-06-05T18:00:00.000Z",
+      tokenExpiresAt: "2099-06-05T18:00:00.000Z",
       lastSyncedAt: "2026-06-04T17:00:00.000Z",
       accessTokenEncrypted: "encrypted-access",
       refreshTokenEncrypted: "encrypted-refresh"
@@ -448,7 +495,7 @@ describe("calendar sync governance", () => {
       provider: "google",
       providerAccountEmail: "owner.google@example.com",
       scopes: ["https://www.googleapis.com/auth/calendar.events"],
-      tokenExpiresAt: "2026-06-05T18:00:00.000Z",
+      tokenExpiresAt: "2099-06-05T18:00:00.000Z",
       lastSyncedAt: "2026-06-04T17:00:00.000Z",
       accessTokenEncrypted: "encrypted-access",
       refreshTokenEncrypted: "encrypted-refresh"

@@ -196,10 +196,12 @@ export function createCalendarRouter(
   router.delete("/me/calendar/connections/:connectionId", async (req, res) => {
     const user = await resolveCurrentUser(req, res, store, authMode);
     if (!user) return;
-    return res.status(202).json({
+    const deleted = await store.deleteCalendarConnection(user.id, req.params.connectionId);
+    if (!deleted) return res.status(404).json({ error: "Calendar connection not found." });
+    return res.status(200).json({
       connectionId: req.params.connectionId,
-      status: "not_configured",
-      message: "Calendar disconnect will be wired when provider sync execution lands."
+      status: "disconnected",
+      message: "Google Calendar was disconnected from Cleanly."
     });
   });
 

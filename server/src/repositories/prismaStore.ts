@@ -1451,6 +1451,13 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
       };
     },
 
+    async deleteCalendarConnection(userId, connectionId) {
+      const existing = await prisma.calendarConnection.findFirst({ where: { id: connectionId, userId } });
+      if (!existing) return false;
+      await prisma.calendarConnection.delete({ where: { id: connectionId } });
+      return true;
+    },
+
     async getCalendarConnectionSecrets(userId, connectionId) {
       const connection = await prisma.calendarConnection.findFirst({ where: { id: connectionId, userId } });
       if (!connection) return undefined;

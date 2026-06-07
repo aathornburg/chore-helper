@@ -525,6 +525,13 @@ export async function listCalendarConnections(): Promise<CalendarConnectionSumma
   return response.json();
 }
 
+export async function disconnectCalendarConnection(connectionId: string): Promise<{ connectionId: string; status: string; message: string }> {
+  const response = await apiFetch(`${API_BASE_URL}/api/me/calendar/connections/${connectionId}`, { method: "DELETE" });
+
+  if (!response.ok) throw new Error("Failed to disconnect calendar connection");
+  return response.json();
+}
+
 export async function listExternalCalendars(): Promise<ExternalCalendarSummary[]> {
   const response = await apiFetch(`${API_BASE_URL}/api/me/calendar/external-calendars`);
 

@@ -1,0 +1,942 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Owner Queue Modal Options</title>
+  <style>
+    :root {
+      --ink: #073448;
+      --body: #3d5560;
+      --muted: #6f838b;
+      --teal: #176f84;
+      --teal-dark: #0d5569;
+      --teal-soft: #dff3f6;
+      --teal-wash: #eef9fb;
+      --line: #bcdce4;
+      --paper: #fbfefe;
+      --white: #fff;
+      --gold: #f5c64f;
+      --red: #a74832;
+      --green: #43735c;
+      --shadow: -6px 6px 0 rgba(23, 111, 132, 0.16);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      background:
+        linear-gradient(90deg, rgba(23, 111, 132, 0.08) 1px, transparent 1px),
+        linear-gradient(rgba(23, 111, 132, 0.08) 1px, transparent 1px),
+        radial-gradient(circle at 12% 8%, rgba(245, 198, 79, 0.18), transparent 28rem),
+        #edf8fa;
+      background-size: 36px 36px, 36px 36px, auto, auto;
+      color: var(--ink);
+      font-family: "Nunito", "Segoe UI", system-ui, sans-serif;
+      margin: 0;
+      padding: 30px;
+    }
+
+    main {
+      display: grid;
+      gap: 28px;
+      margin: 0 auto;
+      max-width: 1560px;
+    }
+
+    .page-header {
+      display: grid;
+      gap: 10px;
+      max-width: 1100px;
+    }
+
+    h1 {
+      font-size: clamp(36px, 4vw, 60px);
+      line-height: 0.96;
+      margin: 0;
+    }
+
+    .lede {
+      color: var(--body);
+      font-size: 18px;
+      line-height: 1.45;
+      margin: 0;
+    }
+
+    .jump-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .jump-links a {
+      background: var(--white);
+      border: 1px solid var(--line);
+      color: var(--teal-dark);
+      font-weight: 850;
+      padding: 9px 13px;
+      text-decoration: none;
+    }
+
+    .option {
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 20px;
+      padding: 22px;
+    }
+
+    .option-header {
+      align-items: end;
+      display: grid;
+      gap: 12px;
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .option-header h2,
+    .option-header p {
+      margin: 0;
+    }
+
+    .eyebrow {
+      color: var(--red);
+      font-size: 0.76rem;
+      font-weight: 850;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .tradeoff {
+      color: var(--body);
+      line-height: 1.45;
+      max-width: 840px;
+    }
+
+    .badge {
+      background: #fff7d8;
+      border-left: 4px solid var(--gold);
+      color: #6e4f00;
+      font-size: 0.9rem;
+      font-weight: 750;
+      padding: 8px 10px;
+    }
+
+    .calendar-shell {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      display: grid;
+      gap: 14px;
+      margin: 0 auto;
+      max-width: 1120px;
+      padding: 18px;
+      width: 100%;
+    }
+
+    .calendar-head {
+      align-items: end;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .calendar-head h3,
+    .calendar-head p {
+      margin: 0;
+    }
+
+    .queue-bar {
+      align-items: center;
+      background: linear-gradient(90deg, rgba(223, 243, 246, 0.88), rgba(255, 255, 255, 0.97));
+      border: 1px solid var(--line);
+      display: grid;
+      gap: 14px;
+      grid-template-columns: minmax(0, 1fr) auto;
+      padding: 12px 14px;
+      position: relative;
+    }
+
+    .queue-badge {
+      background: #c64034;
+      border: 2px solid #fff;
+      border-radius: 999px;
+      box-shadow: 0 2px 0 rgba(7, 52, 72, 0.12);
+      color: white;
+      display: inline-grid;
+      font-size: 0.82rem;
+      font-weight: 950;
+      height: 26px;
+      min-width: 26px;
+      padding: 0 6px;
+      place-items: center;
+      position: absolute;
+      right: -10px;
+      top: -11px;
+    }
+
+    .queue-bar-copy {
+      display: grid;
+      gap: 3px;
+    }
+
+    .queue-bar-copy strong {
+      font-size: 1.02rem;
+    }
+
+    .quiet {
+      color: var(--muted);
+      font-size: 0.9rem;
+      font-weight: 550;
+    }
+
+    button,
+    select {
+      font: inherit;
+    }
+
+    .primary,
+    .secondary,
+    .danger,
+    .linkish {
+      min-height: 36px;
+      padding: 8px 12px;
+    }
+
+    .primary {
+      background: var(--teal);
+      border: 1px solid var(--teal);
+      color: white;
+      font-weight: 850;
+    }
+
+    .review-button-wrap {
+      position: relative;
+    }
+
+    .review-button-wrap .queue-badge {
+      right: -11px;
+      top: -12px;
+    }
+
+    .secondary {
+      background: #f7fbfc;
+      border: 1px solid var(--line);
+      color: var(--teal-dark);
+      font-weight: 800;
+    }
+
+    .danger {
+      background: #fff;
+      border: 1px solid var(--line);
+      color: var(--red);
+      font-weight: 800;
+    }
+
+    .linkish {
+      background: transparent;
+      border: 0;
+      color: var(--teal-dark);
+      font-weight: 850;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    select {
+      appearance: none;
+      background:
+        linear-gradient(45deg, transparent 50%, #073448 50%) calc(100% - 18px) center / 6px 6px no-repeat,
+        linear-gradient(135deg, #073448 50%, transparent 50%) calc(100% - 13px) center / 6px 6px no-repeat,
+        #fff;
+      border: 1px solid var(--line);
+      color: #102b35;
+      font-weight: 700;
+      min-height: 36px;
+      padding: 7px 34px 7px 10px;
+    }
+
+    .calendar-grid {
+      border: 1px solid var(--line);
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      min-height: 180px;
+    }
+
+    .calendar-grid span {
+      border-right: 1px solid var(--line);
+      color: var(--muted);
+      font-weight: 800;
+      padding: 10px;
+    }
+
+    .calendar-grid span:last-child {
+      border-right: 0;
+    }
+
+    .modal-backdrop {
+      background: rgba(9, 28, 35, 0.34);
+      display: grid;
+      padding: 24px;
+      place-items: center;
+    }
+
+    .modal {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      box-shadow: -10px 10px 0 rgba(23, 111, 132, 0.16);
+      display: grid;
+      gap: 12px;
+      max-width: 1020px;
+      padding: 20px;
+      width: min(100%, 1020px);
+    }
+
+    .modal-heading {
+      align-items: start;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .modal-heading h3,
+    .modal-heading p {
+      margin: 0;
+    }
+
+    .modal-heading h3 {
+      font-size: 1.85rem;
+      line-height: 1.05;
+      margin-top: 3px;
+    }
+
+    .close {
+      background: transparent;
+      border: 0;
+      color: #536173;
+      font-size: 1.35rem;
+      line-height: 1;
+    }
+
+    .control-strip {
+      align-items: center;
+      background: linear-gradient(90deg, rgba(223, 243, 246, 0.88), rgba(255, 255, 255, 0.97));
+      border: 1px solid var(--line);
+      display: grid;
+      gap: 10px;
+      grid-template-columns: auto minmax(190px, 260px) minmax(0, 1fr) auto auto;
+      padding: 10px 12px;
+      position: relative;
+    }
+
+    .date-pill {
+      background: #fff;
+      border: 1px solid var(--line);
+      color: var(--teal-dark);
+      font-weight: 850;
+      padding: 8px 12px;
+    }
+
+    .range-count {
+      color: var(--body);
+      font-weight: 600;
+      justify-self: end;
+      white-space: nowrap;
+    }
+
+    .filter-row {
+      align-items: center;
+      border: 1px solid var(--line);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 9px 10px;
+    }
+
+    .filter-row button.is-active {
+      background: var(--teal);
+      border-color: var(--teal);
+      color: white;
+    }
+
+    .selection-line {
+      align-items: center;
+      background: var(--teal-wash);
+      border: 1px solid var(--line);
+      display: flex;
+      gap: 10px;
+      justify-content: space-between;
+      padding: 9px 10px;
+    }
+
+    .selection-line span {
+      color: var(--body);
+      font-weight: 600;
+    }
+
+    .review-list {
+      border: 1px solid var(--line);
+      display: grid;
+      max-height: 420px;
+      overflow: auto;
+    }
+
+    .review-item {
+      background: #fff;
+      border-bottom: 1px solid var(--line);
+      display: grid;
+      gap: 12px;
+      grid-template-columns: auto minmax(220px, 1fr) auto;
+      padding: 11px 12px;
+    }
+
+    .review-item:last-child {
+      border-bottom: 0;
+    }
+
+    .review-item.is-open {
+      background: #eff9fb;
+      box-shadow: inset 4px 0 0 var(--teal);
+    }
+
+    .event-copy {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+    }
+
+    .event-copy strong {
+      font-weight: 760;
+    }
+
+    .pill {
+      background: var(--teal-wash);
+      border-left: 3px solid var(--teal);
+      color: var(--teal-dark);
+      display: inline-flex;
+      font-size: 0.82rem;
+      font-weight: 800;
+      padding: 4px 7px;
+      width: fit-content;
+    }
+
+    .event-title-line {
+      align-items: center;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .decision-actions {
+      align-items: center;
+      display: inline-flex;
+      gap: 6px;
+      justify-content: flex-end;
+      white-space: nowrap;
+    }
+
+    .decision-actions.is-staged {
+      align-items: end;
+      display: grid;
+      gap: 6px;
+      justify-items: end;
+    }
+
+    .approve-split {
+      align-items: stretch;
+      display: inline-flex;
+    }
+
+    .approve-split .primary {
+      border-right-color: rgba(255, 255, 255, 0.34);
+    }
+
+    .approve-menu {
+      background: var(--teal-dark);
+      border: 1px solid var(--teal-dark);
+      color: white;
+      font-weight: 950;
+      min-height: 36px;
+      padding: 8px 10px;
+    }
+
+    .decision-chip {
+      display: inline-flex;
+      font-size: 0.8rem;
+      font-weight: 850;
+      padding: 5px 8px;
+      width: fit-content;
+    }
+
+    .staged-action-row {
+      align-items: center;
+      display: inline-flex;
+      gap: 6px;
+    }
+
+    .mini-menu {
+      background: #fff;
+      border: 1px solid var(--line);
+      box-shadow: -5px 5px 0 rgba(23, 111, 132, 0.12);
+      display: grid;
+      min-width: 190px;
+      padding: 6px;
+    }
+
+    .mini-menu button {
+      background: transparent;
+      border: 0;
+      color: var(--ink);
+      font-weight: 760;
+      min-height: 30px;
+      padding: 6px 8px;
+      text-align: left;
+    }
+
+    .mini-menu button:hover {
+      background: var(--teal-wash);
+    }
+
+    .a-variant {
+      border: 1px solid var(--line);
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+    }
+
+    .a-variant h4,
+    .a-variant p {
+      margin: 0;
+    }
+
+    .decision-chip.is-approved {
+      background: #e4f4ea;
+      border-left: 3px solid var(--green);
+      color: #26523d;
+    }
+
+    .decision-chip.is-rejected {
+      background: #fff0eb;
+      border-left: 3px solid var(--red);
+      color: #80311f;
+    }
+
+    .decision-chip.is-unreviewed {
+      background: #f5fafb;
+      border-left: 3px solid #8fb6bf;
+      color: #536173;
+    }
+
+    .modal-footer {
+      align-items: center;
+      border-top: 1px solid var(--line);
+      display: flex;
+      gap: 12px;
+      justify-content: space-between;
+      padding-top: 12px;
+    }
+
+    .modal-footer strong {
+      color: var(--teal-dark);
+    }
+
+    .drawer-body {
+      background: #fbfeff;
+      border-top: 1px solid var(--line);
+      display: grid;
+      gap: 12px;
+      grid-column: 1 / -1;
+      grid-template-columns: minmax(0, 1fr);
+      padding: 12px 14px 4px 34px;
+    }
+
+    .batch-panel {
+      border: 1px solid var(--line);
+      display: grid;
+      gap: 12px;
+      grid-template-columns: minmax(0, 1fr) auto;
+      padding: 12px;
+    }
+
+    .batch-actions,
+    .item-actions {
+      align-items: center;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .split-modal-grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: minmax(0, 1fr) minmax(260px, 0.36fr);
+    }
+
+    .side-panel {
+      background: #fff;
+      border: 1px solid var(--line);
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+    }
+
+    .side-panel h4,
+    .side-panel p {
+      margin: 0;
+    }
+
+    .card-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      max-height: 430px;
+      overflow: auto;
+    }
+
+    .review-card {
+      background: #fff;
+      border: 1px solid var(--line);
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+    }
+
+    .card-actions {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .card-actions select {
+      grid-column: 1 / -1;
+      width: 100%;
+    }
+
+    @media (max-width: 980px) {
+      body { padding: 18px; }
+      .option-header,
+      .queue-bar,
+      .control-strip,
+      .review-item,
+      .drawer-body,
+      .batch-panel,
+      .split-modal-grid,
+      .card-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .selection-line,
+      .batch-actions,
+      .item-actions {
+        align-items: stretch;
+        display: grid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="page-header">
+      <p class="eyebrow">Owner queue as modal</p>
+      <h1>Keep the Calendar clean; move queue work into a focused review modal.</h1>
+      <p class="lede">
+        The page-level owner queue becomes a compact bar with a pending badge. Clicking it opens a modal that behaves
+        like the import modal: source/date controls, filters, select all, selected count, and review actions.
+      </p>
+      <nav class="jump-links" aria-label="Options">
+        <a href="#entry-bar">Calendar entry bar</a>
+        <a href="#option-a">A. Drawer review modal</a>
+        <a href="#option-a-variants">A1/A2/A3 decisions</a>
+        <a href="#option-b">B. Split review modal</a>
+        <a href="#option-c">C. Batch-first modal</a>
+        <a href="#option-d">D. Card review modal</a>
+      </nav>
+    </header>
+
+    <article class="option" id="entry-bar">
+      <div class="option-header">
+        <div>
+          <p class="eyebrow">Calendar page entry point</p>
+          <h2>Replace the giant queue section with a compact owner review bar</h2>
+          <p class="tradeoff">
+            This keeps the Calendar page focused on the calendar. The owner still gets a strong signal that review work
+            exists, but the heavy workflow moves into a modal.
+          </p>
+        </div>
+      </div>
+      <section class="calendar-shell">
+        <div class="calendar-head">
+          <div><p class="eyebrow">Calendar</p><h3>June 2026</h3></div>
+          <div><button class="secondary">Import events</button> <button class="secondary">Export</button> <button class="primary">Add chore</button></div>
+        </div>
+        <div class="queue-bar">
+          <span class="queue-bar-copy"><strong>Calendar imports need review</strong><span class="quiet">Approve, reject, filter, or batch-review events sent by family members.</span></span>
+          <span class="review-button-wrap"><button class="primary">Review imports</button><span class="queue-badge" aria-label="33 imports need review">33</span></span>
+        </div>
+        <div class="calendar-grid" aria-hidden="true">
+          <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+        </div>
+      </section>
+    </article>
+
+    <article class="option" id="option-a">
+      <div class="option-header">
+        <div>
+          <p class="eyebrow">Option A</p>
+          <h2>Drawer review modal</h2>
+          <p class="tradeoff">
+            Recommended. It mirrors the import modal controls but keeps item details/actions inline. Approve/reject sets
+            a staged decision on each import; the owner can revise those choices before submitting the review batch.
+          </p>
+        </div>
+        <span class="badge">Recommended</span>
+      </div>
+      <div class="modal-backdrop">
+        <section class="modal">
+          <div class="modal-heading"><div><p class="eyebrow">Owner review</p><h3>Review calendar imports</h3></div><button class="close">x</button></div>
+          <section class="control-strip">
+            <strong>From</strong>
+            <select><option>All family members</option><option>alan+clerk_test@example.com</option></select>
+            <span></span>
+            <span class="range-count">33 in range</span>
+            <button class="date-pill">Jun 1 - Jun 30</button>
+          </section>
+          <section class="filter-row">
+            <button class="secondary is-active">Pending</button><button class="secondary">Chores</button><button class="secondary">Commitments</button><button class="secondary">Full details</button><button class="secondary">Busy only</button>
+          </section>
+          <section class="selection-line">
+            <span>Review imports, stage decisions, then submit when the choices look right.</span>
+            <span class="batch-actions"><span>2 staged</span><button class="secondary">Select all visible</button><button class="secondary">Apply to selected</button></span>
+          </section>
+          <div class="review-list">
+            <article class="review-item is-open">
+              <input type="checkbox" />
+              <span class="event-copy">
+                <span class="event-title-line"><strong>Wash hair 🧘</strong><span class="pill">Chore</span><span class="decision-chip is-approved">Approved as chore</span></span>
+                <span class="quiet">Jun 6, 8:00 PM-9:00 PM · alan+clerk_test@example.com · Full details</span>
+              </span>
+              <span class="decision-actions"><button class="danger">Reject</button><span class="approve-split"><button class="primary">Approve</button><button class="approve-menu">⌄</button></span><button class="secondary">Collapse</button></span>
+              <div class="drawer-body">
+                <span class="quiet">
+                  This decision is staged, not submitted. The split approve button can open options like
+                  <strong>Approve as chore</strong> or <strong>Approve as commitment</strong>; Reject can still be chosen
+                  before final submission.
+                </span>
+              </div>
+            </article>
+            <article class="review-item">
+              <input type="checkbox" />
+              <span class="event-copy">
+                <span class="event-title-line"><strong>Take MacroFactor progress pictures & measurements</strong><span class="pill">Chore</span><span class="decision-chip is-unreviewed">Needs decision</span></span>
+                <span class="quiet">Jun 7, 9:00 AM-9:15 AM · alan+clerk_test@example.com · Full details</span>
+              </span>
+              <span class="decision-actions"><button class="danger">Reject</button><span class="approve-split"><button class="primary">Approve</button><button class="approve-menu">⌄</button></span><button class="secondary">Review</button></span>
+            </article>
+            <article class="review-item">
+              <input type="checkbox" />
+              <span class="event-copy">
+                <span class="event-title-line"><strong>Fertility appointment</strong><span class="pill">Commitment</span><span class="decision-chip is-rejected">Rejected</span></span>
+                <span class="quiet">Jun 9, 9:15 AM-10:15 AM · alan+clerk_test@example.com · Busy only</span>
+              </span>
+              <span class="decision-actions"><button class="secondary">Undo reject</button><span class="approve-split"><button class="primary">Approve</button><button class="approve-menu">⌄</button></span><button class="secondary">Review</button></span>
+            </article>
+          </div>
+          <footer class="modal-footer">
+            <span><strong>2 decisions staged.</strong> 31 imports still need review.</span>
+            <span class="batch-actions"><button class="secondary">Cancel</button><button class="primary">Submit 2 decisions</button></span>
+          </footer>
+        </section>
+      </div>
+    </article>
+
+    <article class="option" id="option-a-variants">
+      <div class="option-header">
+        <div>
+          <p class="eyebrow">A1 / A2 / A3</p>
+          <h2>Decision controls for the drawer modal</h2>
+          <p class="tradeoff">
+            These focus only on the right side of each queue row. Chore/commitment stays next to the event name; the
+            right side is reserved for staging, changing, and submitting owner decisions.
+          </p>
+        </div>
+        <span class="badge">Compare these</span>
+      </div>
+      <div class="modal-backdrop">
+        <section class="modal">
+          <div class="modal-heading"><div><p class="eyebrow">Owner review</p><h3>Review calendar imports</h3></div><button class="close">x</button></div>
+          <section class="control-strip">
+            <strong>From</strong>
+            <select><option>All family members</option><option>alan+clerk_test@example.com</option></select>
+            <span></span>
+            <span class="range-count">33 in range</span>
+            <button class="date-pill">Jun 1 - Jun 30</button>
+          </section>
+          <section class="filter-row">
+            <button class="secondary is-active">Pending</button><button class="secondary">Chores</button><button class="secondary">Commitments</button><button class="secondary">Full details</button><button class="secondary">Busy only</button>
+          </section>
+          <section class="selection-line">
+            <span>Review imports, stage decisions, then submit when the choices look right.</span>
+            <span class="batch-actions"><span>2 staged</span><button class="secondary">Select all visible</button><button class="secondary">Apply to selected</button></span>
+          </section>
+
+          <section class="a-variant" id="option-a1">
+            <div>
+              <p class="eyebrow">A1</p>
+              <h4>Split approve for undecided rows; compact edit for staged rows</h4>
+              <p class="quiet">Fastest default path. Undecided rows show Reject + Approve + dropdown. Staged rows show the staged outcome on the right, directly before Edit.</p>
+            </div>
+            <div class="review-list">
+              <article class="review-item">
+                <input type="checkbox" />
+                <span class="event-copy"><span class="event-title-line"><strong>Wash hair</strong></span><span class="quiet">Jun 6, 8:00 PM-9:00 PM · alan+clerk_test@example.com · Full details</span></span>
+                <span class="decision-actions is-staged"><span class="staged-action-row"><span class="decision-chip is-approved">Approved as chore</span><button class="secondary">Edit</button></span></span>
+              </article>
+              <article class="review-item">
+                <input type="checkbox" />
+                <span class="event-copy"><span class="event-title-line"><strong>Weekly meal prep</strong></span><span class="quiet">Jun 7, 1:00 PM-2:30 PM · alan+clerk_test@example.com · Full details</span></span>
+                <span class="decision-actions"><button class="danger">Reject</button><span class="approve-split"><button class="primary">Approve</button><button class="approve-menu">⌄</button></span></span>
+              </article>
+            </div>
+          </section>
+
+          <section class="a-variant" id="option-a2">
+            <div>
+              <p class="eyebrow">A2</p>
+              <h4>Single decision button opens a menu</h4>
+              <p class="quiet">Least visual noise. Every row has one right-side control. The menu handles Approve as chore, Approve as commitment, Reject, and Clear decision.</p>
+            </div>
+            <div class="review-list">
+              <article class="review-item">
+                <input type="checkbox" />
+                <span class="event-copy"><span class="event-title-line"><strong>Take MacroFactor progress pictures and measurements</strong><span class="pill">Chore</span></span><span class="quiet">Jun 7, 9:00 AM-9:15 AM · alan+clerk_test@example.com · Full details</span></span>
+                <span class="decision-actions"><span class="decision-chip is-unreviewed">Needs decision</span><button class="secondary">Choose action</button></span>
+              </article>
+              <article class="review-item">
+                <input type="checkbox" />
+                <span class="event-copy"><span class="event-title-line"><strong>Fertility appointment</strong><span class="pill">Commitment</span></span><span class="quiet">Jun 9, 9:15 AM-10:15 AM · alan+clerk_test@example.com · Busy only</span></span>
+                <span class="decision-actions is-staged"><span class="decision-chip is-rejected">Rejected</span><span class="mini-menu"><button>Approve as chore</button><button>Approve as commitment</button><button>Clear decision</button></span></span>
+              </article>
+            </div>
+          </section>
+
+          <section class="a-variant" id="option-a3">
+            <div>
+              <p class="eyebrow">A3</p>
+              <h4>Staged state becomes the primary right-side object</h4>
+              <p class="quiet">Most explicit. The right side always shows state first, then the action. Initial rows show No decision + Decide.</p>
+            </div>
+            <div class="review-list">
+              <article class="review-item">
+                <input type="checkbox" />
+                <span class="event-copy"><span class="event-title-line"><strong>Pick outfits for the week</strong><span class="pill">Chore</span></span><span class="quiet">Jun 7, 8:15 PM-8:45 PM · alan+clerk_test@example.com · Full details</span></span>
+                <span class="decision-actions is-staged"><span class="decision-chip is-unreviewed">No decision</span><button class="primary">Decide</button></span>
+              </article>
+              <article class="review-item">
+                <input type="checkbox" />
+                <span class="event-copy"><span class="event-title-line"><strong>Wash hair</strong><span class="pill">Chore</span></span><span class="quiet">Jun 10, 8:00 PM-9:00 PM · alan+clerk_test@example.com · Full details</span></span>
+                <span class="decision-actions is-staged"><span class="decision-chip is-approved">Approved as commitment</span><button class="secondary">Edit</button></span>
+              </article>
+            </div>
+          </section>
+
+          <footer class="modal-footer">
+            <span><strong>2 decisions staged.</strong> 31 imports still need review.</span>
+            <span class="batch-actions"><button class="secondary">Cancel</button><button class="primary">Submit 2 decisions</button></span>
+          </footer>
+        </section>
+      </div>
+    </article>
+
+    <article class="option" id="option-b">
+      <div class="option-header">
+        <div>
+          <p class="eyebrow">Option B</p>
+          <h2>Split review modal</h2>
+          <p class="tradeoff">
+            This is the modal version of the inspector idea. It is better than the page-level right pane because the
+            modal is a focused workspace, but it still risks the same “selected item panel” awkwardness you called out.
+          </p>
+        </div>
+      </div>
+      <div class="modal-backdrop">
+        <section class="modal">
+          <div class="modal-heading"><div><p class="eyebrow">Owner review</p><h3>Review calendar imports</h3></div><button class="close">x</button></div>
+          <section class="control-strip">
+            <strong>From</strong><select><option>All family members</option></select><span></span><span class="range-count">33 in range</span><button class="date-pill">Jun 1 - Jun 30</button>
+          </section>
+          <section class="selection-line"><span>0 selected</span><span class="batch-actions"><button class="secondary">Select all visible</button><button class="secondary">Batch action</button></span></section>
+          <div class="split-modal-grid">
+            <div class="review-list">
+              <article class="review-item is-open"><input type="checkbox" /><span class="event-copy"><strong>Wash hair 🧘</strong><span class="quiet">Jun 6, 8:00 PM</span></span><span class="pill">Chore</span><span class="quiet">Full</span><button class="secondary">Selected</button></article>
+              <article class="review-item"><input type="checkbox" /><span class="event-copy"><strong>Weekly meal prep</strong><span class="quiet">Jun 7, 1:00 PM</span></span><span class="pill">Chore</span><span class="quiet">Full</span><button class="secondary">Select</button></article>
+              <article class="review-item"><input type="checkbox" /><span class="event-copy"><strong>Fertility appointment</strong><span class="quiet">Jun 9, 9:15 AM</span></span><span class="pill">Commitment</span><span class="quiet">Busy</span><button class="secondary">Select</button></article>
+            </div>
+            <aside class="side-panel">
+              <p class="eyebrow">Selected import</p>
+              <h4>Wash hair 🧘</h4>
+              <p class="quiet">Submitted by alan+clerk_test@example.com. Full details visible.</p>
+              <select><option>Chore</option><option>Commitment</option></select>
+              <div class="item-actions"><button class="danger">Reject</button><button class="primary">Approve</button></div>
+            </aside>
+          </div>
+        </section>
+      </div>
+    </article>
+
+    <article class="option" id="option-c">
+      <div class="option-header">
+        <div>
+          <p class="eyebrow">Option C</p>
+          <h2>Batch-first modal</h2>
+          <p class="tradeoff">
+            Best if owners mostly approve lots of events at once. The batch controls are prominent, while individual
+            review is secondary. Efficient, but it might feel less careful for sensitive calendar imports.
+          </p>
+        </div>
+      </div>
+      <div class="modal-backdrop">
+        <section class="modal">
+          <div class="modal-heading"><div><p class="eyebrow">Owner review</p><h3>Review calendar imports</h3></div><button class="close">x</button></div>
+          <section class="control-strip">
+            <strong>From</strong><select><option>All family members</option></select><span></span><span class="range-count">33 in range</span><button class="date-pill">Jun 1 - Jun 30</button>
+          </section>
+          <section class="batch-panel">
+            <span><strong>Batch review</strong><br><span class="quiet">Select visible imports, choose a type, then approve or reject together.</span></span>
+            <span class="batch-actions"><button class="secondary">Select all visible</button><select><option>Keep submitted types</option><option>Set all as chores</option><option>Set all as commitments</option></select><button class="danger">Reject selected</button><button class="primary">Approve selected</button></span>
+          </section>
+          <div class="review-list">
+            <article class="review-item"><input type="checkbox" /><span class="event-copy"><strong>Wash hair 🧘</strong><span class="quiet">Jun 6, 8:00 PM · alan+clerk_test@example.com</span></span><span class="pill">Chore</span><span class="quiet">Full details</span><button class="secondary">Review</button></article>
+            <article class="review-item"><input type="checkbox" /><span class="event-copy"><strong>Weekly meal prep</strong><span class="quiet">Jun 7, 1:00 PM · alan+clerk_test@example.com</span></span><span class="pill">Chore</span><span class="quiet">Full details</span><button class="secondary">Review</button></article>
+            <article class="review-item"><input type="checkbox" /><span class="event-copy"><strong>Fertility appointment</strong><span class="quiet">Jun 9, 9:15 AM · alan+clerk_test@example.com</span></span><span class="pill">Commitment</span><span class="quiet">Busy only</span><button class="secondary">Review</button></article>
+          </div>
+        </section>
+      </div>
+    </article>
+
+    <article class="option" id="option-d">
+      <div class="option-header">
+        <div>
+          <p class="eyebrow">Option D</p>
+          <h2>Card review modal</h2>
+          <p class="tradeoff">
+            Friendliest visually and closest to “approval cards,” but less dense. It can work if we expect owners to
+            review a handful at a time, not a long 30+ item queue.
+          </p>
+        </div>
+      </div>
+      <div class="modal-backdrop">
+        <section class="modal">
+          <div class="modal-heading"><div><p class="eyebrow">Owner review</p><h3>Review calendar imports</h3></div><button class="close">x</button></div>
+          <section class="control-strip">
+            <strong>From</strong><select><option>All family members</option></select><span></span><span class="range-count">33 in range</span><button class="date-pill">Jun 1 - Jun 30</button>
+          </section>
+          <section class="selection-line"><span>0 selected</span><span class="batch-actions"><button class="secondary">Select all visible</button><button class="secondary">Apply to selected</button></span></section>
+          <div class="card-grid">
+            <article class="review-card"><span class="event-copy"><strong>Wash hair 🧘</strong><span class="quiet">Jun 6, 8:00 PM · full details</span></span><span class="pill">Chore</span><div class="card-actions"><select><option>Chore</option><option>Commitment</option></select><button class="danger">Reject</button><button class="primary">Approve</button></div></article>
+            <article class="review-card"><span class="event-copy"><strong>Take MacroFactor progress pictures & measurements</strong><span class="quiet">Jun 7, 9:00 AM · full details</span></span><span class="pill">Chore</span><div class="card-actions"><select><option>Chore</option><option>Commitment</option></select><button class="danger">Reject</button><button class="primary">Approve</button></div></article>
+            <article class="review-card"><span class="event-copy"><strong>Fertility appointment</strong><span class="quiet">Jun 9, 9:15 AM · busy only</span></span><span class="pill">Commitment</span><div class="card-actions"><select><option>Commitment</option><option>Chore</option></select><button class="danger">Reject</button><button class="primary">Approve</button></div></article>
+            <article class="review-card"><span class="event-copy"><strong>Weekly meal prep</strong><span class="quiet">Jun 7, 1:00 PM · full details</span></span><span class="pill">Chore</span><div class="card-actions"><select><option>Chore</option><option>Commitment</option></select><button class="danger">Reject</button><button class="primary">Approve</button></div></article>
+          </div>
+        </section>
+      </div>
+    </article>
+  </main>
+</body>
+</html>

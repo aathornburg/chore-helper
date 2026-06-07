@@ -791,6 +791,16 @@ function mockCalendarWorkspaceFetches({
         }] : []
       };
     }
+    if (url.endsWith("/api/me/calendar/connections/connection-1") && method === "DELETE") {
+      return {
+        ok: true,
+        json: async () => ({
+          connectionId: "connection-1",
+          status: "disconnected",
+          message: "Google Calendar was disconnected from Cleanly."
+        })
+      };
+    }
     if (url.endsWith("/api/me/calendar/external-calendars")) {
       return {
         ok: true,
@@ -1953,7 +1963,7 @@ describe("App", () => {
     });
   });
 
-  it("shows the owner calendar import queue with approve actions", async () => {
+  it("stages owner calendar import queue decisions before submitting them", async () => {
     const fetchMock = mockCalendarPageFetches([{
       id: "queue-1",
       householdId: "household-1",
@@ -1970,12 +1980,29 @@ describe("App", () => {
     }]);
     renderAt("/calendar");
 
-    expect(await screen.findByRole("heading", { name: "Calendar import queue" })).toBeTruthy();
+    expect(await screen.findByText("Calendar imports need review")).toBeTruthy();
+    await waitFor(() => expect(document.querySelector(".calendar-queue-badge")?.textContent).toBe("1"));
+    fireEvent.click(screen.getByRole("button", { name: "Review imports" }));
+
+    expect(await screen.findByRole("dialog", { name: "Review calendar imports" })).toBeTruthy();
     expect(screen.getAllByText("Dentist appointment").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Busy only").length).toBeGreaterThan(0);
-    fireEvent.change(screen.getByLabelText("Type"), { target: { value: "chore" } });
-    fireEvent.click(screen.getByRole("button", { name: "Approve Dentist appointment" }));
-    await waitFor(() => expect(screen.getByText("approved")).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("button", { name: "Approval options for Dentist appointment" }));
+    expect(screen.getByRole("menuitem", { name: "Approve as chore" })).toBeTruthy();
+    fireEvent.mouseDown(screen.getByRole("heading", { name: "Review calendar imports" }));
+    expect(screen.queryByRole("menuitem", { name: "Approve as chore" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Approval options for Dentist appointment" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Approve as chore" }));
+    expect(screen.getByText("Approved as chore")).toBeTruthy();
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      "http://localhost:3001/api/households/household-1/calendar/import-queue/queue-1",
+      expect.anything()
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Submit 1 decision" }));
+    await waitFor(() => expect(screen.getByText("1 import decision submitted.")).toBeTruthy());
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:3001/api/households/household-1/calendar/import-queue/queue-1",
       expect.objectContaining({
@@ -2980,12 +3007,27 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: "Your calendar connection" })).toBeTruthy();
     expect(await screen.findByRole("heading", { name: "Family import controls" })).toBeTruthy();
     expect(screen.getByText(/When you are ready to import or export events, use Calendar\./)).toBeTruthy();
-    expect(screen.getByLabelText("Source calendars")).toBeTruthy();
-    expect(screen.getByLabelText("Export destination")).toBeTruthy();
+    expect(screen.queryByLabelText("Source calendars")).toBeNull();
+    expect(screen.queryByLabelText("Export destination")).toBeNull();
     expect(screen.queryByRole("button", { name: "Review events to share" })).toBeNull();
     expect(screen.getByText("Not connected")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Connect Google Calendar" }));
     expect(await screen.findByText(/Google Calendar login needs/i)).toBeTruthy();
+  });
+
+  it("lets connected users disconnect Google Calendar from Settings", async () => {
+    vi.stubGlobal("fetch", mockCalendarWorkspaceFetches({ calendarConnected: true }));
+    renderAt("/settings#calendar");
+
+    expect(await screen.findByRole("heading", { name: "Settings" })).toBeTruthy();
+    expect(await screen.findByText("Connected")).toBeTruthy();
+    expect(await screen.findByText(/Connected as owner@example.com/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Connect Google Calendar" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Disconnect Google Calendar" }));
+
+    expect(await screen.findByText("Google Calendar was disconnected from Cleanly.")).toBeTruthy();
+    expect(screen.getByText("Not connected")).toBeTruthy();
   });
 
   it("opens calendar sync actions from Calendar instead of Settings", async () => {
@@ -3003,10 +3045,26 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Close dialog" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Export" }));
-    expect(await screen.findByRole("region", { name: "Exporting Cleanly events" })).toBeTruthy();
+    const preselectPanel = await screen.findByRole("region", { name: "Export preselect controls" });
+    const reviewPanel = await screen.findByRole("region", { name: "Export review controls" });
+    const calendarGrid = screen.getByRole("grid", { name: /month calendar/i });
+    expect(preselectPanel).toBeTruthy();
+    expect(reviewPanel).toBeTruthy();
     expect(screen.queryByRole("dialog", { name: "Export events" })).toBeNull();
     expect(screen.getByText(/Export mode: choose a range, select eligible events, then export to your calendar\./)).toBeTruthy();
-    expect(screen.getByText("Choose a destination calendar first")).toBeTruthy();
+    expect(screen.getByText(/Review selected events before choosing a destination calendar/i)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Import events" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Export" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add chore" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Calendar import queue" })).toBeNull();
+    expect(
+      preselectPanel.compareDocumentPosition(calendarGrid) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(
+      calendarGrid.compareDocumentPosition(reviewPanel) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
   });
 
   it("reviews connected Google Calendar import candidates without preselecting events", async () => {
@@ -3029,15 +3087,32 @@ describe("App", () => {
 
       fireEvent.click(await screen.findByRole("button", { name: "Import events" }));
       expect(await screen.findByRole("dialog", { name: "Import calendar events" })).toBeTruthy();
-      expect(screen.getByText(/You're connected. Choose which Google Calendar events Cleanly can use./)).toBeTruthy();
+      expect(screen.queryByText(/You're connected. Choose which Google Calendar events Cleanly can use./)).toBeNull();
+      expect((screen.getByLabelText("From calendar") as HTMLSelectElement).value).toBe("external-calendar-1");
+      expect(screen.getByRole("option", { name: "Choose a calendar" })).toBeTruthy();
+      expect(screen.queryByRole("option", { name: "All connected calendars" })).toBeNull();
+      expect(screen.queryByLabelText("Shared detail")).toBeNull();
+      expect(screen.queryByRole("button", { name: "Change range" })).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "May 1 - May 31" }));
+      expect(screen.getByRole("group", { name: "Import date range presets" })).toBeTruthy();
       expect(screen.getByText("0 selected")).toBeTruthy();
+      expect(await screen.findByText("Soccer practice")).toBeTruthy();
+      expect(screen.getByText("Busy")).toBeTruthy();
+      expect(screen.getByText(/Cleanly shares as/)).toBeTruthy();
+      expect((screen.getByLabelText("Hide details for Soccer practice") as HTMLInputElement).checked).toBe(true);
       expect((screen.getByLabelText("Soccer practice import type") as HTMLSelectElement).value).toBe("commitment");
-      expect((screen.getByRole("button", { name: "Chores" }) as HTMLButtonElement).disabled).toBe(true);
+      expect((screen.getByRole("button", { name: "Apply to selected" }) as HTMLButtonElement).disabled).toBe(true);
 
-      fireEvent.click(screen.getAllByLabelText(/Soccer practice/i)[0]);
-      fireEvent.click(screen.getByRole("button", { name: "Chores" }));
+      fireEvent.click(screen.getByLabelText("Select Soccer practice"));
+      fireEvent.click(screen.getByRole("button", { name: "Apply to selected" }));
+      fireEvent.click(screen.getByRole("menuitem", { name: "Set as chores" }));
 
       expect((screen.getByLabelText("Soccer practice import type") as HTMLSelectElement).value).toBe("chore");
+      fireEvent.click(screen.getByRole("button", { name: "Apply to selected" }));
+      fireEvent.click(screen.getByRole("menuitem", { name: "Show details" }));
+
+      expect((screen.getByLabelText("Hide details for Soccer practice") as HTMLInputElement).checked).toBe(false);
+      expect(screen.getAllByText("Soccer practice").length).toBeGreaterThan(1);
       expect((screen.getByRole("button", { name: "Send selected to Cleanly" }) as HTMLButtonElement).disabled).toBe(false);
     });
   });
@@ -3066,7 +3141,7 @@ describe("App", () => {
       expect(await screen.findByRole("dialog", { name: "Import calendar events" })).toBeTruthy();
       expect(screen.getByRole("region", { name: "Import disabled" })).toBeTruthy();
       expect(screen.getByText(/household owner has turned off Google Calendar imports/i)).toBeTruthy();
-      fireEvent.click(screen.getAllByLabelText(/Soccer practice/i)[0]);
+      fireEvent.click(screen.getByLabelText("Select Soccer practice"));
       expect((screen.getByRole("button", { name: "Send selected to Cleanly" }) as HTMLButtonElement).disabled).toBe(true);
     });
   });
@@ -3106,15 +3181,30 @@ describe("App", () => {
       renderAt("/calendar");
 
       fireEvent.click(await screen.findByRole("button", { name: "Export" }));
-      expect(await screen.findByRole("region", { name: "Exporting Cleanly events" })).toBeTruthy();
+      expect(await screen.findByRole("region", { name: "Export preselect controls" })).toBeTruthy();
+      expect(screen.getByRole("region", { name: "Export review controls" })).toBeTruthy();
       expect(screen.getByText("0 selected")).toBeTruthy();
       expect(screen.getByText("0 chores / 0 commitments")).toBeTruthy();
+      expect(screen.queryByLabelText("To calendar")).toBeNull();
 
-      fireEvent.click(screen.getByRole("button", { name: "Select 2 eligible events" }));
+      fireEvent.click(screen.getByRole("button", { name: /Select options:/ }));
+      expect(screen.getByRole("region", { name: "Preselect options" })).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Select matching events" })).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Visible range" }));
 
-      expect(screen.getByText("2 selected")).toBeTruthy();
+      await waitFor(() => expect(screen.getByText("2 selected")).toBeTruthy());
       expect(screen.getByText("1 chores / 1 commitments")).toBeTruthy();
-      expect(screen.getByText("Ready to export")).toBeTruthy();
+      expect(screen.getByText(/Review selected events before choosing a destination calendar/i)).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Review" })).toBeTruthy();
+
+      fireEvent.click(screen.getByRole("button", { name: "Review" }));
+
+      const reviewDialog = screen.getByRole("dialog", { name: "Review export" });
+      expect(reviewDialog).toBeTruthy();
+      expect(within(reviewDialog).getByText("Clean bathrooms")).toBeTruthy();
+      expect(within(reviewDialog).getByText("Soccer practice")).toBeTruthy();
+      expect(within(reviewDialog).getByLabelText("To calendar")).toBeTruthy();
+      expect(within(reviewDialog).getByRole("button", { name: "Export 2 selected events" })).toBeTruthy();
 
       fireEvent.click(screen.getByRole("button", { name: "Deselect Clean bathrooms" }));
 

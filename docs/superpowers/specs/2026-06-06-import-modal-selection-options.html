@@ -1,0 +1,620 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Import Modal Lightweight Batch Options</title>
+  <style>
+    :root {
+      --ink: #073448;
+      --body: #3d5560;
+      --muted: #6f838b;
+      --teal: #176f84;
+      --teal-dark: #0d5569;
+      --teal-soft: #dff3f6;
+      --teal-wash: #eef9fb;
+      --line: #bcdce4;
+      --paper: #fbfefe;
+      --white: #fff;
+      --shadow: -6px 6px 0 rgba(23, 111, 132, 0.16);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      background:
+        linear-gradient(90deg, rgba(23, 111, 132, 0.08) 1px, transparent 1px),
+        linear-gradient(rgba(23, 111, 132, 0.08) 1px, transparent 1px),
+        radial-gradient(circle at 12% 6%, rgba(243, 200, 79, 0.2), transparent 28rem),
+        #edf8fa;
+      background-size: 36px 36px, 36px 36px, auto, auto;
+      color: var(--ink);
+      font-family: "Nunito", "Segoe UI", system-ui, sans-serif;
+      margin: 0;
+      padding: 30px;
+    }
+
+    main {
+      display: grid;
+      gap: 28px;
+      margin: 0 auto;
+      max-width: 1560px;
+    }
+
+    .page-header {
+      display: grid;
+      gap: 10px;
+      max-width: 1120px;
+    }
+
+    h1 {
+      font-size: clamp(38px, 4vw, 64px);
+      line-height: 0.95;
+      margin: 0;
+    }
+
+    .lede {
+      color: var(--body);
+      font-size: 18px;
+      line-height: 1.45;
+      margin: 0;
+    }
+
+    .jump-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .jump-links a {
+      background: var(--white);
+      border: 1px solid var(--line);
+      color: var(--teal-dark);
+      font-weight: 900;
+      padding: 9px 13px;
+      text-decoration: none;
+    }
+
+    .options {
+      display: grid;
+      gap: 30px;
+    }
+
+    .option {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 18px;
+      padding: 24px;
+    }
+
+    .option-header {
+      align-items: end;
+      display: grid;
+      gap: 14px;
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .option-header h2,
+    .option-header p {
+      margin: 0;
+    }
+
+    .eyebrow {
+      color: #9b432f;
+      font-size: 12px;
+      font-weight: 950;
+      letter-spacing: 0.06em;
+      margin: 0 0 6px;
+      text-transform: uppercase;
+    }
+
+    .option-header h2 {
+      font-size: 28px;
+      line-height: 1.05;
+    }
+
+    .option-header p:not(.eyebrow) {
+      color: var(--body);
+      line-height: 1.42;
+      max-width: 920px;
+    }
+
+    .tag {
+      background: var(--teal-soft);
+      border-left: 4px solid var(--teal);
+      color: var(--teal-dark);
+      font-size: 13px;
+      font-weight: 950;
+      padding: 7px 10px;
+      white-space: nowrap;
+    }
+
+    .modal {
+      background: var(--white);
+      border: 1px solid var(--line);
+      display: grid;
+      gap: 14px;
+      margin: 0 auto;
+      max-width: 1030px;
+      padding: 18px;
+      position: relative;
+      width: 100%;
+    }
+
+    .modal-heading {
+      align-items: center;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      gap: 14px;
+      justify-content: space-between;
+      padding-bottom: 12px;
+    }
+
+    .modal-heading h3,
+    .modal-heading p {
+      margin: 0;
+    }
+
+    .modal-heading h3 {
+      font-size: 25px;
+      line-height: 1.08;
+    }
+
+    .close {
+      background: var(--teal-soft);
+      border: 1px solid var(--line);
+      color: var(--teal-dark);
+      font-weight: 950;
+      height: 38px;
+      width: 38px;
+    }
+
+    select,
+    button {
+      font: inherit;
+    }
+
+    select {
+      appearance: none;
+      background:
+        linear-gradient(45deg, transparent 50%, var(--teal-dark) 50%) calc(100% - 18px) 50% / 7px 7px no-repeat,
+        linear-gradient(135deg, var(--teal-dark) 50%, transparent 50%) calc(100% - 13px) 50% / 7px 7px no-repeat,
+        var(--paper);
+      border: 1px solid var(--line);
+      color: #0a2530;
+      font-weight: 800;
+      min-height: 39px;
+      padding: 8px 38px 8px 10px;
+      width: 100%;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      color: var(--teal-dark);
+      cursor: default;
+      font-weight: 950;
+      min-height: 36px;
+      padding: 7px 11px;
+    }
+
+    .ghost-button {
+      background: #f7fbfc;
+    }
+
+    .quiet-link {
+      background: transparent;
+      border-color: transparent;
+      color: var(--teal-dark);
+      min-height: 0;
+      padding: 5px 7px;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .primary {
+      background: var(--teal);
+      border-color: var(--teal);
+      color: #fff;
+    }
+
+    .filter-strip {
+      align-items: center;
+      background: linear-gradient(90deg, rgba(223, 243, 246, 0.86), rgba(255, 255, 255, 0.96));
+      border: 1px solid var(--line);
+      display: grid;
+      gap: 10px;
+      grid-template-columns: minmax(0, 1fr) auto;
+      padding: 9px 11px;
+    }
+
+    .filter-strip strong {
+      color: #102d38;
+    }
+
+    .filter-strip span {
+      color: var(--body);
+      font-weight: 800;
+    }
+
+    .filter-actions,
+    .event-toolbar,
+    .footer-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .event-panel {
+      border: 1px solid var(--line);
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+    }
+
+    .event-heading {
+      align-items: start;
+      display: grid;
+      gap: 12px;
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .event-heading h4,
+    .event-heading p {
+      margin: 0;
+    }
+
+    .event-heading h4 {
+      font-size: 24px;
+      line-height: 1.05;
+    }
+
+    .event-counts {
+      color: var(--body);
+      display: flex;
+      flex-wrap: wrap;
+      font-weight: 850;
+      gap: 12px;
+      margin-top: 4px;
+    }
+
+    .selection-line {
+      align-items: center;
+      background: var(--teal-wash);
+      border: 1px solid var(--line);
+      color: var(--body);
+      display: flex;
+      flex-wrap: wrap;
+      font-weight: 850;
+      gap: 8px;
+      justify-content: space-between;
+      padding: 8px 10px;
+    }
+
+    .selection-line strong {
+      color: #102d38;
+    }
+
+    .menu-demo {
+      position: relative;
+    }
+
+    .popover-menu {
+      background: var(--white);
+      border: 1px solid var(--line);
+      box-shadow: -5px 5px 0 rgba(23, 111, 132, 0.13);
+      display: grid;
+      gap: 0;
+      min-width: 210px;
+      padding: 6px;
+      position: absolute;
+      right: 0;
+      top: calc(100% + 6px);
+      z-index: 2;
+    }
+
+    .popover-menu button {
+      background: transparent;
+      border: 0;
+      color: #102d38;
+      justify-content: start;
+      min-height: 32px;
+      text-align: left;
+    }
+
+    .sticky-bar {
+      align-items: center;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-top: 4px solid var(--teal);
+      box-shadow: -5px 5px 0 rgba(23, 111, 132, 0.15);
+      display: grid;
+      gap: 10px;
+      grid-template-columns: minmax(0, 1fr) auto;
+      margin-top: -4px;
+      padding: 10px;
+    }
+
+    .sticky-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .bulk-hint {
+      background: transparent;
+      border: 1px dashed var(--line);
+      color: var(--body);
+      display: flex;
+      flex-wrap: wrap;
+      font-weight: 850;
+      gap: 6px;
+      justify-content: space-between;
+      padding: 8px 10px;
+    }
+
+    .event-list {
+      border: 1px solid var(--line);
+      display: grid;
+      list-style: none;
+      margin: 0;
+      max-height: 420px;
+      overflow: hidden;
+      padding: 0;
+    }
+
+    .event-list li {
+      align-items: center;
+      border-bottom: 1px solid var(--line);
+      display: grid;
+      gap: 12px;
+      grid-template-columns: auto minmax(0, 1fr) 138px 150px;
+      padding: 11px 12px;
+    }
+
+    .event-list li:last-child {
+      border-bottom: 0;
+    }
+
+    .check {
+      border: 2px solid #86aeb8;
+      display: block;
+      height: 19px;
+      width: 19px;
+    }
+
+    .check.checked {
+      background: var(--teal);
+      box-shadow: inset 0 0 0 4px #fff;
+    }
+
+    .event-copy {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+    }
+
+    .event-copy strong {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .event-copy small {
+      color: var(--body);
+      font-weight: 750;
+    }
+
+    .privacy-toggle {
+      align-items: center;
+      color: #173541;
+      display: inline-flex;
+      font-weight: 850;
+      gap: 8px;
+      justify-self: start;
+      white-space: nowrap;
+    }
+
+    .privacy-toggle input {
+      accent-color: var(--teal);
+      height: 17px;
+      width: 17px;
+    }
+
+    .share-as {
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    .share-as b {
+      background: var(--teal-wash);
+      border-left: 3px solid var(--teal);
+      color: var(--teal-dark);
+      display: inline-block;
+      margin-left: 5px;
+      padding: 2px 7px;
+    }
+
+    .event-type {
+      background:
+        linear-gradient(45deg, transparent 50%, var(--teal-dark) 50%) calc(100% - 16px) 50% / 6px 6px no-repeat,
+        linear-gradient(135deg, var(--teal-dark) 50%, transparent 50%) calc(100% - 12px) 50% / 6px 6px no-repeat,
+        #f7fbfc;
+      min-height: 39px;
+    }
+
+    .footer-actions {
+      align-items: center;
+    }
+
+    @media (max-width: 980px) {
+      body { padding: 16px; }
+      .option,
+      .modal { padding: 16px; }
+      .option-header,
+      .event-heading,
+      .filter-strip,
+      .sticky-bar {
+        grid-template-columns: 1fr;
+      }
+      .filter-actions,
+      .event-toolbar,
+      .footer-actions,
+      .sticky-actions {
+        justify-content: stretch;
+      }
+      .filter-actions button,
+      .event-toolbar button,
+      .footer-actions button,
+      .sticky-actions button {
+        flex: 1;
+      }
+      .event-list li {
+        grid-template-columns: auto minmax(0, 1fr);
+      }
+      .event-type,
+      .privacy-toggle {
+        grid-column: 2;
+      }
+      .popover-menu {
+        position: static;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="page-header">
+      <p class="eyebrow">Calendar import modal</p>
+      <h1>Three lighter ways to manage selected-event details.</h1>
+      <p class="lede">
+        These keep the modal event-first and avoid a wall of primary-looking controls. Each option still supports select all,
+        event type, and per-event privacy.
+      </p>
+      <nav class="jump-links" aria-label="Options">
+        <a href="#option-a1-lite">A1 Lite</a>
+        <a href="#option-bottom">Bottom bar</a>
+        <a href="#option-row-first">Row first</a>
+      </nav>
+    </header>
+
+    <section class="options">
+      <article class="option" id="option-a1-lite">
+        <div class="option-header">
+          <div>
+            <p class="eyebrow">A1 Lite</p>
+            <h2>One small Apply to selected menu</h2>
+            <p>
+              This keeps batch power but hides it behind one compact menu. First-time users see a normal event list,
+              while advanced users still get fast multi-select changes.
+            </p>
+          </div>
+          <span class="tag">Recommended</span>
+        </div>
+        <div class="modal">
+          <div class="modal-heading"><div><p class="eyebrow">Work my calendar</p><h3>Import calendar events</h3></div><button class="close" type="button">×</button></div>
+          <section class="filter-strip"><span><strong>Showing:</strong> 34 events from alan.thornb@gmail.com · Jun 1-Jun 30</span><div class="filter-actions"><button class="quiet-link">Change calendar</button><button class="quiet-link">Change range</button></div></section>
+          <section class="event-panel">
+            <div class="event-heading">
+              <div><p class="eyebrow">Available events</p><h4>Choose what Cleanly can use</h4><div class="event-counts"><span>3 selected</span><span>2 details hidden</span></div></div>
+              <div class="event-toolbar"><button class="ghost-button">Select all visible</button><button class="quiet-link">Clear selection</button></div>
+            </div>
+            <div class="selection-line">
+              <span><strong>3 selected.</strong> Use row controls, or apply one change to selected events.</span>
+              <div class="menu-demo">
+                <button class="ghost-button">Apply to selected ▾</button>
+                <div class="popover-menu">
+                  <button>Set as commitments</button>
+                  <button>Set as chores</button>
+                  <button>Hide details</button>
+                  <button>Show details</button>
+                </div>
+              </div>
+            </div>
+            <ul class="event-list">
+              <li><span class="check checked"></span><span class="event-copy"><strong>Plant flowers</strong><small>Jun 6, 10:00 AM-11:00 AM</small><span class="share-as">Cleanly shares as <b>Busy</b></span></span><label class="privacy-toggle"><input checked type="checkbox" /> Hide details</label><select class="event-type"><option>Commitment</option></select></li>
+              <li><span class="check checked"></span><span class="event-copy"><strong>Kroger order</strong><small>Jun 6, 3:00 PM-4:00 PM</small><span class="share-as">Cleanly shares as <b>Kroger order</b></span></span><label class="privacy-toggle"><input type="checkbox" /> Hide details</label><select class="event-type"><option>Commitment</option></select></li>
+              <li><span class="check checked"></span><span class="event-copy"><strong>Weekly meal prep</strong><small>Jun 7, 1:00 PM-2:30 PM</small><span class="share-as">Cleanly shares as <b>Busy</b></span></span><label class="privacy-toggle"><input checked type="checkbox" /> Hide details</label><select class="event-type"><option>Chore</option></select></li>
+              <li><span class="check"></span><span class="event-copy"><strong>Fertility appointment</strong><small>Jun 9, 9:15 AM-10:15 AM</small><span class="share-as">Cleanly shares as <b>Busy</b></span></span><label class="privacy-toggle"><input checked type="checkbox" /> Hide details</label><select class="event-type"><option>Commitment</option></select></li>
+            </ul>
+          </section>
+          <div class="footer-actions"><button class="ghost-button">Cancel</button><button class="primary">Send 3 selected to Cleanly</button></div>
+        </div>
+      </article>
+
+      <article class="option" id="option-bottom">
+        <div class="option-header">
+          <div>
+            <p class="eyebrow">Bottom bar</p>
+            <h2>Contextual action bar after selection</h2>
+            <p>
+              The header stays especially quiet. Once events are selected, a bottom bar appears with the selected count,
+              type/privacy menus, and final send action.
+            </p>
+          </div>
+          <span class="tag">Least clutter up top</span>
+        </div>
+        <div class="modal">
+          <div class="modal-heading"><div><p class="eyebrow">Work my calendar</p><h3>Import calendar events</h3></div><button class="close" type="button">×</button></div>
+          <section class="filter-strip"><span><strong>Showing:</strong> 34 events from alan.thornb@gmail.com · Jun 1-Jun 30</span><div class="filter-actions"><button class="quiet-link">Change calendar</button><button class="quiet-link">Change range</button></div></section>
+          <section class="event-panel">
+            <div class="event-heading">
+              <div><p class="eyebrow">Available events</p><h4>Choose what Cleanly can use</h4><div class="event-counts"><span>3 selected</span><span>2 details hidden</span></div></div>
+              <div class="event-toolbar"><button class="ghost-button">Select all visible</button><button class="quiet-link">Clear</button></div>
+            </div>
+            <ul class="event-list">
+              <li><span class="check checked"></span><span class="event-copy"><strong>Plant flowers</strong><small>Jun 6, 10:00 AM-11:00 AM</small><span class="share-as">Cleanly shares as <b>Busy</b></span></span><label class="privacy-toggle"><input checked type="checkbox" /> Hide details</label><select class="event-type"><option>Commitment</option></select></li>
+              <li><span class="check checked"></span><span class="event-copy"><strong>Kroger order</strong><small>Jun 6, 3:00 PM-4:00 PM</small><span class="share-as">Cleanly shares as <b>Kroger order</b></span></span><label class="privacy-toggle"><input type="checkbox" /> Hide details</label><select class="event-type"><option>Commitment</option></select></li>
+              <li><span class="check checked"></span><span class="event-copy"><strong>Weekly meal prep</strong><small>Jun 7, 1:00 PM-2:30 PM</small><span class="share-as">Cleanly shares as <b>Busy</b></span></span><label class="privacy-toggle"><input checked type="checkbox" /> Hide details</label><select class="event-type"><option>Chore</option></select></li>
+              <li><span class="check"></span><span class="event-copy"><strong>Fertility appointment</strong><small>Jun 9, 9:15 AM-10:15 AM</small><span class="share-as">Cleanly shares as <b>Busy</b></span></span><label class="privacy-toggle"><input checked type="checkbox" /> Hide details</label><select class="event-type"><option>Commitment</option></select></li>
+            </ul>
+            <div class="sticky-bar">
+              <span><strong>3 selected</strong> · 2 hidden details · 1 full detail</span>
+              <div class="sticky-actions"><button class="ghost-button">Set type ▾</button><button class="ghost-button">Privacy ▾</button><button class="primary">Send selected</button></div>
+            </div>
+          </section>
+          <div class="footer-actions"><button class="ghost-button">Cancel</button></div>
+        </div>
+      </article>
+
+      <article class="option" id="option-row-first">
+        <div class="option-header">
+          <div>
+            <p class="eyebrow">Row first</p>
+            <h2>Hide bulk tools until the user asks</h2>
+            <p>
+              This is the friendliest first-run surface. The default interaction is row-by-row. Bulk actions are exposed
+              as a small helper link only after selection.
+            </p>
+          </div>
+          <span class="tag">Most beginner-friendly</span>
+        </div>
+        <div class="modal">
+          <div class="modal-heading"><div><p class="eyebrow">Work my calendar</p><h3>Import calendar events</h3></div><button class="close" type="button">×</button></div>
+          <section class="filter-strip"><span><strong>Showing:</strong> 34 events from alan.thornb@gmail.com · Jun 1-Jun 30</span><div class="filter-actions"><button class="quiet-link">Change calendar</button><button class="quiet-link">Change range</button></div></section>
+          <section class="event-panel">
+            <div class="event-heading">
+              <div><p class="eyebrow">Available events</p><h4>Choose what Cleanly can use</h4><div class="event-counts"><span>3 selected</span><span>Use each row to choose type and details</span></div></div>
+              <div class="event-toolbar"><button class="ghost-button">Select all visible</button><button class="quiet-link">Clear</button></div>
+            </div>
+            <div class="bulk-hint">
+              <span>Need to update selected events faster?</span>
+              <button class="quiet-link">Open bulk changes</button>
+            </div>
+            <ul class="event-list">
+              <li><span class="check checked"></span><span class="event-copy"><strong>Plant flowers</strong><small>Jun 6, 10:00 AM-11:00 AM</small><span class="share-as">Cleanly shares as <b>Busy</b></span></span><label class="privacy-toggle"><input checked type="checkbox" /> Hide details</label><select class="event-type"><option>Commitment</option></select></li>
+              <li><span class="check checked"></span><span class="event-copy"><strong>Kroger order</strong><small>Jun 6, 3:00 PM-4:00 PM</small><span class="share-as">Cleanly shares as <b>Kroger order</b></span></span><label class="privacy-toggle"><input type="checkbox" /> Hide details</label><select class="event-type"><option>Commitment</option></select></li>
+              <li><span class="check checked"></span><span class="event-copy"><strong>Weekly meal prep</strong><small>Jun 7, 1:00 PM-2:30 PM</small><span class="share-as">Cleanly shares as <b>Busy</b></span></span><label class="privacy-toggle"><input checked type="checkbox" /> Hide details</label><select class="event-type"><option>Chore</option></select></li>
+              <li><span class="check"></span><span class="event-copy"><strong>Fertility appointment</strong><small>Jun 9, 9:15 AM-10:15 AM</small><span class="share-as">Cleanly shares as <b>Busy</b></span></span><label class="privacy-toggle"><input checked type="checkbox" /> Hide details</label><select class="event-type"><option>Commitment</option></select></li>
+            </ul>
+          </section>
+          <div class="footer-actions"><button class="ghost-button">Cancel</button><button class="primary">Send 3 selected to Cleanly</button></div>
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

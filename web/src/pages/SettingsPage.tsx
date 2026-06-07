@@ -3,15 +3,14 @@ import type {
   CalendarConnectionSummary,
   CalendarImportPolicy,
   CalendarPreferences,
-  ExternalCalendarSummary,
   HouseholdAppData,
   HouseholdMemberSummary
 } from "@chore-helper/shared";
 import {
+  disconnectCalendarConnection,
   getCalendarPreferences,
   getCurrentUser,
   listCalendarConnections,
-  listExternalCalendars,
   listCalendarImportPolicies,
   listHouseholdMembers,
   startGoogleCalendarConnection,
@@ -37,11 +36,11 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
   const [currentUserId, setCurrentUserId] = useState<string>();
   const [members, setMembers] = useState<HouseholdMemberSummary[]>([]);
   const [connections, setConnections] = useState<CalendarConnectionSummary[]>([]);
-  const [externalCalendars, setExternalCalendars] = useState<ExternalCalendarSummary[]>([]);
   const [policies, setPolicies] = useState<CalendarImportPolicy[]>([]);
   const [preferences, setPreferences] = useState<CalendarPreferences>();
   const [calendarStatus, setCalendarStatus] = useState<string>();
   const highlighted = window.location.hash === "#calendar";
+  const connectedConnection = connections.find((connection) => connection.status === "connected") ?? connections[0];
   const isOwner = useMemo(
     () => members.some((member) => member.userId === currentUserId && member.role === "owner"),
     [currentUserId, members]
@@ -54,14 +53,12 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
       getCurrentUser(),
       listHouseholdMembers(selectedHousehold.id),
       listCalendarConnections(),
-      listExternalCalendars(),
       getCalendarPreferences(selectedHousehold.id)
-    ]).then(([user, loadedMembers, loadedConnections, loadedCalendars, loadedPreferences]) => {
+    ]).then(([user, loadedMembers, loadedConnections, loadedPreferences]) => {
       if (cancelled) return;
       setCurrentUserId(user.id);
       setMembers(loadedMembers);
       setConnections(loadedConnections);
-      setExternalCalendars(loadedCalendars);
       setPreferences(loadedPreferences);
     }).catch(() => {
       if (!cancelled) setCalendarStatus("Could not load calendar sync settings.");
@@ -116,6 +113,16 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
       .catch(() => setCalendarStatus("Could not start Google Calendar connection."));
   }
 
+  function handleDisconnectGoogleCalendar() {
+    if (!connectedConnection) return;
+    void disconnectCalendarConnection(connectedConnection.id)
+      .then((result) => {
+        setConnections((current) => current.filter((connection) => connection.id !== connectedConnection.id));
+        setCalendarStatus(result.message);
+      })
+      .catch(() => setCalendarStatus("Could not disconnect Google Calendar."));
+  }
+
   return (
     <div className="settings-page operational-page">
       <header className="page-command-header">
@@ -149,15 +156,22 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
                     <div className="sync-setting-copy">
                       <p className="eyebrow">Connection settings</p>
                       <h4 id="calendar-connection-settings-heading">Google account</h4>
-                      <p>Connect the account Cleanly should read from and write to when you choose to sync.</p>
+                      <p>
+                        {connectedConnection
+                          ? `Connected as ${connectedConnection.providerAccountEmail}. Disconnecting removes Cleanly's stored Google tokens.`
+                          : "Connect the account Cleanly should read from and write to when you choose to sync."}
+                      </p>
                     </div>
                     <div className="sync-action-row">
-                      <button
-                        onClick={handleConnectGoogleCalendar}
-                        type="button"
-                      >
-                        Connect Google Calendar
-                      </button>
+                      {connectedConnection ? (
+                        <button className="section-action" onClick={handleDisconnectGoogleCalendar} type="button">
+                          Disconnect Google Calendar
+                        </button>
+                      ) : (
+                        <button onClick={handleConnectGoogleCalendar} type="button">
+                          Connect Google Calendar
+                        </button>
+                      )}
                     </div>
                   </section>
 
@@ -165,7 +179,7 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
                     <div className="sync-setting-copy">
                       <p className="eyebrow">Import settings</p>
                       <h4 id="calendar-import-settings-heading">What Cleanly can review</h4>
-                      <p>Choose which calendars can send events toward the shared Cleanly queue.</p>
+                      <p>Choose the privacy default Cleanly uses when you import events. Pick the source calendar from Calendar when you are ready to review events.</p>
                     </div>
                     <div className="sync-preference-grid sync-preference-grid-import">
                       <label>
@@ -181,21 +195,6 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
                           <option value="full_details">Full details</option>
                         </select>
                       </label>
-                      <label>
-                        Source calendars
-                        <select
-                          value={preferences.selectedSourceCalendarIds[0] ?? ""}
-                          onChange={(event) => savePreference({
-                            ...preferences,
-                            selectedSourceCalendarIds: event.target.value ? [event.target.value] : []
-                          })}
-                        >
-                          <option value="">Choose source calendar</option>
-                          {externalCalendars.length ? externalCalendars.map((calendar) => (
-                            <option key={calendar.id} value={calendar.id}>{calendar.name}</option>
-                          )) : <option disabled>Connect Google Calendar to choose</option>}
-                        </select>
-                      </label>
                     </div>
                   </section>
 
@@ -203,7 +202,7 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
                     <div className="sync-setting-copy">
                       <p className="eyebrow">Export settings</p>
                       <h4 id="calendar-export-settings-heading">Where Cleanly writes</h4>
-                      <p>Export is personal. Each member chooses where Cleanly writes calendar updates.</p>
+                      <p>Set export defaults here. Choose the destination calendar during the Calendar export review.</p>
                     </div>
                     <div className="sync-preference-grid sync-preference-grid-export">
                       <label>
@@ -232,21 +231,6 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
                           <option value="chores">Chores</option>
                           <option value="commitments">Commitments</option>
                           <option value="both">Both</option>
-                        </select>
-                      </label>
-                      <label>
-                        Export destination
-                        <select
-                          value={preferences.destinationExternalCalendarId ?? ""}
-                          onChange={(event) => savePreference({
-                            ...preferences,
-                            destinationExternalCalendarId: event.target.value || undefined
-                          })}
-                        >
-                          <option value="">Choose after connecting Google Calendar</option>
-                          {externalCalendars.map((calendar) => (
-                            <option key={calendar.id} value={calendar.id}>{calendar.name}</option>
-                          ))}
                         </select>
                       </label>
                     </div>

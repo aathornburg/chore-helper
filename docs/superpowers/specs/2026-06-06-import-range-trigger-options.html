@@ -1,0 +1,684 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Import Modal Range Trigger Options</title>
+  <style>
+    :root {
+      --ink: #073448;
+      --body: #3d5560;
+      --muted: #6f838b;
+      --teal: #176f84;
+      --teal-dark: #0d5569;
+      --teal-soft: #dff3f6;
+      --teal-wash: #eef9fb;
+      --line: #bcdce4;
+      --paper: #fbfefe;
+      --white: #fff;
+      --gold: #f5c64f;
+      --shadow: -6px 6px 0 rgba(23, 111, 132, 0.16);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      background:
+        linear-gradient(90deg, rgba(23, 111, 132, 0.08) 1px, transparent 1px),
+        linear-gradient(rgba(23, 111, 132, 0.08) 1px, transparent 1px),
+        radial-gradient(circle at 12% 6%, rgba(245, 198, 79, 0.18), transparent 28rem),
+        #edf8fa;
+      background-size: 36px 36px, 36px 36px, auto, auto;
+      color: var(--ink);
+      font-family: "Nunito", "Segoe UI", system-ui, sans-serif;
+      margin: 0;
+      padding: 30px;
+    }
+
+    main {
+      display: grid;
+      gap: 28px;
+      margin: 0 auto;
+      max-width: 1500px;
+    }
+
+    .page-header {
+      display: grid;
+      gap: 10px;
+      max-width: 1080px;
+    }
+
+    h1 {
+      font-size: clamp(36px, 4vw, 58px);
+      line-height: 0.96;
+      margin: 0;
+    }
+
+    .lede {
+      color: var(--body);
+      font-size: 18px;
+      line-height: 1.45;
+      margin: 0;
+    }
+
+    .jump-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .jump-links a {
+      background: var(--white);
+      border: 1px solid var(--line);
+      color: var(--teal-dark);
+      font-weight: 850;
+      padding: 9px 13px;
+      text-decoration: none;
+    }
+
+    .option {
+      background: rgba(255, 255, 255, 0.68);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 20px;
+      padding: 22px;
+    }
+
+    .option-header {
+      align-items: end;
+      display: grid;
+      gap: 12px;
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .option-header h2,
+    .option-header p {
+      margin: 0;
+    }
+
+    .eyebrow {
+      color: #a74832;
+      font-size: 0.76rem;
+      font-weight: 850;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .tradeoff {
+      color: var(--body);
+      line-height: 1.45;
+      max-width: 720px;
+    }
+
+    .badge {
+      background: #fff7d8;
+      border-left: 4px solid var(--gold);
+      color: #6e4f00;
+      font-size: 0.9rem;
+      font-weight: 750;
+      padding: 8px 10px;
+    }
+
+    .modal {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      box-shadow: -10px 10px 0 rgba(23, 111, 132, 0.14);
+      display: grid;
+      gap: 12px;
+      margin: 0 auto;
+      max-width: 960px;
+      padding: 22px;
+      width: 100%;
+    }
+
+    .modal-heading {
+      align-items: start;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .modal-heading h3 {
+      font-size: 1.8rem;
+      line-height: 1;
+      margin: 4px 0 0;
+    }
+
+    .close {
+      background: transparent;
+      border: 0;
+      color: #536173;
+      font-size: 1.5rem;
+      line-height: 1;
+    }
+
+    .filter-strip {
+      align-items: center;
+      background: linear-gradient(90deg, rgba(223, 243, 246, 0.9), rgba(255, 255, 255, 0.96));
+      border: 1px solid var(--line);
+      display: grid;
+      gap: 10px;
+      grid-template-columns: auto minmax(180px, 260px) minmax(0, 1fr) auto auto;
+      padding: 10px 12px;
+      position: relative;
+    }
+
+    .filter-strip strong {
+      color: #183541;
+      font-weight: 800;
+    }
+
+    select,
+    button,
+    .date-trigger {
+      font: inherit;
+    }
+
+    select {
+      appearance: none;
+      background:
+        linear-gradient(45deg, transparent 50%, #073448 50%) calc(100% - 18px) center / 6px 6px no-repeat,
+        linear-gradient(135deg, #073448 50%, transparent 50%) calc(100% - 13px) center / 6px 6px no-repeat,
+        #fff;
+      border: 1px solid var(--line);
+      color: #102b35;
+      font-weight: 700;
+      min-height: 38px;
+      padding: 8px 34px 8px 12px;
+      width: 100%;
+    }
+
+    .date-trigger {
+      align-items: center;
+      background: transparent;
+      border: 0;
+      color: #536173;
+      cursor: pointer;
+      display: inline-flex;
+      font-weight: 800;
+      gap: 8px;
+      justify-self: start;
+      padding: 6px 4px;
+    }
+
+    .date-trigger:hover {
+      color: var(--teal-dark);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .date-trigger.is-pill {
+      background: #fff;
+      border: 1px solid var(--line);
+      color: var(--teal-dark);
+      padding: 8px 12px;
+      text-decoration: none;
+    }
+
+    .range-count {
+      color: #536173;
+      font-size: 0.94rem;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .range-popover,
+    .range-drawer {
+      background: #fff;
+      border: 1px solid #accfd7;
+      box-shadow: -6px 6px 0 rgba(23, 111, 132, 0.13);
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+    }
+
+    .range-popover {
+      margin-left: auto;
+      margin-top: 8px;
+      max-width: 440px;
+      position: relative;
+    }
+
+    .range-popover::before {
+      background: #fff;
+      border-left: 1px solid #accfd7;
+      border-top: 1px solid #accfd7;
+      content: "";
+      height: 12px;
+      position: absolute;
+      right: 84px;
+      top: -7px;
+      transform: rotate(45deg);
+      width: 12px;
+    }
+
+    .range-drawer {
+      border-top: 0;
+      box-shadow: none;
+      grid-column: 1 / -1;
+      margin: 0 -12px -10px;
+      padding: 14px 12px 12px;
+    }
+
+    .range-title {
+      align-items: baseline;
+      display: flex;
+      gap: 10px;
+      justify-content: space-between;
+    }
+
+    .range-title h4,
+    .range-title p {
+      margin: 0;
+    }
+
+    .range-title p {
+      color: var(--muted);
+      font-size: 0.92rem;
+      font-weight: 600;
+    }
+
+    .preset-grid {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .preset-grid button,
+    .quick-row button {
+      background: #f7fbfc;
+      border: 1px solid var(--line);
+      color: var(--teal-dark);
+      font-weight: 800;
+      min-height: 36px;
+      padding: 8px 10px;
+    }
+
+    .preset-grid button[aria-pressed="true"],
+    .quick-row button[aria-pressed="true"] {
+      background: var(--teal);
+      border-color: var(--teal);
+      color: white;
+    }
+
+    .custom-range {
+      border-top: 1px solid var(--line);
+      display: grid;
+      gap: 10px;
+      grid-template-columns: 1fr 1fr auto;
+      padding-top: 12px;
+    }
+
+    .custom-range label {
+      color: var(--body);
+      display: grid;
+      font-size: 0.9rem;
+      font-weight: 750;
+      gap: 5px;
+    }
+
+    .custom-range input {
+      border: 1px solid var(--line);
+      color: var(--ink);
+      font: inherit;
+      min-height: 38px;
+      padding: 8px 10px;
+    }
+
+    .custom-range button {
+      align-self: end;
+      background: var(--teal);
+      border: 1px solid var(--teal);
+      color: #fff;
+      font-weight: 850;
+      min-height: 38px;
+      padding: 8px 14px;
+    }
+
+    .quick-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .calendar-strip {
+      border: 1px solid var(--line);
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      min-height: 94px;
+    }
+
+    .mini-day {
+      border-right: 1px solid var(--line);
+      display: grid;
+      gap: 6px;
+      padding: 8px;
+    }
+
+    .mini-day:last-child { border-right: 0; }
+
+    .mini-day b {
+      color: var(--teal-dark);
+      font-size: 0.78rem;
+    }
+
+    .mini-day span {
+      background: #dff3f6;
+      color: var(--teal-dark);
+      font-size: 0.75rem;
+      font-weight: 750;
+      padding: 4px 5px;
+    }
+
+    .event-panel {
+      border: 1px solid var(--line);
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+    }
+
+    .event-heading {
+      align-items: center;
+      display: flex;
+      gap: 12px;
+      justify-content: space-between;
+    }
+
+    .event-heading h4,
+    .event-heading p {
+      margin: 0;
+    }
+
+    .event-actions {
+      align-items: center;
+      display: flex;
+      gap: 8px;
+    }
+
+    .event-actions button {
+      background: #f7fbfc;
+      border: 1px solid var(--line);
+      color: var(--teal-dark);
+      font-weight: 800;
+      min-height: 36px;
+      padding: 8px 12px;
+    }
+
+    .selection-line {
+      align-items: center;
+      background: var(--teal-wash);
+      border: 1px solid var(--line);
+      display: flex;
+      gap: 10px;
+      justify-content: space-between;
+      padding: 9px 10px;
+    }
+
+    .selection-line span {
+      color: var(--body);
+      font-weight: 600;
+    }
+
+    .selected-action {
+      align-items: center;
+      display: inline-flex;
+      gap: 8px;
+    }
+
+    .selected-action button {
+      background: #f7fbfc;
+      border: 1px solid var(--line);
+      color: var(--teal-dark);
+      font-weight: 800;
+      min-height: 36px;
+      padding: 8px 12px;
+    }
+
+    .events {
+      display: grid;
+      gap: 8px;
+      list-style: none;
+      margin: 0;
+      max-height: 260px;
+      overflow: hidden;
+      padding: 0;
+    }
+
+    .events li {
+      align-items: center;
+      border: 1px solid #d5e8ea;
+      display: grid;
+      gap: 12px;
+      grid-template-columns: auto minmax(0, 1fr) auto auto;
+      padding: 10px;
+    }
+
+    .check {
+      border: 1px solid #9bb9c1;
+      height: 14px;
+      width: 14px;
+    }
+
+    .event-copy {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+    }
+
+    .event-copy strong {
+      color: #102b35;
+      font-weight: 750;
+    }
+
+    .event-copy small,
+    .privacy-toggle {
+      color: #536173;
+      font-size: 0.86rem;
+      font-weight: 500;
+    }
+
+    .privacy-toggle {
+      align-items: center;
+      display: inline-flex;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .event-type {
+      min-width: 130px;
+    }
+
+    @media (max-width: 900px) {
+      body { padding: 18px; }
+      .option-header,
+      .filter-strip,
+      .custom-range,
+      .event-heading,
+      .selection-line,
+      .events li {
+        grid-template-columns: 1fr;
+      }
+
+      .filter-strip {
+        align-items: stretch;
+      }
+
+      .range-popover {
+        max-width: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="page-header">
+      <p class="eyebrow">Import modal range trigger</p>
+      <h1>Make the date range feel like a control, not a drawer handle.</h1>
+      <p class="lede">
+        These options replace the separate Change range link with a clickable date range. The goal is to keep the
+        modal event-first while making it obvious that Jun 1-Jun 30 is the thing you can edit.
+      </p>
+      <nav class="jump-links" aria-label="Options">
+        <a href="#option-a">A. Date pill popover</a>
+        <a href="#option-b">B. Inline text popover</a>
+        <a href="#option-c">C. Sleek inline drawer</a>
+      </nav>
+    </header>
+
+    <article class="option" id="option-a">
+      <div class="option-header">
+        <div>
+          <p class="eyebrow">Option A</p>
+          <h2>Date pill opens a compact popover</h2>
+          <p class="tradeoff">
+            Best balance. The date looks clickable without adding another command. The popover keeps range controls out
+            of the event flow, and it can close after preset selection or stay open for custom dates.
+          </p>
+        </div>
+        <span class="badge">Recommended</span>
+      </div>
+      <section class="modal" aria-label="Option A modal preview">
+        <div class="modal-heading"><div><p class="eyebrow">Work my calendar</p><h3>Import calendar events</h3></div><button class="close" type="button">x</button></div>
+        <section class="filter-strip" aria-label="Import settings">
+          <strong>From</strong>
+          <select aria-label="From calendar"><option>alan.thornb@gmail.com</option></select>
+          <button class="date-trigger is-pill" type="button">Jun 1 - Jun 30</button>
+          <span class="range-count">33 in range</span>
+          <span></span>
+        </section>
+        <section class="range-popover" aria-label="Date range popover">
+          <div class="range-title">
+            <div><p class="eyebrow">Date range</p><h4>Choose events to show</h4></div>
+            <p>Jun 1-Jun 30</p>
+          </div>
+          <div class="preset-grid">
+            <button aria-pressed="false" type="button">Visible range</button>
+            <button aria-pressed="false" type="button">This week</button>
+            <button aria-pressed="false" type="button">Next 2 weeks</button>
+            <button aria-pressed="true" type="button">This month</button>
+          </div>
+          <div class="custom-range">
+            <label>Start <input value="2026-06-01" /></label>
+            <label>End <input value="2026-06-30" /></label>
+            <button type="button">Apply</button>
+          </div>
+        </section>
+        <div class="event-panel">
+          <div class="event-heading">
+            <div><p class="eyebrow">Available events</p><h4>Choose what Cleanly can use</h4></div>
+            <div class="event-actions"><button>Select all visible</button><button>Clear selection</button></div>
+          </div>
+          <div class="selection-line"><span>Select events one by one, or select all visible events.</span><span class="selected-action"><span>0 selected</span><button>Apply to selected</button></span></div>
+          <ul class="events">
+            <li><span class="check"></span><span class="event-copy"><strong>Wash hair</strong><small>Jun 6, 8:00 PM-9:00 PM</small></span><label class="privacy-toggle"><input type="checkbox" /> Hide details</label><select class="event-type"><option>Commitment</option></select></li>
+            <li><span class="check"></span><span class="event-copy"><strong>Weekly meal prep</strong><small>Jun 7, 1:00 PM-2:30 PM</small></span><label class="privacy-toggle"><input type="checkbox" /> Hide details</label><select class="event-type"><option>Chore</option></select></li>
+          </ul>
+        </div>
+      </section>
+    </article>
+
+    <article class="option" id="option-b">
+      <div class="option-header">
+        <div>
+          <p class="eyebrow">Option B</p>
+          <h2>Inline date text opens a popover</h2>
+          <p class="tradeoff">
+            Quietest version. It treats the range like editable metadata, which keeps the strip light. The risk is that
+            some users may not realize the date is clickable unless hover/focus states are strong.
+          </p>
+        </div>
+      </div>
+      <section class="modal" aria-label="Option B modal preview">
+        <div class="modal-heading"><div><p class="eyebrow">Work my calendar</p><h3>Import calendar events</h3></div><button class="close" type="button">x</button></div>
+        <section class="filter-strip" aria-label="Import settings">
+          <strong>From</strong>
+          <select aria-label="From calendar"><option>alan.thornb@gmail.com</option></select>
+          <button class="date-trigger" type="button">Jun 1 - Jun 30</button>
+          <span class="range-count">33 in range</span>
+          <span></span>
+        </section>
+        <section class="range-popover" aria-label="Date range popover">
+          <div class="range-title">
+            <div><p class="eyebrow">Showing events</p><h4>Jun 1 through Jun 30</h4></div>
+          </div>
+          <div class="quick-row">
+            <button aria-pressed="false" type="button">Visible range</button>
+            <button aria-pressed="false" type="button">This week</button>
+            <button aria-pressed="false" type="button">Next 2 weeks</button>
+            <button aria-pressed="true" type="button">This month</button>
+            <button aria-pressed="false" type="button">Custom</button>
+          </div>
+        </section>
+        <div class="event-panel">
+          <div class="event-heading">
+            <div><p class="eyebrow">Available events</p><h4>Choose what Cleanly can use</h4></div>
+            <div class="event-actions"><button>Select all visible</button><button>Clear selection</button></div>
+          </div>
+          <div class="selection-line"><span>Select events one by one, or select all visible events.</span><span class="selected-action"><span>0 selected</span><button>Apply to selected</button></span></div>
+          <ul class="events">
+            <li><span class="check"></span><span class="event-copy"><strong>Wash hair</strong><small>Jun 6, 8:00 PM-9:00 PM</small></span><label class="privacy-toggle"><input type="checkbox" /> Hide details</label><select class="event-type"><option>Commitment</option></select></li>
+            <li><span class="check"></span><span class="event-copy"><strong>Weekly meal prep</strong><small>Jun 7, 1:00 PM-2:30 PM</small></span><label class="privacy-toggle"><input type="checkbox" /> Hide details</label><select class="event-type"><option>Chore</option></select></li>
+          </ul>
+        </div>
+      </section>
+    </article>
+
+    <article class="option" id="option-c">
+      <div class="option-header">
+        <div>
+          <p class="eyebrow">Option C</p>
+          <h2>Clickable date opens a sleeker inline drawer</h2>
+          <p class="tradeoff">
+            Closest to the current implementation, but cleaner: the drawer is visually attached to the filter strip,
+            avoids the huge active date button, and adds a small week strip so the expanded state feels useful instead
+            of just bulky.
+          </p>
+        </div>
+      </div>
+      <section class="modal" aria-label="Option C modal preview">
+        <div class="modal-heading"><div><p class="eyebrow">Work my calendar</p><h3>Import calendar events</h3></div><button class="close" type="button">x</button></div>
+        <section class="filter-strip" aria-label="Import settings">
+          <strong>From</strong>
+          <select aria-label="From calendar"><option>alan.thornb@gmail.com</option></select>
+          <button class="date-trigger is-pill" type="button">Jun 1 - Jun 30</button>
+          <span class="range-count">33 in range</span>
+          <span></span>
+          <div class="range-drawer" aria-label="Inline date range drawer">
+            <div class="range-title">
+              <div><p class="eyebrow">Date range</p><h4>Events shown in this modal</h4></div>
+              <p>Changing this only changes the available-event list.</p>
+            </div>
+            <div class="quick-row">
+              <button aria-pressed="false" type="button">Visible range</button>
+              <button aria-pressed="false" type="button">This week</button>
+              <button aria-pressed="false" type="button">Next 2 weeks</button>
+              <button aria-pressed="true" type="button">This month</button>
+              <button aria-pressed="false" type="button">Custom</button>
+            </div>
+            <div class="calendar-strip" aria-hidden="true">
+              <div class="mini-day"><b>Mon 1</b><span>3 events</span></div>
+              <div class="mini-day"><b>Tue 2</b><span>4 events</span></div>
+              <div class="mini-day"><b>Wed 3</b><span>1 event</span></div>
+              <div class="mini-day"><b>Thu 4</b><span>5 events</span></div>
+              <div class="mini-day"><b>Fri 5</b><span>6 events</span></div>
+              <div class="mini-day"><b>Sat 6</b><span>7 events</span></div>
+              <div class="mini-day"><b>Sun 7</b><span>7 events</span></div>
+            </div>
+          </div>
+        </section>
+        <div class="event-panel">
+          <div class="event-heading">
+            <div><p class="eyebrow">Available events</p><h4>Choose what Cleanly can use</h4></div>
+            <div class="event-actions"><button>Select all visible</button><button>Clear selection</button></div>
+          </div>
+          <div class="selection-line"><span>Select events one by one, or select all visible events.</span><span class="selected-action"><span>0 selected</span><button>Apply to selected</button></span></div>
+          <ul class="events">
+            <li><span class="check"></span><span class="event-copy"><strong>Wash hair</strong><small>Jun 6, 8:00 PM-9:00 PM</small></span><label class="privacy-toggle"><input type="checkbox" /> Hide details</label><select class="event-type"><option>Commitment</option></select></li>
+            <li><span class="check"></span><span class="event-copy"><strong>Weekly meal prep</strong><small>Jun 7, 1:00 PM-2:30 PM</small></span><label class="privacy-toggle"><input type="checkbox" /> Hide details</label><select class="event-type"><option>Chore</option></select></li>
+          </ul>
+        </div>
+      </section>
+    </article>
+  </main>
+</body>
+</html>

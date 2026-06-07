@@ -1,0 +1,667 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Owner Import Queue Layout Options</title>
+  <style>
+    :root {
+      --ink: #073448;
+      --body: #3d5560;
+      --muted: #6f838b;
+      --teal: #176f84;
+      --teal-dark: #0d5569;
+      --teal-soft: #dff3f6;
+      --teal-wash: #eef9fb;
+      --line: #bcdce4;
+      --paper: #fbfefe;
+      --white: #fff;
+      --gold: #f5c64f;
+      --green: #43735c;
+      --red: #a74832;
+      --shadow: -6px 6px 0 rgba(23, 111, 132, 0.16);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      background:
+        linear-gradient(90deg, rgba(23, 111, 132, 0.08) 1px, transparent 1px),
+        linear-gradient(rgba(23, 111, 132, 0.08) 1px, transparent 1px),
+        radial-gradient(circle at 14% 8%, rgba(245, 198, 79, 0.18), transparent 30rem),
+        #edf8fa;
+      background-size: 36px 36px, 36px 36px, auto, auto;
+      color: var(--ink);
+      font-family: "Nunito", "Segoe UI", system-ui, sans-serif;
+      margin: 0;
+      padding: 30px;
+    }
+
+    main {
+      display: grid;
+      gap: 28px;
+      margin: 0 auto;
+      max-width: 1540px;
+    }
+
+    .page-header {
+      display: grid;
+      gap: 10px;
+      max-width: 1100px;
+    }
+
+    h1 {
+      font-size: clamp(36px, 4vw, 60px);
+      line-height: 0.96;
+      margin: 0;
+    }
+
+    .lede {
+      color: var(--body);
+      font-size: 18px;
+      line-height: 1.45;
+      margin: 0;
+    }
+
+    .jump-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .jump-links a {
+      background: var(--white);
+      border: 1px solid var(--line);
+      color: var(--teal-dark);
+      font-weight: 850;
+      padding: 9px 13px;
+      text-decoration: none;
+    }
+
+    .option {
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 20px;
+      padding: 22px;
+    }
+
+    .option-header {
+      align-items: end;
+      display: grid;
+      gap: 12px;
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .option-header h2,
+    .option-header p {
+      margin: 0;
+    }
+
+    .eyebrow {
+      color: var(--red);
+      font-size: 0.76rem;
+      font-weight: 850;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .tradeoff {
+      color: var(--body);
+      line-height: 1.45;
+      max-width: 820px;
+    }
+
+    .badge {
+      background: #fff7d8;
+      border-left: 4px solid var(--gold);
+      color: #6e4f00;
+      font-size: 0.9rem;
+      font-weight: 750;
+      padding: 8px 10px;
+    }
+
+    .queue-shell {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      display: grid;
+      gap: 18px;
+      padding: 20px;
+    }
+
+    .queue-heading {
+      align-items: end;
+      display: flex;
+      gap: 18px;
+      justify-content: space-between;
+    }
+
+    .queue-heading h3,
+    .queue-heading p {
+      margin: 0;
+    }
+
+    .queue-heading h3 {
+      font-size: 1.7rem;
+    }
+
+    .count {
+      color: var(--body);
+      font-weight: 650;
+      white-space: nowrap;
+    }
+
+    .queue-filter-row {
+      align-items: center;
+      background: linear-gradient(90deg, rgba(223, 243, 246, 0.85), rgba(255, 255, 255, 0.96));
+      border: 1px solid var(--line);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 10px;
+    }
+
+    .queue-filter-row button,
+    .ghost-button,
+    .approve-button,
+    .reject-button,
+    select {
+      font: inherit;
+    }
+
+    .queue-filter-row button,
+    .ghost-button {
+      background: #f7fbfc;
+      border: 1px solid var(--line);
+      color: var(--teal-dark);
+      font-weight: 800;
+      min-height: 34px;
+      padding: 7px 10px;
+    }
+
+    .queue-filter-row button.is-active {
+      background: var(--teal);
+      border-color: var(--teal);
+      color: white;
+    }
+
+    .approve-button {
+      background: var(--teal);
+      border: 1px solid var(--teal);
+      color: white;
+      font-weight: 850;
+      min-height: 36px;
+      padding: 8px 12px;
+    }
+
+    .reject-button {
+      background: #fff;
+      border: 1px solid var(--line);
+      color: var(--red);
+      font-weight: 800;
+      min-height: 36px;
+      padding: 8px 12px;
+    }
+
+    select {
+      appearance: none;
+      background:
+        linear-gradient(45deg, transparent 50%, #073448 50%) calc(100% - 18px) center / 6px 6px no-repeat,
+        linear-gradient(135deg, #073448 50%, transparent 50%) calc(100% - 13px) center / 6px 6px no-repeat,
+        #fff;
+      border: 1px solid var(--line);
+      color: #102b35;
+      font-weight: 700;
+      min-height: 36px;
+      padding: 7px 34px 7px 10px;
+    }
+
+    .pill {
+      background: var(--teal-wash);
+      border-left: 3px solid var(--teal);
+      color: var(--teal-dark);
+      display: inline-flex;
+      font-size: 0.82rem;
+      font-weight: 800;
+      padding: 4px 7px;
+      width: fit-content;
+    }
+
+    .quiet {
+      color: var(--muted);
+      font-size: 0.88rem;
+      font-weight: 550;
+    }
+
+    .option-a-grid {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: minmax(0, 1fr) minmax(300px, 0.45fr);
+    }
+
+    .queue-list,
+    .card-grid,
+    .day-groups {
+      display: grid;
+      gap: 8px;
+    }
+
+    .queue-list {
+      max-height: 520px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .queue-row {
+      align-items: center;
+      background: #fff;
+      border: 1px solid var(--line);
+      color: var(--ink);
+      display: grid;
+      gap: 12px;
+      grid-template-columns: minmax(180px, 1fr) 110px 118px 90px;
+      padding: 10px 12px;
+      text-align: left;
+    }
+
+    .queue-row.is-selected {
+      background: #eff9fb;
+      box-shadow: inset 4px 0 0 var(--teal);
+    }
+
+    .queue-row-title,
+    .card-title {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+    }
+
+    .queue-row-title strong,
+    .card-title strong {
+      font-weight: 760;
+    }
+
+    .detail-panel {
+      background: #fff;
+      border: 1px solid var(--line);
+      display: grid;
+      gap: 14px;
+      padding: 16px;
+    }
+
+    .detail-panel h4,
+    .detail-panel p {
+      margin: 0;
+    }
+
+    .detail-meta {
+      border-top: 1px solid var(--line);
+      display: grid;
+      gap: 10px;
+      padding-top: 12px;
+    }
+
+    .meta-row {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: 120px minmax(0, 1fr);
+    }
+
+    .meta-row span:first-child {
+      color: var(--muted);
+      font-size: 0.75rem;
+      font-weight: 850;
+      text-transform: uppercase;
+    }
+
+    .action-row {
+      align-items: center;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 4px;
+    }
+
+    .drawer-list {
+      border: 1px solid var(--line);
+      display: grid;
+    }
+
+    .drawer-item {
+      background: #fff;
+      border-bottom: 1px solid var(--line);
+      display: grid;
+    }
+
+    .drawer-item:last-child {
+      border-bottom: 0;
+    }
+
+    .drawer-summary {
+      align-items: center;
+      display: grid;
+      gap: 12px;
+      grid-template-columns: minmax(220px, 1fr) 130px 120px auto;
+      padding: 12px 14px;
+    }
+
+    .drawer-item.is-open .drawer-summary {
+      background: #eff9fb;
+      box-shadow: inset 4px 0 0 var(--teal);
+    }
+
+    .drawer-body {
+      background: #fbfeff;
+      border-top: 1px solid var(--line);
+      display: grid;
+      gap: 14px;
+      grid-template-columns: minmax(0, 1fr) auto;
+      padding: 14px 18px 16px 32px;
+    }
+
+    .drawer-body-copy {
+      display: grid;
+      gap: 8px;
+    }
+
+    .drawer-body-copy p {
+      margin: 0;
+    }
+
+    .card-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .queue-card {
+      background: #fff;
+      border: 1px solid var(--line);
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+    }
+
+    .queue-card-header {
+      align-items: start;
+      display: flex;
+      gap: 12px;
+      justify-content: space-between;
+    }
+
+    .queue-card-actions {
+      align-items: center;
+      display: grid;
+      gap: 8px;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .queue-card-actions select {
+      grid-column: 1 / -1;
+      width: 100%;
+    }
+
+    .day-section {
+      background: #fff;
+      border: 1px solid var(--line);
+      display: grid;
+    }
+
+    .day-heading {
+      align-items: center;
+      background: var(--teal-wash);
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 12px;
+    }
+
+    .day-heading h4,
+    .day-heading p {
+      margin: 0;
+    }
+
+    .day-item {
+      align-items: center;
+      border-bottom: 1px solid var(--line);
+      display: grid;
+      gap: 12px;
+      grid-template-columns: 92px minmax(180px, 1fr) 160px 150px auto;
+      padding: 10px 12px;
+    }
+
+    .day-item:last-child {
+      border-bottom: 0;
+    }
+
+    .time-chip {
+      background: #fff8d9;
+      border-left: 4px solid var(--gold);
+      color: #5f4800;
+      font-weight: 850;
+      padding: 6px 8px;
+      width: fit-content;
+    }
+
+    @media (max-width: 980px) {
+      body { padding: 18px; }
+      .option-header,
+      .option-a-grid,
+      .card-grid,
+      .drawer-summary,
+      .drawer-body,
+      .day-item,
+      .queue-row {
+        grid-template-columns: 1fr;
+      }
+
+      .queue-heading,
+      .action-row,
+      .queue-card-actions {
+        align-items: stretch;
+        display: grid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="page-header">
+      <p class="eyebrow">Owner queue UX comparison</p>
+      <h1>Make calendar imports feel reviewable, not spreadsheet-y.</h1>
+      <p class="lede">
+        These options use the same pending events but change how the owner reviews them. The goal is to support
+        batches of 30+ imports without wrapping columns, oversized empty panels, or too many primary-feeling buttons.
+      </p>
+      <nav class="jump-links" aria-label="Options">
+        <a href="#option-a">A. Queue + inspector</a>
+        <a href="#option-b">B. Row drawers</a>
+        <a href="#option-c">C. Approval cards</a>
+        <a href="#option-d">D. Grouped by day</a>
+      </nav>
+    </header>
+
+    <article class="option" id="option-a">
+      <div class="option-header">
+        <div>
+          <p class="eyebrow">Option A</p>
+          <h2>Compact queue with a selected-item inspector</h2>
+          <p class="tradeoff">
+            This is the direction I was about to implement, but tightened up: fewer columns, no full-height empty right
+            pane, and a detail panel that actually earns its space. Best when the owner wants to arrow through many
+            items quickly.
+          </p>
+        </div>
+      </div>
+      <section class="queue-shell">
+        <div class="queue-heading">
+          <div><p class="eyebrow">Owner review</p><h3>Calendar import queue</h3></div>
+          <span class="count">33 pending</span>
+        </div>
+        <div class="queue-filter-row">
+          <button class="is-active">Pending</button><button>Chores</button><button>Commitments</button><button>Full details</button><button>Busy only</button>
+        </div>
+        <div class="option-a-grid">
+          <div class="queue-list">
+            <button class="queue-row is-selected">
+              <span class="queue-row-title"><strong>Wash hair 🧘</strong><span class="quiet">alan+clerk_test@example.com</span></span>
+              <span>Jun 6, 8:00 PM</span><span class="pill">Chore</span><span>Full details</span>
+            </button>
+            <button class="queue-row">
+              <span class="queue-row-title"><strong>Take MacroFactor progress pictures & measurements</strong><span class="quiet">alan+clerk_test@example.com</span></span>
+              <span>Jun 7, 9:00 AM</span><span class="pill">Chore</span><span>Full details</span>
+            </button>
+            <button class="queue-row">
+              <span class="queue-row-title"><strong>Weekly meal prep</strong><span class="quiet">alan+clerk_test@example.com</span></span>
+              <span>Jun 7, 1:00 PM</span><span class="pill">Chore</span><span>Full details</span>
+            </button>
+            <button class="queue-row">
+              <span class="queue-row-title"><strong>Fertility appointment</strong><span class="quiet">alan+clerk_test@example.com</span></span>
+              <span>Jun 9, 9:15 AM</span><span class="pill">Commitment</span><span>Busy only</span>
+            </button>
+          </div>
+          <aside class="detail-panel">
+            <p class="eyebrow">Selected event</p>
+            <h4>Wash hair 🧘</h4>
+            <p class="quiet">Shared by alan+clerk_test@example.com as a chore.</p>
+            <div class="detail-meta">
+              <div class="meta-row"><span>Time</span><strong>Jun 6, 8:00 PM-9:00 PM</strong></div>
+              <div class="meta-row"><span>Detail</span><strong>Full details</strong></div>
+              <div class="meta-row"><span>Import as</span><select><option>Chore</option><option>Commitment</option></select></div>
+            </div>
+            <div class="action-row"><button class="reject-button">Reject</button><button class="approve-button">Approve</button></div>
+          </aside>
+        </div>
+      </section>
+    </article>
+
+    <article class="option" id="option-b">
+      <div class="option-header">
+        <div>
+          <p class="eyebrow">Option B</p>
+          <h2>Each event opens as a drawer</h2>
+          <p class="tradeoff">
+            This keeps context in one column and avoids the awkward right pane entirely. It is my current favorite for
+            Cleanly: owners scan the queue, expand only what they need, and act directly below the item.
+          </p>
+        </div>
+        <span class="badge">Recommended</span>
+      </div>
+      <section class="queue-shell">
+        <div class="queue-heading">
+          <div><p class="eyebrow">Owner review</p><h3>Calendar import queue</h3></div>
+          <span class="count">33 pending</span>
+        </div>
+        <div class="queue-filter-row">
+          <button class="is-active">Pending</button><button>Chores</button><button>Commitments</button><button>Full details</button><button>Busy only</button>
+        </div>
+        <div class="drawer-list">
+          <article class="drawer-item is-open">
+            <div class="drawer-summary">
+              <span class="queue-row-title"><strong>Wash hair 🧘</strong><span class="quiet">alan+clerk_test@example.com</span></span>
+              <span>Jun 6, 8:00 PM</span><span class="pill">Chore</span><button class="ghost-button">Collapse</button>
+            </div>
+            <div class="drawer-body">
+              <div class="drawer-body-copy">
+                <p><strong>Cleanly will add this as:</strong> Wash hair 🧘</p>
+                <p class="quiet">Full details are visible. Submitted as a chore by alan+clerk_test@example.com.</p>
+              </div>
+              <div class="action-row"><select><option>Chore</option><option>Commitment</option></select><button class="reject-button">Reject</button><button class="approve-button">Approve</button></div>
+            </div>
+          </article>
+          <article class="drawer-item">
+            <div class="drawer-summary">
+              <span class="queue-row-title"><strong>Take MacroFactor progress pictures & measurements</strong><span class="quiet">alan+clerk_test@example.com</span></span>
+              <span>Jun 7, 9:00 AM</span><span class="pill">Chore</span><button class="ghost-button">Review</button>
+            </div>
+          </article>
+          <article class="drawer-item">
+            <div class="drawer-summary">
+              <span class="queue-row-title"><strong>Weekly meal prep</strong><span class="quiet">alan+clerk_test@example.com</span></span>
+              <span>Jun 7, 1:00 PM</span><span class="pill">Chore</span><button class="ghost-button">Review</button>
+            </div>
+          </article>
+          <article class="drawer-item">
+            <div class="drawer-summary">
+              <span class="queue-row-title"><strong>Fertility appointment</strong><span class="quiet">alan+clerk_test@example.com</span></span>
+              <span>Jun 9, 9:15 AM</span><span class="pill">Commitment</span><button class="ghost-button">Review</button>
+            </div>
+          </article>
+        </div>
+      </section>
+    </article>
+
+    <article class="option" id="option-c">
+      <div class="option-header">
+        <div>
+          <p class="eyebrow">Option C</p>
+          <h2>Approval cards with local controls</h2>
+          <p class="tradeoff">
+            Most approachable visually, and it avoids table overflow entirely. The tradeoff is density: 33 pending items
+            means lots of scrolling unless we add grouping, search, or bulk controls.
+          </p>
+        </div>
+      </div>
+      <section class="queue-shell">
+        <div class="queue-heading">
+          <div><p class="eyebrow">Owner review</p><h3>Calendar import queue</h3></div>
+          <span class="count">33 pending</span>
+        </div>
+        <div class="queue-filter-row">
+          <button class="is-active">Pending</button><button>Chores</button><button>Commitments</button><button>Full details</button><button>Busy only</button>
+        </div>
+        <div class="card-grid">
+          <article class="queue-card">
+            <div class="queue-card-header"><span class="card-title"><strong>Wash hair 🧘</strong><span class="quiet">Jun 6, 8:00 PM</span></span><span class="pill">Chore</span></div>
+            <p class="quiet">alan+clerk_test@example.com shared full details.</p>
+            <div class="queue-card-actions"><select><option>Chore</option><option>Commitment</option></select><button class="reject-button">Reject</button><button class="approve-button">Approve</button></div>
+          </article>
+          <article class="queue-card">
+            <div class="queue-card-header"><span class="card-title"><strong>Take MacroFactor progress pictures & measurements</strong><span class="quiet">Jun 7, 9:00 AM</span></span><span class="pill">Chore</span></div>
+            <p class="quiet">alan+clerk_test@example.com shared full details.</p>
+            <div class="queue-card-actions"><select><option>Chore</option><option>Commitment</option></select><button class="reject-button">Reject</button><button class="approve-button">Approve</button></div>
+          </article>
+          <article class="queue-card">
+            <div class="queue-card-header"><span class="card-title"><strong>Fertility appointment</strong><span class="quiet">Jun 9, 9:15 AM</span></span><span class="pill">Commitment</span></div>
+            <p class="quiet">alan+clerk_test@example.com shared this as Busy.</p>
+            <div class="queue-card-actions"><select><option>Commitment</option><option>Chore</option></select><button class="reject-button">Reject</button><button class="approve-button">Approve</button></div>
+          </article>
+        </div>
+      </section>
+    </article>
+
+    <article class="option" id="option-d">
+      <div class="option-header">
+        <div>
+          <p class="eyebrow">Option D</p>
+          <h2>Grouped by day, built for calendar thinking</h2>
+          <p class="tradeoff">
+            This aligns nicely with the Calendar page: imports are reviewed in the same mental model as where they will
+            land. It is less compact than drawers, but better when timing conflicts and calendar context matter.
+          </p>
+        </div>
+      </div>
+      <section class="queue-shell">
+        <div class="queue-heading">
+          <div><p class="eyebrow">Owner review</p><h3>Calendar import queue</h3></div>
+          <span class="count">33 pending</span>
+        </div>
+        <div class="queue-filter-row">
+          <button class="is-active">Pending</button><button>Chores</button><button>Commitments</button><button>Full details</button><button>Busy only</button>
+        </div>
+        <div class="day-groups">
+          <section class="day-section">
+            <div class="day-heading"><h4>Saturday, Jun 6</h4><p class="quiet">1 pending</p></div>
+            <div class="day-item"><span class="time-chip">8:00 PM</span><span class="card-title"><strong>Wash hair 🧘</strong><span class="quiet">alan+clerk_test@example.com</span></span><span class="pill">Chore</span><select><option>Chore</option><option>Commitment</option></select><span class="action-row"><button class="reject-button">Reject</button><button class="approve-button">Approve</button></span></div>
+          </section>
+          <section class="day-section">
+            <div class="day-heading"><h4>Sunday, Jun 7</h4><p class="quiet">4 pending</p></div>
+            <div class="day-item"><span class="time-chip">9:00 AM</span><span class="card-title"><strong>Take MacroFactor progress pictures & measurements</strong><span class="quiet">alan+clerk_test@example.com</span></span><span class="pill">Chore</span><select><option>Chore</option><option>Commitment</option></select><span class="action-row"><button class="reject-button">Reject</button><button class="approve-button">Approve</button></span></div>
+            <div class="day-item"><span class="time-chip">1:00 PM</span><span class="card-title"><strong>Weekly meal prep</strong><span class="quiet">alan+clerk_test@example.com</span></span><span class="pill">Chore</span><select><option>Chore</option><option>Commitment</option></select><span class="action-row"><button class="reject-button">Reject</button><button class="approve-button">Approve</button></span></div>
+          </section>
+        </div>
+      </section>
+    </article>
+  </main>
+</body>
+</html>
