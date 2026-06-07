@@ -14,22 +14,23 @@ import { completeOccurrence, createScheduledChore, listOccurrences, updateComple
 import App from "./App";
 
 const clerkState = vi.hoisted(() => ({
+  authLoaded: true,
   signedIn: true,
   getToken: vi.fn<() => Promise<string | null>>(async () => "test-user-a")
 }));
 
 vi.mock("@clerk/clerk-react", () => ({
-  SignInButton: ({ children }: { children?: React.ReactNode }) => (
-    <button type="button">{children ?? "Sign in"}</button>
+  SignInButton: ({ children, forceRedirectUrl }: { children?: React.ReactNode; forceRedirectUrl?: string }) => (
+    <button data-force-redirect-url={forceRedirectUrl} type="button">{children ?? "Sign in"}</button>
   ),
-  SignUpButton: ({ children }: { children?: React.ReactNode }) => (
-    <button type="button">{children ?? "Sign up"}</button>
+  SignUpButton: ({ children, forceRedirectUrl }: { children?: React.ReactNode; forceRedirectUrl?: string }) => (
+    <button data-force-redirect-url={forceRedirectUrl} type="button">{children ?? "Sign up"}</button>
   ),
   SignedIn: ({ children }: { children: React.ReactNode }) => (clerkState.signedIn ? <>{children}</> : null),
   SignedOut: ({ children }: { children: React.ReactNode }) => (!clerkState.signedIn ? <>{children}</> : null),
   UserButton: () => <button aria-label="User menu" type="button" />,
   useAuth: () => ({
-    isLoaded: true,
+    isLoaded: clerkState.authLoaded,
     getToken: clerkState.getToken
   })
 }));
@@ -65,13 +66,22 @@ async function findPlannedCleanBathroomsButton() {
 }
 
 function mockClerkSignedIn() {
+  clerkState.authLoaded = true;
   clerkState.signedIn = true;
   clerkState.getToken.mockReset();
   clerkState.getToken.mockResolvedValue("test-user-a");
 }
 
 function mockClerkSignedOut() {
+  clerkState.authLoaded = true;
   clerkState.signedIn = false;
+  clerkState.getToken.mockReset();
+  clerkState.getToken.mockResolvedValue(null);
+}
+
+function mockClerkLoading() {
+  clerkState.authLoaded = false;
+  clerkState.signedIn = true;
   clerkState.getToken.mockReset();
   clerkState.getToken.mockResolvedValue(null);
 }
@@ -469,6 +479,67 @@ function mockFamilyPageFetches(currentRole: "owner" | "member" = "owner") {
     if (url === "http://localhost:3001/api/households/household-1/members/app-user-2" && method === "DELETE") {
       members = members.filter((member) => member.userId !== "app-user-2");
       return { ok: true, json: async () => ({ householdId: "household-1", userId: "app-user-2", role: "owner" }) };
+    }
+
+    throw new Error(`Unhandled fetch ${method} ${url}`);
+  });
+
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
+function mockMultiHouseholdOptimizeFetches() {
+  const secondHousehold = createHouseholdAppData({
+    chores: [{ ...cleanBathroomsChore, id: "chore-2", householdId: "household-2", title: "Sweep entryway" }],
+    structure: {
+      householdId: "household-2",
+      floors: [{
+        id: "floor-second-main",
+        householdId: "household-2",
+        name: "Main floor",
+        levelType: "main",
+        flooring: ["hardwood"],
+        petImpact: "low",
+        robotVacuumCoverage: "none",
+        robotMopCoverage: "none",
+        rooms: []
+      }]
+    }
+  });
+  secondHousehold.id = "household-2";
+  secondHousehold.name = "Lake house";
+  secondHousehold.timeZone = "America/New_York";
+
+  const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = input.toString();
+    const method = init?.method ?? "GET";
+
+    if (url === "http://localhost:3001/api/me" && method === "GET") {
+      return { ok: true, json: async () => ({ id: "app-user-1", clerkUserId: "test-user-a" }) };
+    }
+
+    if (url === "http://localhost:3001/api/households" && method === "GET") {
+      return { ok: true, json: async () => [createHouseholdAppData(), secondHousehold] };
+    }
+
+    if (url === "http://localhost:3001/api/households/household-1/chores" && method === "GET") {
+      return { ok: true, json: async () => [cleanBathroomsChore] };
+    }
+
+    if (url === "http://localhost:3001/api/households/household-2/chores" && method === "GET") {
+      return { ok: true, json: async () => [{ ...cleanBathroomsChore, id: "chore-2", householdId: "household-2", title: "Sweep entryway" }] };
+    }
+
+    if (url === "http://localhost:3001/api/households/household-1/recommendations" && method === "GET") {
+      return { ok: true, json: async () => [] };
+    }
+
+    if (url === "http://localhost:3001/api/households/household-2/recommendations" && method === "GET") {
+      return { ok: true, json: async () => [] };
+    }
+
+    if (url.endsWith("/assistant/chat") && method === "POST") {
+      return { ok: true, json: async () => ({ answer: "Mock assistant answer." }) };
     }
 
     throw new Error(`Unhandled fetch ${method} ${url}`);
@@ -1231,6 +1302,48 @@ describe("App", () => {
     });
   });
 
+  it("renders Today no-household state as the shared first-home panel without dashboard actions", async () => {
+    mockEmptyAppDataFetches();
+    renderAt("/today");
+
+    expect(await screen.findByRole("heading", { name: "Today" })).toBeTruthy();
+    const emptyHeading = await screen.findByRole("heading", { name: "Add or join a household" });
+    const emptyPanel = emptyHeading.closest("section");
+    expect(emptyPanel?.classList.contains("setup-empty-state")).toBe(true);
+    expect(emptyPanel?.classList.contains("first-home-empty-state")).toBe(true);
+    expect(screen.queryByRole("button", { name: "Add household" })).toBeNull();
+    expect(screen.queryByLabelText("Today status summary")).toBeNull();
+  });
+
+  it("renders Calendar no-household state as the shared first-home panel without top actions", async () => {
+    mockEmptyAppDataFetches();
+    renderAt("/calendar");
+
+    expect(await screen.findByRole("heading", { name: "Calendar" })).toBeTruthy();
+    const emptyHeading = await screen.findByRole("heading", { name: "Add or join a household" });
+    const emptyPanel = emptyHeading.closest("section");
+    expect(emptyPanel?.classList.contains("setup-empty-state")).toBe(true);
+    expect(emptyPanel?.classList.contains("first-home-empty-state")).toBe(true);
+    expect(screen.queryByRole("button", { name: "Import events" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Export" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add chore" })).toBeNull();
+    expect(screen.queryByLabelText("Calendar actions")).toBeNull();
+  });
+
+  it("renders Family no-household state as the shared first-home panel without collaboration metrics", async () => {
+    mockEmptyAppDataFetches();
+    renderAt("/family");
+
+    expect(await screen.findByRole("heading", { name: "Family" })).toBeTruthy();
+    const emptyHeading = await screen.findByRole("heading", { name: "Add or join a household" });
+    const emptyPanel = emptyHeading.closest("section");
+    expect(emptyPanel?.classList.contains("setup-empty-state")).toBe(true);
+    expect(emptyPanel?.classList.contains("first-home-empty-state")).toBe(true);
+    expect(screen.queryByText("Members")).toBeNull();
+    expect(screen.queryByText("Pending invitations")).toBeNull();
+    expect(screen.queryByLabelText("Household collaboration")).toBeNull();
+  });
+
   it("completes a Today chore and saves post-completion details", async () => {
     await withMay2026CalendarClock(async () => {
     let occurrences: ChoreOccurrence[] = [{
@@ -1385,7 +1498,7 @@ describe("App", () => {
     renderAt("/today");
 
     expect(screen.getByRole("heading", { name: "Put chores where the week actually has room." })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Build my home plan" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Build my home plan" }).getAttribute("data-force-redirect-url")).toBe("/today");
     expect(screen.queryByText(/calendar manager first/i)).toBeNull();
     expect(screen.getByText(/Cleanly reads the shape of your week/i)).toBeTruthy();
 
@@ -1397,7 +1510,7 @@ describe("App", () => {
     expect(within(nav).queryByRole("link", { name: "Optimize" })).toBeNull();
     expect(within(nav).queryByRole("link", { name: "Today" })).toBeNull();
     expect(within(nav).queryByRole("link", { name: "Calendar" })).toBeNull();
-    expect(screen.getByRole("button", { name: /sign in/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /sign in/i }).getAttribute("data-force-redirect-url")).toBe("/today");
 
     expect(screen.getByRole("region", { name: "Cleanly calendar optimization preview" })).toBeTruthy();
     expect(screen.getByText("June chore plan")).toBeTruthy();
@@ -1429,6 +1542,15 @@ describe("App", () => {
     expect(screen.queryByText("duration conflict")).toBeNull();
     expect(screen.queryByText("calendar slot found")).toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("shows an auth loading status while Clerk is finishing the sign-in handoff", () => {
+    mockClerkLoading();
+    vi.stubGlobal("fetch", vi.fn());
+
+    renderAt("/today");
+
+    expect(screen.getByRole("status").textContent).toBe("Loading Cleanly...");
   });
 
   it("renders all households without an active household selector", async () => {
@@ -1529,15 +1651,15 @@ describe("App", () => {
     });
   });
 
-  it("routes the first-time household action to Households", async () => {
+  it("lets first-time users reach Households from the primary nav", async () => {
     mockEmptyAppDataFetches();
     renderAt("/today");
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "Set up household" })).toBeTruthy());
-    fireEvent.click(screen.getByRole("button", { name: "Set up household" }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Add or join a household", level: 2 })).toBeTruthy());
+    fireEvent.click(screen.getByRole("link", { name: "My Home" }));
 
     expect(screen.getByRole("heading", { name: "My Home", level: 1 })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Build your first home model", level: 2 })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Add or join a household", level: 2 })).toBeTruthy();
   });
 
   it("renders the Households page", async () => {
@@ -1545,7 +1667,7 @@ describe("App", () => {
     renderAt("/households");
 
     await waitFor(() => expect(screen.getByRole("heading", { name: "My Home", level: 1 })).toBeTruthy());
-    expect(screen.getByRole("heading", { name: "Build your first home model", level: 2 })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Add or join a household", level: 2 })).toBeTruthy();
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Add household" })).toBeTruthy();
     });
@@ -3353,8 +3475,9 @@ describe("App", () => {
       renderAt("/settings");
 
       await waitFor(() => expect(screen.getByRole("heading", { name: "Settings" })).toBeTruthy());
-      expect((screen.getByLabelText("Sunday") as HTMLInputElement).checked).toBe(true);
-      fireEvent.click(screen.getByLabelText("Monday"));
+      const weekStartSelect = screen.getByRole("combobox", { name: "Week starts on" }) as HTMLSelectElement;
+      expect(weekStartSelect.value).toBe("sunday");
+      fireEvent.change(weekStartSelect, { target: { value: "monday" } });
       expect(window.localStorage.getItem("cleanly:week-start-day")).toBe("monday");
 
       cleanup();
@@ -3391,25 +3514,62 @@ describe("App", () => {
     renderAt("/optimize");
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Optimize" })).toBeTruthy();
+      expect(screen.getByRole("heading", { name: "Run a plan checkup for Home." })).toBeTruthy();
       expect(screen.getByLabelText("Clean bathrooms")).toBeTruthy();
     });
 
     expect(screen.getByRole("tab", { name: "Recommendations" })).toBeTruthy();
     expect(screen.getByRole("tab", { name: "Chat" })).toBeTruthy();
+    expect(screen.queryByLabelText("Household to review")).toBeNull();
+    expect(screen.getByRole("region", { name: "Recommendation review" })).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "Assistant chat" })).toBeNull();
     expect(screen.getByRole("button", { name: "Review selected chores" })).toBeTruthy();
   });
 
-  it("renders Optimize as a prompt-first assistant workspace", async () => {
+  it("renders Optimize as a special command-center workspace", async () => {
     restoreHouseholdInStorage();
     mockRestoredHouseholdFetches();
 
     renderAt("/optimize");
 
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Optimize" })).toBeTruthy());
-    expect(screen.getByRole("region", { name: "Assistant workspace" })).toBeTruthy();
-    expect(screen.getByText("What should we improve around the house?")).toBeTruthy();
-    expect((await screen.findAllByText(/Ready to review/i)).length).toBeGreaterThan(0);
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Run a plan checkup for Home." })).toBeTruthy());
+    expect(screen.getByRole("region", { name: "Optimize command center" })).toBeTruthy();
+    expect(screen.getByText("Ready for assistant review")).toBeTruthy();
+    expect(screen.getByText("What Cleanly is using")).toBeTruthy();
+    expect((await screen.findAllByText(/Selected/i)).length).toBeGreaterThan(0);
+
+    const modeTabs = screen.getByRole("tablist", { name: "Optimize workspace mode" });
+    expect(modeTabs.parentElement?.classList.contains("optimize-workspace-toolbar")).toBe(true);
+
+    const reviewPanel = screen.getByRole("region", { name: "Recommendation review" });
+    const signalsPanel = screen.getByRole("region", { name: "Home household signals" });
+    expect(reviewPanel.compareDocumentPosition(signalsPanel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Chat" }));
+    const chatPanel = screen.getByRole("region", { name: "Assistant chat" });
+    expect(screen.queryByRole("region", { name: "Recommendation review" })).toBeNull();
+    expect(chatPanel.compareDocumentPosition(signalsPanel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("lets Optimize switch the household under review when multiple households exist", async () => {
+    const fetchMock = mockMultiHouseholdOptimizeFetches();
+
+    renderAt("/optimize");
+
+    const householdSelect = await screen.findByLabelText("Household to review") as HTMLSelectElement;
+    expect(householdSelect.value).toBe("household-1");
+    expect(screen.getByRole("heading", { name: "Run a plan checkup for Home." })).toBeTruthy();
+    expect(await screen.findByLabelText("Clean bathrooms")).toBeTruthy();
+
+    fireEvent.change(householdSelect, { target: { value: "household-2" } });
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Run a plan checkup for Lake house." })).toBeTruthy();
+      expect(screen.getByLabelText("Sweep entryway")).toBeTruthy();
+    });
+    expect(fetchMock.mock.calls.some(([url]) =>
+      url === "http://localhost:3001/api/households/household-2/chores"
+    )).toBe(true);
   });
 
   it("shows Optimize chat prompts and renders an assistant answer", async () => {
@@ -3430,7 +3590,6 @@ describe("App", () => {
     });
 
     fireEvent.click(screen.getByRole("tab", { name: "Chat" }));
-
     expect(screen.getByText("Which chores look under-scoped?")).toBeTruthy();
     fireEvent.change(screen.getByLabelText("Ask the assistant"), {
       target: { value: "Which chores look under-scoped?" }

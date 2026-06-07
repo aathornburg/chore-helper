@@ -1827,6 +1827,27 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
 
   if (isLoading) return <div className="calendar-page operational-page"><p>Loading calendar...</p></div>;
 
+  if (!selectedHousehold) {
+    return (
+      <div className="calendar-page operational-page">
+        <header className="page-command-header">
+          <div>
+            <p className="eyebrow">Calendar</p>
+            <h1>Calendar</h1>
+            <p className="lede">Calendar planning starts once you belong to a household.</p>
+          </div>
+        </header>
+        <section className="setup-empty-state first-home-empty-state" aria-labelledby="calendar-empty-heading">
+          <div>
+            <p className="eyebrow">No household yet</p>
+            <h2 id="calendar-empty-heading">Add or join a household</h2>
+            <p>Once you belong to a household, you can schedule chores, import events, and review shared calendar work.</p>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="calendar-page operational-page">
       <header className="page-command-header">
@@ -1857,9 +1878,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
         </section>
       ) : null}
 
-      {!selectedHousehold ? <section className="panel">Add a household to begin scheduling chores.</section> : (
-        <>
-          <section className="calendar-workspace-shell has-external-tabs" aria-label="Calendar workspace">
+      <section className="calendar-workspace-shell has-external-tabs" aria-label="Calendar workspace">
             <div className="calendar-workspace-panel-header">
               <nav className="calendar-workspace-tabs" role="tablist" aria-label="Workspace view">
                 {(["calendar", "list"] as WorkspaceView[]).map((option) => (
@@ -2399,8 +2418,6 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
               </form>
             </div>
           ) : null}
-        </>
-      )}
     </div>
   );
 }

@@ -1,0 +1,1525 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Optimize Page Redesign Proposals</title>
+  <style>
+    :root {
+      --bg: #eef7f9;
+      --surface: #fbfeff;
+      --surface-2: #f4fbfc;
+      --line: #c8e1e7;
+      --line-soft: #e2eef1;
+      --text: #042f3d;
+      --body: #365f6c;
+      --muted: #66767f;
+      --teal: #155e75;
+      --teal-dark: #0f4c66;
+      --teal-soft: #dff1f5;
+      --green: #5f9d6d;
+      --green-soft: #e8f0e4;
+      --gold: #f3c95b;
+      --gold-soft: #fff6d8;
+      --coral: #ef886f;
+      --coral-soft: #fff0eb;
+      --shadow: -8px 8px 0 rgba(42, 165, 180, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      background:
+        linear-gradient(90deg, rgba(20, 113, 134, 0.08) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(20, 113, 134, 0.08) 1px, transparent 1px),
+        radial-gradient(circle at 12% 0%, rgba(123, 220, 224, 0.45), transparent 31rem),
+        radial-gradient(circle at 92% 6%, rgba(246, 201, 87, 0.28), transparent 26rem),
+        linear-gradient(135deg, #f8fdfe 0%, #e7f7fa 58%, #f9fbfc 100%);
+      background-size: 42px 42px, 42px 42px, auto, auto, auto;
+      color: var(--text);
+      font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+      margin: 0;
+      min-height: 100vh;
+      padding: 28px;
+    }
+
+    main {
+      display: grid;
+      gap: 24px;
+      margin: 0 auto;
+      max-width: 1540px;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin: 0;
+    }
+
+    button {
+      border: 0;
+      color: inherit;
+      font: inherit;
+    }
+
+    .intro,
+    .proposal,
+    .summary {
+      background: rgba(251, 254, 255, 0.94);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+    }
+
+    .intro {
+      display: grid;
+      gap: 14px;
+      padding: 28px;
+    }
+
+    .kicker {
+      color: #9a4f3f;
+      font-size: 0.76rem;
+      font-weight: 950;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .intro h1 {
+      color: var(--teal-dark);
+      font-size: clamp(2.7rem, 5vw, 5rem);
+      letter-spacing: -0.05em;
+      line-height: 0.95;
+      max-width: 1060px;
+    }
+
+    .intro p,
+    .proposal > p,
+    .summary p {
+      color: var(--body);
+      line-height: 1.55;
+      max-width: 1050px;
+    }
+
+    .proposal {
+      display: grid;
+      gap: 18px;
+      padding: 22px;
+    }
+
+    .proposal-header {
+      align-items: start;
+      display: grid;
+      gap: 12px;
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .proposal h2 {
+      color: var(--teal-dark);
+      font-size: clamp(2rem, 3vw, 3.45rem);
+      letter-spacing: -0.04em;
+      line-height: 0.98;
+    }
+
+    .badge {
+      background: var(--teal);
+      color: white;
+      font-size: 0.82rem;
+      font-weight: 950;
+      padding: 9px 12px;
+      white-space: nowrap;
+    }
+
+    .screen {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      min-height: 700px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .screen::before {
+      background:
+        radial-gradient(circle at 18% 14%, rgba(95, 213, 224, 0.16), transparent 16rem),
+        radial-gradient(circle at 82% 28%, rgba(246, 201, 87, 0.14), transparent 18rem);
+      content: "";
+      inset: 0;
+      pointer-events: none;
+      position: absolute;
+    }
+
+    .screen > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .page-title {
+      color: var(--teal-dark);
+      font-size: 2.6rem;
+      letter-spacing: -0.04em;
+      line-height: 1;
+    }
+
+    .lede {
+      color: var(--body);
+      line-height: 1.48;
+    }
+
+    .mini-label {
+      color: #6a716c;
+      font-size: 0.74rem;
+      font-weight: 950;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .primary-button,
+    .secondary-button,
+    .icon-button {
+      align-items: center;
+      display: inline-flex;
+      font-weight: 950;
+      justify-content: center;
+    }
+
+    .primary-button {
+      background: var(--teal);
+      color: white;
+      padding: 12px 16px;
+    }
+
+    .secondary-button {
+      background: #fff;
+      border: 1px solid var(--line);
+      color: var(--teal-dark);
+      padding: 11px 14px;
+    }
+
+    .icon-button {
+      background: transparent;
+      color: var(--teal-dark);
+      font-size: 1.1rem;
+      height: 36px;
+      padding: 0;
+      width: 36px;
+    }
+
+    .metric-strip {
+      display: grid;
+      gap: 1px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .metric {
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid var(--line-soft);
+      display: grid;
+      gap: 4px;
+      padding: 13px;
+    }
+
+    .metric strong {
+      color: var(--teal-dark);
+      font-size: 1.55rem;
+      line-height: 1;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 800;
+    }
+
+    .task-row,
+    .recommendation-row,
+    .chat-message,
+    .prompt-chip,
+    .signal-card {
+      background: #fff;
+      border: 1px solid var(--line-soft);
+    }
+
+    .task-row,
+    .recommendation-row {
+      align-items: center;
+      display: grid;
+      gap: 14px;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      padding: 13px 14px;
+    }
+
+    .check {
+      align-items: center;
+      background: var(--teal-soft);
+      border: 1px solid #b9dce4;
+      color: var(--teal-dark);
+      display: inline-flex;
+      font-weight: 950;
+      height: 26px;
+      justify-content: center;
+      width: 26px;
+    }
+
+    .task-row strong,
+    .recommendation-row strong,
+    .signal-card strong,
+    .chat-message strong {
+      color: #24352e;
+      display: block;
+    }
+
+    .task-row span,
+    .recommendation-row span,
+    .signal-card span,
+    .chat-message span {
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.35;
+    }
+
+    .pill {
+      background: var(--teal-soft);
+      color: var(--teal-dark);
+      font-size: 0.72rem;
+      font-weight: 950;
+      padding: 6px 8px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .pill.gold {
+      background: var(--gold-soft);
+      color: #71570b;
+    }
+
+    .pill.green {
+      background: var(--green-soft);
+      color: #2f694d;
+    }
+
+    .pill.coral {
+      background: var(--coral-soft);
+      color: #9f3a2d;
+    }
+
+    .tab-bar {
+      align-items: center;
+      background: #edf7f9;
+      border: 1px solid var(--line);
+      display: flex;
+      padding: 5px;
+      width: fit-content;
+    }
+
+    .tab-bar button {
+      background: transparent;
+      color: var(--teal-dark);
+      font-weight: 900;
+      padding: 9px 12px;
+    }
+
+    .tab-bar button.active {
+      background: #fff;
+      box-shadow: inset 0 -3px 0 var(--teal);
+    }
+
+    .chat-input {
+      align-items: center;
+      background: #fff;
+      border: 1px solid var(--line);
+      display: grid;
+      gap: 10px;
+      grid-template-columns: minmax(0, 1fr) auto;
+      min-height: 52px;
+      padding: 8px 8px 8px 14px;
+    }
+
+    .chat-input span {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .chat-input button {
+      background: var(--teal);
+      color: #fff;
+      font-weight: 950;
+      padding: 10px 13px;
+    }
+
+    .prompt-chip {
+      color: var(--teal-dark);
+      font-size: 0.82rem;
+      font-weight: 900;
+      padding: 10px 11px;
+      text-align: left;
+    }
+
+    /* Refined Option A */
+    .r-screen {
+      background:
+        linear-gradient(180deg, rgba(10, 55, 73, 0.96) 0 330px, rgba(251, 254, 255, 0) 330px),
+        var(--surface);
+      display: grid;
+      gap: 18px;
+      padding: 22px;
+    }
+
+    .r-screen::before {
+      background:
+        linear-gradient(90deg, rgba(214, 241, 246, 0.08) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(214, 241, 246, 0.08) 1px, transparent 1px),
+        radial-gradient(circle at 82% 16%, rgba(246, 201, 87, 0.18), transparent 17rem),
+        radial-gradient(circle at 16% 8%, rgba(123, 220, 224, 0.18), transparent 16rem);
+      background-size: 34px 34px, 34px 34px, auto, auto;
+    }
+
+    .r-command {
+      color: #effcff;
+      display: grid;
+      gap: 22px;
+      grid-template-columns: minmax(0, 1fr) 380px;
+      min-height: 286px;
+      padding: 14px 8px 0;
+    }
+
+    .r-command-copy {
+      align-content: center;
+      display: grid;
+      gap: 14px;
+      max-width: 780px;
+    }
+
+    .r-command .mini-label,
+    .r-command .lede {
+      color: #ccebf1;
+    }
+
+    .r-command .page-title {
+      color: #fff;
+      font-size: clamp(3rem, 5vw, 4.9rem);
+      max-width: 760px;
+    }
+
+    .r-command-actions {
+      align-items: center;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .r-command-actions .primary-button {
+      background: #fff;
+      color: var(--teal-dark);
+    }
+
+    .r-command-actions .secondary-button {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(214, 241, 246, 0.32);
+      color: #fff;
+    }
+
+    .r-household-picker {
+      background: rgba(5, 39, 54, 0.42);
+      border: 1px solid rgba(214, 241, 246, 0.34);
+      color: #fff;
+      display: grid;
+      gap: 8px;
+      margin-top: 4px;
+      max-width: 360px;
+      padding: 10px;
+    }
+
+    .r-household-picker label {
+      color: #ccebf1;
+      font-size: 0.74rem;
+      font-weight: 950;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .r-household-select {
+      align-items: center;
+      background: #effcff;
+      border: 1px solid #b7dce4;
+      color: #052736;
+      display: grid;
+      font-weight: 950;
+      grid-template-columns: minmax(0, 1fr) auto;
+      min-height: 44px;
+      padding: 10px 12px;
+    }
+
+    .r-household-select span:last-child {
+      color: #0f4c66;
+      font-size: 0.9rem;
+    }
+
+    .r-checkup-card {
+      align-self: end;
+      background:
+        linear-gradient(135deg, rgba(21, 94, 117, 0.96), rgba(10, 55, 73, 0.98)),
+        #0a3749;
+      border: 1px solid rgba(214, 241, 246, 0.36);
+      box-shadow: -8px 8px 0 rgba(0, 0, 0, 0.12);
+      display: grid;
+      gap: 14px;
+      padding: 18px;
+    }
+
+    .r-checkup-card h3 {
+      color: #fff;
+      font-size: 1.35rem;
+    }
+
+    .r-checkup-card p {
+      color: #ccebf1;
+      line-height: 1.45;
+    }
+
+    .r-checkup-stats {
+      display: grid;
+      gap: 1px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .r-checkup-stats div {
+      background: rgba(251, 254, 255, 0.96);
+      border: 1px solid rgba(214, 241, 246, 0.7);
+      display: grid;
+      gap: 4px;
+      padding: 11px;
+    }
+
+    .r-checkup-stats strong {
+      color: var(--teal-dark);
+      font-size: 1.45rem;
+      line-height: 1;
+    }
+
+    .r-checkup-stats span {
+      color: var(--teal);
+      font-size: 0.78rem;
+      font-weight: 850;
+    }
+
+    .r-workspace {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: minmax(0, 0.68fr) minmax(320px, 0.32fr);
+      margin-top: -8px;
+    }
+
+    .r-main-panel,
+    .r-chat-panel,
+    .r-context-panel {
+      background: rgba(251, 254, 255, 0.97);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 14px;
+      padding: 18px;
+    }
+
+    .r-panel-heading {
+      align-items: start;
+      display: grid;
+      gap: 12px;
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .r-panel-heading h3,
+    .r-chat-panel h3,
+    .r-context-panel h3 {
+      color: var(--teal-dark);
+      font-size: 1.28rem;
+    }
+
+    .r-stage-strip {
+      background: #eef8fa;
+      border: 1px solid var(--line);
+      display: grid;
+      gap: 1px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      padding: 5px;
+    }
+
+    .r-stage {
+      background: transparent;
+      color: var(--muted);
+      display: grid;
+      gap: 2px;
+      padding: 9px 10px;
+    }
+
+    .r-stage strong {
+      color: inherit;
+      font-size: 0.86rem;
+    }
+
+    .r-stage span {
+      font-size: 0.72rem;
+      font-weight: 800;
+    }
+
+    .r-stage.active {
+      background: #fff;
+      box-shadow: inset 0 -3px 0 var(--teal);
+      color: var(--teal-dark);
+    }
+
+    .r-review-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .r-left-stack,
+    .r-context-rail {
+      display: grid;
+      gap: 18px;
+    }
+
+    .r-workspace-toolbar {
+      align-items: center;
+      display: grid;
+      gap: 10px;
+      grid-column: 1 / -1;
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .r-mode-tabs {
+      align-items: center;
+      background: #eaf7f9;
+      border: 1px solid var(--line);
+      display: flex;
+      gap: 4px;
+      padding: 5px;
+      width: 100%;
+    }
+
+    .r-mode-tabs button {
+      background: transparent;
+      border: 0;
+      color: var(--muted);
+      cursor: pointer;
+      font: inherit;
+      font-size: 0.84rem;
+      font-weight: 850;
+      min-width: 0;
+      padding: 9px 14px;
+      text-align: center;
+      text-transform: uppercase;
+      width: 50%;
+    }
+
+    .r-mode-tabs button.active {
+      background: #fff;
+      box-shadow: inset 0 -3px 0 var(--teal);
+      color: var(--teal-dark);
+    }
+
+    .r-chat-panel {
+      min-height: 0;
+    }
+
+    .r-context-grid {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .r-context-grid .signal-card {
+      background: #fff;
+    }
+
+    /* Option A */
+    .a-screen {
+      display: grid;
+      gap: 18px;
+      padding: 22px;
+    }
+
+    .a-hero {
+      background:
+        linear-gradient(135deg, rgba(21, 94, 117, 0.94), rgba(15, 76, 102, 0.92)),
+        var(--teal-dark);
+      color: #fff;
+      display: grid;
+      gap: 18px;
+      grid-template-columns: minmax(0, 1fr) 340px;
+      padding: 24px;
+    }
+
+    .a-hero .mini-label,
+    .a-hero .lede {
+      color: #d6f1f6;
+    }
+
+    .a-hero .page-title {
+      color: #fff;
+      max-width: 760px;
+    }
+
+    .a-status-card {
+      align-self: stretch;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      display: grid;
+      gap: 12px;
+      padding: 16px;
+    }
+
+    .a-status-card strong {
+      color: #fff;
+      font-size: 1.55rem;
+    }
+
+    .a-status-card span {
+      color: #d6f1f6;
+      line-height: 1.4;
+    }
+
+    .a-body {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: minmax(0, 0.68fr) minmax(340px, 0.32fr);
+    }
+
+    .a-panel,
+    .a-side-panel {
+      background: rgba(251, 254, 255, 0.95);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 14px;
+      padding: 18px;
+    }
+
+    .a-panel-header {
+      align-items: start;
+      display: flex;
+      gap: 14px;
+      justify-content: space-between;
+    }
+
+    .a-panel-header h3 {
+      color: var(--teal-dark);
+      font-size: 1.35rem;
+    }
+
+    .a-selected-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .a-side-panel {
+      align-content: start;
+    }
+
+    .chat-stack {
+      display: grid;
+      gap: 10px;
+    }
+
+    .chat-message {
+      display: grid;
+      gap: 4px;
+      padding: 12px;
+    }
+
+    .prompt-grid {
+      display: grid;
+      gap: 8px;
+    }
+
+    /* Option B */
+    .b-screen {
+      display: grid;
+      grid-template-columns: 300px minmax(0, 1fr);
+    }
+
+    .b-rail {
+      background:
+        linear-gradient(180deg, rgba(244, 251, 252, 0.95), rgba(255, 255, 255, 0.95));
+      border-right: 1px solid var(--line);
+      display: grid;
+      gap: 16px;
+      padding: 20px;
+    }
+
+    .b-rail h3 {
+      color: var(--teal-dark);
+      font-size: 1.5rem;
+      letter-spacing: -0.03em;
+    }
+
+    .b-household-card {
+      background: #fff;
+      border: 1px solid var(--line);
+      box-shadow: -4px 4px 0 rgba(42, 165, 180, 0.1);
+      display: grid;
+      gap: 8px;
+      padding: 14px;
+    }
+
+    .b-household-card.active {
+      border-left: 5px solid var(--teal);
+    }
+
+    .b-workspace {
+      display: grid;
+      gap: 18px;
+      padding: 22px;
+    }
+
+    .b-topline {
+      align-items: start;
+      display: grid;
+      gap: 16px;
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .b-board {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .b-column {
+      background: rgba(251, 254, 255, 0.94);
+      border: 1px solid var(--line);
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+    }
+
+    .b-column h3 {
+      color: var(--teal-dark);
+      font-size: 1.1rem;
+    }
+
+    .b-column .task-row,
+    .b-column .recommendation-row {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .b-chat-dock {
+      background: #f7fcfd;
+      border: 1px solid var(--line);
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+    }
+
+    /* Option C */
+    .c-screen {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: minmax(0, 0.58fr) minmax(380px, 0.42fr);
+      padding: 22px;
+    }
+
+    .c-left {
+      display: grid;
+      gap: 16px;
+    }
+
+    .c-command {
+      background: rgba(251, 254, 255, 0.94);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 16px;
+      padding: 20px;
+    }
+
+    .c-command h3 {
+      color: var(--teal-dark);
+      font-size: 1.3rem;
+    }
+
+    .signal-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .signal-card {
+      display: grid;
+      gap: 7px;
+      padding: 12px;
+    }
+
+    .c-review-panel {
+      background: #fff;
+      border: 1px solid var(--line);
+      display: grid;
+      gap: 10px;
+      padding: 16px;
+    }
+
+    .c-chat {
+      background:
+        linear-gradient(180deg, rgba(12, 64, 84, 0.98), rgba(7, 45, 62, 0.98));
+      border: 1px solid rgba(194, 228, 237, 0.36);
+      box-shadow: -8px 8px 0 rgba(15, 76, 102, 0.2);
+      color: #effcff;
+      display: grid;
+      gap: 14px;
+      grid-template-rows: auto auto 1fr auto;
+      min-height: 650px;
+      padding: 18px;
+    }
+
+    .c-chat .mini-label,
+    .c-chat .lede {
+      color: #c2e6ed;
+    }
+
+    .c-chat h3 {
+      color: #fff;
+      font-size: 1.55rem;
+    }
+
+    .c-chat .chat-message {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(194, 228, 237, 0.22);
+    }
+
+    .c-chat .chat-message strong {
+      color: #fff;
+    }
+
+    .c-chat .chat-message span {
+      color: #c2e6ed;
+    }
+
+    .c-chat .prompt-chip {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(194, 228, 237, 0.22);
+      color: #effcff;
+    }
+
+    .c-chat .chat-input {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(194, 228, 237, 0.28);
+    }
+
+    .c-chat .chat-input span {
+      color: #d6f1f6;
+    }
+
+    /* Option D */
+    .d-screen {
+      display: grid;
+      gap: 18px;
+      padding: 22px;
+    }
+
+    .d-header {
+      align-items: start;
+      background: rgba(251, 254, 255, 0.94);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 18px;
+      grid-template-columns: minmax(0, 1fr) 380px;
+      padding: 20px;
+    }
+
+    .d-stepper {
+      display: grid;
+      gap: 8px;
+    }
+
+    .step {
+      align-items: center;
+      background: #fff;
+      border: 1px solid var(--line-soft);
+      display: grid;
+      gap: 10px;
+      grid-template-columns: auto minmax(0, 1fr);
+      padding: 10px;
+    }
+
+    .step-number {
+      align-items: center;
+      background: var(--teal-soft);
+      color: var(--teal-dark);
+      display: inline-flex;
+      font-weight: 950;
+      height: 28px;
+      justify-content: center;
+      width: 28px;
+    }
+
+    .step.active {
+      border-left: 5px solid var(--teal);
+    }
+
+    .d-main {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: minmax(0, 0.7fr) minmax(330px, 0.3fr);
+    }
+
+    .d-card {
+      background: rgba(251, 254, 255, 0.94);
+      border: 1px solid var(--line);
+      display: grid;
+      gap: 14px;
+      padding: 16px;
+    }
+
+    .d-card h3 {
+      color: var(--teal-dark);
+      font-size: 1.24rem;
+    }
+
+    .d-chat-mini {
+      display: grid;
+      gap: 10px;
+    }
+
+    .summary {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      padding: 20px;
+    }
+
+    .summary article {
+      border-top: 4px solid var(--teal);
+      display: grid;
+      gap: 8px;
+      padding-top: 12px;
+    }
+
+    .summary h3 {
+      color: var(--teal-dark);
+      font-size: 1.05rem;
+    }
+
+    @media (max-width: 1180px) {
+      .a-hero,
+      .a-body,
+      .b-screen,
+      .b-board,
+      .c-screen,
+      .d-header,
+      .d-main,
+      .summary {
+        grid-template-columns: 1fr;
+      }
+
+      .screen {
+        min-height: auto;
+      }
+    }
+
+    @media (max-width: 760px) {
+      body {
+        padding: 16px;
+      }
+
+      .intro,
+      .proposal {
+        padding: 18px;
+      }
+
+      .proposal-header,
+      .b-topline,
+      .metric-strip,
+      .signal-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="intro">
+      <p class="kicker">Optimize redesign proposals</p>
+      <h1>Four ways to make Optimize feel clear, household-first, and native to Cleanly.</h1>
+      <p>
+        Each direction keeps the core behavior: select chores for recommendations, review and apply
+        recommendations, and chat with the assistant. The main difference is how quickly the page tells
+        users what to do first.
+      </p>
+    </section>
+
+    <section class="proposal">
+      <div class="proposal-header">
+        <div>
+          <p class="kicker">Refined Option A</p>
+          <h2>Special command center</h2>
+        </div>
+        <span class="badge">Current favorite</span>
+      </div>
+      <p>
+        This version commits to Optimize being the special page. The blue area is not a decorative
+        banner; it is the command surface where Cleanly frames the household plan checkup. The lower
+        workspace then becomes calmer and more operational, so the page feels intentionally special
+        without turning every panel into a spectacle.
+      </p>
+      <div class="screen r-screen">
+        <header class="r-command">
+          <div class="r-command-copy">
+            <p class="mini-label">Optimize / Cleanly assistant</p>
+            <h3 class="page-title">Run a plan checkup for New household.</h3>
+            <p class="lede">
+              Cleanly looks across chores, room coverage, timing, and workload to suggest safer
+              improvements before anything changes.
+            </p>
+            <div class="r-household-picker">
+              <label>Household to review</label>
+              <div class="r-household-select">
+                <span>New household</span>
+                <span>⌄</span>
+              </div>
+            </div>
+            <div class="r-command-actions">
+              <button class="primary-button">Review selected chores</button>
+            </div>
+          </div>
+          <aside class="r-checkup-card">
+            <div>
+              <p class="mini-label">Checkup snapshot</p>
+              <h3>Ready for assistant review</h3>
+              <p>12 chores are selected. 3 older ideas still need a decision.</p>
+            </div>
+            <div class="r-checkup-stats">
+              <div><strong>12</strong><span>Selected</span></div>
+              <div><strong>3</strong><span>Pending</span></div>
+              <div><strong>8</strong><span>Applied</span></div>
+            </div>
+          </aside>
+        </header>
+
+        <section class="r-workspace">
+          <div class="r-workspace-toolbar">
+            <div class="r-mode-tabs" aria-label="Optimize workspace mode">
+              <button class="active">Recommendations</button>
+              <button>Chat</button>
+            </div>
+            <span class="pill">Ready</span>
+          </div>
+
+          <div class="r-left-stack">
+            <div class="r-main-panel">
+            <div class="r-panel-heading">
+              <div>
+                <p class="mini-label">Recommendation review</p>
+                <h3>Choose the chores Cleanly should inspect</h3>
+                <p class="lede">Unreviewed chores are already selected. Add reviewed chores if they need another pass.</p>
+              </div>
+            </div>
+            <div class="r-stage-strip" aria-label="Review progress">
+              <div class="r-stage active"><strong>Select chores</strong><span>Current step</span></div>
+              <div class="r-stage"><strong>Decide ideas</strong><span>Accept or decline</span></div>
+              <div class="r-stage"><strong>Apply changes</strong><span>Commit together</span></div>
+            </div>
+            <div class="r-review-list">
+              <div class="task-row">
+                <span class="check">✓</span>
+                <div><strong>Clean kitchen counters</strong><span>Weekly / Shared / 20 min</span></div>
+                <span class="pill gold">Review</span>
+              </div>
+              <div class="task-row">
+                <span class="check">✓</span>
+                <div><strong>Reset bathrooms</strong><span>Twice weekly / Alex / 30 min</span></div>
+                <span class="pill">Selected</span>
+              </div>
+              <div class="task-row">
+                <span class="check">✓</span>
+                <div><strong>Vacuum upstairs</strong><span>Weekly / Sam / 25 min</span></div>
+                <span class="pill green">Recent</span>
+              </div>
+              <div class="task-row">
+                <span class="check">✓</span>
+                <div><strong>Entryway reset</strong><span>Room exists, but no recurring routine is attached.</span></div>
+                <span class="pill coral">Gap</span>
+              </div>
+            </div>
+            <div>
+              <button class="primary-button">Review selected chores</button>
+            </div>
+          </div>
+          </div>
+
+          <aside class="r-context-rail">
+            <section class="r-context-panel">
+              <div>
+                <p class="mini-label">Household signals</p>
+                <h3>What Cleanly is using</h3>
+              </div>
+              <div class="r-context-grid">
+                <article class="signal-card"><strong>Townhouse</strong><span>Home profile</span></article>
+                <article class="signal-card"><strong>3 floors</strong><span>Coverage</span></article>
+                <article class="signal-card"><strong>11 rooms</strong><span>Room model</span></article>
+                <article class="signal-card"><strong>Pets</strong><span>Extra routine needs</span></article>
+              </div>
+            </section>
+          </aside>
+        </section>
+      </div>
+    </section>
+
+    <section class="proposal">
+      <div class="proposal-header">
+        <div>
+          <p class="kicker">Option A</p>
+          <h2>Household plan checkup</h2>
+        </div>
+        <span class="badge">Recommended</span>
+      </div>
+      <p>
+        A familiar operational layout that matches Today: one clear command header, one primary review
+        workspace, and chat as a supporting right rail. This is the least risky redesign and gives the
+        first glance a simple meaning: pick chores, get suggestions, apply the ones you trust.
+      </p>
+      <div class="screen a-screen">
+        <header class="a-hero">
+          <div>
+            <p class="mini-label">Optimize</p>
+            <h3 class="page-title">Improve the chore plan for New household.</h3>
+            <p class="lede">
+              Cleanly reviews chore scope, timing, and missing routines against your household setup.
+              Start with a plan checkup, then use chat for follow-up questions.
+            </p>
+          </div>
+          <aside class="a-status-card">
+            <span>Plan checkup</span>
+            <strong>12 chores ready</strong>
+            <span>3 prior recommendations are waiting for a decision.</span>
+            <button class="primary-button">Review selected chores</button>
+          </aside>
+        </header>
+        <div class="metric-strip">
+          <div class="metric"><strong>12</strong><span>Selected chores</span></div>
+          <div class="metric"><strong>3</strong><span>Pending ideas</span></div>
+          <div class="metric"><strong>8</strong><span>Applied improvements</span></div>
+        </div>
+        <div class="a-body">
+          <section class="a-panel">
+            <div class="a-panel-header">
+              <div>
+                <p class="mini-label">Recommendations</p>
+                <h3>Choose chores to review</h3>
+                <p class="lede">Unreviewed chores are selected by default. Add reviewed chores when you want another pass.</p>
+              </div>
+              <div class="tab-bar">
+                <button class="active">Recommendations</button>
+                <button>Chat</button>
+              </div>
+            </div>
+            <div class="a-selected-list">
+              <div class="task-row">
+                <span class="check">✓</span>
+                <div><strong>Clean kitchen counters</strong><span>Weekly / Shared / 20 min</span></div>
+                <span class="pill gold">Review</span>
+              </div>
+              <div class="task-row">
+                <span class="check">✓</span>
+                <div><strong>Reset bathrooms</strong><span>Twice weekly / Alex / 30 min</span></div>
+                <span class="pill">Selected</span>
+              </div>
+              <div class="task-row">
+                <span class="check">✓</span>
+                <div><strong>Vacuum upstairs</strong><span>Weekly / Sam / 25 min</span></div>
+                <span class="pill green">Recent</span>
+              </div>
+              <div class="task-row">
+                <span class="check">✓</span>
+                <div><strong>Take out recycling</strong><span>Weekly / Shared / 10 min</span></div>
+                <span class="pill">Selected</span>
+              </div>
+            </div>
+            <div>
+              <button class="primary-button">Review selected chores</button>
+            </div>
+          </section>
+          <aside class="a-side-panel">
+            <div>
+              <p class="mini-label">Assistant chat</p>
+              <h3>Ask a follow-up</h3>
+            </div>
+            <div class="prompt-grid">
+              <button class="prompt-chip">Which chores look under-scoped?</button>
+              <button class="prompt-chip">What recurring chores might be missing?</button>
+              <button class="prompt-chip">How can we make this easier to keep up with?</button>
+            </div>
+            <div class="chat-stack">
+              <article class="chat-message">
+                <strong>Assistant</strong>
+                <span>I can look for timing gaps, room coverage, and overloaded assignments.</span>
+              </article>
+            </div>
+            <div class="chat-input">
+              <span>Ask about chore scope or scheduling</span>
+              <button>Send</button>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section class="proposal">
+      <div class="proposal-header">
+        <div>
+          <p class="kicker">Option B</p>
+          <h2>Recommendation board</h2>
+        </div>
+      </div>
+      <p>
+        A kanban-like workspace organized around the recommendation lifecycle: selected chores, assistant
+        suggestions, and accepted changes. Chat becomes a docked tool underneath the board. This is best
+        if Optimize should feel like a review queue rather than a conversational assistant.
+      </p>
+      <div class="screen b-screen">
+        <aside class="b-rail">
+          <div>
+            <p class="mini-label">Households</p>
+            <h3>Optimize plans</h3>
+          </div>
+          <article class="b-household-card active">
+            <strong>New household</strong>
+            <span>12 chores / 3 pending ideas</span>
+          </article>
+          <article class="b-household-card">
+            <strong>Lake house</strong>
+            <span>4 chores / setup needed</span>
+          </article>
+          <div class="metric"><strong>Ready</strong><span>Profile, rooms, and chores are enough for a review.</span></div>
+        </aside>
+        <section class="b-workspace">
+          <div class="b-topline">
+            <div>
+              <p class="mini-label">Optimize</p>
+              <h3 class="page-title">Review the plan board.</h3>
+              <p class="lede">Move from selected chores to recommendations to applied changes without switching mental modes.</p>
+            </div>
+            <button class="primary-button">Generate recommendations</button>
+          </div>
+          <div class="b-board">
+            <section class="b-column">
+              <p class="mini-label">Selected chores</p>
+              <h3>12 ready</h3>
+              <article class="task-row"><div><strong>Reset bathrooms</strong><span>May need a split by room</span></div></article>
+              <article class="task-row"><div><strong>Kitchen counters</strong><span>Scope may be too narrow</span></div></article>
+              <article class="task-row"><div><strong>Vacuum upstairs</strong><span>Timing overlaps with laundry</span></div></article>
+            </section>
+            <section class="b-column">
+              <p class="mini-label">Recommendations</p>
+              <h3>3 pending</h3>
+              <article class="recommendation-row"><div><strong>Split bathroom reset</strong><span>Separate quick wipe and full clean.</span></div></article>
+              <article class="recommendation-row"><div><strong>Add trash staging</strong><span>Earlier task reduces evening pileups.</span></div></article>
+              <article class="recommendation-row"><div><strong>Move vacuuming</strong><span>Better after laundry finishes.</span></div></article>
+            </section>
+            <section class="b-column">
+              <p class="mini-label">Decisions</p>
+              <h3>Apply together</h3>
+              <article class="recommendation-row"><div><strong>Accept 2 ideas</strong><span>Kitchen and trash staging</span></div></article>
+              <article class="recommendation-row"><div><strong>Decline 1 idea</strong><span>Keep vacuuming as-is</span></div></article>
+              <button class="primary-button">Apply decisions</button>
+            </section>
+          </div>
+          <section class="b-chat-dock">
+            <p class="mini-label">Assistant chat</p>
+            <div class="prompt-grid">
+              <button class="prompt-chip">Explain the bathroom recommendation</button>
+              <button class="prompt-chip">What is missing for pets?</button>
+            </div>
+            <div class="chat-input">
+              <span>Ask a question about this board</span>
+              <button>Send</button>
+            </div>
+          </section>
+        </section>
+      </div>
+    </section>
+
+    <section class="proposal">
+      <div class="proposal-header">
+        <div>
+          <p class="kicker">Option C</p>
+          <h2>Assistant split view</h2>
+        </div>
+      </div>
+      <p>
+        A two-pane assistant workspace: structured recommendations on the left, persistent chat on the
+        right. This keeps chat highly visible for the beta while still making recommendations the main
+        action. It is the strongest option if the Optimize page is meant to showcase the AI integration.
+      </p>
+      <div class="screen c-screen">
+        <section class="c-left">
+          <div class="c-command">
+            <p class="mini-label">Optimize</p>
+            <h3 class="page-title">Plan review with an assistant beside you.</h3>
+            <p class="lede">Use the review flow for safe changes. Use chat when the next question is fuzzy.</p>
+            <div class="signal-grid">
+              <article class="signal-card"><strong>Home profile</strong><span>Townhouse / pets / outdoor space</span></article>
+              <article class="signal-card"><strong>Coverage</strong><span>3 floors / 11 rooms / 28 chores</span></article>
+              <article class="signal-card"><strong>Workload</strong><span>Two heavy days this week</span></article>
+              <article class="signal-card"><strong>Gaps</strong><span>Entryway and pet chores need review</span></article>
+            </div>
+          </div>
+          <div class="c-review-panel">
+            <div class="a-panel-header">
+              <div>
+                <p class="mini-label">Recommendations</p>
+                <h3>Review selected chores</h3>
+              </div>
+              <button class="primary-button">Run review</button>
+            </div>
+            <article class="task-row">
+              <span class="check">✓</span>
+              <div><strong>Pet hair sweep</strong><span>Assistant sees a gap in frequency after weekends.</span></div>
+              <span class="pill coral">Gap</span>
+            </article>
+            <article class="task-row">
+              <span class="check">✓</span>
+              <div><strong>Entryway reset</strong><span>Room exists but no recurring routine is attached.</span></div>
+              <span class="pill gold">Review</span>
+            </article>
+            <article class="recommendation-row">
+              <span class="check">!</span>
+              <div><strong>Add a Sunday entryway reset</strong><span>10 minutes before trash and recycling.</span></div>
+              <span class="pill green">Accept</span>
+            </article>
+          </div>
+        </section>
+        <aside class="c-chat">
+          <div>
+            <p class="mini-label">Cleanly assistant</p>
+            <h3>Ask while you review</h3>
+            <p class="lede">Chat stays open so questions do not hide the recommendation flow.</p>
+          </div>
+          <div class="prompt-grid">
+            <button class="prompt-chip">Why did you flag weekends?</button>
+            <button class="prompt-chip">What should we add for pets?</button>
+            <button class="prompt-chip">Can you rebalance Monday?</button>
+          </div>
+          <div class="chat-stack">
+            <article class="chat-message">
+              <strong>You</strong>
+              <span>What is making Monday heavy?</span>
+            </article>
+            <article class="chat-message">
+              <strong>Assistant</strong>
+              <span>Monday has two room resets and laundry. Moving vacuuming to Tuesday would smooth the load.</span>
+            </article>
+          </div>
+          <div class="chat-input">
+            <span>Ask the assistant</span>
+            <button>Send</button>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="proposal">
+      <div class="proposal-header">
+        <div>
+          <p class="kicker">Option D</p>
+          <h2>Guided tune-up flow</h2>
+        </div>
+      </div>
+      <p>
+        A step-based design that reduces first-glance confusion the most: select chores, review
+        recommendations, then apply decisions. Chat is preserved as a contextual helper, but the page
+        feels more like a wizard than a dashboard.
+      </p>
+      <div class="screen d-screen">
+        <header class="d-header">
+          <div>
+            <p class="mini-label">Optimize</p>
+            <h3 class="page-title">Tune up the household plan.</h3>
+            <p class="lede">Cleanly walks through a controlled review before anything changes in your chore plan.</p>
+          </div>
+          <aside class="d-stepper">
+            <article class="step active">
+              <span class="step-number">1</span>
+              <div><strong>Select chores</strong><span>Choose what the assistant should inspect.</span></div>
+            </article>
+            <article class="step">
+              <span class="step-number">2</span>
+              <div><strong>Review ideas</strong><span>Accept or decline each recommendation.</span></div>
+            </article>
+            <article class="step">
+              <span class="step-number">3</span>
+              <div><strong>Apply changes</strong><span>Commit the accepted updates together.</span></div>
+            </article>
+          </aside>
+        </header>
+        <div class="d-main">
+          <section class="d-card">
+            <div class="a-panel-header">
+              <div>
+                <p class="mini-label">Step 1 of 3</p>
+                <h3>Select chores to review</h3>
+              </div>
+              <span class="pill">12 selected</span>
+            </div>
+            <article class="task-row">
+              <span class="check">✓</span>
+              <div><strong>Kitchen close-down</strong><span>Assistant will check scope and timing.</span></div>
+              <span class="pill">Selected</span>
+            </article>
+            <article class="task-row">
+              <span class="check">✓</span>
+              <div><strong>Laundry reset</strong><span>Assistant will check workload balance.</span></div>
+              <span class="pill">Selected</span>
+            </article>
+            <article class="task-row">
+              <span class="check">✓</span>
+              <div><strong>Bathroom wipe-down</strong><span>Assistant will compare against room usage.</span></div>
+              <span class="pill">Selected</span>
+            </article>
+            <button class="primary-button">Continue to recommendations</button>
+          </section>
+          <aside class="d-card">
+            <div>
+              <p class="mini-label">Ask before continuing</p>
+              <h3>Need help choosing?</h3>
+            </div>
+            <div class="d-chat-mini">
+              <button class="prompt-chip">Which chores should I include?</button>
+              <button class="prompt-chip">What does Cleanly inspect?</button>
+              <article class="chat-message">
+                <strong>Assistant</strong>
+                <span>I recommend reviewing chores that are overdue, frequently skipped, or recently edited.</span>
+              </article>
+              <div class="chat-input">
+                <span>Ask a question</span>
+                <button>Send</button>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section class="summary">
+      <article>
+        <h3>Best overall</h3>
+        <p>Option A matches the current app most naturally and makes the page useful at first glance.</p>
+      </article>
+      <article>
+        <h3>Most review-focused</h3>
+        <p>Option B turns recommendations into a board, which is tidy but less conversational.</p>
+      </article>
+      <article>
+        <h3>Best AI showcase</h3>
+        <p>Option C gives chat real prominence while preserving safe recommendation decisions.</p>
+      </article>
+      <article>
+        <h3>Least confusing</h3>
+        <p>Option D is the clearest for new users, but it slows down repeat use a bit.</p>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

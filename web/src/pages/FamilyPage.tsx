@@ -139,6 +139,27 @@ export function FamilyPage({ households, isLoading }: FamilyPageProps) {
     });
   }, []);
 
+  if (!isLoading && households.length === 0) {
+    return (
+      <div className="family-page operational-page">
+        <header className="page-command-header">
+          <div>
+            <p className="eyebrow">Collaboration</p>
+            <h1>Family</h1>
+            <p className="lede">Family coordination starts once you belong to a household.</p>
+          </div>
+        </header>
+        <section className="setup-empty-state first-home-empty-state" aria-labelledby="family-empty-heading">
+          <div>
+            <p className="eyebrow">No household yet</p>
+            <h2 id="family-empty-heading">Add or join a household</h2>
+            <p>Once you belong to a household, this page manages members, invitations, shared load, and weekly handoffs.</p>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="family-page operational-page">
       <header className="page-command-header">
@@ -178,8 +199,8 @@ export function FamilyPage({ households, isLoading }: FamilyPageProps) {
           <section className="setup-empty-state family-empty-state" aria-labelledby="family-empty-heading">
             <div>
               <p className="eyebrow">No household access yet</p>
-              <h2 id="family-empty-heading">Add a home before inviting family</h2>
-              <p>Once a home exists, this page becomes the coordination board for members, invites, shared load, and weekly handoffs.</p>
+              <h2 id="family-empty-heading">Add or join a household</h2>
+              <p>Once you belong to a household, this page becomes the coordination board for members, invites, shared load, and weekly handoffs.</p>
             </div>
           </section>
         ) : null}

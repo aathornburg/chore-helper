@@ -19,7 +19,13 @@ export function ApiAuthBridge({ children }: { children: React.ReactNode }) {
     };
   }, [getToken]);
 
-  if (!isLoaded || !apiAuthReady) return null;
+  if (!isLoaded || !apiAuthReady) {
+    return (
+      <div className="auth-loading-screen" role="status">
+        Loading Cleanly...
+      </div>
+    );
+  }
 
   return <>{children}</>;
 }

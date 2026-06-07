@@ -318,43 +318,47 @@ export function TodayDashboard({ households, isLoading, loadError, onNavigate, w
     );
   }
 
+  if (households.length === 0) {
+    return (
+      <div className="dashboard-page today-page">
+        <header className="page-command-header">
+          <div>
+            <p className="eyebrow">Today</p>
+            <h1>Today</h1>
+            <p className="lede">Your daily plan appears once you belong to a household.</p>
+          </div>
+        </header>
+        <section className="setup-empty-state first-home-empty-state" aria-labelledby="today-empty-heading">
+          <div>
+            <p className="eyebrow">No household yet</p>
+            <h2 id="today-empty-heading">Add or join a household</h2>
+            <p>Once you belong to a household, Cleanly can build today's chore list, due counts, and weekly routine view.</p>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="dashboard-page today-page">
       <header className="today-command-header">
         <div className="today-command-copy">
           <h1>Today</h1>
-          {households.length === 0 ? (
-            <p>Set up or join your first household to start organizing routines.</p>
-          ) : (
-            <>
-              <div className="today-metric-row" aria-label="Today status summary">
-                <span><CheckIcon /> <strong>{selectedDateCompletedCount}</strong> done</span>
-                <span><CircleIcon /> <strong>{selectedDatePlannedCount}</strong> to do</span>
-                <span><CalendarIcon /> <strong>{selectedDateSkippedCount}</strong> skipped</span>
-                <span><ClockIcon /> <strong>{remainingHoursLabel(selectedDateRemainingMinutes)}</strong> hrs remaining</span>
-              </div>
-              <p>{selectedDatePlannedCount === 0 ? "You're all caught up! Keep it going." : `${selectedDatePlannedCount} chore${selectedDatePlannedCount === 1 ? "" : "s"} ready for ${selectedDateLabel}.`}</p>
-            </>
-          )}
+          <div className="today-metric-row" aria-label="Today status summary">
+            <span><CheckIcon /> <strong>{selectedDateCompletedCount}</strong> done</span>
+            <span><CircleIcon /> <strong>{selectedDatePlannedCount}</strong> to do</span>
+            <span><CalendarIcon /> <strong>{selectedDateSkippedCount}</strong> skipped</span>
+            <span><ClockIcon /> <strong>{remainingHoursLabel(selectedDateRemainingMinutes)}</strong> hrs remaining</span>
+          </div>
+          <p>{selectedDatePlannedCount === 0 ? "You're all caught up! Keep it going." : `${selectedDatePlannedCount} chore${selectedDatePlannedCount === 1 ? "" : "s"} ready for ${selectedDateLabel}.`}</p>
         </div>
-        {households.length === 0 ? (
-          <button onClick={() => onNavigate("/households")} type="button">Set up household</button>
-        ) : (
-          <button className="today-calendar-link" onClick={() => onNavigate("/calendar")} type="button">
-            View full calendar
-            <ChevronRightIcon />
-          </button>
-        )}
+        <button className="today-calendar-link" onClick={() => onNavigate("/calendar")} type="button">
+          View full calendar
+          <ChevronRightIcon />
+        </button>
       </header>
 
-      {households.length === 0 ? (
-        <section className="panel setup-focus-panel">
-          <p className="eyebrow">Start here</p>
-          <h2>Create a home profile</h2>
-          <p>Add floors, rooms, pets, and notes so Cleanly can make useful chore recommendations.</p>
-        </section>
-      ) : (
-        <>
+      <>
           <section aria-label="Seven day chore strip" className="today-week-rail">
             <button
               aria-label="Previous week"
@@ -493,7 +497,6 @@ export function TodayDashboard({ households, isLoading, loadError, onNavigate, w
             </aside>
           </div>
         </>
-      )}
 
       {toast ? (
         <aside className="today-toast" role="status">

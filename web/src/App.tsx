@@ -23,6 +23,8 @@ import type { WeekStartDay } from "./types";
 */
 import "./App.css";
 
+const AUTH_REDIRECT_PATH = "/today";
+
 /*
   App is the top-level React component in this tree, similar to Angular's
   AppComponent. It sets up the root layout and wraps child routes with
@@ -37,8 +39,8 @@ function App() {
     <>
       <SignedOut>
         <LandingPage
-          primaryAction={<SignUpButton mode="modal">Build my home plan</SignUpButton>}
-          signInAction={<SignInButton mode="modal">Sign in</SignInButton>}
+          primaryAction={<SignUpButton forceRedirectUrl={AUTH_REDIRECT_PATH} mode="modal">Build my home plan</SignUpButton>}
+          signInAction={<SignInButton forceRedirectUrl={AUTH_REDIRECT_PATH} mode="modal">Sign in</SignInButton>}
         />
       </SignedOut>
       <SignedIn>

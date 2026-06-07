@@ -66,6 +66,24 @@ function eventDateTime(eventDate: { dateTime?: string; date?: string; timeZone?:
   return eventDate.dateTime ?? (eventDate.date ? `${eventDate.date}T00:00:00.000Z` : undefined);
 }
 
+function googleApiTimeoutMs() {
+  const parsed = Number(process.env.GOOGLE_API_TIMEOUT_MS);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 10_000;
+}
+
+async function fetchWithTimeout(input: string | URL, init: RequestInit = {}, timeoutMs = googleApiTimeoutMs()) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: init.signal ?? controller.signal
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export function createGoogleCalendarProvider(env: NodeJS.ProcessEnv = process.env): GoogleCalendarProvider | undefined {
   const config = googleOAuthConfig(env);
   if (!config) return undefined;
@@ -84,7 +102,7 @@ export function createGoogleCalendarProvider(env: NodeJS.ProcessEnv = process.en
     },
 
     async exchangeCode(code) {
-      const response = await fetch("https://oauth2.googleapis.com/token", {
+      const response = await fetchWithTimeout("https://oauth2.googleapis.com/token", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
@@ -112,7 +130,7 @@ export function createGoogleCalendarProvider(env: NodeJS.ProcessEnv = process.en
     },
 
     async refreshAccessToken(refreshToken) {
-      const response = await fetch("https://oauth2.googleapis.com/token", {
+      const response = await fetchWithTimeout("https://oauth2.googleapis.com/token", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
@@ -133,7 +151,7 @@ export function createGoogleCalendarProvider(env: NodeJS.ProcessEnv = process.en
     },
 
     async getProfile(accessToken) {
-      const response = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+      const response = await fetchWithTimeout("https://www.googleapis.com/oauth2/v2/userinfo", {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
       if (!response.ok) throw new Error("Google profile fetch failed");
@@ -143,7 +161,7 @@ export function createGoogleCalendarProvider(env: NodeJS.ProcessEnv = process.en
     },
 
     async listCalendars(accessToken) {
-      const response = await fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList", {
+      const response = await fetchWithTimeout("https://www.googleapis.com/calendar/v3/users/me/calendarList", {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
       if (!response.ok) throw new Error("Google calendar list fetch failed");
@@ -172,7 +190,7 @@ export function createGoogleCalendarProvider(env: NodeJS.ProcessEnv = process.en
         url.searchParams.set("orderBy", "startTime");
         url.searchParams.set("timeMin", input.startAt);
         url.searchParams.set("timeMax", input.endAt);
-        const response = await fetch(url, {
+        const response = await fetchWithTimeout(url, {
           headers: { Authorization: `Bearer ${input.accessToken}` }
         });
         if (!response.ok) throw new Error("Google event list fetch failed");
@@ -200,7 +218,7 @@ export function createGoogleCalendarProvider(env: NodeJS.ProcessEnv = process.en
     },
 
     async createEvent(input) {
-      const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(input.calendarId)}/events`, {
+      const response = await fetchWithTimeout(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(input.calendarId)}/events`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${input.accessToken}`,

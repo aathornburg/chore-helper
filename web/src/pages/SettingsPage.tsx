@@ -154,7 +154,7 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
 
       <section className={`calendar-sync-section ${highlighted ? "highlighted" : ""}`} id="calendar" aria-label="Calendar sync">
         {!selectedHousehold ? (
-          <p className="empty-state">Create a home before setting up calendar sync.</p>
+          <p className="empty-state">Add or join a household before setting up calendar sync.</p>
         ) : (
           <div className="sync-board">
             <article className="sync-panel">
@@ -331,32 +331,21 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
             <h2 id="calendar-preferences-heading">Calendar preferences</h2>
           </div>
         </div>
-        <article className="integration-card">
-          <div className="panel-heading">
-            <h2>Week starts on</h2>
-            <span>{weekStartDay === "sunday" ? "Sunday" : "Monday"}</span>
+        <article className="settings-preference-row">
+          <div>
+            <h3>Week starts on</h3>
+            <p>Controls the week rail on Today.</p>
           </div>
-          <fieldset className="settings-radio-group">
-            <legend className="sr-only">Week starts on</legend>
-            <label>
-              <input
-                checked={weekStartDay === "sunday"}
-                name="week-start-day"
-                onChange={() => onWeekStartDayChange("sunday")}
-                type="radio"
-              />
-              Sunday
-            </label>
-            <label>
-              <input
-                checked={weekStartDay === "monday"}
-                name="week-start-day"
-                onChange={() => onWeekStartDayChange("monday")}
-                type="radio"
-              />
-              Monday
-            </label>
-          </fieldset>
+          <label className="settings-select-control">
+            <span className="sr-only">Week starts on</span>
+            <select
+              value={weekStartDay}
+              onChange={(event) => onWeekStartDayChange(event.target.value as WeekStartDay)}
+            >
+              <option value="sunday">Sunday</option>
+              <option value="monday">Monday</option>
+            </select>
+          </label>
         </article>
       </section>
     </div>

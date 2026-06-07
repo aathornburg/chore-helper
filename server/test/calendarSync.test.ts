@@ -249,6 +249,29 @@ describe("calendar sync governance", () => {
     expect(await Promise.resolve(store.listExternalCalendars(member.id))).toHaveLength(2);
   });
 
+  it("rejects a replayed Google OAuth state", async () => {
+    const store = createInMemoryStore();
+    const provider = fakeGoogleProvider();
+    const app = createApp({ store, authMode: "test", calendarProvider: provider });
+    await store.upsertUserByClerkId("member", {
+      primaryEmail: "member@example.com",
+      displayName: "Member"
+    });
+
+    const connect = await auth(app, "member").post("/api/me/calendar/google/connect");
+    const state = new URL(connect.body.authUrl).searchParams.get("state");
+
+    await request(app)
+      .get(`/api/me/calendar/google/callback?code=google-code&state=${state}`)
+      .expect(302);
+    const replay = await request(app)
+      .get(`/api/me/calendar/google/callback?code=google-code&state=${state}`)
+      .expect(302);
+
+    expect(replay.headers.location).toContain("calendar=google-auth-error");
+    expect(provider.exchangeCode).toHaveBeenCalledTimes(1);
+  });
+
   it("disconnects a stored Google Calendar connection", async () => {
     const store = createInMemoryStore();
     const provider = fakeGoogleProvider();
@@ -417,6 +440,51 @@ describe("calendar sync governance", () => {
         proposedType: "commitment"
       })
     ]);
+  });
+
+  it("rejects oversized Google Calendar import ranges before calling Google", async () => {
+    const store = createInMemoryStore();
+    const provider = fakeGoogleProvider();
+    const app = createApp({ store, authMode: "test", calendarProvider: provider });
+    const owner = await store.upsertUserByClerkId("owner", { primaryEmail: "owner@example.com", displayName: "Owner" });
+    const member = await store.upsertUserByClerkId("member", { primaryEmail: "member@example.com", displayName: "Member" });
+    const household = await store.createHouseholdForUser("Home", owner.id);
+    await store.acceptInvitation((await store.createInvitation({
+      householdId: household.id,
+      recipientEmail: "member@example.com",
+      tokenDigest: "range-token",
+      invitedByUserId: owner.id,
+      expiresAt: new Date(Date.now() + 60_000).toISOString()
+    })).id, member.id, new Date().toISOString());
+    const connection = await store.upsertCalendarConnection(member.id, {
+      provider: "google",
+      providerAccountEmail: "member.google@example.com",
+      scopes: ["https://www.googleapis.com/auth/calendar.events.readonly"],
+      tokenExpiresAt: "2099-06-05T18:00:00.000Z",
+      lastSyncedAt: "2026-06-04T17:00:00.000Z",
+      accessTokenEncrypted: "encrypted-access",
+      refreshTokenEncrypted: "encrypted-refresh"
+    });
+    const calendars = await store.upsertExternalCalendars(member.id, connection.id, [{
+      providerCalendarId: "primary",
+      name: "Personal",
+      timezone: "America/New_York",
+      accessRole: "owner"
+    }]);
+    await store.updateCalendarPreferences(member.id, household.id, {
+      householdId: household.id,
+      defaultDetailLevel: "busy_only",
+      selectedSourceCalendarIds: [calendars[0].id],
+      exportMode: "off",
+      exportContentMode: "chores"
+    });
+
+    const response = await auth(app, "member")
+      .get(`/api/me/calendar/import-candidates?householdId=${household.id}&startAt=2026-01-01T00:00:00.000Z&endAt=2026-04-15T00:00:00.000Z`);
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: "Calendar import range cannot exceed 31 days." });
+    expect(provider.listEvents).not.toHaveBeenCalled();
   });
 
   it("lets a member submit selected events to the owner import queue", async () => {

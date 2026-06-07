@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AgentRecommendationContext } from "../src/agent/AgentProvider.js";
+import type { AgentChatContext, AgentRecommendationContext } from "../src/agent/AgentProvider.js";
 import { OpenAiChoreAgentProvider } from "../src/agent/OpenAiChoreAgentProvider.js";
 
 function createContext(): AgentRecommendationContext {
@@ -25,6 +25,51 @@ function createContext(): AgentRecommendationContext {
       }
     ],
     reviewPrompt: "Focus on duration and cadence."
+  };
+}
+
+function createChatContext(): AgentChatContext {
+  return {
+    household: {
+      id: "household-1",
+      name: "Home",
+      timeZone: "America/New_York",
+      profile: {
+        homeType: "house",
+        hasPets: true,
+        hasOutdoorSpace: false,
+        notes: "Two adults and one dog."
+      }
+    },
+    chores: [
+      {
+        id: "chore-1",
+        householdId: "household-1",
+        title: "Clean bathrooms",
+        source: "manual",
+        instructions: "Sink, toilet, mirror and floor."
+      },
+      {
+        id: "chore-2",
+        householdId: "household-1",
+        title: "Reset kitchen",
+        source: "manual",
+        instructions: "Counters and sink."
+      }
+    ],
+    recommendations: [
+      {
+        id: "recommendation-1",
+        householdId: "household-1",
+        affectedChoreId: "chore-1",
+        title: "Review duration for Clean bathrooms",
+        rationale: "The scope may need more time.",
+        confidence: "high",
+        status: "pending",
+        decision: "pending"
+      }
+    ],
+    message: "Which chores look under-scoped?"
   };
 }
 
@@ -110,5 +155,33 @@ describe("OpenAiChoreAgentProvider", () => {
         proposedEstimatedMinutes: undefined
       })
     ]);
+  });
+
+  it("answers chat questions with OpenAI structured output and context", async () => {
+    const provider = new OpenAiChoreAgentProvider("gpt-test", async (input) => {
+      expect(input.model).toBe("gpt-test");
+      expect(input.prompt).toContain("Which chores look under-scoped?");
+      expect(input.prompt).toContain("Clean bathrooms");
+      expect(input.prompt).toContain("Reset kitchen");
+      expect(input.prompt).toContain("Review duration for Clean bathrooms");
+
+      return {
+        answer: "Clean bathrooms looks under-scoped because the instructions include multiple surfaces.",
+        relatedRecommendationIds: ["recommendation-1", "missing-recommendation"]
+      };
+    });
+
+    await expect(provider.answerHouseholdQuestion(createChatContext())).resolves.toEqual({
+      answer: "Clean bathrooms looks under-scoped because the instructions include multiple surfaces.",
+      relatedRecommendationIds: ["recommendation-1"]
+    });
+  });
+
+  it("rejects malformed chat output", async () => {
+    const provider = new OpenAiChoreAgentProvider("gpt-test", async () => ({
+      relatedRecommendationIds: ["recommendation-1"]
+    }));
+
+    await expect(provider.answerHouseholdQuestion(createChatContext())).rejects.toThrow();
   });
 });

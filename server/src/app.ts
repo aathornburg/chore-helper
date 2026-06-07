@@ -22,6 +22,13 @@ import { createInvitationRouter } from "./routes/invitations.js";
 import { createMeRouter } from "./routes/me.js";
 import { createCalendarRouter } from "./routes/calendar.js";
 import type { GoogleCalendarProvider } from "./calendar/googleCalendarProvider.js";
+import {
+  assertProductionSecurityConfig,
+  createCorsOptions,
+  expensiveEndpointRateLimit,
+  rejectDisallowedCorsOrigins,
+  securityHeaders
+} from "./security/httpSecurity.js";
 
 type AppDependencies = {
   store?: HouseholdStore;
@@ -33,6 +40,7 @@ type AppDependencies = {
 };
 
 export function createApp(dependencies: AppDependencies = {}) {
+  assertProductionSecurityConfig();
   const app = express();
   const store = dependencies.store ?? createPrismaStore(createPrismaClient());
   const agentProvider = dependencies.agentProvider ?? createAgentProvider();
@@ -45,11 +53,14 @@ export function createApp(dependencies: AppDependencies = {}) {
         : new UnavailableInvitationMailer());
   const invitationBaseUrl = dependencies.invitationBaseUrl ?? process.env.APP_BASE_URL ?? "http://localhost:5173";
 
-  app.use(cors());
+  app.use(securityHeaders());
+  app.use(rejectDisallowedCorsOrigins());
+  app.use(cors(createCorsOptions()));
+  app.use(expensiveEndpointRateLimit());
   if (authMode === "clerk") {
     app.use(clerkMiddleware());
   }
-  app.use(express.json());
+  app.use(express.json({ limit: process.env.JSON_BODY_LIMIT ?? "256kb" }));
   app.get("/api/health", (_req, res) => res.json({ ok: true }));
   app.get("/api/chores", async (req, res) => {
     const user = await resolveCurrentUser(req, res, store, authMode);

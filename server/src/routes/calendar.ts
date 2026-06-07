@@ -20,6 +20,10 @@ const exportModes: CalendarExportMode[] = ["off", "review", "auto"];
 const contentModes: CalendarContentMode[] = ["chores", "commitments", "both"];
 const detailLevels: CalendarDetailLevel[] = ["busy_only", "full_details"];
 const cleanlyEventTypes: CleanlyCalendarEventType[] = ["chore", "commitment"];
+const googleOAuthStates = new Map<string, { userId: string; expiresAt: number }>();
+const googleOAuthStateTtlMs = 10 * 60 * 1000;
+const maxGoogleImportRangeMs = 31 * 24 * 60 * 60 * 1000;
+
 function isOneOf<T extends string>(value: unknown, options: readonly T[]): value is T {
   return typeof value === "string" && options.includes(value as T);
 }
@@ -41,12 +45,31 @@ function displayName(user: { displayName?: string; primaryEmail?: string; clerkU
   return user.displayName ?? user.primaryEmail ?? user.clerkUserId;
 }
 
+function googleOAuthStateSecret() {
+  const secret = process.env.GOOGLE_OAUTH_STATE_SECRET ?? process.env.GOOGLE_CLIENT_SECRET;
+  if (secret?.trim()) return secret;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("GOOGLE_OAUTH_STATE_SECRET is required in production");
+  }
+  return "dev-calendar-oauth-state";
+}
+
+function pruneExpiredGoogleOAuthStates(now = Date.now()) {
+  for (const [nonce, state] of googleOAuthStates.entries()) {
+    if (state.expiresAt <= now) googleOAuthStates.delete(nonce);
+  }
+}
+
 function createGoogleOAuthState(userId: string) {
-  const secret = process.env.GOOGLE_OAUTH_STATE_SECRET ?? process.env.GOOGLE_CLIENT_SECRET ?? "dev-calendar-oauth-state";
+  const secret = googleOAuthStateSecret();
+  const nonce = crypto.randomUUID();
+  const createdAt = Date.now();
+  pruneExpiredGoogleOAuthStates(createdAt);
+  googleOAuthStates.set(nonce, { userId, expiresAt: createdAt + googleOAuthStateTtlMs });
   const payload = Buffer.from(JSON.stringify({
     userId,
-    nonce: crypto.randomUUID(),
-    createdAt: Date.now()
+    nonce,
+    createdAt
   })).toString("base64url");
   const signature = crypto.createHmac("sha256", secret).update(payload).digest("base64url");
   return `${payload}.${signature}`;
@@ -55,12 +78,36 @@ function createGoogleOAuthState(userId: string) {
 function verifyGoogleOAuthState(state: string) {
   const [payload, signature] = state.split(".");
   if (!payload || !signature) return undefined;
-  const secret = process.env.GOOGLE_OAUTH_STATE_SECRET ?? process.env.GOOGLE_CLIENT_SECRET ?? "dev-calendar-oauth-state";
+  const secret = googleOAuthStateSecret();
   const expected = crypto.createHmac("sha256", secret).update(payload).digest("base64url");
-  if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return undefined;
-  const decoded = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as { userId?: string; createdAt?: number };
-  if (!decoded.userId || !decoded.createdAt || Date.now() - decoded.createdAt > 10 * 60 * 1000) return undefined;
+  const signatureBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expected);
+  if (signatureBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(signatureBuffer, expectedBuffer)) return undefined;
+  let decoded: { userId?: string; nonce?: string; createdAt?: number };
+  try {
+    decoded = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as { userId?: string; nonce?: string; createdAt?: number };
+  } catch {
+    return undefined;
+  }
+  const now = Date.now();
+  if (!decoded.userId || !decoded.nonce || !decoded.createdAt || now - decoded.createdAt > googleOAuthStateTtlMs) return undefined;
+  const stored = googleOAuthStates.get(decoded.nonce);
+  if (!stored || stored.userId !== decoded.userId || stored.expiresAt <= now) return undefined;
+  googleOAuthStates.delete(decoded.nonce);
   return { userId: decoded.userId };
+}
+
+function parseGoogleImportRange(startAtInput: unknown, endAtInput: unknown) {
+  const startAt = typeof startAtInput === "string" && !Number.isNaN(Date.parse(startAtInput))
+    ? new Date(startAtInput)
+    : new Date();
+  const endAt = typeof endAtInput === "string" && !Number.isNaN(Date.parse(endAtInput))
+    ? new Date(endAtInput)
+    : new Date(startAt.getTime() + 14 * 24 * 60 * 60 * 1000);
+  const durationMs = endAt.getTime() - startAt.getTime();
+  if (durationMs <= 0) return { error: "Calendar import range must end after it starts." } as const;
+  if (durationMs > maxGoogleImportRangeMs) return { error: "Calendar import range cannot exceed 31 days." } as const;
+  return { startAt: startAt.toISOString(), endAt: endAt.toISOString() } as const;
 }
 
 function settingsRedirect(status: string) {
@@ -321,17 +368,13 @@ export function createCalendarRouter(
     if (!selectedCalendars.length) return res.status(200).json([]);
     const connectionId = selectedCalendars[0].connectionId;
     const accessToken = await getGoogleAccessToken(user.id, connectionId);
-    const startAt = typeof req.query.startAt === "string" && !Number.isNaN(Date.parse(req.query.startAt))
-      ? req.query.startAt
-      : new Date().toISOString();
-    const endAt = typeof req.query.endAt === "string" && !Number.isNaN(Date.parse(req.query.endAt))
-      ? req.query.endAt
-      : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+    const range = parseGoogleImportRange(req.query.startAt, req.query.endAt);
+    if ("error" in range) return res.status(400).json({ error: range.error });
     const providerEvents = await googleProvider.listEvents({
       accessToken,
       calendarIds: selectedCalendars.map((calendar) => calendar.providerCalendarId),
-      startAt,
-      endAt
+      startAt: range.startAt,
+      endAt: range.endAt
     });
     const calendarByProviderId = new Map(selectedCalendars.map((calendar) => [calendar.providerCalendarId, calendar]));
     const candidates: CalendarImportCandidate[] = providerEvents

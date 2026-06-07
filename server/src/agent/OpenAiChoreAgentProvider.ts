@@ -23,13 +23,20 @@ const choreAgentOutputSchema = z.object({
   recommendations: z.array(choreAgentRecommendationSchema)
 });
 
+const choreAgentChatOutputSchema = z.object({
+  answer: z.string().min(1),
+  relatedRecommendationIds: z.array(z.string().min(1)).optional()
+});
+
 export type ChoreAgentRunInput = {
   model: string;
   instructions: string;
   prompt: string;
+  outputType?: typeof choreAgentOutputSchema | typeof choreAgentChatOutputSchema;
 };
 
 type ChoreAgentOutput = z.infer<typeof choreAgentOutputSchema>;
+type ChoreAgentChatOutput = z.infer<typeof choreAgentChatOutputSchema>;
 
 type ChoreAgentRunner = (input: ChoreAgentRunInput) => Promise<unknown>;
 
@@ -45,16 +52,26 @@ const choreReviewInstructions = [
   "Every recommendation is only a suggestion and requires manual user approval."
 ].join(" ");
 
+const choreChatInstructions = [
+  "You are a household chore optimization assistant.",
+  "Answer the user's question using only the provided household, chore, and recommendation context.",
+  "Be concise and practical.",
+  "When existing recommendations are directly relevant, include their IDs in relatedRecommendationIds.",
+  "Do not invent chores, schedules, calendar events, or household facts that are not in the prompt.",
+  "Do not claim you changed chores or calendar events; recommendations and changes require manual user approval."
+].join(" ");
+
 async function runOpenAiChoreAgent({
   model,
   instructions,
-  prompt
+  prompt,
+  outputType = choreAgentOutputSchema
 }: ChoreAgentRunInput): Promise<unknown> {
   const agent = new Agent({
     name: "Chore review assistant",
     instructions,
     model,
-    outputType: choreAgentOutputSchema
+    outputType
   });
   const result = await run(agent, prompt);
 
@@ -82,6 +99,58 @@ function formatPrompt({ household, chores, reviewPrompt }: AgentRecommendationCo
     formatChores(chores),
     `User review prompt: ${reviewPrompt?.trim() || "Review the selected chores for practical improvements."}`,
     "Return only structured recommendations that match the requested schema."
+  ].join("\n\n");
+}
+
+function formatChatChores(chores: Chore[]) {
+  if (chores.length === 0) {
+    return "No active chores.";
+  }
+
+  return chores
+    .map((chore) =>
+      [
+        `- id=${chore.id}`,
+        `title=${chore.title}`,
+        `source=${chore.source}`,
+        `instructions=${chore.instructions ?? "none"}`,
+        `tags=${chore.tags?.join(", ") || "none"}`
+      ].join("; ")
+    )
+    .join("\n");
+}
+
+function formatChatRecommendations(recommendations: AgentChatContext["recommendations"]) {
+  const activeRecommendations = recommendations.filter((recommendation) => !recommendation.staleAt);
+  if (activeRecommendations.length === 0) {
+    return "No active recommendations.";
+  }
+
+  return activeRecommendations
+    .map((recommendation) =>
+      [
+        `- id=${recommendation.id}`,
+        `title=${recommendation.title}`,
+        `rationale=${recommendation.rationale}`,
+        `confidence=${recommendation.confidence}`,
+        `status=${recommendation.status}`,
+        `decision=${recommendation.decision ?? "pending"}`,
+        `affectedChoreId=${recommendation.affectedChoreId ?? "none"}`
+      ].join("; ")
+    )
+    .join("\n");
+}
+
+function formatChatPrompt({ household, chores, recommendations, message }: AgentChatContext) {
+  return [
+    `Household: ${household.name}`,
+    `Profile: ${JSON.stringify(household.profile ?? null)}`,
+    "Active chores:",
+    formatChatChores(chores),
+    "Active recommendations:",
+    formatChatRecommendations(recommendations),
+    `User question: ${message}`,
+    "Return a concise answer and include only recommendation IDs that are relevant to the answer."
   ].join("\n\n");
 }
 
@@ -113,33 +182,14 @@ function mapOutputToRecommendations(
   }));
 }
 
-function formatDeterministicChatResponse({
-  household,
-  chores,
-  recommendations,
-  message
-}: AgentChatContext): AgentChatResponse {
-  const pendingRecommendations = recommendations.filter(
-    (recommendation) =>
-      recommendation.status === "pending" && (recommendation.decision ?? "pending") === "pending"
-  );
-  const firstChore = chores[0];
-  const profileSummary = household.profile
-    ? `Profile: ${household.profile.homeType}, pets=${household.profile.hasPets}, outdoorSpace=${household.profile.hasOutdoorSpace}.`
-    : "Profile details are not set yet.";
-  const choreSummary = firstChore
-    ? `${firstChore.title} is an active chore available for review.`
-    : "There are no active chores to inspect yet.";
-  const recommendationSummary =
-    pendingRecommendations.length > 0
-      ? `Pending recommendations: ${pendingRecommendations.map((recommendation) => recommendation.title).join("; ")}.`
-      : "There are no pending recommendations right now.";
+function mapChatOutputToResponse(output: ChoreAgentChatOutput, context: AgentChatContext): AgentChatResponse {
+  const recommendationIds = new Set(context.recommendations.map((recommendation) => recommendation.id));
+  const relatedRecommendationIds = (output.relatedRecommendationIds ?? [])
+    .filter((recommendationId) => recommendationIds.has(recommendationId));
 
   return {
-    answer: `For "${message}", ${choreSummary} ${profileSummary} ${recommendationSummary}`,
-    ...(pendingRecommendations.length > 0
-      ? { relatedRecommendationIds: pendingRecommendations.map((recommendation) => recommendation.id) }
-      : {})
+    answer: output.answer,
+    ...(relatedRecommendationIds.length > 0 ? { relatedRecommendationIds } : {})
   };
 }
 
@@ -164,6 +214,15 @@ export class OpenAiChoreAgentProvider implements AgentProvider {
   }
 
   async answerHouseholdQuestion(context: AgentChatContext): Promise<AgentChatResponse> {
-    return formatDeterministicChatResponse(context);
+    const output = choreAgentChatOutputSchema.parse(
+      await this.runChoreAgent({
+        model: this.model,
+        instructions: choreChatInstructions,
+        prompt: formatChatPrompt(context),
+        outputType: choreAgentChatOutputSchema
+      })
+    );
+
+    return mapChatOutputToResponse(output, context);
   }
 }

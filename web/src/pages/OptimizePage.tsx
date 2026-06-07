@@ -9,9 +9,9 @@ import {
   updateRecommendationDecision
 } from "../api";
 
-type OptimizeMode = "recommendations" | "chat";
 type ReviewStep = "select" | "decide" | "complete";
 type ReviewLoadState = "idle" | "loading" | "ready" | "error";
+type OptimizeMode = "recommendations" | "chat";
 type ChatMessage = {
   id: string;
   role: "user" | "assistant";
@@ -24,9 +24,12 @@ type OptimizePageProps = {
 };
 
 type HouseholdOptimizePanelProps = {
+  households: HouseholdAppData[];
   householdId: string;
   householdName: string;
+  onHouseholdChange: (householdId: string) => void;
   profile?: HouseholdProfile;
+  showHouseholdPicker: boolean;
   structure: HouseholdStructure;
 };
 
@@ -69,22 +72,22 @@ function formatProfileSummary(profile: HouseholdProfile | undefined, structure: 
 }
 
 export function OptimizePage({ households, isLoading }: OptimizePageProps) {
+  const [selectedHouseholdId, setSelectedHouseholdId] = useState<string | undefined>(() => households[0]?.id);
+  const selectedHousehold = households.find((household) => household.id === selectedHouseholdId) ?? households[0];
+
+  useEffect(() => {
+    if (households.length === 0) {
+      setSelectedHouseholdId(undefined);
+      return;
+    }
+
+    if (!households.some((household) => household.id === selectedHouseholdId)) {
+      setSelectedHouseholdId(households[0]?.id);
+    }
+  }, [households, selectedHouseholdId]);
+
   return (
     <div className="plan-review review-page optimize-page operational-page">
-      <section className="optimize-command-panel" aria-label="Assistant workspace">
-        <div>
-          <p className="eyebrow">Optimize</p>
-          <h1>Optimize</h1>
-          <p className="lede">
-            Ask Cleanly to inspect chores, timing, workload, and household gaps before approving changes.
-          </p>
-        </div>
-        <div className="assistant-prompt-callout">
-          <span>What should we improve around the house?</span>
-          <p>Review selected chores, ask follow-up questions, and apply only the changes that make sense.</p>
-        </div>
-      </section>
-
       {isLoading ? <div className="empty-state">Loading Optimize workspace...</div> : null}
 
       {!isLoading && households.length === 0 ? (
@@ -95,34 +98,35 @@ export function OptimizePage({ households, isLoading }: OptimizePageProps) {
         </section>
       ) : null}
 
-      {!isLoading ? (
-        <div className="household-panel-list">
-          {households.map((household) => (
-            <HouseholdOptimizePanel
-              profile={household.profile}
-              structure={household.structure}
-              householdId={household.id}
-              householdName={household.name}
-              key={household.id}
-            />
-          ))}
-        </div>
+      {!isLoading && selectedHousehold ? (
+        <HouseholdOptimizePanel
+          households={households}
+          profile={selectedHousehold.profile}
+          structure={selectedHousehold.structure}
+          householdId={selectedHousehold.id}
+          householdName={selectedHousehold.name}
+          onHouseholdChange={setSelectedHouseholdId}
+          showHouseholdPicker={households.length > 1}
+        />
       ) : null}
     </div>
   );
 }
 
 function HouseholdOptimizePanel({
+  households,
   householdId,
   householdName,
+  onHouseholdChange,
   profile,
+  showHouseholdPicker,
   structure
 }: HouseholdOptimizePanelProps) {
-  const [mode, setMode] = useState<OptimizeMode>("recommendations");
   const [chores, setChores] = useState<Chore[]>([]);
   const [existingRecommendations, setExistingRecommendations] = useState<Recommendation[]>([]);
   const [reviewRecommendations, setReviewRecommendations] = useState<Recommendation[]>([]);
   const [selectedChoreIds, setSelectedChoreIds] = useState<string[]>([]);
+  const [mode, setMode] = useState<OptimizeMode>("recommendations");
   const [reviewStep, setReviewStep] = useState<ReviewStep>("select");
   const [loadState, setLoadState] = useState<ReviewLoadState>("idle");
   const [status, setStatus] = useState("Choose chores for assistant review.");
@@ -167,6 +171,7 @@ function HouseholdOptimizePanel({
         setExistingRecommendations(nextRecommendations);
         setSelectedChoreIds(getReviewDefaultSelection(nextActiveChores, nextRecommendations));
         setReviewRecommendations([]);
+        setMode("recommendations");
         setReviewStep("select");
         setLoadState("ready");
         setStatus("Ready to review.");
@@ -279,259 +284,306 @@ function HouseholdOptimizePanel({
   }
 
   return (
-    <section className="household-instance optimize-household-workspace" aria-label={`${householdName} optimize workspace`}>
-      <div className="section-heading">
-        <div>
-          <p className="eyebrow">Household</p>
-          <h2>{householdName}</h2>
-          <p className="supporting-copy">{formatProfileSummary(profile, structure)}</p>
-        </div>
-      </div>
-
-      <div className="optimize-assistant-layout">
-        <section className="assistant-prompt-panel" aria-label={`${householdName} assistant prompt`}>
-          <span>What should we improve?</span>
-          <h3>Start with the chores that need another look.</h3>
-          <p>
-            Cleanly can compare selected chores against the home profile, room coverage, timing, and prior recommendations.
+    <section className="optimize-command-workspace" aria-label={`${householdName} optimize workspace`}>
+      <section className="optimize-command-panel" aria-label="Optimize command center">
+        <div className="optimize-command-copy">
+          <p className="eyebrow">Optimize / Cleanly assistant</p>
+          <h1>Run a plan checkup for {householdName}.</h1>
+          <p className="lede">
+            Cleanly looks across chores, room coverage, timing, and workload to suggest safer improvements before anything changes.
           </p>
-        </section>
-
-        <section className="recommendation-review-queue" aria-label={`${householdName} review queue`}>
-          <div>
-            <span>Ready to review</span>
-            <strong>{selectedChoreIds.length}</strong>
-            <p>Selected chores</p>
+          {showHouseholdPicker ? (
+            <label className="optimize-household-picker">
+              <span>Household to review</span>
+              <select
+                aria-label="Household to review"
+                onChange={(event) => onHouseholdChange(event.target.value)}
+                value={householdId}
+              >
+                {households.map((household) => (
+                  <option key={household.id} value={household.id}>{household.name}</option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          <div className="optimize-command-actions">
+            <button
+              disabled={selectedChoreIds.length === 0 || loadState !== "ready"}
+              onClick={handleGenerateSelectedReview}
+              type="button"
+            >
+              Review selected chores
+            </button>
           </div>
+        </div>
+        <aside className="optimize-checkup-card">
           <div>
-            <span>Pending ideas</span>
-            <strong>{pendingRecommendations.length}</strong>
-            <p>Awaiting a decision</p>
+            <p className="eyebrow">Checkup snapshot</p>
+            <h2>Ready for assistant review</h2>
+            <p>{selectedChoreIds.length} chores are selected. {pendingRecommendations.length} older ideas still need a decision.</p>
           </div>
-          <div>
-            <span>Applied</span>
-            <strong>{appliedRecommendations.length}</strong>
-            <p>Accepted improvements</p>
-          </div>
-        </section>
-
-        <section className="household-signal-grid" aria-label={`${householdName} household signals`}>
-          <div>
-            <span>Context</span>
-            <strong>{profile?.homeType ?? "Profile needed"}</strong>
-          </div>
-          <div>
-            <span>Floors</span>
-            <strong>{structure.floors.length}</strong>
-          </div>
-          <div>
-            <span>Rooms</span>
-            <strong>{structure.floors.reduce((total, floor) => total + floor.rooms.length, 0)}</strong>
-          </div>
-        </section>
-      </div>
-
-      <div className="optimize-mode-tabs" role="tablist" aria-label="Optimize mode">
-        <button
-          aria-selected={mode === "recommendations"}
-          onClick={() => setMode("recommendations")}
-          role="tab"
-          type="button"
-        >
-          Recommendations
-        </button>
-        <button
-          aria-selected={mode === "chat"}
-          onClick={() => setMode("chat")}
-          role="tab"
-          type="button"
-        >
-          Chat
-        </button>
-      </div>
-
-      {mode === "recommendations" ? (
-        <section className="dashboard-section review-flow-section" aria-labelledby="review-flow-heading">
-          <div className="section-heading">
-            <div className="section-title">
-              <div>
-                <h2 id="review-flow-heading">
-                  {reviewStep === "select" ? "Choose chores to review" : null}
-                  {reviewStep === "decide" ? "Decide on recommendations" : null}
-                  {reviewStep === "complete" ? "Review complete" : null}
-                </h2>
-                <p>
-                  {reviewStep === "select"
-                    ? "Unreviewed chores are selected by default. Select reviewed chores too if you want another pass."
-                    : null}
-                  {reviewStep === "decide"
-                    ? "Accept or decline each recommendation, then apply the decisions together."
-                    : null}
-                  {reviewStep === "complete"
-                    ? "Your recommendation decisions were applied. Calendar export can fit here in a future slice."
-                    : null}
-                </p>
-              </div>
+          <div className="optimize-checkup-stats">
+            <div>
+              <strong>{selectedChoreIds.length}</strong>
+              <span>Selected</span>
             </div>
-            <span className="confidence" role="status">{status}</span>
+            <div>
+              <strong>{pendingRecommendations.length}</strong>
+              <span>Pending</span>
+            </div>
+            <div>
+              <strong>{appliedRecommendations.length}</strong>
+              <span>Applied</span>
+            </div>
           </div>
+        </aside>
+      </section>
 
-          {loadState === "loading" ? (
-            <div className="empty-state">Loading Optimize workspace...</div>
-          ) : null}
+      <div className="optimize-workspace-grid">
+        <div className="optimize-workspace-toolbar">
+          <div className="optimize-mode-tabs" role="tablist" aria-label="Optimize workspace mode">
+            <button
+              aria-selected={mode === "recommendations"}
+              onClick={() => setMode("recommendations")}
+              role="tab"
+              type="button"
+            >
+              Recommendations
+            </button>
+            <button
+              aria-selected={mode === "chat"}
+              onClick={() => setMode("chat")}
+              role="tab"
+              type="button"
+            >
+              Chat
+            </button>
+          </div>
+          <span className="optimize-workspace-status" role="status">{status}</span>
+        </div>
 
-          {loadState === "error" ? (
-            <div className="empty-state">Could not load the Optimize workspace.</div>
-          ) : null}
-
-          {loadState === "ready" && reviewStep === "select" ? (
-            <>
-              {activeChores.length === 0 ? (
-                <div className="empty-state">No active chores are ready for review.</div>
-              ) : (
-                <div className="review-checkbox-list">
-                  {activeChores.map((chore) => (
-                    <label className="review-checkbox-row" key={chore.id}>
-                      <input
-                        checked={selectedChoreIds.includes(chore.id)}
-                        onChange={(event) => {
-                          setSelectedChoreIds((currentIds) =>
-                            event.target.checked
-                              ? [...currentIds, chore.id]
-                              : currentIds.filter((id) => id !== chore.id)
-                          );
-                        }}
-                        type="checkbox"
-                      />
-                      <span>{chore.title}</span>
-                    </label>
-                  ))}
+        <div className="optimize-review-stack">
+          {mode === "recommendations" ? (
+            <section className="dashboard-section review-flow-section optimize-review-panel" aria-label="Recommendation review">
+              <div className="section-heading">
+                <div className="section-title">
+                  <div>
+                    <p className="eyebrow">Recommendation review</p>
+                    <h2 id="review-flow-heading">
+                      {reviewStep === "select" ? "Choose chores to review" : null}
+                      {reviewStep === "decide" ? "Decide on recommendations" : null}
+                      {reviewStep === "complete" ? "Review complete" : null}
+                    </h2>
+                    <p>
+                      {reviewStep === "select"
+                        ? "Unreviewed chores are selected by default. Select reviewed chores too if you want another pass."
+                        : null}
+                      {reviewStep === "decide"
+                        ? "Accept or decline each recommendation, then apply the decisions together."
+                        : null}
+                      {reviewStep === "complete"
+                        ? "Your recommendation decisions were applied. Calendar export can fit here in a future slice."
+                        : null}
+                    </p>
+                  </div>
                 </div>
-              )}
-
-              <div className="form-actions">
-                <button
-                  disabled={selectedChoreIds.length === 0}
-                  onClick={handleGenerateSelectedReview}
-                  type="button"
-                >
-                  Review selected chores
-                </button>
+                <span className="confidence">{status}</span>
               </div>
-            </>
+
+              {loadState === "loading" ? (
+                <div className="empty-state">Loading Optimize workspace...</div>
+              ) : null}
+
+              {loadState === "error" ? (
+                <div className="empty-state">Could not load the Optimize workspace.</div>
+              ) : null}
+
+              {loadState === "ready" && reviewStep === "select" ? (
+                <>
+                  <div className="optimize-stage-strip" aria-label="Review progress">
+                    <span className="is-active"><strong>Select chores</strong><small>Current step</small></span>
+                    <span><strong>Decide ideas</strong><small>Accept or decline</small></span>
+                    <span><strong>Apply changes</strong><small>Commit together</small></span>
+                  </div>
+
+                  {activeChores.length === 0 ? (
+                    <div className="empty-state">No active chores are ready for review.</div>
+                  ) : (
+                    <div className="review-checkbox-list">
+                      {activeChores.map((chore) => (
+                        <label className="review-checkbox-row" key={chore.id}>
+                          <input
+                            checked={selectedChoreIds.includes(chore.id)}
+                            onChange={(event) => {
+                              setSelectedChoreIds((currentIds) =>
+                                event.target.checked
+                                  ? [...currentIds, chore.id]
+                                  : currentIds.filter((id) => id !== chore.id)
+                              );
+                            }}
+                            type="checkbox"
+                          />
+                          <span>{chore.title}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="form-actions">
+                    <button
+                      disabled={selectedChoreIds.length === 0}
+                      onClick={handleGenerateSelectedReview}
+                      type="button"
+                    >
+                      Run review
+                    </button>
+                  </div>
+                </>
+              ) : null}
+
+              {loadState === "ready" && reviewStep === "decide" ? (
+                <>
+                  <div className="recommendation-list">
+                    {reviewRecommendations.map((recommendation) => (
+                      <article className="recommendation" key={recommendation.id}>
+                        <div>
+                          <span className="recommendation-type">Recommendation</span>
+                          <h3>{recommendation.title}</h3>
+                          <p>{recommendation.rationale}</p>
+                        </div>
+                        <span className="confidence">Confidence: {recommendation.confidence}</span>
+                        <div className="decision-toggle" role="group" aria-label={`Decision for ${recommendation.title}`}>
+                          <button
+                            aria-pressed={recommendation.decision === "accepted"}
+                            onClick={() => handleDecisionChange(recommendation, "accepted")}
+                            type="button"
+                          >
+                            Accept
+                          </button>
+                          <button
+                            aria-pressed={recommendation.decision === "declined"}
+                            onClick={() => handleDecisionChange(recommendation, "declined")}
+                            type="button"
+                          >
+                            Decline
+                          </button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+
+                  <div className="context-support">
+                    <strong>Recommendations not adding up?</strong>
+                    <p>Make sure your household context is correct for more accurate recommendations.</p>
+                  </div>
+
+                  <div className="form-actions">
+                    <button className="secondary-action" onClick={() => setReviewStep("select")} type="button">
+                      Back
+                    </button>
+                    <button onClick={handleApplyDecisions} type="button">
+                      Apply decisions
+                    </button>
+                  </div>
+                </>
+              ) : null}
+
+              {loadState === "ready" && reviewStep === "complete" ? (
+                <div className="review-completion">
+                  <p>Recommendation decisions applied.</p>
+                  <p>{existingRecommendations.length} recommendation records are available for this household.</p>
+                </div>
+              ) : null}
+            </section>
           ) : null}
 
-          {loadState === "ready" && reviewStep === "decide" ? (
-            <>
-              <div className="recommendation-list">
-                {reviewRecommendations.map((recommendation) => (
-                  <article className="recommendation" key={recommendation.id}>
-                    <div>
-                      <span className="recommendation-type">Recommendation</span>
-                      <h3>{recommendation.title}</h3>
-                      <p>{recommendation.rationale}</p>
-                    </div>
-                    <span className="confidence">Confidence: {recommendation.confidence}</span>
-                    <div className="decision-toggle" role="group" aria-label={`Decision for ${recommendation.title}`}>
-                      <button
-                        aria-pressed={recommendation.decision === "accepted"}
-                        onClick={() => handleDecisionChange(recommendation, "accepted")}
-                        type="button"
-                      >
-                        Accept
-                      </button>
-                      <button
-                        aria-pressed={recommendation.decision === "declined"}
-                        onClick={() => handleDecisionChange(recommendation, "declined")}
-                        type="button"
-                      >
-                        Decline
-                      </button>
-                    </div>
+          {mode === "chat" ? (
+            <section className="dashboard-section optimize-chat-section" aria-label="Assistant chat">
+              <div className="section-heading">
+                <div className="section-title">
+                  <div>
+                    <p className="eyebrow">Assistant chat</p>
+                    <h2 id="optimize-chat-heading">Ask while you review</h2>
+                    <p>Use chat for questions that do not need the structured recommendation flow.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="chat-prompt-list" aria-label="Suggested questions">
+                {chatPrompts.map((prompt) => (
+                  <button
+                    className="secondary-action"
+                    key={prompt}
+                    onClick={() => setChatInput(prompt)}
+                    type="button"
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+
+              <div className="chat-thread" aria-label="Assistant conversation">
+                {chatMessages.length === 0 ? (
+                  <p className="empty-state">Ask a question about chore scope, scheduling, or missing recurring work.</p>
+                ) : null}
+                {chatMessages.map((message) => (
+                  <article className={`chat-message chat-message-${message.role}`} key={message.id}>
+                    <span>{message.role === "user" ? "You" : "Assistant"}</span>
+                    <p>{message.text}</p>
                   </article>
                 ))}
               </div>
 
-              <div className="context-support">
-                <strong>Recommendations not adding up?</strong>
-                <p>Make sure your household context is correct for more accurate recommendations.</p>
-              </div>
-
+              <label className="chat-input-label">
+                Ask the assistant
+                <textarea
+                  onChange={(event) => setChatInput(event.target.value)}
+                  value={chatInput}
+                />
+              </label>
               <div className="form-actions">
-                <button className="secondary-action" onClick={() => setReviewStep("select")} type="button">
-                  Back
-                </button>
-                <button onClick={handleApplyDecisions} type="button">
-                  Apply decisions
+                <button
+                  disabled={!chatInput.trim() || chatIsSending}
+                  onClick={handleSendChat}
+                  type="button"
+                >
+                  Send
                 </button>
               </div>
-            </>
+            </section>
           ) : null}
+        </div>
 
-          {loadState === "ready" && reviewStep === "complete" ? (
-            <div className="review-completion">
-              <p>Recommendation decisions applied.</p>
-              <p>{existingRecommendations.length} recommendation records are available for this household.</p>
-            </div>
-          ) : null}
-        </section>
-      ) : null}
-
-      {mode === "chat" ? (
-        <section className="dashboard-section optimize-chat-section" aria-labelledby="optimize-chat-heading">
-          <div className="section-heading">
-            <div className="section-title">
+        <aside className="optimize-context-rail">
+          <section className="dashboard-section optimize-context-panel" aria-label={`${householdName} household signals`}>
+            <div className="section-heading">
               <div>
-                <h2 id="optimize-chat-heading">Ask about your chores</h2>
-                <p>Use chat for questions that do not need the structured recommendation flow.</p>
+                <p className="eyebrow">Household signals</p>
+                <h2>What Cleanly is using</h2>
+                <p>{formatProfileSummary(profile, structure)}</p>
               </div>
             </div>
-            <span className="confidence" role="status">{status}</span>
-          </div>
-
-          <div className="chat-prompt-list" aria-label="Suggested questions">
-            {chatPrompts.map((prompt) => (
-              <button
-                className="secondary-action"
-                key={prompt}
-                onClick={() => setChatInput(prompt)}
-                type="button"
-              >
-                {prompt}
-              </button>
-            ))}
-          </div>
-
-          <div className="chat-thread" aria-label="Assistant conversation">
-            {chatMessages.length === 0 ? (
-              <p className="empty-state">Ask a question about chore scope, scheduling, or missing recurring work.</p>
-            ) : null}
-            {chatMessages.map((message) => (
-              <article className={`chat-message chat-message-${message.role}`} key={message.id}>
-                <span>{message.role === "user" ? "You" : "Assistant"}</span>
-                <p>{message.text}</p>
-              </article>
-            ))}
-          </div>
-
-          <label className="chat-input-label">
-            Ask the assistant
-            <textarea
-              onChange={(event) => setChatInput(event.target.value)}
-              value={chatInput}
-            />
-          </label>
-          <div className="form-actions">
-            <button
-              disabled={!chatInput.trim() || chatIsSending}
-              onClick={handleSendChat}
-              type="button"
-            >
-              Send
-            </button>
-          </div>
-        </section>
-      ) : null}
+            <div className="household-signal-grid">
+              <div>
+                <span>Context</span>
+                <strong>{profile?.homeType ?? "Profile needed"}</strong>
+              </div>
+              <div>
+                <span>Floors</span>
+                <strong>{structure.floors.length}</strong>
+              </div>
+              <div>
+                <span>Rooms</span>
+                <strong>{structure.floors.reduce((total, floor) => total + floor.rooms.length, 0)}</strong>
+              </div>
+              <div>
+                <span>Pets</span>
+                <strong>{profile?.hasPets ? "Yes" : "No"}</strong>
+              </div>
+            </div>
+          </section>
+        </aside>
+      </div>
     </section>
   );
 }
