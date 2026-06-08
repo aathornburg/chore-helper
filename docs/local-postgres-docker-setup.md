@@ -54,7 +54,7 @@ Invitation delivery settings belong in the same file:
 
 ```dotenv
 RESEND_API_KEY=""
-INVITATION_FROM_EMAIL="Cleanly <invites@example.com>"
+INVITATION_FROM_EMAIL="Clenella <invites@example.com>"
 APP_BASE_URL="http://localhost:5173"
 ```
 
@@ -87,7 +87,7 @@ GOOGLE_OAUTH_STATE_SECRET="replace_with_random_state_secret"
 GOOGLE_TOKEN_ENCRYPTION_KEY="replace_with_random_token_secret"
 ```
 
-The local MVP uses user-triggered sync only. Users connect Google Calendar, pick source/destination calendars in Settings, review events to share, and explicitly export visible Cleanly calendar events.
+The local MVP uses user-triggered sync only. Users connect Google Calendar, pick source/destination calendars in Settings, review events to share, and explicitly export visible Clenella calendar events.
 
 ## Start the Database
 

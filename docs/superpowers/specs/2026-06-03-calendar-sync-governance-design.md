@@ -4,20 +4,20 @@ Date: 2026-06-03
 
 ## Summary
 
-Cleanly should support Google Calendar import and export as the first provider in a broader provider-agnostic calendar sync system. The product needs two distinct control surfaces:
+Clenella should support Google Calendar import and export as the first provider in a broader provider-agnostic calendar sync system. The product needs two distinct control surfaces:
 
-- Owners manage what each family member can send into the shared Cleanly calendar.
+- Owners manage what each family member can send into the shared Clenella calendar.
 - Each member manages their own Google connection, privacy level, import submissions, and export destinations.
 
-This keeps the family calendar useful without making Cleanly feel invasive. Owners can protect the shared planning surface, while members keep control over their personal calendars and event detail privacy.
+This keeps the family calendar useful without making Clenella feel invasive. Owners can protect the shared planning surface, while members keep control over their personal calendars and event detail privacy.
 
 ## Goals
 
-- Add a separate internal Cleanly calendar that can contain chores and commitments.
+- Add a separate internal Clenella calendar that can contain chores and commitments.
 - Let owners manage per-member import governance for the household.
-- Let members choose which external events they share with Cleanly.
-- Let members choose whether and how Cleanly exports events back to their own calendar.
-- Keep export independent from import so users can export Cleanly chores without sharing personal commitments.
+- Let members choose which external events they share with Clenella.
+- Let members choose whether and how Clenella exports events back to their own calendar.
+- Keep export independent from import so users can export Clenella chores without sharing personal commitments.
 - Prepare for Google Calendar first, while leaving room for future calendar providers.
 - Add an owner-only import queue on the Calendar page using the selected queue table/detail rail direction.
 
@@ -32,15 +32,15 @@ This keeps the family calendar useful without making Cleanly feel invasive. Owne
 
 ## Product Rules
 
-The internal Cleanly calendar is separate from every external provider calendar. Imported commitments and Cleanly chores become Cleanly-owned planning objects with source references, not provider-owned state.
+The internal Clenella calendar is separate from every external provider calendar. Imported commitments and Clenella chores become Clenella-owned planning objects with source references, not provider-owned state.
 
-Google Calendar connections are user-owned. A household owner can decide whether a member is allowed to submit events into the household Cleanly calendar, but the owner cannot connect that member's Google account or choose that member's export destination.
+Google Calendar connections are user-owned. A household owner can decide whether a member is allowed to submit events into the household Clenella calendar, but the owner cannot connect that member's Google account or choose that member's export destination.
 
-Members choose the events they send to Cleanly. If the household owner policy for that member is `manual`, selected events enter the owner review queue. If the policy is `auto`, selected events are added automatically to the shared Cleanly calendar. If the policy is `off`, the member cannot submit imported events for that household.
+Members choose the events they send to Clenella. If the household owner policy for that member is `manual`, selected events enter the owner review queue. If the policy is `auto`, selected events are added automatically to the shared Clenella calendar. If the policy is `off`, the member cannot submit imported events for that household.
 
-Members choose their own export behavior. Export can be off, review-first, or automatic. Members choose the target calendar for exported Cleanly events. Export does not require import.
+Members choose their own export behavior. Export can be off, review-first, or automatic. Members choose the target calendar for exported Clenella events. Export does not require import.
 
-Cleanly may store full event details only when the member permits it. The default imported commitment detail level is busy-only.
+Clenella may store full event details only when the member permits it. The default imported commitment detail level is busy-only.
 
 ## Owner Settings Experience
 
@@ -49,19 +49,19 @@ Use the selected Owner Settings A direction: a governance dashboard.
 The owner Settings page has two clear lanes:
 
 - `Your calendar connection`: the owner's personal Google connection, source calendars, privacy preference, and export preference.
-- `Family import controls`: owner-managed rules for what each household member can send into the shared Cleanly calendar.
+- `Family import controls`: owner-managed rules for what each household member can send into the shared Clenella calendar.
 
 The family import controls table shows one row per member:
 
 - Member name/email.
-- Import to Cleanly: `Off`, `Review first`, or `Auto-add`.
+- Import to Clenella: `Off`, `Review first`, or `Auto-add`.
 - Allowed content: `Chores`, `Commitments`, or `Both`.
 - Detail policy summary showing that member privacy controls still apply.
 
 Page copy should be explicit:
 
-- Import governance controls what members can send into the shared Cleanly calendar.
-- Export is personal. Each member controls whether Cleanly writes to their own calendar and where those exports go.
+- Import governance controls what members can send into the shared Clenella calendar.
+- Export is personal. Each member controls whether Clenella writes to their own calendar and where those exports go.
 - Members may share busy-only information unless they opt into full event details.
 
 ## Non-Owner Settings Experience
@@ -73,12 +73,12 @@ The member Settings page includes:
 - Google Calendar connection status.
 - Source calendar selection.
 - Privacy default: `Busy only` first, `Full details` as an opt-in.
-- A way to review candidate events and choose which ones to send to Cleanly.
+- A way to review candidate events and choose which ones to send to Clenella.
 - Export destination calendar selection.
 - Export mode: `Off`, `Review first`, or `Auto`.
 - Export content mode: `Chores`, `Commitments`, or `Both`.
 
-Non-owners do not see the owner per-member import governance table. They can see a small status summary for their own household policy, such as "Your household owner reviews shared events before they appear on the Cleanly calendar."
+Non-owners do not see the owner per-member import governance table. They can see a small status summary for their own household policy, such as "Your household owner reviews shared events before they appear on the Clenella calendar."
 
 ## Calendar Import Queue Experience
 
@@ -179,7 +179,7 @@ Fields:
 
 ### CleanlyCalendarEvent
 
-Provider-agnostic internal calendar event used by Cleanly planning.
+Provider-agnostic internal calendar event used by Clenella planning.
 
 Fields:
 
@@ -202,7 +202,7 @@ Fields:
 
 ### CalendarImportQueueItem
 
-Owner-managed item submitted by a member for shared Cleanly calendar review.
+Owner-managed item submitted by a member for shared Clenella calendar review.
 
 Fields:
 
@@ -239,7 +239,7 @@ Fields:
 
 ### ExternalCalendarEventLink
 
-Links internal Cleanly events to provider events to prevent duplicate imports/exports.
+Links internal Clenella events to provider events to prevent duplicate imports/exports.
 
 Fields:
 
@@ -304,13 +304,13 @@ Fields:
 
 `GET /api/me/calendar/import-candidates`
 
-- Returns external events the current user may choose to send to Cleanly.
+- Returns external events the current user may choose to send to Clenella.
 - Applies household owner policy before returning candidates.
 
 `POST /api/me/calendar/import-queue`
 
-- Sends selected events to the Cleanly queue or auto-adds them when the member policy is `auto`.
-- Returns created queue items or created Cleanly events.
+- Sends selected events to the Clenella queue or auto-adds them when the member policy is `auto`.
+- Returns created queue items or created Clenella events.
 
 `GET /api/me/calendar/export-queue`
 
@@ -333,7 +333,7 @@ Members can:
 
 - Connect or disconnect their own Google Calendar account.
 - Choose source calendars and privacy defaults.
-- Submit selected events to Cleanly when household policy allows it.
+- Submit selected events to Clenella when household policy allows it.
 - Configure export mode, content mode, and destination calendar.
 - Review their own export queue.
 

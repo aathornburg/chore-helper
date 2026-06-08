@@ -216,7 +216,7 @@ if (households.length === 0) {
       <section className="placeholder-page first-home-empty-state">
         <p className="eyebrow">Home setup</p>
         <h1>Set up your home</h1>
-        <p className="lede">Create a home model so Cleanly can understand floors, rooms, surfaces, and cleaning coverage.</p>
+        <p className="lede">Create a home model so Clenella can understand floors, rooms, surfaces, and cleaning coverage.</p>
         <button disabled={isAddingHousehold} onClick={handleAddHousehold} type="button">
           Add household
         </button>

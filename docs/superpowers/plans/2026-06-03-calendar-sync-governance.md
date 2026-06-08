@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the durable calendar sync governance foundation, owner/member Settings surfaces, and owner-only Calendar import queue UI for Cleanly without implementing live Google OAuth synchronization in this batch.
+**Goal:** Build the durable calendar sync governance foundation, owner/member Settings surfaces, and owner-only Calendar import queue UI for Clenella without implementing live Google OAuth synchronization in this batch.
 
 **Architecture:** Add provider-agnostic calendar sync types to `shared`, persist sync governance in Prisma, mirror the same behavior in the in-memory store for tests, expose owner-only and member-owned REST endpoints, then consume those endpoints from Settings and Calendar. Google connection actions remain product-ready mock states until the OAuth provider execution plan is implemented.
 
@@ -1383,7 +1383,7 @@ In `web/src/App.test.tsx`, add tests that mock the new API calls and assert:
 ```ts
 expect(await screen.findByRole("heading", { name: "Calendar sync" })).toBeInTheDocument();
 expect(screen.getByText("Family import controls")).toBeInTheDocument();
-expect(screen.getByText("Export is personal. Each member chooses where Cleanly writes calendar updates.")).toBeInTheDocument();
+expect(screen.getByText("Export is personal. Each member chooses where Clenella writes calendar updates.")).toBeInTheDocument();
 ```
 
 Add a non-owner variant that expects:
@@ -1518,7 +1518,7 @@ Replace the current Google Calendar integration card with:
               </div>
             </div>
             <p>
-              Choose what you share with Cleanly and where Cleanly exports your calendar updates. Export does not require importing personal events.
+              Choose what you share with Clenella and where Clenella exports your calendar updates. Export does not require importing personal events.
             </p>
             <button onClick={() => void startGoogleCalendarConnection().then((result) => setCalendarStatus(result.message))} type="button">
               Connect Google Calendar
@@ -1554,7 +1554,7 @@ Replace the current Google Calendar integration card with:
                 </label>
               </div>
             ) : null}
-            <p className="section-summary">Export is personal. Each member chooses where Cleanly writes calendar updates.</p>
+            <p className="section-summary">Export is personal. Each member chooses where Clenella writes calendar updates.</p>
           </article>
 
           {isOwner ? (
@@ -1565,7 +1565,7 @@ Replace the current Google Calendar integration card with:
                   <h3>Family import controls</h3>
                 </div>
               </div>
-              <p>Control how each member can send calendar events into the shared Cleanly calendar.</p>
+              <p>Control how each member can send calendar events into the shared Clenella calendar.</p>
               <div className="sync-policy-table">
                 {policies.map((policy) => (
                   <div className="sync-policy-row" key={policy.memberId}>
@@ -1603,7 +1603,7 @@ Replace the current Google Calendar integration card with:
               <div className="panel-heading">
                 <h3>Your household policy</h3>
               </div>
-              <p>Your household owner controls whether shared events are auto-added, reviewed first, or turned off for the shared Cleanly calendar.</p>
+              <p>Your household owner controls whether shared events are auto-added, reviewed first, or turned off for the shared Clenella calendar.</p>
             </article>
           )}
         </div>
@@ -1933,7 +1933,7 @@ In `docs/product-roadmap.md`, update milestone 6 to say:
 
 ```md
 - Calendar sync governance separates owner import controls from member-owned import/export preferences.
-- Owners review member-submitted commitments through an owner-only import queue before items enter the shared Cleanly calendar, unless that member is configured for auto-add.
+- Owners review member-submitted commitments through an owner-only import queue before items enter the shared Clenella calendar, unless that member is configured for auto-add.
 - Members control export mode and destination calendar independently from import.
 ```
 

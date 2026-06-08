@@ -410,8 +410,8 @@ function mockFamilyPageFetches(currentRole: "owner" | "member" = "owner") {
     sequence: 1,
     planningMode: "flexible",
     estimatedMinutes: 30,
-    eligibleStartOn: "2026-06-01",
-    eligibleEndOn: "2026-06-01",
+    eligibleStartOn: "2026-06-08",
+    eligibleEndOn: "2026-06-08",
     assignedUserId: "app-user-1",
     exceptionType: "none",
     status: "planned"
@@ -423,8 +423,8 @@ function mockFamilyPageFetches(currentRole: "owner" | "member" = "owner") {
     sequence: 2,
     planningMode: "flexible",
     estimatedMinutes: 20,
-    eligibleStartOn: "2026-06-03",
-    eligibleEndOn: "2026-06-03",
+    eligibleStartOn: "2026-06-10",
+    eligibleEndOn: "2026-06-10",
     assignedUserId: "app-user-2",
     exceptionType: "none",
     status: "planned"
@@ -898,7 +898,7 @@ function mockCalendarWorkspaceFetches({
         json: async () => ({
           connectionId: "connection-1",
           status: "disconnected",
-          message: "Google Calendar was disconnected from Cleanly."
+          message: "Google Calendar was disconnected from Clenella."
         })
       };
     }
@@ -1500,19 +1500,19 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "Put chores where the week actually has room." })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Build my home plan" }).getAttribute("data-force-redirect-url")).toBe("/today");
     expect(screen.queryByText(/calendar manager first/i)).toBeNull();
-    expect(screen.getByText(/Cleanly reads the shape of your week/i)).toBeTruthy();
+    expect(screen.getByText(/Clenella reads the shape of your week/i)).toBeTruthy();
 
     const nav = screen.getByRole("navigation", { name: "Landing" });
     expect(within(nav).getByRole("link", { name: "How it works" })).toBeTruthy();
     expect(within(nav).getByRole("link", { name: "Family load" })).toBeTruthy();
-    expect(within(nav).getByRole("link", { name: "Why Cleanly" })).toBeTruthy();
+    expect(within(nav).getByRole("link", { name: "Why Clenella" })).toBeTruthy();
     expect(within(nav).queryByRole("link", { name: "Google Calendar" })).toBeNull();
     expect(within(nav).queryByRole("link", { name: "Optimize" })).toBeNull();
     expect(within(nav).queryByRole("link", { name: "Today" })).toBeNull();
     expect(within(nav).queryByRole("link", { name: "Calendar" })).toBeNull();
     expect(screen.getByRole("button", { name: /sign in/i }).getAttribute("data-force-redirect-url")).toBe("/today");
 
-    expect(screen.getByRole("region", { name: "Cleanly calendar optimization preview" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Clenella calendar optimization preview" })).toBeTruthy();
     expect(screen.getByText("June chore plan")).toBeTruthy();
     expect(screen.getByText("Synced with Google Calendar")).toBeTruthy();
     expect(screen.getByText("Google Calendar added: practice, dentist, trash pickup, school event")).toBeTruthy();
@@ -1524,12 +1524,12 @@ describe("App", () => {
     expect(screen.queryByText("Grouped with trip")).toBeNull();
     expect(screen.queryByText("Done early")).toBeNull();
 
-    expect(screen.getByRole("heading", { name: "How Cleanly works" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "How Clenella works" })).toBeTruthy();
     expect(screen.getByText("Three steps, no spreadsheet")).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Why Cleanly" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Why Clenella" })).toBeTruthy();
     expect(screen.getByText('Less "whose turn?" energy')).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Set up the home" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Keep Cleanly in the loop" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Keep Clenella in the loop" })).toBeTruthy();
     expect(screen.getByText(/Mark chores complete, skipped, or still open/i)).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Balanced for the household" })).toBeTruthy();
     expect(screen.getByText(/Google Calendar import and export/i)).toBeTruthy();
@@ -1550,7 +1550,7 @@ describe("App", () => {
 
     renderAt("/today");
 
-    expect(screen.getByRole("status").textContent).toBe("Loading Cleanly...");
+    expect(screen.getByRole("status").textContent).toBe("Loading Clenella...");
   });
 
   it("renders all households without an active household selector", async () => {
@@ -2059,7 +2059,7 @@ describe("App", () => {
     expect(collaboration).toBeTruthy();
     await waitFor(() => expect(within(collaboration).getAllByText("Alex Owner").length).toBeGreaterThan(0));
     expect(within(collaboration).getByRole("region", { name: "Home weekly responsibility board" })).toBeTruthy();
-    expect(within(collaboration).getAllByText("Clean bathrooms").length).toBeGreaterThan(0);
+    await waitFor(() => expect(within(collaboration).getAllByText("Clean bathrooms").length).toBeGreaterThan(0));
     await waitFor(() => {
       expect(within(collaboration).getByText("People with household access").parentElement?.textContent).toContain("2");
       expect(within(collaboration).getByText("Owner-managed invite queue").parentElement?.textContent).toContain("1");
@@ -3282,7 +3282,7 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Disconnect Google Calendar" }));
 
-    expect(await screen.findByText("Google Calendar was disconnected from Cleanly.")).toBeTruthy();
+    expect(await screen.findByText("Google Calendar was disconnected from Clenella.")).toBeTruthy();
     expect(screen.getByText("Not connected")).toBeTruthy();
   });
 
@@ -3343,7 +3343,7 @@ describe("App", () => {
 
       fireEvent.click(await screen.findByRole("button", { name: "Import events" }));
       expect(await screen.findByRole("dialog", { name: "Import calendar events" })).toBeTruthy();
-      expect(screen.queryByText(/You're connected. Choose which Google Calendar events Cleanly can use./)).toBeNull();
+      expect(screen.queryByText(/You're connected. Choose which Google Calendar events Clenella can use./)).toBeNull();
       expect((screen.getByLabelText("From calendar") as HTMLSelectElement).value).toBe("external-calendar-1");
       expect(screen.getByRole("option", { name: "Choose a calendar" })).toBeTruthy();
       expect(screen.queryByRole("option", { name: "All connected calendars" })).toBeNull();
@@ -3354,7 +3354,7 @@ describe("App", () => {
       expect(screen.getByText("0 selected")).toBeTruthy();
       expect(await screen.findByText("Soccer practice")).toBeTruthy();
       expect(screen.getByText("Busy")).toBeTruthy();
-      expect(screen.getByText(/Cleanly shares as/)).toBeTruthy();
+      expect(screen.getByText(/Clenella shares as/)).toBeTruthy();
       expect((screen.getByLabelText("Hide details for Soccer practice") as HTMLInputElement).checked).toBe(true);
       expect((screen.getByLabelText("Soccer practice import type") as HTMLSelectElement).value).toBe("commitment");
       expect((screen.getByRole("button", { name: "Apply to selected" }) as HTMLButtonElement).disabled).toBe(true);
@@ -3369,7 +3369,7 @@ describe("App", () => {
 
       expect((screen.getByLabelText("Hide details for Soccer practice") as HTMLInputElement).checked).toBe(false);
       expect(screen.getAllByText("Soccer practice").length).toBeGreaterThan(1);
-      expect((screen.getByRole("button", { name: "Send selected to Cleanly" }) as HTMLButtonElement).disabled).toBe(false);
+      expect((screen.getByRole("button", { name: "Send selected to Clenella" }) as HTMLButtonElement).disabled).toBe(false);
     });
   });
 
@@ -3398,7 +3398,7 @@ describe("App", () => {
       expect(screen.getByRole("region", { name: "Import disabled" })).toBeTruthy();
       expect(screen.getByText(/household owner has turned off Google Calendar imports/i)).toBeTruthy();
       fireEvent.click(screen.getByLabelText("Select Soccer practice"));
-      expect((screen.getByRole("button", { name: "Send selected to Cleanly" }) as HTMLButtonElement).disabled).toBe(true);
+      expect((screen.getByRole("button", { name: "Send selected to Clenella" }) as HTMLButtonElement).disabled).toBe(true);
     });
   });
 
@@ -3535,7 +3535,7 @@ describe("App", () => {
     await waitFor(() => expect(screen.getByRole("heading", { name: "Run a plan checkup for Home." })).toBeTruthy());
     expect(screen.getByRole("region", { name: "Optimize command center" })).toBeTruthy();
     expect(screen.getByText("Ready for assistant review")).toBeTruthy();
-    expect(screen.getByText("What Cleanly is using")).toBeTruthy();
+    expect(screen.getByText("What Clenella is using")).toBeTruthy();
     expect((await screen.findAllByText(/Selected/i)).length).toBeGreaterThan(0);
 
     const modeTabs = screen.getByRole("tablist", { name: "Optimize workspace mode" });

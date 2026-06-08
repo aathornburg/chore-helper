@@ -352,7 +352,7 @@ describe("calendar sync governance", () => {
     }));
   });
 
-  it("does not create a new Cleanly event id when approving an already approved queue item", async () => {
+  it("does not create a new Clenella event id when approving an already approved queue item", async () => {
     const { app, household, member, store } = await createHouseholdWithMember();
     const queueItem = await store.createCalendarImportQueueItem({
       householdId: household.id,
@@ -760,7 +760,7 @@ describe("calendar sync governance", () => {
     ]);
   });
 
-  it("exports approved Cleanly calendar events to the selected Google destination calendar", async () => {
+  it("exports approved Clenella calendar events to the selected Google destination calendar", async () => {
     const store = createInMemoryStore();
     const provider = fakeGoogleProvider();
     const app = createApp({ store, authMode: "test", calendarProvider: provider });
@@ -777,7 +777,7 @@ describe("calendar sync governance", () => {
     });
     const calendars = await store.upsertExternalCalendars(owner.id, connection.id, [{
       providerCalendarId: "cleanly",
-      name: "Cleanly",
+      name: "Clenella",
       timezone: "America/New_York",
       accessRole: "owner"
     }]);

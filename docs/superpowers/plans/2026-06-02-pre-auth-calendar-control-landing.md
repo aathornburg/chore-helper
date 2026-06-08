@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the signed-out Cleanly landing page with the approved calendar-control-tower hero that positions Cleanly as a calendar manager first and chore optimizer second.
+**Goal:** Replace the signed-out Clenella landing page with the approved calendar-control-tower hero that positions Clenella as a calendar manager first and chore optimizer second.
 
 **Architecture:** Keep `LandingPage` as the signed-out entry point and keep auth wiring unchanged through the existing `primaryAction` and `signInAction` props. Implement the hero as static React markup plus CSS-native layout and SVG marker animation; no backend, routing, schema, generated image, or third-party animation dependency is required. Keep below-fold sections focused and supportive, but do not build a separate marketing site framework.
 
@@ -15,7 +15,7 @@
 Implement the approved A1 direction from `docs/landing-marketing-creative-comparison.html`:
 
 - Calendar-control-tower hero.
-- Cleanly brand script treatment consistent with the authenticated app.
+- Clenella brand script treatment consistent with the authenticated app.
 - Public nav only: `How it works`, `Google Calendar`, `Family load`, `Sign in`.
 - Primary CTA stays wired to the existing Clerk sign-up action via `primaryAction`.
 - Secondary CTA scrolls to the in-page `How it works` section.
@@ -64,7 +64,7 @@ In `web/src/App.test.tsx`, update the existing `it("shows auth entry points when
     expect(screen.getByRole("heading", { name: "Put chores where the week actually has room." })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Build my home plan" })).toBeTruthy();
     expect(screen.getAllByText(/calendar manager first/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText(/Cleanly reads the shape of your week/i)).toBeTruthy();
+    expect(screen.getByText(/Clenella reads the shape of your week/i)).toBeTruthy();
 
     const nav = screen.getByRole("navigation", { name: "Landing" });
     expect(within(nav).getByRole("link", { name: "How it works" })).toBeTruthy();
@@ -75,7 +75,7 @@ In `web/src/App.test.tsx`, update the existing `it("shows auth entry points when
     expect(within(nav).queryByRole("link", { name: "Calendar" })).toBeNull();
     expect(screen.getByRole("button", { name: /sign in/i })).toBeTruthy();
 
-    expect(screen.getByRole("region", { name: "Cleanly calendar optimization preview" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Clenella calendar optimization preview" })).toBeTruthy();
     expect(screen.getByText("Family week control tower")).toBeTruthy();
     expect(screen.getByText("Synced with Google Calendar")).toBeTruthy();
     expect(screen.getByText("Google Calendar added: practice, dentist, trash pickup, school event")).toBeTruthy();
@@ -83,8 +83,8 @@ In `web/src/App.test.tsx`, update the existing `it("shows auth entry points when
     expect(screen.getByText("Laundry fold")).toBeTruthy();
     expect(screen.getByText("Approve week")).toBeTruthy();
 
-    expect(screen.getByRole("heading", { name: "How Cleanly works" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Why Cleanly" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "How Clenella works" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Why Clenella" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Calendar manager first" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Chore optimizer second" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Balanced for the household" })).toBeTruthy();
@@ -142,7 +142,7 @@ export function LandingPage({ primaryAction, signInAction }: LandingPageProps) {
     <main className="landing-page">
       <nav className="landing-nav" aria-label="Landing">
         <a className="landing-brand" href="/" onClick={(event) => event.preventDefault()}>
-          Cleanly
+          Clenella
         </a>
         <div className="landing-nav-links">
           <a href="#how-cleanly-works">How it works</a>
@@ -157,7 +157,7 @@ export function LandingPage({ primaryAction, signInAction }: LandingPageProps) {
           <p className="eyebrow">Calendar manager first</p>
           <h1>Put chores where the week actually has room.</h1>
           <p className="hero-statement">
-            Cleanly reads the shape of your week, tracks what got done, and suggests a plan
+            Clenella reads the shape of your week, tracks what got done, and suggests a plan
             that fits calendars, people, properties, and real chore duration.
           </p>
           <p className="lede">
@@ -172,7 +172,7 @@ export function LandingPage({ primaryAction, signInAction }: LandingPageProps) {
           </div>
         </div>
 
-        <div className="calendar-control-preview" aria-label="Cleanly calendar optimization preview" role="region">
+        <div className="calendar-control-preview" aria-label="Clenella calendar optimization preview" role="region">
           <div className="preview-topline">
             <strong>Family week control tower</strong>
             <span>Synced with Google Calendar</span>
@@ -256,10 +256,10 @@ export function LandingPage({ primaryAction, signInAction }: LandingPageProps) {
       <div className="landing-sections">
         <section className="landing-section landing-story-section" id="how-cleanly-works">
           <div className="landing-section-copy">
-            <p className="eyebrow">How Cleanly works</p>
-            <h2>How Cleanly works</h2>
+            <p className="eyebrow">How Clenella works</p>
+            <h2>How Clenella works</h2>
             <p className="landing-section-lede">
-              Set up the home, connect the calendar, and let Cleanly turn chore history into a better week.
+              Set up the home, connect the calendar, and let Clenella turn chore history into a better week.
             </p>
           </div>
           <div className="landing-story-grid">
@@ -271,7 +271,7 @@ export function LandingPage({ primaryAction, signInAction }: LandingPageProps) {
             <article className="landing-story-card is-offset">
               <span className="story-ribbon">02</span>
               <h3>Chore optimizer second</h3>
-              <p>Cleanly can move chores, shorten estimates, and suggest a better handoff when completion patterns change.</p>
+              <p>Clenella can move chores, shorten estimates, and suggest a better handoff when completion patterns change.</p>
             </article>
             <article className="landing-story-card">
               <span className="story-ribbon">03</span>
@@ -286,7 +286,7 @@ export function LandingPage({ primaryAction, signInAction }: LandingPageProps) {
             <p className="eyebrow">Google Calendar</p>
             <h2>Calendar commitments should shape chore planning.</h2>
             <p className="landing-section-lede">
-              Cleanly treats practices, appointments, property visits, and blocked evenings as part of the chore plan instead of after-the-fact conflicts.
+              Clenella treats practices, appointments, property visits, and blocked evenings as part of the chore plan instead of after-the-fact conflicts.
             </p>
           </div>
         </section>
@@ -303,10 +303,10 @@ export function LandingPage({ primaryAction, signInAction }: LandingPageProps) {
 
         <section className="landing-section landing-proof-section" id="why-cleanly">
           <div className="landing-section-copy">
-            <p className="eyebrow">Why Cleanly</p>
+            <p className="eyebrow">Why Clenella</p>
             <h2>Spend less time re-planning the same chores.</h2>
             <p className="landing-section-lede">
-              Cleanly keeps the home context, calendar constraints, completion history, and recommendations together so the next week starts closer to done.
+              Clenella keeps the home context, calendar constraints, completion history, and recommendations together so the next week starts closer to done.
             </p>
           </div>
         </section>
@@ -844,7 +844,7 @@ Open the Vite URL while signed out. If the app redirects from `/today`, also che
 
 Expected visual checks:
 
-- Cleanly logo uses the same script style as the authenticated header.
+- Clenella logo uses the same script style as the authenticated header.
 - Hero background reads light, clean teal rather than dark ocean.
 - Top nav contains only public links and sign-in.
 - Calendar preview is not cramped.

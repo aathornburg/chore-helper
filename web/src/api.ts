@@ -593,7 +593,7 @@ export async function listCleanlyCalendarEvents(
   const params = new URLSearchParams(range);
   const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/calendar/events?${params.toString()}`);
 
-  if (!response.ok) throw new Error("Failed to fetch Cleanly calendar events");
+  if (!response.ok) throw new Error("Failed to fetch Clenella calendar events");
   return response.json();
 }
 

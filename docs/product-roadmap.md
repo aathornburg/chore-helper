@@ -105,7 +105,7 @@ Key outcomes:
 - The app imports likely chore events into internal chore records.
 - The app imports non-chore calendar commitments such as school, work, appointments, and practices as planning constraints that display distinctly from chores.
 - Calendar sync governance separates owner import controls from member-owned import/export preferences.
-- Owners review member-submitted commitments through an owner-only import queue before items enter the shared Cleanly calendar, unless that member is configured for auto-add.
+- Owners review member-submitted commitments through an owner-only import queue before items enter the shared Clenella calendar, unless that member is configured for auto-add.
 - Members control export mode and destination calendar independently from import.
 - Imported chores preserve calendar source references such as calendar ID, event ID, recurrence, and duration.
 - Calendar data is treated as an integration source, not the permanent source of truth.

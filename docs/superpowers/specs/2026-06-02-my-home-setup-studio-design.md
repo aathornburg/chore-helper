@@ -92,7 +92,7 @@ In Floors and Rooms, floor clicks should select the floor in the current view.
 
 ### Overview View
 
-Overview should read like a summary of what Cleanly knows:
+Overview should read like a summary of what Clenella knows:
 
 - House model remains prominent.
 - Right panel shows setup path and home details.

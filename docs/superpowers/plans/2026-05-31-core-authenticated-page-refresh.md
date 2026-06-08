@@ -511,7 +511,7 @@ In `OptimizePage.tsx`, replace the current compact hero with:
     <p className="eyebrow">Optimize</p>
     <h1>What should we improve around the house?</h1>
     <p className="lede">
-      Ask Cleanly to inspect chores, timing, workload, and household gaps before approving changes.
+      Ask Clenella to inspect chores, timing, workload, and household gaps before approving changes.
     </p>
   </div>
 </header>

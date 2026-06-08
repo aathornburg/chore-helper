@@ -8,12 +8,12 @@ export function LandingPage({ primaryAction, signInAction }: LandingPageProps) {
     <main className="landing-page">
       <nav className="landing-nav" aria-label="Landing">
         <a className="landing-brand" href="/" onClick={(event) => event.preventDefault()}>
-          Cleanly
+          Clenella
         </a>
         <div className="landing-nav-links">
           <a href="#how-cleanly-works">How it works</a>
           <a href="#family-load">Family load</a>
-          <a href="#why-cleanly">Why Cleanly</a>
+          <a href="#why-cleanly">Why Clenella</a>
           <span className="landing-sign-in">{signInAction}</span>
         </div>
       </nav>
@@ -26,7 +26,7 @@ export function LandingPage({ primaryAction, signInAction }: LandingPageProps) {
             <span>actually has room.</span>
           </h1>
           <p className="hero-statement">
-            Cleanly reads the shape of your week, tracks what got done, and suggests a plan
+            Clenella reads the shape of your week, tracks what got done, and suggests a plan
             that fits calendars, people, properties, and real chore duration.
           </p>
           <p className="lede">
@@ -41,7 +41,7 @@ export function LandingPage({ primaryAction, signInAction }: LandingPageProps) {
           </div>
         </div>
 
-        <div className="calendar-control-preview" aria-label="Cleanly calendar optimization preview" role="region">
+        <div className="calendar-control-preview" aria-label="Clenella calendar optimization preview" role="region">
           <div className="preview-topline">
             <strong>June chore plan</strong>
             <span>Synced with Google Calendar</span>
@@ -110,25 +110,25 @@ export function LandingPage({ primaryAction, signInAction }: LandingPageProps) {
         <section className="landing-section landing-story-section" id="how-cleanly-works">
           <div className="landing-section-copy">
             <p className="eyebrow">Three steps, no spreadsheet</p>
-            <h2>How Cleanly works</h2>
+            <h2>How Clenella works</h2>
             <p className="landing-section-lede">
-              Set up the home, connect the calendar, and let Cleanly turn chore history into a better week.
+              Set up the home, connect the calendar, and let Clenella turn chore history into a better week.
             </p>
           </div>
           <div className="landing-story-grid">
             <article className="landing-story-card">
               <span className="story-ribbon">01</span>
               <h3>Set up the home</h3>
-              <p>Add rooms, routines, rough durations, and who usually helps so Cleanly has the context to plan around.</p>
+              <p>Add rooms, routines, rough durations, and who usually helps so Clenella has the context to plan around.</p>
             </article>
             <article className="landing-story-card is-offset">
               <span className="story-ribbon">02</span>
-              <h3>Keep Cleanly in the loop</h3>
-              <p>Mark chores complete, skipped, or still open so Cleanly can learn what actually happened and plan the next week with better timing.</p>
+              <h3>Keep Clenella in the loop</h3>
+              <p>Mark chores complete, skipped, or still open so Clenella can learn what actually happened and plan the next week with better timing.</p>
             </article>
             <article className="landing-story-card">
               <span className="story-ribbon">03</span>
-              <h3>Let Cleanly make it easier</h3>
+              <h3>Let Clenella make it easier</h3>
               <p>Use the suggested shifts to keep chores shorter, better timed, and easier to share.</p>
             </article>
           </div>
@@ -147,9 +147,9 @@ export function LandingPage({ primaryAction, signInAction }: LandingPageProps) {
         <section className="landing-section landing-proof-section" id="why-cleanly">
           <div className="landing-section-copy">
             <p className="eyebrow">Less "whose turn?" energy</p>
-            <h2>Why Cleanly</h2>
+            <h2>Why Clenella</h2>
             <p className="landing-section-lede">
-              Cleanly keeps home context, Google Calendar import and export, completion history,
+              Clenella keeps home context, Google Calendar import and export, completion history,
               and recommendations together so the next week starts closer to done. Spend less time
               re-planning the same chores.
             </p>

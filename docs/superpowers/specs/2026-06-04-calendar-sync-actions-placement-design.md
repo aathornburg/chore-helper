@@ -4,7 +4,7 @@ Date: 2026-06-04
 
 ## Summary
 
-Move active Google Calendar import and export work out of Settings and into the Calendar page. Settings should remain the place for durable sync configuration: Google connection state, source calendar choice, privacy defaults, export destination, personal export defaults, and owner-managed member import policy. Calendar should become the place where users do the work: import external events, export Cleanly events, and, for owners, review the shared Cleanly calendar queue.
+Move active Google Calendar import and export work out of Settings and into the Calendar page. Settings should remain the place for durable sync configuration: Google connection state, source calendar choice, privacy defaults, export destination, personal export defaults, and owner-managed member import policy. Calendar should become the place where users do the work: import external events, export Clenella events, and, for owners, review the shared Clenella calendar queue.
 
 Selected direction: **Calendar toolbar actions with focused import review and export selection mode**.
 
@@ -17,7 +17,7 @@ Selected direction: **Calendar toolbar actions with focused import review and ex
   - Members manage their own import submissions and export actions.
   - Owners manage the household import queue.
   - Owners do not control member export settings.
-- Keep import and export independent: exporting Cleanly events must not require importing personal Google events.
+- Keep import and export independent: exporting Clenella events must not require importing personal Google events.
 
 ## Non-Goals
 
@@ -49,12 +49,12 @@ Remove these active work actions from Settings:
 
 - `Review events to share`.
 - Inline imported-event candidate review.
-- `Send selected to Cleanly`.
+- `Send selected to Clenella`.
 - Any export review or export execution action.
 
 Settings copy should point users to Calendar for active work. Example:
 
-> Choose which calendars Cleanly can review here. When you are ready to import or export events, use Calendar.
+> Choose which calendars Clenella can review here. When you are ready to import or export events, use Calendar.
 
 ### Calendar
 
@@ -80,8 +80,8 @@ Use a hybrid pattern: fast review once the user is familiar, with helpful onboar
 
 If the user has connected Google Calendar but has not completed their first import, the modal opens with a prominent first-run intro above the controls:
 
-- "You're connected. Choose which Google Calendar events Cleanly can use."
-- Explain that nothing is shared until the user selects events and sends them to Cleanly.
+- "You're connected. Choose which Google Calendar events Clenella can use."
+- Explain that nothing is shared until the user selects events and sends them to Clenella.
 - Explain that the household owner may review selected events before they appear on the shared calendar.
 
 After the first successful import, replace the prominent intro with a compact reminder strip:
@@ -95,7 +95,7 @@ Blocked states:
 
 - No Google connection: explain that Google Calendar must be connected first and provide `Go to Settings`.
 - No source calendar: explain that a source calendar is needed and provide `Choose in Settings`.
-- Owner policy `Off`: explain that this household does not currently allow this member to send calendar events to Cleanly.
+- Owner policy `Off`: explain that this household does not currently allow this member to send calendar events to Clenella.
 
 ### Import Controls
 
@@ -123,13 +123,13 @@ The modal should:
 - Provide a simple batch default toggle for selected event type: `Commitments` or `Chores`.
 - Let individual rows override the batch type when needed.
 - Keep the row override visually light; avoid making every row feel like a dense form.
-- Submit selected events to Cleanly.
+- Submit selected events to Clenella.
 
 Submission behavior remains governed by the owner policy:
 
 - `Off`: show a blocked state explaining that the household owner has disabled imports for this member.
 - `Review first`: send selected events to the owner queue.
-- `Auto-add`: create Cleanly calendar events immediately while preserving source metadata.
+- `Auto-add`: create Clenella calendar events immediately while preserving source metadata.
 
 The modal should close after a successful submission and show a concise Calendar-level status message.
 
@@ -151,13 +151,13 @@ When the user clicks `Export`:
 - The page shows a clear `Cancel` or `Exit export mode` action.
 - The export panel/sheet appears with selection controls and summary.
 
-Export mode should not feel like a hidden state. Use a clear mode banner or panel title such as `Exporting Cleanly events`.
+Export mode should not feel like a hidden state. Use a clear mode banner or panel title such as `Exporting Clenella events`.
 
 ### Export Panel Controls
 
 The export panel should include:
 
-- `From Cleanly`: content selector for `Chores`, `Commitments`, or `Both`, respecting the user's export content setting.
+- `From Clenella`: content selector for `Chores`, `Commitments`, or `Both`, respecting the user's export content setting.
 - `To calendar`: destination Google calendar selector.
 - `Date range`: range-picker control, defaulting to the current visible Calendar range.
 - A clear note that export does not require importing Google events.
@@ -248,9 +248,9 @@ Preferred labels:
 - Import modal title:
   - `Import calendar events`
 - Import submit:
-  - `Send selected to Cleanly`
+  - `Send selected to Clenella`
 - Export mode title:
-  - `Exporting Cleanly events`
+  - `Exporting Clenella events`
 - Export panel action:
   - `Select eligible events in range`
 - Export submit:

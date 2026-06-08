@@ -83,7 +83,7 @@ export function CalendarExportPreselectPanel({
             <section className="calendar-export-popover calendar-export-preselect-popover" id="calendar-export-preselect-popover" aria-label="Preselect options">
               <div>
                 <p className="eyebrow">Preselect events</p>
-                <h3>Choose what Cleanly selects</h3>
+                <h3>Choose what Clenella selects</h3>
                 <p>Changing these options preselects matching events automatically. Click calendar items afterward to fine-tune.</p>
               </div>
               <div className="calendar-export-popover-grid">

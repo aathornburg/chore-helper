@@ -4,7 +4,7 @@ Date: 2026-05-24
 
 ## Summary
 
-After Clerk authentication and before Google Calendar integration, Cleanly needs a coherent product-facing UI foundation. This milestone replaces the minimal signed-out auth gate, turns Today into the authenticated home screen, finishes Household management as a real editing surface, and establishes honest Calendar entry points that the next milestone can activate.
+After Clerk authentication and before Google Calendar integration, Clenella needs a coherent product-facing UI foundation. This milestone replaces the minimal signed-out auth gate, turns Today into the authenticated home screen, finishes Household management as a real editing surface, and establishes honest Calendar entry points that the next milestone can activate.
 
 The visual direction retains the current warm, home-oriented palette and rounded card language while improving hierarchy, density, responsive behavior, and small interaction details.
 

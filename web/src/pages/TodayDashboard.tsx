@@ -332,7 +332,7 @@ export function TodayDashboard({ households, isLoading, loadError, onNavigate, w
           <div>
             <p className="eyebrow">No household yet</p>
             <h2 id="today-empty-heading">Add or join a household</h2>
-            <p>Once you belong to a household, Cleanly can build today's chore list, due counts, and weekly routine view.</p>
+            <p>Once you belong to a household, Clenella can build today's chore list, due counts, and weekly routine view.</p>
           </div>
         </section>
       </div>

@@ -4,7 +4,7 @@ Date: 2026-05-25
 
 ## Summary
 
-Cleanly should treat chores as planned household work, not as a separate catalog that
+Clenella should treat chores as planned household work, not as a separate catalog that
 users must manage before returning to a calendar. `Calendar` becomes the single
 destination for creating chores, arranging timed or flexible schedules, viewing
 upcoming obligations, completing assigned work, and reviewing completed or skipped

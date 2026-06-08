@@ -166,7 +166,7 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
                 <span>{connectionStatus(connections)}</span>
               </div>
               <p>
-                Choose what Cleanly can review and where Cleanly exports your calendar updates.
+                Choose what Clenella can review and where Clenella exports your calendar updates.
                 When you are ready to import or export events, use Calendar.
               </p>
               {preferences ? (
@@ -177,8 +177,8 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
                       <h4 id="calendar-connection-settings-heading">Google account</h4>
                       <p>
                         {connectedConnection
-                          ? `Connected as ${connectedConnection.providerAccountEmail}. Disconnecting removes Cleanly's stored Google tokens.`
-                          : "Connect the account Cleanly should read from and write to when you choose to sync."}
+                          ? `Connected as ${connectedConnection.providerAccountEmail}. Disconnecting removes Clenella's stored Google tokens.`
+                          : "Connect the account Clenella should read from and write to when you choose to sync."}
                       </p>
                     </div>
                     <div className="sync-action-row">
@@ -197,8 +197,8 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
                   <section className="sync-setting-section" aria-labelledby="calendar-import-settings-heading">
                     <div className="sync-setting-copy">
                       <p className="eyebrow">Import settings</p>
-                      <h4 id="calendar-import-settings-heading">What Cleanly can review</h4>
-                      <p>Choose the privacy default Cleanly uses when you import events. Pick the source calendar from Calendar when you are ready to review events.</p>
+                      <h4 id="calendar-import-settings-heading">What Clenella can review</h4>
+                      <p>Choose the privacy default Clenella uses when you import events. Pick the source calendar from Calendar when you are ready to review events.</p>
                     </div>
                     <div className="sync-preference-grid sync-preference-grid-import">
                       <label>
@@ -220,7 +220,7 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
                   <section className="sync-setting-section" aria-labelledby="calendar-export-settings-heading">
                     <div className="sync-setting-copy">
                       <p className="eyebrow">Export settings</p>
-                      <h4 id="calendar-export-settings-heading">Where Cleanly writes</h4>
+                      <h4 id="calendar-export-settings-heading">Where Clenella writes</h4>
                       <p>Set export defaults here. Choose the destination calendar during the Calendar export review.</p>
                     </div>
                     <div className="sync-preference-grid sync-preference-grid-export">
@@ -266,7 +266,7 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
                     <h3>Family import controls</h3>
                   </div>
                 </div>
-                <p>Control how each member can send calendar events into the shared Cleanly calendar.</p>
+                <p>Control how each member can send calendar events into the shared Clenella calendar.</p>
                 <div className="sync-policy-table">
                   <div className="sync-policy-header" aria-hidden="true">
                     <span>Member</span>
@@ -316,7 +316,7 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
                 <div className="panel-heading">
                   <h3>Your household policy</h3>
                 </div>
-                <p>Your household owner controls whether shared events are auto-added, reviewed first, or turned off for the shared Cleanly calendar.</p>
+                <p>Your household owner controls whether shared events are auto-added, reviewed first, or turned off for the shared Clenella calendar.</p>
               </article>
             )}
           </div>

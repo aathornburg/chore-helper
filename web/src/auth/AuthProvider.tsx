@@ -22,7 +22,7 @@ export function ApiAuthBridge({ children }: { children: React.ReactNode }) {
   if (!isLoaded || !apiAuthReady) {
     return (
       <div className="auth-loading-screen" role="status">
-        Loading Cleanly...
+        Loading Clenella...
       </div>
     );
   }

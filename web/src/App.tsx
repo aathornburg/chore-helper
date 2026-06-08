@@ -266,7 +266,7 @@ function AppShell({
             onNavigate("/");
             setIsNavOpen(false);
           }}>
-            Cleanly
+            Clenella
           </a>
         </div>
         <nav className="workspace-nav" aria-label="Primary" data-open={isNavOpen ? "true" : "false"}>

@@ -1226,7 +1226,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
       }));
     void submitCalendarImportEvents(selectedHousehold.id, selectedEvents)
       .then((result) => {
-        setCalendarSyncStatus(result.status === "auto_ready" ? "Selected events were added to Cleanly." : "Selected events were sent to the owner queue.");
+        setCalendarSyncStatus(result.status === "auto_ready" ? "Selected events were added to Clenella." : "Selected events were sent to the owner queue.");
         setSyncModal("closed");
         setImportCandidates([]);
         setSelectedImportCandidateIds([]);
@@ -1236,7 +1236,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
           });
         }
       })
-      .catch(() => setCalendarSyncStatus("Could not send selected events to Cleanly."));
+      .catch(() => setCalendarSyncStatus("Could not send selected events to Clenella."));
   }
 
   function toggleExportEvent(eventId: string) {
@@ -1285,9 +1285,9 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
           {!isCalendarConnected ? (
             <section className="calendar-sync-intro-panel">
               <p className="eyebrow">First, connect Google Calendar</p>
-              <h3>Then Cleanly can help you choose what moves between calendars.</h3>
+              <h3>Then Clenella can help you choose what moves between calendars.</h3>
               <p>
-                Import and export stay independent. You can export Cleanly work without importing personal events,
+                Import and export stay independent. You can export Clenella work without importing personal events,
                 and imported events only reach the shared calendar after the right review path.
               </p>
               <button onClick={handleConnectGoogleCalendar} type="button">Connect Google Calendar</button>
@@ -1298,7 +1298,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                 <section className="sync-blocked-state" aria-label="Import disabled">
                   <p className="eyebrow">Import disabled</p>
                   <h3>Your household owner has turned off Google Calendar imports for this member.</h3>
-                  <p>You can still manage your connection and export settings, but events cannot be sent into the shared Cleanly queue right now.</p>
+                  <p>You can still manage your connection and export settings, but events cannot be sent into the shared Clenella queue right now.</p>
                 </section>
               ) : null}
               {calendarPreferences ? (
@@ -1364,7 +1364,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                 <div className="section-heading">
                   <div>
                     <p className="eyebrow">Available events</p>
-                    <h3>Choose what Cleanly can use</h3>
+                    <h3>Choose what Clenella can use</h3>
                   </div>
                   <div className="calendar-sync-event-actions">
                     <button
@@ -1426,7 +1426,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                             <strong>{candidate.title}</strong>
                             <small>{formatInTimeZone(candidate.startsAt, timeZone, "MMM d, h:mm a")} - {formatInTimeZone(candidate.endsAt, timeZone, "h:mm a")}</small>
                             <small className="calendar-sync-share-preview">
-                              Cleanly shares as <span>{sharedImportTitle(candidate)}</span>
+                              Clenella shares as <span>{sharedImportTitle(candidate)}</span>
                             </small>
                           </span>
                         </label>
@@ -1460,7 +1460,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
               </section>
               <div className="form-actions modal-actions">
                 <button className="section-action" onClick={() => setSyncModal("closed")} type="button">Cancel</button>
-                <button disabled={selectedImportCandidateIds.length === 0 || isImportBlocked} onClick={handleSubmitEventsToCleanly} type="button">Send selected to Cleanly</button>
+                <button disabled={selectedImportCandidateIds.length === 0 || isImportBlocked} onClick={handleSubmitEventsToCleanly} type="button">Send selected to Clenella</button>
               </div>
             </div>
           )}

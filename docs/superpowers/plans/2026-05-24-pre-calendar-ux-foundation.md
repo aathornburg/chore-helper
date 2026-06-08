@@ -162,7 +162,7 @@ Run the focused server and web tests plus corresponding typechecks. Commit after
 Cover:
 
 ```ts
-expect(signedOutLanding).toHaveTextContent("Cleanly");
+expect(signedOutLanding).toHaveTextContent("Clenella");
 expect(screen.getByRole("button", { name: "Sign up" })).toBeTruthy();
 expect(screen.getByRole("button", { name: "Sign in" })).toBeTruthy();
 ```

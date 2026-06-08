@@ -6,7 +6,7 @@
 
 **Architecture:** Settings remains the durable preferences surface. Calendar owns sync work state, loads sync preferences/calendars/policies, opens a focused import review dialog, and enters a temporary export selection mode where the Calendar itself is the selection surface. Backend APIs remain unchanged in this slice.
 
-**Tech Stack:** React 19, TypeScript, Vite, Vitest/Testing Library, date-fns/date-fns-tz, `@daypicker/react` for range picking, existing Cleanly API helpers and shared types.
+**Tech Stack:** React 19, TypeScript, Vite, Vitest/Testing Library, date-fns/date-fns-tz, `@daypicker/react` for range picking, existing Clenella API helpers and shared types.
 
 ---
 
@@ -573,10 +573,10 @@ it("opens Import events on Calendar with setup guidance and no selected candidat
     fireEvent.click(await screen.findByRole("button", { name: "Import events" }));
 
     expect(await screen.findByRole("dialog", { name: "Import calendar events" })).toBeTruthy();
-    expect(screen.getByText(/You're connected. Choose which Google Calendar events Cleanly can use./i)).toBeTruthy();
+    expect(screen.getByText(/You're connected. Choose which Google Calendar events Clenella can use./i)).toBeTruthy();
     expect(screen.getByLabelText("From calendar")).toBeTruthy();
     expect(screen.getByRole("group", { name: "Import date range presets" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Send selected to Cleanly" })).toHaveAttribute("disabled");
+    expect(screen.getByRole("button", { name: "Send selected to Clenella" })).toHaveAttribute("disabled");
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:3001/api/me/calendar/import-candidates?householdId=household-1",
       expect.anything()
@@ -633,14 +633,14 @@ Implementation requirements:
 
 - Render `role="dialog"` with accessible name `Import calendar events`.
 - Call `onLoadCandidates` once when opened.
-- Render first-run copy: `You're connected. Choose which Google Calendar events Cleanly can use.`
+- Render first-run copy: `You're connected. Choose which Google Calendar events Clenella can use.`
 - Render `From calendar` select using `externalCalendars`.
 - Render `DateRangePicker` with `label="Import date range"`.
 - Render privacy summary from `preferences.defaultDetailLevel`.
 - Render batch type toggle with `Commitments` and `Chores`.
 - Render candidate checkboxes; none selected by default.
 - Apply batch type to selected candidates unless a row override is set.
-- Disable `Send selected to Cleanly` when no candidates are selected, connection is missing, source calendar is missing, or policy is `off`.
+- Disable `Send selected to Clenella` when no candidates are selected, connection is missing, source calendar is missing, or policy is `off`.
 
 - [ ] **Step 4: Wire import modal in CalendarPage**
 
@@ -682,11 +682,11 @@ function submitImportEvents(events: CalendarImportCandidate[]) {
   if (!selectedHousehold) return;
   void submitCalendarImportEvents(selectedHousehold.id, events)
     .then((result) => {
-      setCalendarSyncStatus(result.status === "auto_ready" ? "Selected events were added to Cleanly." : "Selected events were sent to the owner queue.");
+      setCalendarSyncStatus(result.status === "auto_ready" ? "Selected events were added to Clenella." : "Selected events were sent to the owner queue.");
       setIsImportModalOpen(false);
       setImportCandidates([]);
     })
-    .catch(() => setCalendarSyncStatus("Could not send selected events to Cleanly."));
+    .catch(() => setCalendarSyncStatus("Could not send selected events to Clenella."));
 }
 ```
 
@@ -814,7 +814,7 @@ it("starts export mode with no selected events and supports selecting eligible r
     fireEvent.click(screen.getByRole("link", { name: "Calendar" }));
     fireEvent.click(await screen.findByRole("button", { name: "Export" }));
 
-    expect(await screen.findByRole("region", { name: "Exporting Cleanly events" })).toBeTruthy();
+    expect(await screen.findByRole("region", { name: "Exporting Clenella events" })).toBeTruthy();
     expect(screen.getByText(/0 selected/i)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Export selected" })).toHaveAttribute("disabled");
 
@@ -877,8 +877,8 @@ type CalendarExportPanelProps = {
 
 Implementation requirements:
 
-- Render `<aside className="calendar-export-panel" aria-label="Exporting Cleanly events">`.
-- Show `From Cleanly`, `To calendar`, and `DateRangePicker`.
+- Render `<aside className="calendar-export-panel" aria-label="Exporting Clenella events">`.
+- Show `From Clenella`, `To calendar`, and `DateRangePicker`.
 - Disable export if no destination calendar is configured.
 - Render helper button text as `Select ${eligibleEvents.length} eligible event(s)`.
 - Render summary text including selected count, chore count, commitment count, and destination.
@@ -944,7 +944,7 @@ function handleExportSelectedEvents() {
 
 Change `Export` button to call `startExportMode`.
 
-- [ ] **Step 5: Make Cleanly calendar event cards selectable**
+- [ ] **Step 5: Make Clenella calendar event cards selectable**
 
 In `renderCleanlyCalendarEvent`, when `isExportMode` is true, return a button:
 
@@ -1125,7 +1125,7 @@ Verify:
 - Settings no longer shows `Review events to share`.
 - `Import events` opens `Import calendar events`.
 - Import date range opens a calendar range picker.
-- `Export` enters `Exporting Cleanly events` mode.
+- `Export` enters `Exporting Clenella events` mode.
 - Export starts with `0 selected`.
 - Batch select chooses eligible events when available.
 - Individual calendar event cards can be deselected.

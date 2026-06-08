@@ -16,8 +16,8 @@ export class ResendInvitationMailer implements InvitationMailer {
       {
         from: this.from,
         to: message.to,
-        subject: `Join ${message.householdName} on Cleanly`,
-        text: `You have been invited to join ${message.householdName} on Cleanly. Accept your invitation: ${message.acceptUrl}`
+        subject: `Join ${message.householdName} on Clenella`,
+        text: `You have been invited to join ${message.householdName} on Clenella. Accept your invitation: ${message.acceptUrl}`
       },
       { idempotencyKey: `household-invitation/${message.idempotencyKey}` }
     );

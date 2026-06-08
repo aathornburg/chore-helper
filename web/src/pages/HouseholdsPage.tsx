@@ -96,7 +96,7 @@ export function HouseholdsPage({ households, isLoading, onAddHousehold, onReload
           <div>
             <p className="eyebrow">Household setup</p>
             <h1>My Home</h1>
-            <p className="lede">Add a household or accept an invite so Cleanly has a shared place to organize.</p>
+            <p className="lede">Add a household or accept an invite so Clenella has a shared place to organize.</p>
           </div>
         </header>
         <section className="setup-empty-state first-home-empty-state" aria-labelledby="first-home-heading">
@@ -690,7 +690,7 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
                   <div>
                     <p className="eyebrow">Edit profile</p>
                     <h2>Home details</h2>
-                    <p>These details help Cleanly tune setup prompts and coverage assumptions.</p>
+                    <p>These details help Clenella tune setup prompts and coverage assumptions.</p>
                   </div>
                 </div>
                 <div className="field-grid household-profile-grid">
@@ -761,7 +761,7 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
               <div className="home-setup-steps">
                 <span><strong>Floors</strong> Name each level.</span>
                 <span><strong>Rooms</strong> Add spaces.</span>
-                <span><strong>Surfaces</strong> Tell Cleanly what matters.</span>
+                <span><strong>Surfaces</strong> Tell Clenella what matters.</span>
               </div>
             </section>
             <div className="home-summary-grid">
@@ -795,7 +795,7 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
             <section className="overview-floor-summary" aria-label="Floor setup summary">
               <div className="overview-floor-summary-heading">
                 <p className="eyebrow">Floor snapshot</p>
-                <h3>What Cleanly knows about each level</h3>
+                <h3>What Clenella knows about each level</h3>
               </div>
               <div className="overview-floor-list">
                 {floors.map((floor) => (

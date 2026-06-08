@@ -287,10 +287,10 @@ function HouseholdOptimizePanel({
     <section className="optimize-command-workspace" aria-label={`${householdName} optimize workspace`}>
       <section className="optimize-command-panel" aria-label="Optimize command center">
         <div className="optimize-command-copy">
-          <p className="eyebrow">Optimize / Cleanly assistant</p>
+          <p className="eyebrow">Optimize / Clenella assistant</p>
           <h1>Run a plan checkup for {householdName}.</h1>
           <p className="lede">
-            Cleanly looks across chores, room coverage, timing, and workload to suggest safer improvements before anything changes.
+            Clenella looks across chores, room coverage, timing, and workload to suggest safer improvements before anything changes.
           </p>
           {showHouseholdPicker ? (
             <label className="optimize-household-picker">
@@ -559,7 +559,7 @@ function HouseholdOptimizePanel({
             <div className="section-heading">
               <div>
                 <p className="eyebrow">Household signals</p>
-                <h2>What Cleanly is using</h2>
+                <h2>What Clenella is using</h2>
                 <p>{formatProfileSummary(profile, structure)}</p>
               </div>
             </div>

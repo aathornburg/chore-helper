@@ -368,7 +368,7 @@ In the Overview right panel, keep the existing `Home details` content but add a 
   <div className="home-setup-steps">
     <span><strong>Floors</strong> Name each level.</span>
     <span><strong>Rooms</strong> Add spaces.</span>
-    <span><strong>Surfaces</strong> Tell Cleanly what matters.</span>
+    <span><strong>Surfaces</strong> Tell Clenella what matters.</span>
   </div>
 </section>
 ```

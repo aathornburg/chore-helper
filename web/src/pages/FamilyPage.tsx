@@ -513,7 +513,7 @@ function FamilyHouseholdPanel({ currentUserId, household, onSummaryChange }: Fam
               ) : (
                 <>
                   <h3>Weekly chore load looks steady.</h3>
-                  <p>Cleanly will surface suggested handoffs when one person starts carrying too much.</p>
+                  <p>Clenella will surface suggested handoffs when one person starts carrying too much.</p>
                 </>
               )}
             </div>

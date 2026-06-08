@@ -130,7 +130,7 @@ This avoids a global active-home concept. The page is not saying "this is the se
 When the user has zero households:
 
 - Keep a focused setup state.
-- Explain that Cleanly needs a home model before chores can be optimized.
+- Explain that Clenella needs a home model before chores can be optimized.
 - Primary action: create the first home.
 
 This state can still use `My Home` language after creation, but before creation the page should not pretend a home exists.

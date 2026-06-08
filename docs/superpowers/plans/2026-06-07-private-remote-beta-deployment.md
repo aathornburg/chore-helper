@@ -107,7 +107,7 @@ GOOGLE_OAUTH_STATE_SECRET=<long random secret>
 GOOGLE_TOKEN_ENCRYPTION_KEY=<long random secret>
 
 RESEND_API_KEY=...
-INVITATION_FROM_EMAIL=Cleanly <invites@yourdomain.com>
+INVITATION_FROM_EMAIL=Clenella <invites@yourdomain.com>
 ```
 
 Add custom domain in Render:
@@ -205,7 +205,7 @@ Set DNS records Resend gives you for your sending domain, then set:
 
 ```text
 RESEND_API_KEY=...
-INVITATION_FROM_EMAIL=Cleanly <invites@yourdomain.com>
+INVITATION_FROM_EMAIL=Clenella <invites@yourdomain.com>
 APP_BASE_URL=https://app.yourdomain.com
 ```
 

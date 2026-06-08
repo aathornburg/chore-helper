@@ -248,7 +248,7 @@ export function createCalendarRouter(
     return res.status(200).json({
       connectionId: req.params.connectionId,
       status: "disconnected",
-      message: "Google Calendar was disconnected from Cleanly."
+      message: "Google Calendar was disconnected from Clenella."
     });
   });
 

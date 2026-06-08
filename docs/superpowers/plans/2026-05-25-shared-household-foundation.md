@@ -404,7 +404,7 @@ Document:
 
 ```dotenv
 RESEND_API_KEY=""
-INVITATION_FROM_EMAIL="Cleanly <invites@example.com>"
+INVITATION_FROM_EMAIL="Clenella <invites@example.com>"
 APP_BASE_URL="http://localhost:5173"
 ```
 
