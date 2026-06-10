@@ -3,6 +3,11 @@
   --color-primary-strong: #0f4c66;
   --color-primary-soft: #e4f1f6;
   --color-primary-muted: #d9eef3;
+  --color-brand-bright: #18bcc3;
+  --color-brand-bright-deep: #099eab;
+  --color-brand-bridge: #0b7f8f;
+  --color-brand-bright-soft: rgba(24, 188, 195, 0.13);
+  --color-brand-bright-border: rgba(24, 188, 195, 0.32);
   --color-done: #5f9d6d;
   --color-done-strong: #2f694d;
   --color-done-soft: #e8f0e4;
@@ -33,7 +38,7 @@
     linear-gradient(135deg, #f8fdfe 0%, #e7f8fa 58%, #f8fbfc 100%);
   background-size: 42px 42px, 42px 42px, auto, auto, auto;
   color: var(--color-primary-strong);
-  overflow: hidden;
+  overflow-x: hidden;
   padding: 24px;
   position: relative;
 }
@@ -50,21 +55,34 @@
 }
 
 .landing-brand {
+  --brand-logo-size: 36px;
+  align-items: center;
   color: var(--color-primary-strong);
+  display: inline-flex;
   font-family: "Segoe Script", "Brush Script MT", cursive;
   font-size: 2rem;
   font-weight: 800;
+  gap: 10px;
   letter-spacing: 0;
   line-height: 1;
   text-decoration: none;
 }
 
+.brand-logo {
+  display: block;
+  flex: 0 0 auto;
+  filter: drop-shadow(0 3px 7px rgba(9, 158, 171, 0.18));
+  height: var(--brand-logo-size);
+  width: var(--brand-logo-size);
+}
+
 .landing-nav-links {
   align-items: center;
   background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(194, 223, 229, 0.9);
+  border: 1px solid var(--color-brand-bright-border);
   display: flex;
   gap: 8px;
+  max-width: min(100%, 760px);
   padding: 7px;
 }
 
@@ -76,8 +94,13 @@
   text-decoration: none;
 }
 
+.landing-nav-links a:hover {
+  background: var(--color-brand-bright-soft);
+  color: var(--color-primary-strong);
+}
+
 .landing-sign-in button {
-  background: var(--color-primary-strong);
+  background: linear-gradient(135deg, var(--color-primary-strong), var(--color-brand-bridge));
   border-radius: 999px;
   color: white;
   padding: 10px 16px;
@@ -87,7 +110,7 @@
   align-items: center;
   display: grid;
   gap: 32px;
-  grid-template-columns: minmax(760px, 0.98fr) minmax(600px, 1.02fr);
+  grid-template-columns: minmax(0, 0.98fr) minmax(0, 1.02fr);
   margin: 0 auto;
   max-width: 1500px;
   min-height: min(900px, calc(100vh - 96px));
@@ -114,7 +137,6 @@
 
 .hero-copy h1 span {
   display: block;
-  white-space: nowrap;
 }
 
 .hero-copy .hero-statement,
@@ -179,7 +201,7 @@
 .landing-primary-action button,
 .landing-secondary-action {
   align-items: center;
-  border: 1px solid var(--color-primary);
+  border: 1px solid var(--color-brand-bridge);
   display: inline-flex;
   font-weight: 950;
   min-height: 46px;
@@ -187,8 +209,9 @@
 }
 
 .landing-primary-action button {
-  background: var(--color-primary);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-brand-bridge));
   border-radius: 999px;
+  box-shadow: 0 0 0 4px var(--color-brand-bright-soft);
   color: white;
 }
 
@@ -226,9 +249,10 @@ button:where(:not(.link-button)):hover {
   animation: landing-preview-shadow-drift 9s ease-in-out infinite;
   background: white;
   border: 1px solid var(--color-border);
-  border-left: 8px solid var(--color-primary);
-  box-shadow: -16px 16px 0 rgba(42, 165, 180, 0.16);
+  border-left: 8px solid var(--color-brand-bridge);
+  box-shadow: -16px 16px 0 var(--color-brand-bright-soft);
   overflow: hidden;
+  min-width: 0;
 }
 
 .preview-topline {
@@ -244,7 +268,7 @@ button:where(:not(.link-button)):hover {
 }
 
 .preview-topline span {
-  color: var(--color-primary);
+  color: var(--color-brand-bridge);
   font-size: 0.74rem;
   font-weight: 950;
   letter-spacing: 0.14em;
@@ -304,7 +328,7 @@ button:where(:not(.link-button)):hover {
 }
 
 .preview-day-header span {
-  background: var(--color-primary-muted);
+  background: linear-gradient(135deg, var(--color-primary-muted), rgba(24, 188, 195, 0.18));
   border-radius: 4px;
   color: var(--color-primary-strong);
   font-size: 0.7rem;
@@ -329,7 +353,7 @@ button:where(:not(.link-button)):hover {
 
 .preview-event strong {
   color: #24352e;
-  overflow-wrap: normal;
+  overflow-wrap: anywhere;
   word-break: normal;
 }
 
@@ -413,7 +437,7 @@ button:where(:not(.link-button)):hover {
 
 .marker-line {
   fill: none;
-  stroke: var(--color-primary);
+  stroke: var(--color-brand-bridge);
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 5;
@@ -424,7 +448,7 @@ button:where(:not(.link-button)):hover {
 }
 
 .marker-green {
-  stroke: var(--color-done);
+  stroke: var(--color-brand-bridge);
 }
 
 .marker-box,
@@ -438,18 +462,35 @@ button:where(:not(.link-button)):hover {
 }
 
 .marker-ring {
-  fill: rgba(82, 130, 92, 0.1);
+  fill: var(--color-brand-bright-soft);
 }
 
 .marker-flow {
+  stroke-linecap: butt;
   stroke-width: 5.5;
+}
+
+.marker-arrow-head {
+  animation: marker-arrow-pop 360ms cubic-bezier(0.72, 0, 0.32, 1) forwards;
+  fill: none;
+  opacity: 0;
+  stroke: var(--color-brand-bridge);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 5.5;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.marker-arrow-head.delay-two {
+  animation-delay: 1500ms;
 }
 
 .marker-pulse {
   animation: marker-pulse 1200ms ease-out 780ms forwards;
-  fill: rgba(20, 113, 134, 0.18);
+  fill: var(--color-brand-bright-soft);
   opacity: 0;
-  stroke: var(--color-primary);
+  stroke: var(--color-brand-bright);
   stroke-width: 3;
   transform-box: fill-box;
   transform-origin: center;
@@ -583,6 +624,16 @@ button:where(:not(.link-button)):hover {
   }
 }
 
+@keyframes marker-arrow-pop {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
 @keyframes optimization-source-frame {
   to {
     opacity: 1;
@@ -655,6 +706,7 @@ button:where(:not(.link-button)):hover {
   .calendar-control-preview,
   .landing-section,
   .marker-draw,
+  .marker-arrow-head,
   .marker-pulse,
   .preview-event.is-optimization-source::before,
   .studio-house-sun-rays,
@@ -664,6 +716,10 @@ button:where(:not(.link-button)):hover {
 
   .marker-draw {
     stroke-dashoffset: 0;
+  }
+
+  .marker-arrow-head {
+    opacity: 1;
   }
 
   .preview-event.is-optimization-source::before {
@@ -685,6 +741,7 @@ button:where(:not(.link-button)):hover {
 @media (max-width: 1180px) {
   .landing-hero {
     grid-template-columns: 1fr;
+    min-height: 0;
   }
 
   .calendar-control-preview {
@@ -694,17 +751,24 @@ button:where(:not(.link-button)):hover {
 
 @media (max-width: 780px) {
   .landing-page {
-    padding: 18px;
+    padding: 14px;
   }
 
   .landing-nav {
-    align-items: flex-start;
-    gap: 18px;
+    align-items: center;
+    gap: 12px;
   }
 
   .landing-nav-links {
-    flex-wrap: wrap;
+    background: transparent;
+    border: 0;
+    flex: 0 0 auto;
     justify-content: flex-end;
+    padding: 0;
+  }
+
+  .landing-nav-links > a {
+    display: none;
   }
 
   .landing-nav-links a {
@@ -712,13 +776,69 @@ button:where(:not(.link-button)):hover {
     padding: 8px 10px;
   }
 
+  .landing-brand {
+    --brand-logo-size: 32px;
+    font-size: clamp(1.55rem, 7vw, 2rem);
+  }
+
+  .landing-sign-in button {
+    min-height: 40px;
+    padding: 9px 13px;
+    white-space: nowrap;
+  }
+
+  .landing-hero {
+    gap: 24px;
+    padding: 38px 0 48px;
+  }
+
   .hero-copy h1 {
-    font-size: clamp(3rem, 18vw, 4.4rem);
+    font-size: clamp(3.05rem, 16vw, 4.4rem);
+    letter-spacing: -0.045em;
+    line-height: 0.94;
+  }
+
+  .hero-copy .hero-statement,
+  .hero-copy .lede {
+    font-size: 1rem;
   }
 
   .hero-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .landing-primary-action button,
+  .landing-secondary-action {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .calendar-control-preview {
+    border-left-width: 5px;
+    box-shadow: -8px 8px 0 rgba(42, 165, 180, 0.16);
+  }
+
+  .preview-topline {
+    align-items: start;
+    display: grid;
+    gap: 6px;
+    padding: 14px 15px;
+  }
+
+  .preview-topline span {
+    font-size: 0.66rem;
+    line-height: 1.35;
+  }
+
+  .preview-sync-banner {
+    font-size: 0.76rem;
+    line-height: 1.35;
+    padding: 10px 15px;
+  }
+
+  .preview-week {
+    margin: 12px;
   }
 
   .preview-calendar-grid {
@@ -727,11 +847,32 @@ button:where(:not(.link-button)):hover {
 
   .preview-day {
     border-bottom: 1px solid rgba(7, 63, 79, 0.14);
-    min-height: 160px;
+    min-height: 142px;
+    padding: 10px 8px;
+  }
+
+  .preview-event {
+    border-left-width: 4px;
+    font-size: 0.68rem;
+    padding: 6px;
   }
 
   .cleanly-marker-layer {
-    display: none;
+    display: block;
+    height: 100%;
+    width: 100%;
+  }
+
+  .marker-line {
+    stroke-width: 4.4;
+  }
+
+  .marker-arrow-head {
+    stroke-width: 4.4;
+  }
+
+  .marker-ring {
+    stroke-width: 3.6;
   }
 
   .landing-story-grid {
@@ -740,6 +881,41 @@ button:where(:not(.link-button)):hover {
 
   .landing-story-card.is-offset {
     transform: none;
+  }
+}
+
+@media (max-width: 430px) {
+  .landing-page {
+    padding: 12px;
+  }
+
+  .landing-hero {
+    padding-top: 32px;
+  }
+
+  .hero-copy h1 {
+    font-size: clamp(2.55rem, 15vw, 3.45rem);
+    line-height: 0.98;
+  }
+
+  .calendar-control-preview {
+    box-shadow: -5px 6px 0 rgba(42, 165, 180, 0.16);
+  }
+
+  .preview-calendar-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .preview-day {
+    min-height: 0;
+  }
+
+  .preview-day:nth-child(n + 5) {
+    display: none;
+  }
+
+  .landing-section {
+    padding: 22px;
   }
 }
 
@@ -891,7 +1067,7 @@ button:where(:not(.link-button)):hover {
 
 .workspace-notification-badge {
   align-items: center;
-  background: #9f3a2d;
+  background: linear-gradient(135deg, #9f3a2d 0%, var(--color-brand-bridge) 100%);
   border: 2px solid var(--color-surface-elevated);
   border-radius: 999px;
   color: #fff;
@@ -940,7 +1116,7 @@ button:where(:not(.link-button)):hover {
 
 .workspace-notification-row:hover,
 .workspace-notification-row:focus-visible {
-  background: var(--color-primary-soft);
+  background: linear-gradient(90deg, var(--color-brand-bright-soft), var(--color-primary-soft));
   color: #24352e;
 }
 
@@ -972,7 +1148,7 @@ button:where(:not(.link-button)):hover {
 
 .workspace-icon-button:hover,
 .workspace-menu-button:hover {
-  background: var(--color-primary-soft);
+  background: var(--color-brand-bright-soft);
   color: var(--color-primary-strong);
 }
 
@@ -981,11 +1157,16 @@ button:where(:not(.link-button)):hover {
 }
 
 .brand-mark {
+  --brand-logo-size: 34px;
+  align-items: center;
   color: var(--color-primary-strong);
+  display: inline-flex;
   font-family: "Segoe Script", "Brush Script MT", cursive;
   font-size: 2rem;
   font-weight: 850;
+  gap: 10px;
   line-height: 1;
+  text-decoration: none;
 }
 
 .workspace-nav {
@@ -1011,15 +1192,15 @@ button:where(:not(.link-button)):hover {
 .workspace-nav a[aria-current="page"],
 .workspace-nav a:hover {
   background: transparent;
-  border-bottom-color: var(--color-primary);
+  border-bottom-color: var(--color-brand-bright);
   color: var(--color-primary);
 }
 
 .workspace-nav .is-primary-nav-action {
-  background: var(--color-primary);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-brand-bridge));
   border: 1px solid var(--color-primary);
   border-radius: 999px;
-  box-shadow: 0 0 0 4px var(--color-primary-soft);
+  box-shadow: 0 0 0 4px var(--color-brand-bright-soft);
   color: #fff;
   font-weight: 850;
   padding: 12px 18px;
@@ -1027,8 +1208,8 @@ button:where(:not(.link-button)):hover {
 
 .workspace-nav .is-primary-nav-action[aria-current="page"],
 .workspace-nav .is-primary-nav-action:hover {
-  background: var(--color-primary-strong);
-  border-bottom-color: var(--color-primary);
+  background: linear-gradient(135deg, var(--color-primary-strong), var(--color-brand-bridge));
+  border-bottom-color: var(--color-brand-bright);
   color: #fff;
 }
 
@@ -1966,14 +2147,14 @@ button:where(:not(.link-button)):hover {
 }
 
 .calendar-workspace-tabs button:hover {
-  background: #edf7f9;
-  border-color: #c8e1e7;
+  background: var(--color-brand-bright-soft);
+  border-color: var(--color-brand-bright-border);
   color: var(--color-primary-strong);
 }
 
 .calendar-workspace-tabs button[aria-selected="true"] {
-  background: #d9eef3;
-  border-color: #c8e1e7;
+  background: linear-gradient(180deg, rgba(24, 188, 195, 0.16), var(--color-primary-muted));
+  border-color: var(--color-brand-bright-border);
   color: var(--color-primary-strong);
 }
 
@@ -4631,8 +4812,8 @@ select[multiple] {
 input:focus,
 select:focus,
 textarea:focus {
-  border-color: var(--color-primary-strong);
-  outline: 3px solid rgba(21, 94, 117, 0.16);
+  border-color: var(--color-brand-bridge);
+  outline: 3px solid var(--color-brand-bright-soft);
 }
 
 textarea {
@@ -4705,8 +4886,8 @@ textarea {
 }
 
 .integration-card.highlighted {
-  border-color: #a8d3dd;
-  box-shadow: 0 0 0 4px rgba(21, 94, 117, 0.1);
+  border-color: var(--color-brand-bright-border);
+  box-shadow: 0 0 0 4px var(--color-brand-bright-soft);
 }
 
 .integration-card button {
@@ -6463,7 +6644,7 @@ button.chore-row-summary[aria-expanded="true"] {
 
 .studio-house-floor.is-active {
   background: #d9eef3;
-  box-shadow: inset 6px 0 0 var(--color-primary);
+  box-shadow: inset 6px 0 0 var(--color-brand-bright);
 }
 
 .studio-house-floor span:first-child {
@@ -6994,6 +7175,7 @@ button.chore-row-summary[aria-expanded="true"] {
   }
 
   .brand-mark {
+    --brand-logo-size: 29px;
     font-size: 1.55rem;
   }
 

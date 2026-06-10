@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Clenella logo and favicon proposals</title>
+    <style>
+      :root {
+        --ink: #06313d;
+        --text: #234d59;
+        --teal: #155e75;
+        --teal-bright: #17758a;
+        --mint: #6aa876;
+        --mint-soft: #dff0e5;
+        --paper: #fbfeff;
+        --wash: #edf8f8;
+        --line: #c6e2e6;
+        --shadow: rgba(21, 94, 117, 0.14);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        background:
+          linear-gradient(90deg, rgba(21, 94, 117, 0.07) 1px, transparent 1px),
+          linear-gradient(180deg, rgba(21, 94, 117, 0.07) 1px, transparent 1px),
+          radial-gradient(circle at 13% 8%, rgba(106, 168, 118, 0.24), transparent 24rem),
+          linear-gradient(135deg, #fbfeff 0%, #edf8f8 52%, #fffaf0 100%);
+        background-size: 44px 44px, 44px 44px, auto, auto;
+        color: var(--ink);
+        font-family: "Aptos", "Segoe UI", system-ui, sans-serif;
+        margin: 0;
+        padding: 32px;
+      }
+
+      main {
+        margin: 0;
+        max-width: 1260px;
+      }
+
+      .header {
+        align-items: end;
+        display: grid;
+        gap: 22px;
+        grid-template-columns: minmax(0, 1fr) minmax(320px, 440px);
+        margin-bottom: 24px;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: clamp(2.45rem, 5.2vw, 4.7rem);
+        letter-spacing: -0.04em;
+        line-height: 0.94;
+        max-width: 760px;
+      }
+
+      .lede {
+        color: var(--text);
+        font-size: 1rem;
+        font-weight: 750;
+        line-height: 1.5;
+      }
+
+      .board {
+        display: grid;
+        gap: 18px;
+      }
+
+      .proposal {
+        background: rgba(255, 255, 255, 0.86);
+        border: 1px solid var(--line);
+        box-shadow: -8px 8px 0 var(--shadow);
+        display: grid;
+        gap: 18px;
+        grid-template-columns: minmax(235px, 0.72fr) minmax(0, 1.28fr);
+        padding: 20px;
+      }
+
+      .proposal.recommended {
+        background:
+          linear-gradient(90deg, rgba(106, 168, 118, 0.13), transparent 42%),
+          rgba(255, 255, 255, 0.9);
+      }
+
+      .intro {
+        display: grid;
+        gap: 16px;
+      }
+
+      .eyebrow {
+        color: var(--teal-bright);
+        font-size: 0.72rem;
+        font-weight: 950;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      h2 {
+        font-size: clamp(1.55rem, 2.8vw, 2.35rem);
+        letter-spacing: -0.035em;
+        line-height: 0.96;
+      }
+
+      .reason {
+        color: var(--text);
+        font-size: 0.94rem;
+        font-weight: 650;
+        line-height: 1.45;
+      }
+
+      .mark-stage {
+        align-items: center;
+        background:
+          linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(237, 248, 248, 0.88));
+        border: 1px solid var(--line);
+        display: grid;
+        justify-items: center;
+        min-height: 198px;
+        padding: 18px;
+      }
+
+      .mark-stage svg {
+        filter: drop-shadow(0 9px 14px rgba(4, 49, 61, 0.12));
+      }
+
+      .samples {
+        display: grid;
+        gap: 14px;
+      }
+
+      .sample-row {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+      }
+
+      .lockup,
+      .browser-tab,
+      .tiny-swatch,
+      .topbar {
+        background: var(--paper);
+        border: 1px solid var(--line);
+      }
+
+      .lockup {
+        align-items: center;
+        display: inline-flex;
+        gap: 12px;
+        min-height: 66px;
+        padding: 10px 16px;
+      }
+
+      .wordmark {
+        color: var(--teal);
+        font-family: "Segoe Script", "Brush Script MT", cursive;
+        font-size: 2rem;
+        font-weight: 700;
+        letter-spacing: -0.035em;
+        line-height: 1;
+      }
+
+      .browser-tab {
+        align-items: center;
+        border-radius: 999px 999px 0 0;
+        display: inline-flex;
+        gap: 8px;
+        height: 34px;
+        max-width: 270px;
+        min-width: 220px;
+        padding: 0 12px;
+      }
+
+      .browser-tab span {
+        color: #3d5961;
+        font-size: 0.78rem;
+        font-weight: 800;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .favicon-strip {
+        align-items: end;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .tiny-swatch {
+        align-items: center;
+        display: grid;
+        gap: 6px;
+        justify-items: center;
+        min-width: 58px;
+        padding: 9px 8px 8px;
+      }
+
+      .tiny-swatch span {
+        color: #53656c;
+        font-size: 0.66rem;
+        font-weight: 900;
+      }
+
+      .topbar {
+        align-items: center;
+        display: flex;
+        gap: 18px;
+        justify-content: space-between;
+        min-height: 58px;
+        padding: 9px 12px;
+      }
+
+      .topbar .lockup {
+        border: 0;
+        min-height: 0;
+        padding: 0;
+      }
+
+      .nav-links {
+        align-items: center;
+        color: var(--ink);
+        display: flex;
+        gap: 16px;
+        font-size: 0.82rem;
+        font-weight: 850;
+      }
+
+      .button-pill {
+        background: var(--teal);
+        border-radius: 999px;
+        color: #fff;
+        padding: 8px 12px;
+      }
+
+      .construction {
+        display: grid;
+        gap: 8px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .construction span {
+        background: rgba(237, 248, 248, 0.82);
+        border: 1px solid var(--line);
+        color: var(--text);
+        font-size: 0.78rem;
+        font-weight: 750;
+        line-height: 1.3;
+        padding: 9px;
+      }
+
+      svg {
+        display: block;
+        overflow: visible;
+      }
+
+      .teal-fill {
+        fill: var(--teal);
+      }
+
+      .teal-stroke {
+        stroke: var(--teal);
+      }
+
+      .bright-stroke {
+        stroke: var(--teal-bright);
+      }
+
+      .mint-stroke {
+        stroke: var(--mint);
+      }
+
+      .paper-fill {
+        fill: var(--paper);
+      }
+
+      .paper-stroke {
+        stroke: var(--paper);
+      }
+
+      .wash-fill {
+        fill: var(--wash);
+      }
+
+      .line-stroke {
+        stroke: var(--line);
+      }
+
+      @media (max-width: 900px) {
+        body {
+          padding: 18px;
+        }
+
+        .header,
+        .proposal {
+          grid-template-columns: 1fr;
+        }
+
+        .topbar {
+          align-items: start;
+          display: grid;
+        }
+
+        .nav-links {
+          flex-wrap: wrap;
+        }
+      }
+
+      @media (max-width: 560px) {
+        .construction {
+          grid-template-columns: 1fr;
+        }
+
+        .lockup {
+          width: 100%;
+        }
+
+        .wordmark {
+          font-size: 1.8rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="header">
+        <h1>Clenella identity redraw</h1>
+        <p class="lede">A cleaner pass with fewer ideas, stronger silhouettes, and favicon-first geometry. Each mark uses round joins, a stable square viewBox, and the same visual weight at every size.</p>
+      </section>
+
+      <section class="board" aria-label="Clenella logo and favicon proposals">
+        <article class="proposal recommended">
+          <div class="intro">
+            <div>
+              <p class="eyebrow">Option A / Recommended</p>
+              <h2>Daymark</h2>
+            </div>
+            <p class="reason">A tidy calendar tile with a soft completion check. It keeps the product promise very literal, reads quickly in the browser tab, and pairs naturally with the existing script-style wordmark.</p>
+            <div class="mark-stage">
+              <svg width="128" height="128" viewBox="0 0 64 64" aria-hidden="true">
+                <use href="#mark-daymark" />
+              </svg>
+            </div>
+            <div class="construction" aria-label="Construction notes">
+              <span>One filled outer shape for favicon strength.</span>
+              <span>Calendar details stay thick and centered.</span>
+              <span>Checkmark is the only interior gesture.</span>
+            </div>
+          </div>
+
+          <div class="samples">
+            <div class="sample-row">
+              <div class="lockup">
+                <svg width="46" height="46" viewBox="0 0 64 64" aria-hidden="true">
+                  <use href="#mark-daymark" />
+                </svg>
+                <span class="wordmark">Clenella</span>
+              </div>
+              <div class="browser-tab">
+                <svg width="16" height="16" viewBox="0 0 64 64" aria-hidden="true">
+                  <use href="#mark-daymark" />
+                </svg>
+                <span>Clenella - Weekly chore planning</span>
+              </div>
+            </div>
+
+            <div class="favicon-strip" aria-label="Favicon size previews">
+              <div class="tiny-swatch">
+                <svg width="16" height="16" viewBox="0 0 64 64" aria-hidden="true">
+                  <use href="#mark-daymark" />
+                </svg>
+                <span>16 px</span>
+              </div>
+              <div class="tiny-swatch">
+                <svg width="24" height="24" viewBox="0 0 64 64" aria-hidden="true">
+                  <use href="#mark-daymark" />
+                </svg>
+                <span>24 px</span>
+              </div>
+              <div class="tiny-swatch">
+                <svg width="32" height="32" viewBox="0 0 64 64" aria-hidden="true">
+                  <use href="#mark-daymark" />
+                </svg>
+                <span>32 px</span>
+              </div>
+              <div class="tiny-swatch">
+                <svg width="48" height="48" viewBox="0 0 64 64" aria-hidden="true">
+                  <use href="#mark-daymark" />
+                </svg>
+                <span>48 px</span>
+              </div>
+            </div>
+
+            <div class="topbar">
+              <div class="lockup">
+                <svg width="34" height="34" viewBox="0 0 64 64" aria-hidden="true">
+                  <use href="#mark-daymark" />
+                </svg>
+                <span class="wordmark">Clenella</span>
+              </div>
+              <div class="nav-links">
+                <span>Why Clenella</span>
+                <span>How it works</span>
+                <span class="button-pill">Sign in</span>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="proposal">
+          <div class="intro">
+            <div>
+              <p class="eyebrow">Option B</p>
+              <h2>Care Loop</h2>
+            </div>
+            <p class="reason">An abstract C-shaped loop with a check nested inside. It is less calendar-literal and more ownable, with a friendly "things are handled" feeling.</p>
+            <div class="mark-stage">
+              <svg width="128" height="128" viewBox="0 0 64 64" aria-hidden="true">
+                <use href="#mark-care-loop" />
+              </svg>
+            </div>
+            <div class="construction" aria-label="Construction notes">
+              <span>The C is one continuous rounded stroke.</span>
+              <span>The check sits inside the open counterspace.</span>
+              <span>Works best when the brand can be less literal.</span>
+            </div>
+          </div>
+
+          <div class="samples">
+            <div class="sample-row">
+              <div class="lockup">
+                <svg width="46" height="46" viewBox="0 0 64 64" aria-hidden="true">
+                  <use href="#mark-care-loop" />
+                </svg>
+                <span class="wordmark">Clenella</span>
+              </div>
+              <div class="browser-tab">
+                <svg width="16" height="16" viewBox="0 0 64 64" aria-hidden="true">
+                  <use href="#mark-care-loop" />
+                </svg>
+                <span>Clenella - Weekly chore planning</span>
+              </div>
+            </div>
+
+            <div class="favicon-strip" aria-label="Favicon size previews">
+              <div class="tiny-swatch">
+                <svg width="16" height="16" viewBox="0 0 64 64" aria-hidden="true">
+                  <use href="#mark-care-loop" />
+                </svg>
+                <span>16 px</span>
+              </div>
+              <div class="tiny-swatch">
+                <svg width="24" height="24" viewBox="0 0 64 64" aria-hidden="true">
+                  <use href="#mark-care-loop" />
+                </svg>
+                <span>24 px</span>
+              </div>
+              <div class="tiny-swatch">
+                <svg width="32" height="32" viewBox="0 0 64 64" aria-hidden="true">
+                  <use href="#mark-care-loop" />
+                </svg>
+                <span>32 px</span>
+              </div>
+              <div class="tiny-swatch">
+                <svg width="48" height="48" viewBox="0 0 64 64" aria-hidden="true">
+                  <use href="#mark-care-loop" />
+                </svg>
+                <span>48 px</span>
+              </div>
+            </div>
+
+            <div class="topbar">
+              <div class="lockup">
+                <svg width="34" height="34" viewBox="0 0 64 64" aria-hidden="true">
+                  <use href="#mark-care-loop" />
+                </svg>
+                <span class="wordmark">Clenella</span>
+              </div>
+              <div class="nav-links">
+                <span>Why Clenella</span>
+                <span>How it works</span>
+                <span class="button-pill">Sign in</span>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="proposal">
+          <div class="intro">
+            <div>
+              <p class="eyebrow">Option C</p>
+              <h2>Home Check</h2>
+            </div>
+            <p class="reason">A soft house icon with the check integrated as the main gesture. This is the warmest direction and makes the product feel household-centered rather than calendar-centered.</p>
+            <div class="mark-stage">
+              <svg width="128" height="128" viewBox="0 0 64 64" aria-hidden="true">
+                <use href="#mark-home-check" />
+              </svg>
+            </div>
+            <div class="construction" aria-label="Construction notes">
+              <span>The house is reduced to one filled silhouette.</span>
+              <span>The check is large enough to remain readable.</span>
+              <span>Most friendly, but also the most familiar category cue.</span>
+            </div>
+          </div>
+
+          <div class="samples">
+            <div class="sample-row">
+              <div class="lockup">
+                <svg width="46" height="46" viewBox="0 0 64 64" aria-hidden="true">
+                  <use href="#mark-home-check" />
+                </svg>
+                <span class="wordmark">Clenella</span>
+              </div>
+              <div class="browser-tab">
+                <svg width="16" height="16" viewBox="0 0 64 64" aria-hidden="true">
+                  <use href="#mark-home-check" />
+                </svg>
+                <span>Clenella - Weekly chore planning</span>
+              </div>
+            </div>
+
+            <div class="favicon-strip" aria-label="Favicon size previews">
+              <div class="tiny-swatch">
+                <svg width="16" height="16" viewBox="0 0 64 64" aria-hidden="true">
+                  <use href="#mark-home-check" />
+                </svg>
+                <span>16 px</span>
+              </div>
+              <div class="tiny-swatch">
+                <svg width="24" height="24" viewBox="0 0 64 64" aria-hidden="true">
+                  <use href="#mark-home-check" />
+                </svg>
+                <span>24 px</span>
+              </div>
+              <div class="tiny-swatch">
+                <svg width="32" height="32" viewBox="0 0 64 64" aria-hidden="true">
+                  <use href="#mark-home-check" />
+                </svg>
+                <span>32 px</span>
+              </div>
+              <div class="tiny-swatch">
+                <svg width="48" height="48" viewBox="0 0 64 64" aria-hidden="true">
+                  <use href="#mark-home-check" />
+                </svg>
+                <span>48 px</span>
+              </div>
+            </div>
+
+            <div class="topbar">
+              <div class="lockup">
+                <svg width="34" height="34" viewBox="0 0 64 64" aria-hidden="true">
+                  <use href="#mark-home-check" />
+                </svg>
+                <span class="wordmark">Clenella</span>
+              </div>
+              <div class="nav-links">
+                <span>Why Clenella</span>
+                <span>How it works</span>
+                <span class="button-pill">Sign in</span>
+              </div>
+            </div>
+          </div>
+        </article>
+      </section>
+    </main>
+
+    <svg width="0" height="0" aria-hidden="true" focusable="false">
+      <symbol id="mark-daymark" viewBox="0 0 64 64">
+        <rect x="5" y="5" width="54" height="54" rx="16" class="teal-fill" />
+        <rect x="12" y="18" width="40" height="34" rx="8" class="paper-fill" />
+        <path d="M12 29H52" class="teal-stroke" fill="none" stroke-width="4.6" />
+        <path d="M23 14V22M41 14V22" class="paper-stroke" fill="none" stroke-linecap="round" stroke-width="5.2" />
+        <path d="M23 40.5L29.5 46.5L41 34.5" class="mint-stroke" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="5.8" />
+      </symbol>
+
+      <symbol id="mark-care-loop" viewBox="0 0 64 64">
+        <rect x="5" y="5" width="54" height="54" rx="17" class="paper-fill" />
+        <rect x="5" y="5" width="54" height="54" rx="17" class="line-stroke" fill="none" stroke-width="2.2" />
+        <path d="M45 17C38 11 26 10 18 17C9 25 9 40 18 48C27 56 41 54 49 45" class="bright-stroke" fill="none" stroke-linecap="round" stroke-width="8" />
+        <path d="M24 34L32 42L48 23" class="mint-stroke" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="7" />
+      </symbol>
+
+      <symbol id="mark-home-check" viewBox="0 0 64 64">
+        <rect x="5" y="5" width="54" height="54" rx="16" class="teal-fill" />
+        <path d="M16 32L32 18L48 32L43 37L40 34V49H24V34L21 37Z" class="paper-fill" />
+        <path d="M26 40L32 46L44 33" class="mint-stroke" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="6.4" />
+      </symbol>
+    </svg>
+  </body>
+</html>

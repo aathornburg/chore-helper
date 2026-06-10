@@ -266,6 +266,7 @@ function AppShell({
             onNavigate("/");
             setIsNavOpen(false);
           }}>
+            <img alt="" aria-hidden="true" className="brand-logo" src="/clenella-logo.svg" />
             Clenella
           </a>
         </div>

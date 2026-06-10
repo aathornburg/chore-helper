@@ -1170,6 +1170,18 @@ describe("App", () => {
     expect(screen.queryByRole("link", { name: "Setup" })).toBeNull();
   });
 
+  it("shows the Clenella logo in the signed-in header brand link", async () => {
+    mockEmptyAppDataFetches();
+    renderAt("/today");
+
+    const brandLink = await screen.findByRole("link", { name: "Clenella" });
+    const logo = brandLink.querySelector("img.brand-logo");
+    expect(logo).not.toBeNull();
+    expect(logo?.getAttribute("alt")).toBe("");
+    expect(logo?.getAttribute("aria-hidden")).toBe("true");
+    expect(logo?.getAttribute("src")).toBe("/clenella-logo.svg");
+  });
+
   it("toggles the mobile navigation menu from the app shell", async () => {
     mockEmptyAppDataFetches();
     renderAt("/today");
