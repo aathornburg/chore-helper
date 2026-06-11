@@ -2602,10 +2602,20 @@ button.calendar-event:hover {
 }
 
 .calendar-chore-detail {
-  align-items: center;
-  display: inline-flex;
-  flex-wrap: wrap;
+  align-items: start;
+  display: flex;
+  flex-wrap: nowrap;
   gap: 5px;
+}
+
+.calendar-time-summary {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.calendar-time-summary span {
+  min-width: 0;
 }
 
 .calendar-identity-token {
@@ -2665,9 +2675,8 @@ button.calendar-event:hover {
 }
 
 .calendar-chore-row.is-summary .calendar-chore-detail {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow: visible;
+  white-space: normal;
 }
 
 .calendar-day-cell .calendar-chore-row {
@@ -2712,12 +2721,12 @@ button.calendar-event:hover {
   display: grid;
   gap: 0;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  overflow: hidden;
+  overflow: visible;
 }
 
 .calendar-column-grid.has-time-rail {
   grid-template-columns: 72px repeat(7, minmax(0, 1fr));
-  grid-template-rows: 49px minmax(64px, auto) 20px repeat(11, 64px);
+  grid-template-rows: 49px minmax(64px, auto) 20px repeat(11, minmax(76px, auto));
 }
 
 .calendar-time-rail {

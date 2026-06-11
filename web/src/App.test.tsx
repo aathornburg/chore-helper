@@ -2578,7 +2578,7 @@ describe("App", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Day" }));
     const dayGrid = await screen.findByRole("grid", { name: "Saturday, May 30 day calendar" });
     expect(dayGrid).toBeTruthy();
-    expect(within(dayGrid).getByText("Anytime")).toBeTruthy();
+    expect(dayGrid.querySelector(".calendar-column-anytime-label")?.textContent).toBe("Anytime");
     expect(dayGrid.querySelector(".calendar-time-rail")).toBeNull();
     expect(within(dayGrid).getAllByText("8:00 am")).toHaveLength(1);
     const dayRows = within(dayGrid).getAllByRole("button");
@@ -2587,7 +2587,10 @@ describe("App", () => {
     expect(dayRows[0].classList.contains("is-chore")).toBe(true);
     const dayAssigneeToken = within(dayRows[0]).getByRole("img", { name: "Assigned to Alex Owner" });
     expect(dayAssigneeToken.textContent).toContain("AO");
-    expect(within(dayRows[0]).getByText("Anytime / 60 min")).toBeTruthy();
+    const dayTimeSummary = dayRows[0].querySelector(".calendar-time-summary");
+    expect(dayTimeSummary).not.toBeNull();
+    expect(within(dayTimeSummary as HTMLElement).getByText("Anytime")).toBeTruthy();
+    expect(within(dayTimeSummary as HTMLElement).getByText("60 min")).toBeTruthy();
     expect(within(dayRows[0]).queryByText("Alex Owner")).toBeNull();
     expect(dayRows[1].classList.contains("is-completed")).toBe(true);
     expect(dayGrid.querySelector(".calendar-completed-drawer")).toBeNull();
@@ -3622,7 +3625,11 @@ describe("App", () => {
       const timedSlot = screen.getByLabelText("Friday, May 29 17:00 time slot");
       const importedChore = within(timedSlot).getByRole("button", { name: "View Soccer practice" });
       expect(importedChore.classList.contains("is-chore")).toBe(true);
-      expect(within(importedChore).getByText("5:00 PM / 45 min")).toBeTruthy();
+      const timeSummary = importedChore.querySelector(".calendar-time-summary");
+      expect(timeSummary).not.toBeNull();
+      expect(timeSummary?.children).toHaveLength(2);
+      expect(within(timeSummary as HTMLElement).getByText("5:00 PM")).toBeTruthy();
+      expect(within(timeSummary as HTMLElement).getByText("45 min")).toBeTruthy();
       expect(within(importedChore).queryByText(/5:45 PM/)).toBeNull();
     });
   });

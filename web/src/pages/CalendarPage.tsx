@@ -695,7 +695,16 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   }
 
   function cleanlyEventTimeLine(event: CleanlyCalendarEvent) {
-    return `${formatInTimeZone(event.startsAt, timeZone, "h:mm a")} / ${eventDurationLabel(event)}`;
+    return renderTimeSummary(formatInTimeZone(event.startsAt, timeZone, "h:mm a"), eventDurationLabel(event));
+  }
+
+  function renderTimeSummary(startLabel: string, durationLabel: string) {
+    return (
+      <span className="calendar-time-summary">
+        <span>{startLabel}</span>
+        <span>{durationLabel}</span>
+      </span>
+    );
   }
 
   function seedDraftAssignees(draft: ScheduleDraft): ScheduleDraft {
@@ -1019,6 +1028,13 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     return `${occurrence.plannedStartAt ? formatInTimeZone(occurrence.plannedStartAt, timeZone, "h:mm a") : "Anytime"} / ${durationInMinutes(occurrence)} min`;
   }
 
+  function occurrenceTimeSummary(occurrence: ChoreOccurrence) {
+    const startLabel = occurrence.planningMode === "flexible" || !occurrence.plannedStartAt
+      ? "Anytime"
+      : formatInTimeZone(occurrence.plannedStartAt, timeZone, "h:mm a");
+    return renderTimeSummary(startLabel, `${durationInMinutes(occurrence)} min`);
+  }
+
   function occurrenceStatusLabel(occurrence: ChoreOccurrence) {
     return occurrence.status === "completed" ? "Completed" : occurrence.status === "skipped" ? "Skipped" : "Planned";
   }
@@ -1167,7 +1183,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
             <>
               <span className="calendar-chore-detail">
                 {assigneeIdentity(occurrence)}
-                <span>{occurrenceDateLine(occurrence)}</span>
+                {occurrenceTimeSummary(occurrence)}
               </span>
               {isFlexibleOverdue(occurrence) ? <span className="occurrence-overdue-badge">Overdue</span> : null}
             </>
