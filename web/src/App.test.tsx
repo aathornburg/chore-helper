@@ -41,6 +41,21 @@ function renderAt(path: string) {
   return render(<App />);
 }
 
+function setViewportWidth(width: number) {
+  Object.defineProperty(window, "innerWidth", { configurable: true, writable: true, value: width });
+  window.dispatchEvent(new Event("resize"));
+}
+
+function stubScrollIntoView() {
+  const scrollIntoView = vi.fn();
+  Object.defineProperty(Element.prototype, "scrollIntoView", {
+    configurable: true,
+    writable: true,
+    value: scrollIntoView
+  });
+  return scrollIntoView;
+}
+
 async function withMay2026CalendarClock(callback: () => Promise<void>) {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   vi.setSystemTime(new Date("2026-05-30T12:00:00.000-04:00"));
@@ -1067,6 +1082,8 @@ afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
   mockClerkSignedIn();
+  setViewportWidth(1024);
+  delete (Element.prototype as { scrollIntoView?: Element["scrollIntoView"] }).scrollIntoView;
   window.localStorage.clear();
   window.history.pushState({}, "", "/");
 });
@@ -2477,6 +2494,59 @@ describe("App", () => {
     });
   });
 
+  it("renders mobile Month as date buttons with a selected-day agenda", async () => {
+    await withMay2026CalendarClock(async () => {
+      setViewportWidth(390);
+      vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
+      const scrollIntoView = stubScrollIntoView();
+      renderAt("/calendar");
+
+      const mobileMonth = await screen.findByRole("grid", { name: "May 2026 mobile month calendar" });
+      expect(within(mobileMonth).getByRole("button", { name: /Select Friday, May 29, 1 item/ })).toBeTruthy();
+      expect(within(mobileMonth).queryByRole("button", { name: "View Clean bathrooms" })).toBeNull();
+      expect(scrollIntoView).not.toHaveBeenCalled();
+
+      const agenda = screen.getByRole("region", { name: "Selected day agenda" });
+      expect(within(agenda).getByRole("heading", { name: "Saturday, May 30" })).toBeTruthy();
+      expect(within(agenda).getByRole("button", { name: "View Clean bathrooms" })).toBeTruthy();
+      expect(within(agenda).getByRole("button", { name: "View Pet cats" })).toBeTruthy();
+
+      fireEvent.click(within(mobileMonth).getByRole("button", { name: /Select Friday, May 29, 1 item/ }));
+      expect(within(agenda).getByRole("heading", { name: "Friday, May 29" })).toBeTruthy();
+      expect(within(agenda).getByRole("button", { name: "View Clean bathrooms" })).toBeTruthy();
+      await waitFor(() => expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "start" }));
+    });
+  });
+
+  it("opens detail modals from the mobile Month selected-day agenda", async () => {
+    await withMay2026CalendarClock(async () => {
+      setViewportWidth(390);
+      vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
+      renderAt("/calendar");
+
+      const agenda = await screen.findByRole("region", { name: "Selected day agenda" });
+      fireEvent.click(within(agenda).getByRole("button", { name: "View Clean bathrooms" }));
+
+      const dialog = await screen.findByRole("dialog", { name: "Chore details" });
+      expect(within(dialog).getByRole("heading", { name: "Clean bathrooms" })).toBeTruthy();
+    });
+  });
+
+  it("shows an empty selected-day agenda in mobile Month", async () => {
+    await withMay2026CalendarClock(async () => {
+      setViewportWidth(390);
+      vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
+      renderAt("/calendar");
+
+      const mobileMonth = await screen.findByRole("grid", { name: "May 2026 mobile month calendar" });
+      fireEvent.click(within(mobileMonth).getByRole("button", { name: /Select Monday, May 4, 0 items/ }));
+
+      const agenda = screen.getByRole("region", { name: "Selected day agenda" });
+      expect(within(agenda).getByRole("heading", { name: "Monday, May 4" })).toBeTruthy();
+      expect(within(agenda).getByText("No work scheduled for this day.")).toBeTruthy();
+    });
+  });
+
   it("keeps Calendar month view as a full month grid after the visual refresh", async () => {
     await withMay2026CalendarClock(async () => {
       vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
@@ -2487,7 +2557,10 @@ describe("App", () => {
       fireEvent.click(screen.getByRole("button", { name: "Month" }));
 
       const monthGrid = await screen.findByRole("grid", { name: /month calendar/i });
+      expect(monthGrid.closest(".calendar-desktop-month-surface")).not.toBeNull();
       const dayCells = within(monthGrid).getAllByRole("gridcell");
+      const friday = screen.getByRole("gridcell", { name: "Friday, May 29" });
+      expect(within(friday).getByRole("button", { name: "View Clean bathrooms" })).toBeTruthy();
 
       expect(dayCells.map((cell) => cell.getAttribute("aria-label"))).toEqual([
         "Sunday, Apr 26",

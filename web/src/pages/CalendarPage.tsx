@@ -48,6 +48,7 @@ const weekdays = [
   { label: "Sat", value: 6 }
 ];
 const timedSlots = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"];
+const mobileMonthBreakpoint = 700;
 
 function memberLabel(member: HouseholdMemberSummary) {
   return member.displayName ?? member.primaryEmail ?? member.clerkUserId;
@@ -267,9 +268,14 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   const [exportRange, setExportRange] = useState<CalendarDateRange>(() => createVisibleRange(format(new Date(), "yyyy-MM-dd"), format(addDays(new Date(), 30), "yyyy-MM-dd")));
   const [selectedExportEventIds, setSelectedExportEventIds] = useState<string[]>([]);
   const [shouldApplyExportPreselect, setShouldApplyExportPreselect] = useState(false);
+  const [isMobileMonthViewport, setIsMobileMonthViewport] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth <= mobileMonthBreakpoint : false
+  );
+  const [selectedMobileMonthDateKey, setSelectedMobileMonthDateKey] = useState<string>();
   const choreEditorModalRef = useRef<HTMLFormElement>(null);
   const cleanlyEventModalRef = useRef<HTMLElement>(null);
   const modalTriggerRef = useRef<HTMLElement | null>(null);
+  const mobileMonthAgendaRef = useRef<HTMLElement>(null);
 
   const selectedHousehold = households.find((household) => household.id === filters.householdId) ?? households[0];
   const timeZone = selectedHousehold?.timeZone ?? "UTC";
@@ -616,6 +622,27 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     end: endOfWeek(endOfMonth(focusDate), { weekStartsOn: 0 })
   }), [focusDate]);
 
+  useEffect(() => {
+    function syncMobileMonthViewport() {
+      setIsMobileMonthViewport(window.innerWidth <= mobileMonthBreakpoint);
+    }
+
+    syncMobileMonthViewport();
+    window.addEventListener("resize", syncMobileMonthViewport);
+    return () => window.removeEventListener("resize", syncMobileMonthViewport);
+  }, []);
+
+  useEffect(() => {
+    if (calendarScale !== "month" || monthDates.length === 0) return;
+
+    const todayKey = format(new Date(), "yyyy-MM-dd");
+    const visibleToday = monthDates.some((date) => dateKey(date) === todayKey);
+    const firstFocusedMonthDate = monthDates.find((date) => format(date, "yyyy-MM") === format(focusDate, "yyyy-MM"));
+    setSelectedMobileMonthDateKey(
+      visibleToday ? todayKey : firstFocusedMonthDate ? dateKey(firstFocusedMonthDate) : dateKey(monthDates[0])
+    );
+  }, [calendarScale, focusDate, monthDates]);
+
   const weekDates = useMemo(() => eachDayOfInterval({
     start: startOfWeek(focusDate, { weekStartsOn: 0 }),
     end: endOfWeek(focusDate, { weekStartsOn: 0 })
@@ -641,6 +668,28 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
 
   function occurrenceTitle(occurrence: ChoreOccurrence) {
     return choreTitles.get(occurrence.choreId) ?? "Scheduled chore";
+  }
+
+  function monthItemsForDate(date: Date) {
+    const key = dateKey(date);
+    const occurrencesForDay = occurrenceDateBuckets.get(key) ?? [];
+    const activeOccurrences = occurrencesForDay.filter((occurrence) => occurrence.status !== "completed");
+    const orderedOccurrences = orderCompletedLast(occurrencesForDay);
+    const cleanlyEventsForDay = cleanlyEventDateBuckets.get(key) ?? [];
+    return {
+      cleanlyEventsForDay,
+      hasAllCompleted: occurrencesForDay.length > 0 && activeOccurrences.length === 0,
+      itemCount: cleanlyEventsForDay.length + occurrencesForDay.length,
+      orderedOccurrences
+    };
+  }
+
+  function selectMobileMonthDate(nextDateKey: string) {
+    setSelectedMobileMonthDateKey(nextDateKey);
+    if (!isMobileMonthViewport) return;
+    window.setTimeout(() => {
+      mobileMonthAgendaRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
   }
 
   function assignedMemberLabel(occurrence: ChoreOccurrence) {
@@ -1671,45 +1720,111 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     );
     return (
       <section className="calendar-month-panel">
-        <div className="calendar-month-grid" role="grid" aria-label={`${rangeLabel} month calendar`}>
-          <div className="calendar-month-week calendar-month-week-header" role="row">
+        <div className="calendar-desktop-month-surface">
+          <div className="calendar-month-grid" role="grid" aria-label={`${rangeLabel} month calendar`}>
+            <div className="calendar-month-week calendar-month-week-header" role="row">
+              {weekdays.map((weekday) => (
+                <div className="calendar-weekday-header" key={weekday.value} role="columnheader">{weekday.label}</div>
+              ))}
+            </div>
+            {monthWeeks.map((weekDatesInMonth) => (
+              <div className="calendar-month-week" key={dateKey(weekDatesInMonth[0])} role="row">
+                {weekDatesInMonth.map((date) => {
+                  const key = dateKey(date);
+                  const isCurrentMonth = format(date, "yyyy-MM") === format(focusDate, "yyyy-MM");
+                  const { cleanlyEventsForDay, hasAllCompleted, orderedOccurrences } = monthItemsForDate(date);
+                  return (
+                    <article
+                      aria-label={longDateLabel(date)}
+                      className={`calendar-day-cell ${isCurrentMonth ? "" : "is-outside-month"} ${hasAllCompleted ? "is-all-completed" : ""} ${key === format(new Date(), "yyyy-MM-dd") ? "is-today" : ""}`}
+                      key={key}
+                      role="gridcell"
+                    >
+                      <div className="calendar-day-cell-header">
+                        <span>{format(date, "d")}</span>
+                        {key === format(new Date(), "yyyy-MM-dd") ? <strong>Today</strong> : null}
+                      </div>
+                      <div className="calendar-day-active-events">
+                        {cleanlyEventsForDay.map((event) => renderCleanlyCalendarEvent(event))}
+                        {orderedOccurrences.map((occurrence) => renderMonthOccurrence(occurrence, date))}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+        {isMobileMonthViewport ? renderMobileMonthCalendar(monthWeeks, rangeLabel) : null}
+      </section>
+    );
+  }
+
+  function renderMobileMonthCalendar(monthWeeks: Date[][], rangeLabel: string) {
+    const todayKey = format(new Date(), "yyyy-MM-dd");
+    const firstFocusedMonthDate = monthDates.find((date) => format(date, "yyyy-MM") === format(focusDate, "yyyy-MM"));
+    const fallbackSelectedDate = monthDates.find((date) => dateKey(date) === todayKey) ?? firstFocusedMonthDate ?? monthDates[0];
+    const selectedDate = monthDates.find((date) => dateKey(date) === selectedMobileMonthDateKey) ?? fallbackSelectedDate;
+    const selectedDateKey = dateKey(selectedDate);
+    const selectedItems = monthItemsForDate(selectedDate);
+    const selectedHasItems = selectedItems.itemCount > 0;
+
+    return (
+      <div className="calendar-mobile-month-panel">
+        <div className="calendar-mobile-month-grid" role="grid" aria-label={`${rangeLabel} mobile month calendar`}>
+          <div className="calendar-mobile-month-week calendar-mobile-month-week-header" role="row">
             {weekdays.map((weekday) => (
-              <div className="calendar-weekday-header" key={weekday.value} role="columnheader">{weekday.label}</div>
+              <div className="calendar-mobile-weekday-header" key={weekday.value} role="columnheader">{weekday.label.slice(0, 1)}</div>
             ))}
           </div>
           {monthWeeks.map((weekDatesInMonth) => (
-            <div className="calendar-month-week" key={dateKey(weekDatesInMonth[0])} role="row">
+            <div className="calendar-mobile-month-week" key={dateKey(weekDatesInMonth[0])} role="row">
               {weekDatesInMonth.map((date) => {
                 const key = dateKey(date);
                 const isCurrentMonth = format(date, "yyyy-MM") === format(focusDate, "yyyy-MM");
-                const occurrencesForDay = occurrenceDateBuckets.get(key) ?? [];
-                const cleanlyEventsForDay = cleanlyEventDateBuckets.get(key) ?? [];
-                const completedOccurrences = occurrencesForDay.filter((occurrence) => occurrence.status === "completed");
-                const activeOccurrences = occurrencesForDay.filter((occurrence) => occurrence.status !== "completed");
-                const orderedOccurrences = [...activeOccurrences, ...completedOccurrences];
-                const hasAllCompleted = occurrencesForDay.length > 0 && activeOccurrences.length === 0;
+                const { hasAllCompleted, itemCount } = monthItemsForDate(date);
+                const isSelected = key === selectedDateKey;
+                const itemLabel = `${itemCount} ${itemCount === 1 ? "item" : "items"}`;
                 return (
-                  <article
-                    aria-label={longDateLabel(date)}
-                    className={`calendar-day-cell ${isCurrentMonth ? "" : "is-outside-month"} ${hasAllCompleted ? "is-all-completed" : ""} ${key === format(new Date(), "yyyy-MM-dd") ? "is-today" : ""}`}
-                    key={key}
-                    role="gridcell"
-                  >
-                    <div className="calendar-day-cell-header">
-                      <span>{format(date, "d")}</span>
-                      {key === format(new Date(), "yyyy-MM-dd") ? <strong>Today</strong> : null}
-                    </div>
-                    <div className="calendar-day-active-events">
-                      {cleanlyEventsForDay.map((event) => renderCleanlyCalendarEvent(event))}
-                      {orderedOccurrences.map((occurrence) => renderMonthOccurrence(occurrence, date))}
-                    </div>
-                  </article>
+                  <div className="calendar-mobile-month-cell" key={key} role="gridcell">
+                    <button
+                      aria-label={`Select ${longDateLabel(date)}, ${itemLabel}`}
+                      aria-pressed={isSelected}
+                      className={`calendar-mobile-day-button ${isCurrentMonth ? "" : "is-outside-month"} ${hasAllCompleted ? "is-all-completed" : ""} ${key === todayKey ? "is-today" : ""}`}
+                      onClick={() => selectMobileMonthDate(key)}
+                      type="button"
+                    >
+                      <span className="calendar-mobile-day-number">{format(date, "d")}</span>
+                      <span className="calendar-mobile-month-markers" aria-hidden="true">
+                        {Array.from({ length: Math.min(itemCount, 3) }, (_item, index) => (
+                          <span className="calendar-mobile-month-dot" key={`${key}-dot-${index}`} />
+                        ))}
+                      </span>
+                      {itemCount > 0 ? <span className="calendar-mobile-month-count">{itemCount}</span> : null}
+                    </button>
+                  </div>
                 );
               })}
             </div>
           ))}
         </div>
-      </section>
+        <section className="calendar-mobile-selected-agenda" aria-label="Selected day agenda" ref={mobileMonthAgendaRef}>
+          <header className="calendar-mobile-selected-agenda-header">
+            <h3>{longDateLabel(selectedDate)}</h3>
+            <span>{selectedItems.itemCount} {selectedItems.itemCount === 1 ? "item" : "items"}</span>
+          </header>
+          <div className="calendar-mobile-selected-agenda-list" aria-live="polite">
+            {selectedHasItems ? (
+              <>
+                {selectedItems.cleanlyEventsForDay.map((event) => renderCleanlyCalendarEvent(event, false))}
+                {selectedItems.orderedOccurrences.map((occurrence) => renderOccurrenceCompact(occurrence, selectedDate, "summary"))}
+              </>
+            ) : (
+              <p className="calendar-mobile-selected-agenda-empty">No work scheduled for this day.</p>
+            )}
+          </div>
+        </section>
+      </div>
     );
   }
 

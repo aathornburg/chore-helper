@@ -2289,6 +2289,15 @@ button:where(:not(.link-button)):hover {
   padding: 0;
 }
 
+.calendar-desktop-month-surface {
+  display: block;
+  min-width: 0;
+}
+
+.calendar-mobile-month-panel {
+  display: none;
+}
+
 .calendar-month-grid {
   display: grid;
   gap: 0;
@@ -2686,6 +2695,185 @@ button.calendar-event:hover {
 
 .calendar-day-cell .calendar-chore-title {
   -webkit-line-clamp: 2;
+}
+
+@media (max-width: 700px) {
+  .calendar-month-panel {
+    background: transparent;
+    border: 0;
+    gap: 12px;
+    overflow: visible;
+  }
+
+  .calendar-desktop-month-surface {
+    display: none;
+  }
+
+  .calendar-mobile-month-panel {
+    display: grid;
+    gap: 14px;
+  }
+
+  .calendar-mobile-month-grid {
+    background: var(--color-surface-elevated);
+    border: 1px solid var(--color-border);
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    overflow: hidden;
+  }
+
+  .calendar-mobile-month-week {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+
+  .calendar-mobile-weekday-header {
+    border-bottom: 1px solid var(--color-border);
+    border-right: 1px solid var(--color-border-soft);
+    color: #687167;
+    font-size: 0.72rem;
+    font-weight: 900;
+    padding: 8px 0;
+    text-align: center;
+    text-transform: uppercase;
+  }
+
+  .calendar-mobile-weekday-header:last-child,
+  .calendar-mobile-month-cell:last-child .calendar-mobile-day-button {
+    border-right: 0;
+  }
+
+  .calendar-mobile-day-button {
+    align-items: center;
+    background: var(--color-surface-elevated);
+    border: 0;
+    border-bottom: 1px solid var(--color-border-soft);
+    border-right: 1px solid var(--color-border-soft);
+    color: #24352e;
+    cursor: pointer;
+    display: grid;
+    gap: 3px;
+    grid-template-rows: auto 6px auto;
+    min-height: 56px;
+    padding: 6px 2px 5px;
+    position: relative;
+    text-align: center;
+    width: 100%;
+  }
+
+  .calendar-mobile-month-week:last-child .calendar-mobile-day-button {
+    border-bottom: 0;
+  }
+
+  .calendar-mobile-day-button:hover {
+    background: #edf7f9;
+  }
+
+  .calendar-mobile-day-button:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -3px;
+  }
+
+  .calendar-mobile-day-button[aria-pressed="true"] {
+    background: #e8f4f2;
+    box-shadow: inset 0 0 0 2px var(--color-primary);
+    color: var(--color-primary-strong);
+  }
+
+  .calendar-mobile-day-button.is-outside-month {
+    background: #eef3f5;
+    color: #7a8378;
+  }
+
+  .calendar-mobile-day-button.is-today .calendar-mobile-day-number {
+    background: var(--color-primary-muted);
+    color: var(--color-primary-strong);
+  }
+
+  .calendar-mobile-day-button.is-all-completed .calendar-mobile-month-dot {
+    background: var(--color-done-strong);
+  }
+
+  .calendar-mobile-day-number {
+    border-radius: 4px;
+    font-size: 0.82rem;
+    font-weight: 900;
+    justify-self: center;
+    line-height: 1;
+    min-width: 1.35rem;
+    padding: 3px 4px;
+  }
+
+  .calendar-mobile-month-markers {
+    align-items: center;
+    display: flex;
+    gap: 2px;
+    justify-content: center;
+    min-height: 6px;
+  }
+
+  .calendar-mobile-month-dot {
+    background: var(--color-primary);
+    border-radius: 999px;
+    height: 5px;
+    width: 5px;
+  }
+
+  .calendar-mobile-month-count {
+    color: #5e625b;
+    font-size: 0.66rem;
+    font-weight: 850;
+    line-height: 1;
+  }
+
+  .calendar-mobile-selected-agenda {
+    background: var(--color-surface-elevated);
+    border: 1px solid var(--color-border);
+    display: grid;
+    gap: 12px;
+    padding: 14px;
+    scroll-margin-top: 88px;
+  }
+
+  .calendar-mobile-selected-agenda-header {
+    align-items: center;
+    border-bottom: 1px solid var(--color-border-soft);
+    display: flex;
+    gap: 10px;
+    justify-content: space-between;
+    padding-bottom: 10px;
+  }
+
+  .calendar-mobile-selected-agenda-header h3 {
+    color: #24352e;
+    font-size: 1rem;
+    margin: 0;
+  }
+
+  .calendar-mobile-selected-agenda-header span {
+    color: #687167;
+    font-size: 0.78rem;
+    font-weight: 850;
+  }
+
+  .calendar-mobile-selected-agenda-list {
+    display: grid;
+    gap: 8px;
+  }
+
+  .calendar-mobile-selected-agenda-list .calendar-work-item,
+  .calendar-mobile-selected-agenda-list .calendar-chore-row {
+    margin-bottom: 0;
+  }
+
+  .calendar-mobile-selected-agenda-empty {
+    color: #687167;
+    font-size: 0.9rem;
+    font-weight: 700;
+    margin: 0;
+    padding: 6px 0 2px;
+  }
 }
 
 .calendar-status {
