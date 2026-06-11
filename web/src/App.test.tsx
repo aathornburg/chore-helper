@@ -2518,6 +2518,30 @@ describe("App", () => {
     });
   });
 
+  it("collapses calendar filters and stretches the scale selector on mobile", async () => {
+    await withMay2026CalendarClock(async () => {
+      setViewportWidth(390);
+      vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
+      renderAt("/calendar");
+
+      const controls = await screen.findByRole("region", { name: "Calendar controls" });
+      const scaleToggle = within(controls).getByRole("region", { name: "Calendar scale" });
+      expect(scaleToggle.classList.contains("is-mobile-full-width")).toBe(true);
+
+      const filters = within(controls).getByRole("region", { name: "Calendar filters" });
+      expect(filters.classList.contains("is-collapsed")).toBe(true);
+      expect(within(filters).queryByLabelText("Planning mode")).toBeNull();
+
+      const toggle = within(filters).getByRole("button", { name: "Filters" });
+      expect(toggle.getAttribute("aria-expanded")).toBe("false");
+      fireEvent.click(toggle);
+
+      expect(toggle.getAttribute("aria-expanded")).toBe("true");
+      expect(filters.classList.contains("is-collapsed")).toBe(false);
+      expect(within(filters).getByLabelText("Planning mode")).toBeTruthy();
+    });
+  });
+
   it("opens detail modals from the mobile Month selected-day agenda", async () => {
     await withMay2026CalendarClock(async () => {
       setViewportWidth(390);

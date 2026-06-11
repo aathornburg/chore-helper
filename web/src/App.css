@@ -1497,6 +1497,12 @@ button:where(:not(.link-button)):hover {
   padding: 5px;
 }
 
+.calendar-view-toggle.is-mobile-full-width {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: 100%;
+}
+
 .calendar-view-toggle button {
   background: transparent;
   border-radius: 0;
@@ -2222,11 +2228,50 @@ button:where(:not(.link-button)):hover {
   margin: 0;
 }
 
+.calendar-filter-card.is-mobile {
+  background: transparent;
+  border: 0;
+  gap: 8px;
+  padding: 0;
+}
+
+.calendar-filter-toggle {
+  align-items: center;
+  background: var(--color-surface-elevated);
+  border: 1px solid #c8e1e7;
+  color: var(--color-primary-strong);
+  display: inline-flex;
+  font-weight: 850;
+  gap: 8px;
+  justify-content: center;
+  min-height: 42px;
+  padding: 9px 12px;
+  width: 100%;
+}
+
+.calendar-filter-toggle:hover {
+  background: #edf7f9;
+  border-color: var(--color-brand-bright-border);
+}
+
+.calendar-filter-toggle svg {
+  height: 18px;
+  width: 18px;
+}
+
 .calendar-filter-panel {
   align-items: end;
   display: grid;
   gap: 18px;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.calendar-filter-card.is-mobile .calendar-filter-panel {
+  background: var(--color-surface-elevated);
+  border: 1px solid #c8e1e7;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr);
+  padding: 12px;
 }
 
 .calendar-filter-panel label {

@@ -184,6 +184,21 @@ function ChevronIcon({ direction }: { direction: "previous" | "next" }) {
   );
 }
 
+function FilterIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 20 20">
+      <path
+        d="M3.5 5h13M5.5 10h9M8 15h4"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
+
 function minutesBetween(startTime: string, endTime: string) {
   const [startHour, startMinute] = startTime.split(":").map(Number);
   const [endHour, endMinute] = endTime.split(":").map(Number);
@@ -272,6 +287,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     typeof window !== "undefined" ? window.innerWidth <= mobileMonthBreakpoint : false
   );
   const [selectedMobileMonthDateKey, setSelectedMobileMonthDateKey] = useState<string>();
+  const [isCalendarFiltersOpen, setIsCalendarFiltersOpen] = useState(false);
   const choreEditorModalRef = useRef<HTMLFormElement>(null);
   const cleanlyEventModalRef = useRef<HTMLElement>(null);
   const modalTriggerRef = useRef<HTMLElement | null>(null);
@@ -631,6 +647,10 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     window.addEventListener("resize", syncMobileMonthViewport);
     return () => window.removeEventListener("resize", syncMobileMonthViewport);
   }, []);
+
+  useEffect(() => {
+    if (!isMobileMonthViewport) setIsCalendarFiltersOpen(false);
+  }, [isMobileMonthViewport]);
 
   useEffect(() => {
     if (calendarScale !== "month" || monthDates.length === 0) return;
@@ -2209,7 +2229,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
             <section className="calendar-control-panel" aria-label="Calendar controls">
               {workspaceView === "calendar" ? (
                 <div className="calendar-command-row">
-                  <section className="calendar-view-toggle" aria-label="Calendar scale">
+                  <section className={`calendar-view-toggle ${isMobileMonthViewport ? "is-mobile-full-width" : ""}`} aria-label="Calendar scale">
                     {scaleOptions.map((option) => (
                       <button aria-pressed={calendarScale === option} key={option} onClick={() => setCalendarScale(option)} type="button">
                         {capitalize(option)}
@@ -2239,40 +2259,54 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                 </span>
               </section>
 
-              <section className="calendar-filter-card" aria-label="Calendar filters">
-                <h2>Filters</h2>
-                <div className="calendar-filter-panel">
-                  <label>
-                    Household
-                    <select value={selectedHousehold.id} onChange={(event) => setFilters((current) => ({ ...current, householdId: event.target.value, assignedUserId: undefined }))}>
-                      {households.map((household) => <option key={household.id} value={household.id}>{household.name}</option>)}
-                    </select>
-                  </label>
-                  <label>
-                    Member
-                    <select value={filters.assignedUserId ?? ""} onChange={(event) => setFilters((current) => ({ ...current, assignedUserId: event.target.value || undefined }))}>
-                      <option value="">Everyone</option>
-                      {members.map((member) => <option key={member.userId} value={member.userId}>{memberLabel(member)}</option>)}
-                    </select>
-                  </label>
-                  <label>
-                    Status
-                    <select value={filters.status ?? "all"} onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}>
-                      <option value="all">All work</option>
-                      <option value="planned">Planned</option>
-                      <option value="completed">Completed</option>
-                      <option value="skipped">Skipped</option>
-                    </select>
-                  </label>
-                  <label>
-                    Planning mode
-                    <select value={filters.planningMode ?? "all"} onChange={(event) => setFilters((current) => ({ ...current, planningMode: event.target.value }))}>
-                      <option value="all">All</option>
-                      <option value="timed">Timed</option>
-                      <option value="flexible">Anytime</option>
-                    </select>
-                  </label>
-                </div>
+              <section className={`calendar-filter-card ${isMobileMonthViewport ? "is-mobile" : ""} ${isMobileMonthViewport && !isCalendarFiltersOpen ? "is-collapsed" : ""}`} aria-label="Calendar filters">
+                {!isMobileMonthViewport ? <h2>Filters</h2> : null}
+                {isMobileMonthViewport ? (
+                  <button
+                    aria-controls="calendar-filter-panel"
+                    aria-expanded={isCalendarFiltersOpen}
+                    className="calendar-filter-toggle"
+                    onClick={() => setIsCalendarFiltersOpen((isOpen) => !isOpen)}
+                    type="button"
+                  >
+                    <FilterIcon />
+                    Filters
+                  </button>
+                ) : null}
+                {!isMobileMonthViewport || isCalendarFiltersOpen ? (
+                  <div className="calendar-filter-panel" id="calendar-filter-panel">
+                    <label>
+                      Household
+                      <select value={selectedHousehold.id} onChange={(event) => setFilters((current) => ({ ...current, householdId: event.target.value, assignedUserId: undefined }))}>
+                        {households.map((household) => <option key={household.id} value={household.id}>{household.name}</option>)}
+                      </select>
+                    </label>
+                    <label>
+                      Member
+                      <select value={filters.assignedUserId ?? ""} onChange={(event) => setFilters((current) => ({ ...current, assignedUserId: event.target.value || undefined }))}>
+                        <option value="">Everyone</option>
+                        {members.map((member) => <option key={member.userId} value={member.userId}>{memberLabel(member)}</option>)}
+                      </select>
+                    </label>
+                    <label>
+                      Status
+                      <select value={filters.status ?? "all"} onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}>
+                        <option value="all">All work</option>
+                        <option value="planned">Planned</option>
+                        <option value="completed">Completed</option>
+                        <option value="skipped">Skipped</option>
+                      </select>
+                    </label>
+                    <label>
+                      Planning mode
+                      <select value={filters.planningMode ?? "all"} onChange={(event) => setFilters((current) => ({ ...current, planningMode: event.target.value }))}>
+                        <option value="all">All</option>
+                        <option value="timed">Timed</option>
+                        <option value="flexible">Anytime</option>
+                      </select>
+                    </label>
+                  </div>
+                ) : null}
               </section>
             </section>
 
