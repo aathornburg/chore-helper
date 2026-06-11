@@ -2601,6 +2601,69 @@ button.calendar-event:hover {
   font-weight: 600;
 }
 
+.calendar-chore-detail {
+  align-items: center;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.calendar-identity-token {
+  align-items: center;
+  background: #d9eef3;
+  border: 1px solid #9fd0d8;
+  border-radius: 999px;
+  color: #0f5f59;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 0.65rem;
+  font-weight: 950;
+  height: 18px;
+  justify-content: center;
+  line-height: 1;
+  position: relative;
+  width: 22px;
+}
+
+.calendar-chore-row:focus-visible .calendar-identity-token,
+.calendar-identity-token:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.calendar-identity-tooltip {
+  background: #24352e;
+  color: #fff;
+  display: none;
+  font-size: 0.72rem;
+  font-weight: 850;
+  left: 50%;
+  line-height: 1.25;
+  min-width: 150px;
+  padding: 7px 8px;
+  position: absolute;
+  top: calc(100% + 7px);
+  transform: translateX(-50%);
+  white-space: normal;
+  z-index: 20;
+}
+
+.calendar-identity-tooltip::before {
+  border: 5px solid transparent;
+  border-bottom-color: #24352e;
+  bottom: 100%;
+  content: "";
+  left: 50%;
+  position: absolute;
+  transform: translateX(-50%);
+}
+
+.calendar-chore-row:hover .calendar-identity-tooltip,
+.calendar-chore-row:focus-visible .calendar-identity-tooltip,
+.calendar-identity-token:hover .calendar-identity-tooltip {
+  display: block;
+}
+
 .calendar-chore-row.is-summary .calendar-chore-detail {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2851,23 +2914,43 @@ button.calendar-event:hover {
   gap: 14px;
 }
 
-.chore-view-summary {
+.chore-view-summary,
+.chore-detail-meta-grid {
   align-items: stretch;
   display: grid;
   gap: 10px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.chore-view-summary span {
+.chore-detail-meta-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.chore-view-summary span,
+.chore-detail-meta-grid div {
   align-items: center;
   background: #edf7f9;
   border: 1px solid #c8e1e7;
   border-radius: 12px;
   color: #2f3a34;
-  display: flex;
+  display: grid;
+  gap: 4px;
   font-weight: 800;
   min-height: 48px;
   padding: 10px 12px;
+}
+
+.chore-detail-meta-grid span {
+  color: #687167;
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.chore-detail-meta-grid strong {
+  color: #24352e;
+  font-size: 0.92rem;
+  overflow-wrap: anywhere;
 }
 
 .completion-check-in {

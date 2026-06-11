@@ -89,7 +89,7 @@ Create a local render helper for the calendar page first. Extract it later only 
 - Optional visible helper text.
 - A compact style suitable for calendar cards.
 
-The token renders as non-button content. It uses a focusable inline element with an accessible label and CSS-driven helper text on hover/focus. It does not behave like a command and does not use button styling.
+The token renders as non-button content. Inside clickable calendar cards, the card remains the keyboard focus target and the token helper appears when the card is hovered or focused; the token still carries its own accessible label. If the token is ever rendered outside a clickable card, it can become independently focusable to expose the same helper. It does not behave like a command and does not use button styling.
 
 ## Testing
 

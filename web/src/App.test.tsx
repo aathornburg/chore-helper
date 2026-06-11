@@ -2214,6 +2214,36 @@ describe("App", () => {
     });
   });
 
+  it("shows assignee initials on calendar chore cards with accessible helper text", async () => {
+    await withMay2026CalendarClock(async () => {
+      mockCalendarPageFetches();
+      renderAt("/calendar");
+
+      await waitFor(() => expect(screen.getByRole("heading", { name: "Calendar" })).toBeTruthy());
+      fireEvent.click(screen.getByRole("button", { name: "Week" }));
+
+      const assignedTokens = await screen.findAllByRole("img", { name: "Assigned to Morgan Member" });
+      expect(assignedTokens.length).toBeGreaterThan(0);
+      expect(assignedTokens[0].textContent).toContain("MM");
+      expect(screen.queryByRole("img", { name: "Imported by Alex Owner" })).toBeNull();
+    });
+  });
+
+  it("shows assignee and source details in the chore detail modal", async () => {
+    await withMay2026CalendarClock(async () => {
+      mockCalendarPageFetches();
+      renderAt("/calendar");
+
+      fireEvent.click(await screen.findByRole("button", { name: "View Clean bathrooms" }));
+
+      const dialog = await screen.findByRole("dialog", { name: "Chore details" });
+      expect(within(dialog).getByText("Assigned to")).toBeTruthy();
+      expect(within(dialog).getByText("Morgan Member")).toBeTruthy();
+      expect(within(dialog).getByText("Source")).toBeTruthy();
+      expect(within(dialog).getByText("Manual chore")).toBeTruthy();
+    });
+  });
+
   it("stages owner calendar import queue decisions before submitting them", async () => {
     const fetchMock = mockCalendarPageFetches([{
       id: "queue-1",
@@ -2547,8 +2577,9 @@ describe("App", () => {
     expect(dayRows.map((row) => row.getAttribute("aria-label"))).toEqual(["View Clean bathrooms", "View Pet cats"]);
     expect(dayRows[0].classList.contains("calendar-work-item")).toBe(true);
     expect(dayRows[0].classList.contains("is-chore")).toBe(true);
-    expect(within(dayRows[0]).getByText("Anytime / 60 min · Alex Owner")).toBeTruthy();
-    expect(within(dayRows[0]).queryByText("Anytime / 60 min")).toBeNull();
+    const dayAssigneeToken = within(dayRows[0]).getByRole("img", { name: "Assigned to Alex Owner" });
+    expect(dayAssigneeToken.textContent).toContain("AO");
+    expect(within(dayRows[0]).getByText("Anytime / 60 min")).toBeTruthy();
     expect(within(dayRows[0]).queryByText("Alex Owner")).toBeNull();
     expect(dayRows[1].classList.contains("is-completed")).toBe(true);
     expect(dayGrid.querySelector(".calendar-completed-drawer")).toBeNull();
@@ -3508,6 +3539,37 @@ describe("App", () => {
 
       await waitFor(() => expect(screen.queryByRole("dialog", { name: "Import calendar events" })).toBeNull());
       expect(await screen.findByText("Soccer practice")).toBeTruthy();
+    });
+  });
+
+  it("shows importer and source details for imported calendar events", async () => {
+    await withMay2026CalendarClock(async () => {
+      vi.stubGlobal("fetch", mockCalendarWorkspaceFetches({
+        calendarConnected: true,
+        cleanlyCalendarEvents: [{
+          id: "cleanly-event-1",
+          householdId: "household-1",
+          createdByUserId: "app-user-1",
+          type: "commitment",
+          title: "Soccer practice",
+          privacyTitle: "Soccer practice",
+          detailLevel: "full_details",
+          startsAt: "2026-05-29T21:00:00.000Z",
+          endsAt: "2026-05-29T22:00:00.000Z",
+          timezone: "America/New_York",
+          source: "google",
+          status: "active"
+        }]
+      }));
+      renderAt("/calendar");
+
+      fireEvent.click(await screen.findByRole("button", { name: "View Soccer practice" }));
+
+      const dialog = await screen.findByRole("dialog", { name: "Calendar event details" });
+      expect(within(dialog).getByText("Imported by")).toBeTruthy();
+      expect(within(dialog).getByText("Alex Owner")).toBeTruthy();
+      expect(within(dialog).getByText("Source")).toBeTruthy();
+      expect(within(dialog).getByText("Google Calendar")).toBeTruthy();
     });
   });
 

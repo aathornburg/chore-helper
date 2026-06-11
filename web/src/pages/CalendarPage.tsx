@@ -238,6 +238,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   const [createdChoreTitles, setCreatedChoreTitles] = useState(() => new Map<string, string>());
   const [importQueueItems, setImportQueueItems] = useState<CalendarImportQueueItem[]>([]);
   const [cleanlyCalendarEvents, setCleanlyCalendarEvents] = useState<CleanlyCalendarEvent[]>([]);
+  const [selectedCleanlyCalendarEventId, setSelectedCleanlyCalendarEventId] = useState<string>();
   const [isQueueReviewOpen, setIsQueueReviewOpen] = useState(false);
   const [queueDecisionDrafts, setQueueDecisionDrafts] = useState(() => new Map<string, QueueDecisionDraft>());
   const [queueApprovalMenuOpenId, setQueueApprovalMenuOpenId] = useState<string>();
@@ -275,6 +276,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     (!filters.planningMode || filters.planningMode === "all" || occurrence.planningMode === filters.planningMode)
   );
   const selectedOccurrence = occurrences.find((occurrence) => occurrence.id === selectedOccurrenceId);
+  const selectedCleanlyCalendarEvent = cleanlyCalendarEvents.find((event) => event.id === selectedCleanlyCalendarEventId);
   const currentUserImportPolicy = myImportPolicy ?? importPolicies.find((policy) => policy.memberId === currentUserId);
   const isImportBlocked = currentUserImportPolicy?.importQueueMode === "off";
   const visibleRange = useMemo(() => {
@@ -563,12 +565,54 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   }
 
   function assignedMemberLabel(occurrence: ChoreOccurrence) {
-    const member = members.find((item) =>
-      item.userId === occurrence.assignedUserId || item.clerkUserId === occurrence.assignedUserId
-    );
+    return memberDisplayName(occurrence.assignedUserId);
+  }
+
+  function memberForUserId(userId?: string) {
+    if (!userId) return undefined;
+    return members.find((item) => item.userId === userId || item.clerkUserId === userId);
+  }
+
+  function memberDisplayName(userId?: string, fallback = "Unknown member") {
+    if (!userId) return "Unassigned";
+    const member = memberForUserId(userId);
     if (member) return memberLabel(member);
-    if (occurrence.assignedUserId === currentUserId) return "You";
-    return occurrence.assignedUserId ? "Unknown member" : "Unassigned";
+    if (userId === currentUserId) return "You";
+    return fallback;
+  }
+
+  function memberInitials(userId?: string) {
+    const label = memberDisplayName(userId, "Unknown");
+    const initials = label
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join("");
+    return initials || "?";
+  }
+
+  function renderIdentityToken(label: string, initials: string) {
+    return (
+      <span className="calendar-identity-token" role="img" aria-label={label}>
+        <span aria-hidden="true">{initials}</span>
+        <span className="calendar-identity-tooltip" role="tooltip">{label}</span>
+      </span>
+    );
+  }
+
+  function assigneeIdentity(occurrence: ChoreOccurrence) {
+    const label = `Assigned to ${assignedMemberLabel(occurrence)}`;
+    return renderIdentityToken(label, memberInitials(occurrence.assignedUserId));
+  }
+
+  function cleanlyEventSourceLabel(event: CleanlyCalendarEvent) {
+    return event.source === "google" ? "Google Calendar" : "Manual event";
+  }
+
+  function eventDurationLabel(event: CleanlyCalendarEvent) {
+    const minutes = Math.max(1, Math.round((Date.parse(event.endsAt) - Date.parse(event.startsAt)) / 60000));
+    return `${minutes} min`;
   }
 
   function seedDraftAssignees(draft: ScheduleDraft): ScheduleDraft {
@@ -583,6 +627,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   }
 
   function openCreateEditor() {
+    setSelectedCleanlyCalendarEventId(undefined);
     setSelectedOccurrenceId(undefined);
     setEditorStatus(undefined);
     setScheduleAccordionOpen(false);
@@ -642,6 +687,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   }
 
   function openViewEditor(occurrence: ChoreOccurrence) {
+    setSelectedCleanlyCalendarEventId(undefined);
     setSelectedOccurrenceId(occurrence.id);
     setEditorStatus(undefined);
     setScheduleAccordionOpen(false);
@@ -652,6 +698,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   }
 
   function openEditEditor(occurrence: ChoreOccurrence) {
+    setSelectedCleanlyCalendarEventId(undefined);
     setSelectedOccurrenceId(occurrence.id);
     setEditorStatus(undefined);
     setScheduleAccordionOpen(false);
@@ -939,13 +986,28 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
 
   function renderChoreViewDetailSections() {
     if (!selectedOccurrence || !editorDraft) return null;
+    const selectedChore = selectedHousehold?.chores.find((item) => item.id === selectedOccurrence.choreId);
+    const sourceLabel = selectedChore?.source === "google-calendar" ? "Google Calendar" : "Manual chore";
 
     return (
       <>
-        <div className="chore-view-summary">
-          <span>{occurrenceDateLine(selectedOccurrence)}</span>
-          <span>{assignedMemberLabel(selectedOccurrence)}</span>
-          <span>{format(parseISO(occurrencePrimaryDate(selectedOccurrence)), "EEEE, MMM d")}</span>
+        <div className="chore-detail-meta-grid">
+          <div>
+            <span>Assigned to</span>
+            <strong>{assignedMemberLabel(selectedOccurrence)}</strong>
+          </div>
+          <div>
+            <span>When</span>
+            <strong>{occurrenceDateLine(selectedOccurrence)}</strong>
+          </div>
+          <div>
+            <span>Date</span>
+            <strong>{format(parseISO(occurrencePrimaryDate(selectedOccurrence)), "EEEE, MMM d")}</strong>
+          </div>
+          <div>
+            <span>Source</span>
+            <strong>{sourceLabel}</strong>
+          </div>
         </div>
         {editorDraft.instructions ? (
           <section className="schedule-card">
@@ -1014,10 +1076,17 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
           <span className="calendar-chore-title">{title}</span>
           {density === "summary" ? (
             <>
-            <span className="calendar-chore-detail">{`${occurrenceDateLine(occurrence)} · ${assignedMemberLabel(occurrence)}`}</span>
-            {isFlexibleOverdue(occurrence) ? <span className="occurrence-overdue-badge">Overdue</span> : null}
+              <span className="calendar-chore-detail">
+                {assigneeIdentity(occurrence)}
+                <span>{occurrenceDateLine(occurrence)}</span>
+              </span>
+              {isFlexibleOverdue(occurrence) ? <span className="occurrence-overdue-badge">Overdue</span> : null}
             </>
-          ) : null}
+          ) : (
+            <span className="calendar-chore-detail calendar-chore-detail-token-only">
+              {assigneeIdentity(occurrence)}
+            </span>
+          )}
         </span>
       </button>
     );
@@ -1063,7 +1132,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
           <span className="calendar-chore-detail">{occurrence.status === "completed" ? occurrenceCompletionLine(occurrence) : occurrenceDateLine(occurrence)}</span>
         </span>
         <span className="calendar-chore-meta">
-          <span>{assignedMemberLabel(occurrence)}</span>
+          <span>{assigneeIdentity(occurrence)}</span>
           <span>{durationInMinutes(occurrence)} min</span>
         </span>
         <span className={`agenda-status-chip is-${occurrence.status}`}>{occurrenceStatusLabel(occurrence)}</span>
@@ -1102,13 +1171,19 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
         {content}
       </button>
     ) : (
-      <div
+      <button
+        aria-label={`View ${event.privacyTitle}`}
         className={className}
         key={event.id}
+        onClick={() => {
+          setEditorMode("closed");
+          setSelectedCleanlyCalendarEventId(event.id);
+        }}
         title={event.privacyTitle}
+        type="button"
       >
         {content}
-      </div>
+      </button>
     );
   }
 
@@ -2073,7 +2148,10 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
           {editorMode !== "closed" && editorDraft ? (
             <div className="chore-editor-backdrop" role="presentation">
               <form
+                aria-label={editorMode === "create" ? "New chore" : editorMode === "view" ? "Chore details" : "Edit chore"}
+                aria-modal="true"
                 className="chore-editor-modal"
+                role="dialog"
                 onSubmit={(event) => {
                   if (editorMode === "create") {
                     void saveCreate(event);
@@ -2427,6 +2505,52 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                   </div>
                 )}
               </form>
+            </div>
+          ) : null}
+          {selectedCleanlyCalendarEvent ? (
+            <div className="chore-editor-backdrop" role="presentation">
+              <section
+                aria-label="Calendar event details"
+                aria-modal="true"
+                className="chore-editor-modal calendar-event-detail-modal"
+                role="dialog"
+              >
+                <div className="panel-heading">
+                  <div>
+                    <p className="eyebrow">Calendar event details</p>
+                    <h2>{selectedCleanlyCalendarEvent.privacyTitle}</h2>
+                  </div>
+                  <button
+                    aria-label="Close dialog"
+                    className="icon-button modal-close-button"
+                    onClick={() => setSelectedCleanlyCalendarEventId(undefined)}
+                    type="button"
+                  />
+                </div>
+                <div className="chore-detail-meta-grid">
+                  <div>
+                    <span>When</span>
+                    <strong>
+                      {formatInTimeZone(selectedCleanlyCalendarEvent.startsAt, timeZone, "MMM d, h:mm a")} - {formatInTimeZone(selectedCleanlyCalendarEvent.endsAt, timeZone, "h:mm a")}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>Duration</span>
+                    <strong>{eventDurationLabel(selectedCleanlyCalendarEvent)}</strong>
+                  </div>
+                  <div>
+                    <span>Source</span>
+                    <strong>{cleanlyEventSourceLabel(selectedCleanlyCalendarEvent)}</strong>
+                  </div>
+                  <div>
+                    <span>Imported by</span>
+                    <strong>{memberDisplayName(selectedCleanlyCalendarEvent.createdByUserId)}</strong>
+                  </div>
+                </div>
+                <div className="form-actions modal-actions">
+                  <button className="section-action" onClick={() => setSelectedCleanlyCalendarEventId(undefined)} type="button">Close</button>
+                </div>
+              </section>
             </div>
           ) : null}
     </div>
