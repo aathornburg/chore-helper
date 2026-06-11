@@ -694,6 +694,10 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     return `${minutes} min`;
   }
 
+  function cleanlyEventTimeLine(event: CleanlyCalendarEvent) {
+    return `${formatInTimeZone(event.startsAt, timeZone, "h:mm a")} / ${eventDurationLabel(event)}`;
+  }
+
   function seedDraftAssignees(draft: ScheduleDraft): ScheduleDraft {
     const firstMember = members[0]?.userId ?? currentUserId ?? "";
     return {
@@ -1235,7 +1239,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
           <span className="calendar-chore-title">{event.privacyTitle}</span>
           {!compact ? (
             <span className="calendar-chore-detail">
-              {formatInTimeZone(event.startsAt, timeZone, "MMM d, h:mm a")} - {formatInTimeZone(event.endsAt, timeZone, "h:mm a")}
+              {cleanlyEventTimeLine(event)}
             </span>
           ) : null}
         </span>
@@ -1723,7 +1727,6 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
         <div className={`calendar-column-anytime ${showSlotLabels ? "has-slot-label" : ""}`}>
           {showSlotLabels ? <span className="calendar-column-anytime-label">Anytime</span> : null}
           <div className="calendar-column-anytime-main">
-            {cleanlyEventsForDay.map((event) => renderCleanlyCalendarEvent(event, false))}
             {flexibleOccurrences.map((occurrence) => renderOccurrenceCompact(occurrence, date, density))}
           </div>
         </div>
@@ -1739,6 +1742,9 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
               formatInTimeZone(occurrence.plannedStartAt, timeZone, "HH:mm").startsWith(slot.slice(0, 2))
             );
             const orderedTimedOccurrences = [...timedOccurrences, ...completedTimedOccurrences];
+            const cleanlyEventsForSlot = cleanlyEventsForDay.filter((event) =>
+              formatInTimeZone(event.startsAt, timeZone, "HH:mm").startsWith(slot.slice(0, 2))
+            );
             return (
               <div
                 aria-label={`${longDateLabel(date)} ${slot} time slot`}
@@ -1749,6 +1755,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
               >
                 {showSlotLabels ? <span>{timeSlotLabel(slot)}</span> : null}
                 <div>
+                  {cleanlyEventsForSlot.map((event) => renderCleanlyCalendarEvent(event, false))}
                   {orderedTimedOccurrences.map((occurrence) => renderOccurrenceCompact(occurrence, date, density))}
                 </div>
               </div>

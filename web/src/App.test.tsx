@@ -3592,6 +3592,41 @@ describe("App", () => {
     });
   });
 
+  it("places imported timed chores in their time slot with start time and duration", async () => {
+    await withMay2026CalendarClock(async () => {
+      vi.stubGlobal("fetch", mockCalendarWorkspaceFetches({
+        calendarConnected: true,
+        cleanlyCalendarEvents: [{
+          id: "cleanly-event-1",
+          householdId: "household-1",
+          createdByUserId: "app-user-1",
+          type: "chore",
+          title: "Soccer practice",
+          privacyTitle: "Soccer practice",
+          detailLevel: "full_details",
+          startsAt: "2026-05-29T21:00:00.000Z",
+          endsAt: "2026-05-29T21:45:00.000Z",
+          timezone: "America/New_York",
+          source: "google",
+          status: "active"
+        }]
+      }));
+      renderAt("/calendar");
+
+      fireEvent.click(await screen.findByRole("button", { name: "Day" }));
+      fireEvent.click(screen.getByRole("button", { name: "Previous day" }));
+
+      const dayGrid = await screen.findByRole("grid", { name: "Friday, May 29 day calendar" });
+      const anytimeRow = dayGrid.querySelector(".calendar-column-anytime-main");
+      expect(within(anytimeRow as HTMLElement).queryByRole("button", { name: "View Soccer practice" })).toBeNull();
+      const timedSlot = screen.getByLabelText("Friday, May 29 17:00 time slot");
+      const importedChore = within(timedSlot).getByRole("button", { name: "View Soccer practice" });
+      expect(importedChore.classList.contains("is-chore")).toBe(true);
+      expect(within(importedChore).getByText("5:00 PM / 45 min")).toBeTruthy();
+      expect(within(importedChore).queryByText(/5:45 PM/)).toBeNull();
+    });
+  });
+
   it("shows importer and source details for imported calendar events", async () => {
     await withMay2026CalendarClock(async () => {
       vi.stubGlobal("fetch", mockCalendarWorkspaceFetches({
