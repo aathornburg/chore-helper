@@ -749,6 +749,13 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     setOccurrences(loaded);
   }
 
+  async function reloadCleanlyCalendarEvents() {
+    if (!selectedHousehold) return;
+    const range = workspaceView === "list" ? listRange(timeZone) : rangeForView(focusDate, calendarScale, timeZone);
+    const events = await listCleanlyCalendarEvents(selectedHousehold.id, { startAt: range.startAt, endAt: range.endAt });
+    setCleanlyCalendarEvents(events);
+  }
+
   async function handleScheduleSeriesSave() {
     if (!selectedHousehold || !editorDraft) return;
     try {
@@ -857,6 +864,9 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     setQueueApprovalMenuOpenId(undefined);
     setIsQueueBulkApprovalMenuOpen(false);
     setSelectedQueueReviewItemIds([]);
+    if (updatedItems.some((item) => item.createdCleanlyEventId)) {
+      await reloadCleanlyCalendarEvents();
+    }
     setIsQueueReviewOpen(false);
     setCalendarSyncStatus(`${updatedItems.length} import decision${updatedItems.length === 1 ? "" : "s"} submitted.`);
   }
@@ -1225,11 +1235,14 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
         privacyTitle: sharedImportTitle(candidate)
       }));
     void submitCalendarImportEvents(selectedHousehold.id, selectedEvents)
-      .then((result) => {
+      .then(async (result) => {
         setCalendarSyncStatus(result.status === "auto_ready" ? "Selected events were added to Clenella." : "Selected events were sent to the owner queue.");
         setSyncModal("closed");
         setImportCandidates([]);
         setSelectedImportCandidateIds([]);
+        if (result.status === "auto_ready") {
+          await reloadCleanlyCalendarEvents();
+        }
         if (isOwner) {
           void listCalendarImportQueue(selectedHousehold.id).then((items) => {
             setImportQueueItems(items);
@@ -1586,7 +1599,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   }
 
   function renderCalendarImportQueue() {
-    if (!isOwner) return null;
+    if (!isOwner || pendingQueueItems.length === 0) return null;
     const stagedCount = queueDecisionDrafts.size;
     const selectedCount = selectedQueueReviewItemIds.length;
     const remainingCount = Math.max(pendingQueueItems.length - stagedCount, 0);
@@ -1597,14 +1610,12 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
           <div className="calendar-queue-entry-copy">
             <p className="eyebrow">Owner review</p>
             <h2 id="calendar-import-queue-heading">Calendar imports need review</h2>
-            <p>{pendingQueueItems.length ? "Approve or reject imported events sent by family members." : "No imported calendar events are waiting for review."}</p>
+            <p>Approve or reject imported events sent by family members.</p>
           </div>
-          {pendingQueueItems.length ? (
-            <span className="calendar-queue-review-button-wrap">
-              <button className="section-action" onClick={openQueueReviewModal} type="button">Review imports</button>
-              <span className="calendar-queue-badge" aria-label={`${pendingQueueItems.length} imports need review`}>{pendingQueueItems.length}</span>
-            </span>
-          ) : null}
+          <span className="calendar-queue-review-button-wrap">
+            <button className="section-action" onClick={openQueueReviewModal} type="button">Review imports</button>
+            <span className="calendar-queue-badge" aria-label={`${pendingQueueItems.length} imports need review`}>{pendingQueueItems.length}</span>
+          </span>
         </section>
         {isQueueReviewOpen ? (
           <div

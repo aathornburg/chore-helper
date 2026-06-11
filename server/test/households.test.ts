@@ -42,7 +42,8 @@ function request(app: ReturnType<typeof createApp>, userId = "test-user-a") {
   return {
     get: (url: string) => supertest(app).get(url).set("Authorization", authorization),
     post: (url: string) => supertest(app).post(url).set("Authorization", authorization),
-    put: (url: string) => supertest(app).put(url).set("Authorization", authorization)
+    put: (url: string) => supertest(app).put(url).set("Authorization", authorization),
+    delete: (url: string) => supertest(app).delete(url).set("Authorization", authorization)
   };
 }
 
@@ -146,6 +147,43 @@ class FailingChatAgentProvider implements AgentProvider {
 }
 
 describe("household profile flow", () => {
+  it("lets a household owner delete a household and removes it from their list", async () => {
+    const app = createTestApp();
+    const created = await request(app).post("/api/households").send({ name: "Home" }).expect(201);
+
+    await request(app)
+      .delete(`/api/households/${created.body.id}`)
+      .expect(204);
+
+    await request(app)
+      .get("/api/households")
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toEqual([]);
+      });
+  });
+
+  it("requires household owner access to delete a household", async () => {
+    const { app, invitationLinks } = createInvitationTestApp();
+    const created = await request(app, "owner@example.com").post("/api/households").send({ name: "Home" }).expect(201);
+
+    await joinHouseholdMember(app, invitationLinks, created.body.id, "member@example.com");
+
+    await request(app, "member@example.com")
+      .delete(`/api/households/${created.body.id}`)
+      .expect(403)
+      .expect((response) => {
+        expect(response.body).toEqual({ error: "Household owner access required" });
+      });
+
+    await request(app, "outsider@example.com")
+      .delete(`/api/households/${created.body.id}`)
+      .expect(404)
+      .expect((response) => {
+        expect(response.body).toEqual({ error: "Household not found" });
+      });
+  });
+
   it("saves an editable household profile with the household name", async () => {
     const app = createTestApp();
     const created = await request(app).post("/api/households").send({ name: "Home" }).expect(201);

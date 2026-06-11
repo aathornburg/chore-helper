@@ -138,6 +138,7 @@ export type HouseholdStore = {
   listHouseholdsForUser(userId: string): StoreResult<Household[]>;
   createHouseholdForUser(name: string, userId: string): StoreResult<Household>;
   createHousehold(name: string): StoreResult<Household>;
+  deleteHousehold(householdId: string): StoreResult<boolean>;
   listHouseholds(): StoreResult<Household[]>;
   updateProfile(
     householdId: string,
@@ -558,6 +559,57 @@ export function createInMemoryStore(): HouseholdStore {
       const household = { id: crypto.randomUUID(), name, timeZone: "America/New_York" };
       households.set(household.id, household);
       return household;
+    },
+
+    deleteHousehold(householdId) {
+      if (!households.has(householdId)) return false;
+
+      households.delete(householdId);
+      householdFloors.delete(householdId);
+      chores.delete(householdId);
+      recommendations.delete(householdId);
+
+      for (const [key, membership] of memberships.entries()) {
+        if (membership.householdId === householdId) memberships.delete(key);
+      }
+      for (const [invitationId, invitation] of invitations.entries()) {
+        if (invitation.householdId === householdId) invitations.delete(invitationId);
+      }
+      for (const [scheduleId, schedule] of schedules.entries()) {
+        if (schedule.householdId === householdId) schedules.delete(scheduleId);
+      }
+      for (const [occurrenceId, occurrence] of occurrences.entries()) {
+        if (occurrence.householdId === householdId) occurrences.delete(occurrenceId);
+      }
+      for (const [checkInId, checkIn] of completionCheckIns.entries()) {
+        if (checkIn.householdId === householdId) completionCheckIns.delete(checkInId);
+      }
+      for (const [key, policy] of calendarImportPolicies.entries()) {
+        if (policy.householdId === householdId) calendarImportPolicies.delete(key);
+      }
+      for (const [key, preferences] of calendarPreferences.entries()) {
+        if (preferences.householdId === householdId) calendarPreferences.delete(key);
+      }
+      for (const [itemId, item] of calendarImportQueueItems.entries()) {
+        if (item.householdId === householdId) calendarImportQueueItems.delete(itemId);
+      }
+      for (const [notificationId, notification] of notifications.entries()) {
+        if (notification.householdId === householdId) notifications.delete(notificationId);
+      }
+
+      const deletedEventIds = new Set<string>();
+      for (const [eventId, event] of cleanlyCalendarEvents.entries()) {
+        if (event.householdId === householdId) {
+          cleanlyCalendarEvents.delete(eventId);
+          deletedEventIds.add(eventId);
+        }
+      }
+      for (const link of externalCalendarEventLinks) {
+        const [cleanlyCalendarEventId] = link.split(":");
+        if (deletedEventIds.has(cleanlyCalendarEventId)) externalCalendarEventLinks.delete(link);
+      }
+
+      return true;
     },
 
     listHouseholds() {

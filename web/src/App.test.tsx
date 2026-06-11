@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import type {
   AppNotification,
   CalendarImportQueueItem,
+  CleanlyCalendarEvent,
   ChoreOccurrence,
   CreateScheduledChoreInput,
   HouseholdAppData,
@@ -325,11 +326,13 @@ function mockHouseholdsPageFetches(
   structure: HouseholdStructure,
   options: {
     allowAddHousehold?: boolean;
+    allowDeleteHousehold?: boolean;
     saveResponse?: { ok: boolean; json: () => Promise<unknown> };
     savePromise?: Promise<{ ok: boolean; json: () => Promise<unknown> }>;
   } = {}
 ) {
   let storedStructure = structure;
+  let isDeleted = false;
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = input.toString();
     const method = init?.method ?? "GET";
@@ -341,7 +344,7 @@ function mockHouseholdsPageFetches(
     if (url === "http://localhost:3001/api/households" && method === "GET") {
       return {
         ok: true,
-        json: async () => [createHouseholdAppData({ structure: storedStructure })]
+        json: async () => isDeleted ? [] : [createHouseholdAppData({ structure: storedStructure })]
       };
     }
 
@@ -364,6 +367,11 @@ function mockHouseholdsPageFetches(
     if (url === "http://localhost:3001/api/households/household-1/profile" && method === "PUT") {
       const body = JSON.parse(String(init?.body));
       return { ok: true, json: async () => ({ ...household, name: body.name, profile: body }) };
+    }
+
+    if (url === "http://localhost:3001/api/households/household-1" && method === "DELETE" && options.allowDeleteHousehold) {
+      isDeleted = true;
+      return { ok: true, json: async () => ({}) };
     }
 
     throw new Error(`Unhandled fetch ${method} ${url}`);
@@ -551,6 +559,7 @@ function mockMultiHouseholdOptimizeFetches() {
 
 function mockCalendarPageFetches(importQueueItems: CalendarImportQueueItem[] = [], notifications: AppNotification[] = []) {
   let notificationItems = notifications;
+  let cleanlyCalendarEvents: CleanlyCalendarEvent[] = [];
   let occurrences = [{
     id: "occurrence-1",
     householdId: "household-1",
@@ -626,6 +635,9 @@ function mockCalendarPageFetches(importQueueItems: CalendarImportQueueItem[] = [
     if (url === "http://localhost:3001/api/households/household-1/calendar/import-queue" && method === "GET") {
       return { ok: true, json: async () => importQueueItems };
     }
+    if (url.startsWith("http://localhost:3001/api/households/household-1/calendar/events?") && method === "GET") {
+      return { ok: true, json: async () => cleanlyCalendarEvents };
+    }
     if (url === "http://localhost:3001/api/households/household-1/calendar/import-policies" && method === "GET") {
       return {
         ok: true,
@@ -687,12 +699,29 @@ function mockCalendarPageFetches(importQueueItems: CalendarImportQueueItem[] = [
     }
     if (url === "http://localhost:3001/api/households/household-1/calendar/import-queue/queue-1" && method === "PATCH") {
       const body = JSON.parse(String(init?.body));
+      const createdCleanlyEventId = body.decision === "approve" ? "cleanly-event-1" : undefined;
+      if (createdCleanlyEventId) {
+        cleanlyCalendarEvents = [{
+          id: createdCleanlyEventId,
+          householdId: "household-1",
+          createdByUserId: "app-user-2",
+          type: body.proposedType,
+          title: importQueueItems[0].title,
+          privacyTitle: importQueueItems[0].privacyTitle,
+          detailLevel: importQueueItems[0].detailLevel,
+          startsAt: importQueueItems[0].startsAt,
+          endsAt: importQueueItems[0].endsAt,
+          timezone: "America/New_York",
+          source: "google",
+          status: "active"
+        }];
+      }
       return {
         ok: true,
         json: async () => ({
           ...importQueueItems[0],
           queueStatus: body.decision === "approve" ? "approved" : "rejected",
-          createdCleanlyEventId: body.decision === "approve" ? "cleanly-event-1" : undefined
+          createdCleanlyEventId
         })
       };
     }
@@ -779,6 +808,7 @@ function mockCalendarWorkspaceFetches({
     detailLevel: "busy_only" | "full_details";
   }>;
 } = {}) {
+  let storedCleanlyCalendarEvents = [...cleanlyCalendarEvents];
   let occurrences = [{
     id: "occurrence-flexible",
     householdId: "household-1",
@@ -933,10 +963,32 @@ function mockCalendarWorkspaceFetches({
       return { ok: true, json: async () => ({ provider: "google", status: "setup_required", message: "Google Calendar login needs Google client configuration." }) };
     }
     if (url.endsWith("/api/me/calendar/import-candidates?householdId=household-1")) return { ok: true, json: async () => importCandidates };
-    if (url.endsWith("/api/me/calendar/import-queue") && method === "POST") return { ok: true, json: async () => ({ status: "queued_for_review", items: [] }) };
+    if (url.endsWith("/api/me/calendar/import-queue") && method === "POST") {
+      const body = JSON.parse(String(init?.body)) as { events: typeof importCandidates };
+      if (importQueueMode === "auto") {
+        storedCleanlyCalendarEvents = [
+          ...storedCleanlyCalendarEvents,
+          ...body.events.map((event, index) => ({
+            id: `cleanly-import-${index + 1}`,
+            householdId: "household-1",
+            createdByUserId: "app-user-1",
+            type: event.proposedType,
+            title: event.title,
+            privacyTitle: event.privacyTitle,
+            detailLevel: event.detailLevel,
+            startsAt: event.startsAt,
+            endsAt: event.endsAt,
+            timezone: "America/New_York",
+            source: "google" as const,
+            status: "active" as const
+          }))
+        ];
+      }
+      return { ok: true, json: async () => ({ status: importQueueMode === "auto" ? "auto_ready" : "queued_for_review", items: [] }) };
+    }
     if (url.includes("/members")) return { ok: true, json: async () => members };
     if (url.includes("/occurrences?") && method === "GET") return { ok: true, json: async () => occurrences };
-    if (url.includes("/calendar/events?") && method === "GET") return { ok: true, json: async () => cleanlyCalendarEvents };
+    if (url.includes("/calendar/events?") && method === "GET") return { ok: true, json: async () => storedCleanlyCalendarEvents };
     if (url.endsWith("/api/me/calendar/export") && method === "POST") return { ok: true, json: async () => ({ status: "exported", exported: 0 }) };
     if (url.endsWith("/api/households/household-1/chores/chore-1/schedules") && method === "GET") {
       return {
@@ -1781,6 +1833,41 @@ describe("App", () => {
     expect(screen.queryByRole("button", { name: "Manage" })).toBeNull();
   });
 
+  it("lets a user delete a household from the My Home workspace", async () => {
+    const fetchMock = mockHouseholdsPageFetches(
+      {
+        householdId: "household-1",
+        floors: [
+          {
+            id: "floor-main",
+            householdId: "household-1",
+            name: "Main floor",
+            levelType: "main",
+            flooring: ["tile"],
+            petImpact: "medium",
+            robotVacuumCoverage: "none",
+            robotMopCoverage: "none",
+            rooms: []
+          }
+        ]
+      },
+      { allowDeleteHousehold: true }
+    );
+
+    renderAt("/households");
+
+    expect(await screen.findByRole("heading", { name: "My Home", level: 1 })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Delete home" }));
+    expect(screen.getByText("Delete Home?")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Confirm delete home" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/households/household-1",
+      expect.objectContaining({ method: "DELETE" })
+    ));
+    expect(await screen.findByRole("heading", { name: "Add or join a household", level: 2 })).toBeTruthy();
+  });
+
   it("renders the single-home workspace as a home setup studio", async () => {
     mockHouseholdsPageFetches({
       householdId: "household-1",
@@ -2174,6 +2261,17 @@ describe("App", () => {
         body: JSON.stringify({ decision: "approve", proposedType: "chore" })
       })
     );
+  });
+
+  it("hides the calendar import review panel when no imports need review", async () => {
+    const fetchMock = mockCalendarPageFetches([]);
+    renderAt("/calendar");
+
+    await waitFor(() => expect(fetchMock.mock.calls.some(([url]) =>
+      url === "http://localhost:3001/api/households/household-1/calendar/import-queue"
+    )).toBe(true));
+    expect(screen.queryByRole("region", { name: "Calendar import queue" })).toBeNull();
+    expect(screen.queryByText("Calendar imports need review")).toBeNull();
   });
 
   it("shows unread notification tasks in the bell and marks visible notifications read when opened", async () => {
@@ -3382,6 +3480,34 @@ describe("App", () => {
       expect((screen.getByLabelText("Hide details for Soccer practice") as HTMLInputElement).checked).toBe(false);
       expect(screen.getAllByText("Soccer practice").length).toBeGreaterThan(1);
       expect((screen.getByRole("button", { name: "Send selected to Clenella" }) as HTMLButtonElement).disabled).toBe(false);
+    });
+  });
+
+  it("refreshes imported Google Calendar events after sending selected events to Clenella", async () => {
+    await withMay2026CalendarClock(async () => {
+      vi.stubGlobal("fetch", mockCalendarWorkspaceFetches({
+        calendarConnected: true,
+        importQueueMode: "auto",
+        importCandidates: [{
+          id: "candidate-1",
+          sourceExternalCalendarId: "external-calendar-1",
+          providerEventId: "google-event-1",
+          title: "Soccer practice",
+          privacyTitle: "Soccer practice",
+          startsAt: "2026-05-29T21:00:00.000Z",
+          endsAt: "2026-05-29T22:00:00.000Z",
+          proposedType: "chore",
+          detailLevel: "full_details"
+        }]
+      }));
+      renderAt("/calendar");
+
+      fireEvent.click(await screen.findByRole("button", { name: "Import events" }));
+      fireEvent.click(await screen.findByLabelText("Select Soccer practice"));
+      fireEvent.click(screen.getByRole("button", { name: "Send selected to Clenella" }));
+
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Import calendar events" })).toBeNull());
+      expect(await screen.findByText("Soccer practice")).toBeTruthy();
     });
   });
 

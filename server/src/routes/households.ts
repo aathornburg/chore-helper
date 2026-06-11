@@ -447,6 +447,16 @@ export function createHouseholdRouter(
     return res.status(200).json(access.household);
   });
 
+  router.delete("/:householdId", async (req, res) => {
+    const access = await requireHouseholdOwner(req, res);
+    if (!access) return;
+
+    const deleted = await store.deleteHousehold(access.household.id);
+    if (!deleted) return res.status(404).json({ error: "Household not found" });
+
+    return res.status(204).send();
+  });
+
   router.get("/:householdId/structure", async (req, res) => {
     const access = await requireHouseholdAccess(req, res);
     if (!access) return;

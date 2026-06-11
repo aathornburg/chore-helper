@@ -7,7 +7,7 @@ import type {
   HouseholdRoom,
   HouseholdStructure
 } from "@chore-helper/shared";
-import { saveHouseholdProfile, saveHouseholdStructure } from "../api";
+import { deleteHousehold, saveHouseholdProfile, saveHouseholdStructure } from "../api";
 import {
   createBasementFloor,
   createDefaultHouseholdStructure,
@@ -225,6 +225,9 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
   const [workspaceView, setWorkspaceView] = useState<HomeWorkspaceView>("overview");
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isEditingFloor, setIsEditingFloor] = useState(false);
+  const [isDeleteConfirming, setIsDeleteConfirming] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string>();
   const overviewTabId = `${household.id}-overview-tab`;
   const overviewPanelId = `${household.id}-overview-panel`;
   const floorsTabId = `${household.id}-floors-tab`;
@@ -255,6 +258,7 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
 
   function handleSelectWorkspaceView(nextView: HomeWorkspaceView) {
     setWorkspaceView(nextView);
+    setIsDeleteConfirming(false);
     if (nextView !== "overview") resetProfileDraft();
     if (nextView !== "floors") {
       setIsEditingFloor(false);
@@ -540,6 +544,21 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
     }
   }
 
+  async function handleDeleteHousehold() {
+    if (isDeleting) return;
+
+    setIsDeleting(true);
+    setDeleteError(undefined);
+    try {
+      await deleteHousehold(household.id);
+      await onReload();
+    } catch {
+      setDeleteError("Could not delete this household.");
+      setIsDeleteConfirming(false);
+      setIsDeleting(false);
+    }
+  }
+
   async function handleSaveFloor(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedFloor || isSaving) return;
@@ -668,10 +687,35 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
             Floors
           </button>
         </div>
+        <button
+          className="danger-link"
+          disabled={isDeleting || isSaving || isSavingProfile}
+          onClick={() => setIsDeleteConfirming(true)}
+          type="button"
+        >
+          Delete home
+        </button>
       </div>
 
       {saveError ? <div className="empty-state" role="status">{saveError}</div> : null}
       {profileError ? <div className="empty-state" role="status">{profileError}</div> : null}
+      {deleteError ? <div className="empty-state" role="status">{deleteError}</div> : null}
+      {isDeleteConfirming ? (
+        <section className="inline-confirmation household-delete-confirmation" aria-label="Delete household confirmation">
+          <div>
+            <strong>Delete {household.name}?</strong>
+            <p>This removes the household, chores, calendar imports, and setup details for everyone in it.</p>
+          </div>
+          <div className="form-actions">
+            <button className="danger-action" disabled={isDeleting} onClick={handleDeleteHousehold} type="button">
+              Confirm delete home
+            </button>
+            <button className="secondary-action" disabled={isDeleting} onClick={() => setIsDeleteConfirming(false)} type="button">
+              Cancel
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       <section
         aria-label={`${household.name} overview`}

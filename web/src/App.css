@@ -6887,6 +6887,35 @@ button.chore-row-summary[aria-expanded="true"] {
   margin: 0;
 }
 
+.household-delete-confirmation {
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.household-delete-confirmation p {
+  font-weight: 650;
+  margin-top: 4px;
+}
+
+.danger-action {
+  background: #9f3a2d;
+  color: #fff;
+}
+
+.danger-action:hover {
+  background: #7f1d1d;
+}
+
+@media (max-width: 640px) {
+  .household-delete-confirmation {
+    grid-template-columns: 1fr;
+  }
+
+  .household-delete-confirmation .form-actions {
+    justify-content: flex-start;
+  }
+}
+
 .floor-edit-actions {
   align-items: center;
   display: flex;

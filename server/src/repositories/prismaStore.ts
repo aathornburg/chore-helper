@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@prisma/client";
+import { Prisma, type PrismaClient } from "@prisma/client";
 import type {
   AppNotification,
   CalendarConnectionStatus,
@@ -709,6 +709,18 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
       });
 
       return toHousehold(household);
+    },
+
+    async deleteHousehold(householdId) {
+      try {
+        await prisma.household.delete({ where: { id: householdId } });
+        return true;
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+          return false;
+        }
+        throw error;
+      }
     },
 
     async listHouseholds() {

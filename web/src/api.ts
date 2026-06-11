@@ -119,6 +119,14 @@ export async function getHousehold(householdId: string): Promise<Household> {
   return response.json();
 }
 
+export async function deleteHousehold(householdId: string): Promise<void> {
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}`, {
+    method: "DELETE"
+  });
+
+  if (!response.ok) throw new Error("Failed to delete household");
+}
+
 export async function getHouseholdStructure(householdId: string): Promise<HouseholdStructure> {
   const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/structure`);
 
