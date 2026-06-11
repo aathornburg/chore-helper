@@ -2929,27 +2929,28 @@ button.calendar-event:hover {
 .chore-view-summary span,
 .chore-detail-meta-grid div {
   align-items: center;
-  background: #edf7f9;
-  border: 1px solid #c8e1e7;
-  border-radius: 12px;
+  background: #f7fbfc;
+  border: 1px solid #dbecef;
+  border-radius: 10px;
   color: #2f3a34;
   display: grid;
-  gap: 4px;
-  font-weight: 800;
+  gap: 3px;
+  font-weight: 600;
   min-height: 48px;
-  padding: 10px 12px;
+  padding: 9px 11px;
 }
 
 .chore-detail-meta-grid span {
-  color: #687167;
-  font-size: 0.72rem;
-  font-weight: 900;
+  color: #6d746c;
+  font-size: 0.69rem;
+  font-weight: 750;
   text-transform: uppercase;
 }
 
 .chore-detail-meta-grid strong {
   color: #24352e;
-  font-size: 0.92rem;
+  font-size: 0.88rem;
+  font-weight: 650;
   overflow-wrap: anywhere;
 }
 
@@ -3300,6 +3301,13 @@ button.calendar-event:hover {
   font-size: 0.92rem;
   font-weight: 650;
   white-space: nowrap;
+}
+
+.schedule-occurrence-empty {
+  color: #697169;
+  font-size: 0.92rem;
+  margin: 0;
+  padding: 13px 14px;
 }
 
 .schedule-card {

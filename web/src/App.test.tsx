@@ -57,6 +57,12 @@ function getChoreEditor() {
   return within(editor as HTMLElement);
 }
 
+function getChoreEditorElement() {
+  const editor = document.querySelector(".chore-editor-modal");
+  expect(editor).not.toBeNull();
+  return editor as HTMLElement;
+}
+
 async function findPlannedCleanBathroomsButton() {
   const viewButtons = await screen.findAllByRole("button", { name: "View Clean bathrooms" });
   const plannedButton = viewButtons.find((button) =>
@@ -776,6 +782,7 @@ function mockCalendarWorkspaceFetches({
   calendarConnected = false,
   cleanlyCalendarEvents = [],
   frequency = "weekly",
+  includeHistory = true,
   importCandidates = [],
   importQueueMode = "manual"
 }: {
@@ -795,6 +802,7 @@ function mockCalendarWorkspaceFetches({
     status: "active" | "cancelled";
   }>;
   frequency?: "daily" | "weekly" | "monthly" | "yearly";
+  includeHistory?: boolean;
   importQueueMode?: "off" | "manual" | "auto";
   importCandidates?: Array<{
     id: string;
@@ -822,7 +830,7 @@ function mockCalendarWorkspaceFetches({
     assignedUserId: "app-user-1",
     exceptionType: "none",
     status: "planned"
-  }, {
+  }, ...(includeHistory ? [{
     id: "occurrence-history",
     householdId: "household-1",
     choreId: "chore-1",
@@ -837,7 +845,7 @@ function mockCalendarWorkspaceFetches({
     status: "completed",
     completedAt: "2026-05-27T14:00:00.000Z",
     completedByUserId: "app-user-1"
-  }, {
+  }] : []), {
     id: "occurrence-pet-completed",
     householdId: "household-1",
     choreId: "chore-2",
@@ -2735,6 +2743,48 @@ describe("App", () => {
     const history = screen.getByRole("region", { name: "Historical occurrences" });
     expect(history.classList.contains("schedule-occurrence-section")).toBe(true);
       expect(within(history).getByText("Wednesday, May 27")).toBeTruthy();
+    });
+  });
+
+  it("shows a calm empty state when a chore has no history", async () => {
+    await withMay2026CalendarClock(async () => {
+      vi.stubGlobal("fetch", mockCalendarWorkspaceFetches({ includeHistory: false }));
+      renderAt("/calendar");
+
+      fireEvent.click(await findPlannedCleanBathroomsButton());
+
+      const history = screen.getByRole("region", { name: "Historical occurrences" });
+      expect(within(history).getByText("This event has no history yet.")).toBeTruthy();
+    });
+  });
+
+  it("keeps keyboard focus inside the chore detail modal and closes accessibly", async () => {
+    await withMay2026CalendarClock(async () => {
+      vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
+      renderAt("/calendar");
+
+      const opener = await findPlannedCleanBathroomsButton();
+      fireEvent.click(opener);
+
+      const modal = getChoreEditorElement();
+      await waitFor(() => expect(modal.contains(document.activeElement)).toBe(true));
+      expect(document.activeElement).toBe(within(modal).getByRole("button", { name: "Close dialog" }));
+
+      fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
+      expect(document.activeElement).toBe(within(modal).getByRole("button", { name: "Edit" }));
+
+      fireEvent.keyDown(document, { key: "Tab" });
+      expect(document.activeElement).toBe(within(modal).getByRole("button", { name: "Close dialog" }));
+
+      fireEvent.keyDown(document, { key: "Escape" });
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Chore details" })).toBeNull());
+      expect(document.activeElement).toBe(opener);
+
+      fireEvent.click(opener);
+      await screen.findByRole("dialog", { name: "Chore details" });
+      fireEvent.mouseDown(document.querySelector(".chore-editor-backdrop") as HTMLElement);
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Chore details" })).toBeNull());
+      expect(document.activeElement).toBe(opener);
     });
   });
 

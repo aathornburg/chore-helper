@@ -1,6 +1,6 @@
 import { addDays, addMinutes, addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format, parseISO, startOfMonth, startOfWeek } from "date-fns";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CalendarConnectionSummary, CalendarImportCandidate, CalendarImportPolicy, CalendarImportQueueItem, CalendarPreferences, ChoreOccurrence, ChoreSchedule, CleanlyCalendarEvent, CompletionCheckInInput, ExternalCalendarSummary, HouseholdAppData, HouseholdMemberSummary, ScheduleInput } from "@chore-helper/shared";
 import { completeOccurrence, createScheduledChore, decideCalendarImportQueueItem, exportCleanlyCalendarEvents, getCalendarPreferences, getCurrentUser, getMyCalendarImportPolicy, listCalendarConnections, listCalendarImportCandidates, listCalendarImportPolicies, listCalendarImportQueue, listCleanlyCalendarEvents, listExternalCalendars, listHouseholdMembers, listOccurrences, listSchedules, skipOccurrence, startGoogleCalendarConnection, submitCalendarImportEvents, updateCalendarPreferences, updateOccurrence, updateSchedule as updateScheduleApi } from "../api";
 import { CalendarExportPreselectPanel, CalendarExportReviewPanel } from "./calendar/CalendarExportPanel";
@@ -267,6 +267,9 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   const [exportRange, setExportRange] = useState<CalendarDateRange>(() => createVisibleRange(format(new Date(), "yyyy-MM-dd"), format(addDays(new Date(), 30), "yyyy-MM-dd")));
   const [selectedExportEventIds, setSelectedExportEventIds] = useState<string[]>([]);
   const [shouldApplyExportPreselect, setShouldApplyExportPreselect] = useState(false);
+  const choreEditorModalRef = useRef<HTMLFormElement>(null);
+  const cleanlyEventModalRef = useRef<HTMLElement>(null);
+  const modalTriggerRef = useRef<HTMLElement | null>(null);
 
   const selectedHousehold = households.find((household) => household.id === filters.householdId) ?? households[0];
   const timeZone = selectedHousehold?.timeZone ?? "UTC";
@@ -295,10 +298,86 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     return matchesRange && matchesSubmitter && matchesFilter;
   }), [pendingQueueItems, queueRange, queueReviewFilter, selectedQueueSubmitterId, timeZone]);
 
+  function restoreModalTriggerFocus() {
+    modalTriggerRef.current?.focus();
+    modalTriggerRef.current = null;
+  }
+
+  function closeChoreEditor() {
+    setEditorMode("closed");
+    restoreModalTriggerFocus();
+  }
+
+  function closeCleanlyCalendarEventDetail() {
+    setSelectedCleanlyCalendarEventId(undefined);
+    restoreModalTriggerFocus();
+  }
+
+  function focusableDialogElements(dialog: HTMLElement) {
+    return Array.from(dialog.querySelectorAll<HTMLElement>([
+      "a[href]",
+      "button:not([disabled])",
+      "input:not([disabled])",
+      "select:not([disabled])",
+      "textarea:not([disabled])",
+      "[tabindex]:not([tabindex='-1'])"
+    ].join(", "))).filter((element) => !element.hasAttribute("aria-hidden"));
+  }
+
   useEffect(() => {
     if (!selectedHousehold) return;
     setFilters((current) => current.householdId ? current : { ...current, householdId: selectedHousehold.id });
   }, [selectedHousehold]);
+
+  useEffect(() => {
+    const modal = selectedCleanlyCalendarEvent
+      ? cleanlyEventModalRef.current
+      : editorMode !== "closed"
+        ? choreEditorModalRef.current
+        : null;
+    if (!modal) return;
+    const dialog = modal;
+
+    const focusableElements = focusableDialogElements(dialog);
+    const firstFocusable = focusableElements[0] ?? dialog;
+    firstFocusable.focus();
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        if (selectedCleanlyCalendarEvent) {
+          closeCleanlyCalendarEventDetail();
+        } else {
+          closeChoreEditor();
+        }
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+      const currentFocusableElements = focusableDialogElements(dialog);
+      if (currentFocusableElements.length === 0) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+
+      const firstElement = currentFocusableElements[0];
+      const lastElement = currentFocusableElements[currentFocusableElements.length - 1];
+      if (event.shiftKey && document.activeElement === firstElement) {
+        event.preventDefault();
+        lastElement.focus();
+      } else if (!event.shiftKey && document.activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
+      } else if (!dialog.contains(document.activeElement)) {
+        event.preventDefault();
+        firstElement.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [editorMode, selectedCleanlyCalendarEvent]);
 
   useEffect(() => {
     if (!selectedHousehold) return;
@@ -626,7 +705,8 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     };
   }
 
-  function openCreateEditor() {
+  function openCreateEditor(trigger?: HTMLElement) {
+    modalTriggerRef.current = trigger ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
     setSelectedCleanlyCalendarEventId(undefined);
     setSelectedOccurrenceId(undefined);
     setEditorStatus(undefined);
@@ -686,7 +766,8 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
       .catch(() => setEditorStatus("Could not load schedule details."));
   }
 
-  function openViewEditor(occurrence: ChoreOccurrence) {
+  function openViewEditor(occurrence: ChoreOccurrence, trigger?: HTMLElement) {
+    modalTriggerRef.current = trigger ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
     setSelectedCleanlyCalendarEventId(undefined);
     setSelectedOccurrenceId(occurrence.id);
     setEditorStatus(undefined);
@@ -697,7 +778,8 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     setEditorMode("view");
   }
 
-  function openEditEditor(occurrence: ChoreOccurrence) {
+  function openEditEditor(occurrence: ChoreOccurrence, trigger?: HTMLElement) {
+    modalTriggerRef.current = trigger ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
     setSelectedCleanlyCalendarEventId(undefined);
     setSelectedOccurrenceId(occurrence.id);
     setEditorStatus(undefined);
@@ -988,6 +1070,8 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     if (!selectedOccurrence || !editorDraft) return null;
     const selectedChore = selectedHousehold?.chores.find((item) => item.id === selectedOccurrence.choreId);
     const sourceLabel = selectedChore?.source === "google-calendar" ? "Google Calendar" : "Manual chore";
+    const upcomingRows = relatedOccurrenceDateRows("upcoming").slice(0, 4);
+    const historyRows = relatedOccurrenceDateRows("history").slice(0, 4);
 
     return (
       <>
@@ -1024,7 +1108,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
         <section className="schedule-occurrence-section" aria-label="Upcoming occurrences">
           <h3>Upcoming Occurrences</h3>
           <div className="schedule-occurrence-list">
-            {relatedOccurrenceDateRows("upcoming").slice(0, 4).map(({ occurrence, date }) => (
+            {upcomingRows.map(({ occurrence, date }) => (
               <article className="schedule-occurrence-row" key={`${occurrence.id}-${dateKey(date)}`}>
                 <span>{format(date, "EEEE, MMM d")}</span>
                 <span>{occurrenceDateLine(occurrence)}</span>
@@ -1035,7 +1119,8 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
         <section className="schedule-occurrence-section" aria-label="Historical occurrences">
           <h3>History</h3>
           <div className="schedule-occurrence-list">
-            {relatedOccurrenceDateRows("history").slice(0, 4).map(({ occurrence, date }) => (
+            {historyRows.length === 0 ? <p className="schedule-occurrence-empty">This event has no history yet.</p> : null}
+            {historyRows.map(({ occurrence, date }) => (
               <article className="schedule-occurrence-row" key={`${occurrence.id}-${dateKey(date)}`}>
                 <span>{format(date, "EEEE, MMM d")}</span>
                 <span>{capitalize(occurrence.status)}</span>
@@ -1064,7 +1149,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
         className={`calendar-work-item calendar-chore-row is-chore ${density === "summary" ? "is-summary" : ""} ${occurrence.status === "completed" ? "is-completed" : ""} ${occurrence.status === "skipped" ? "is-skipped" : ""}`}
         draggable={isOwner && calendarScale !== "month" && occurrence.status === "planned" && occurrence.planningMode === "timed"}
         key={`${occurrence.id}-${dateKey(date)}`}
-        onClick={() => openViewEditor(occurrence)}
+        onClick={(event) => openViewEditor(occurrence, event.currentTarget)}
         onDragStart={() => setDraggingId(occurrence.id)}
         title={title}
         type="button"
@@ -1099,7 +1184,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
         aria-label={`View ${title}`}
         className={`calendar-work-item calendar-chore-row is-chore ${occurrence.status === "completed" ? "is-completed" : ""} ${occurrence.status === "skipped" ? "is-skipped" : ""}`}
         key={`${occurrence.id}-${dateKey(date)}`}
-        onClick={() => openViewEditor(occurrence)}
+        onClick={(event) => openViewEditor(occurrence, event.currentTarget)}
         title={title}
         type="button"
       >
@@ -1120,7 +1205,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
         aria-label={`View ${title}`}
         className={`calendar-work-item calendar-chore-row calendar-agenda-row is-chore is-${occurrence.status}`}
         key={`${occurrence.id}-${dateKey(date)}`}
-        onClick={() => openViewEditor(occurrence)}
+        onClick={(event) => openViewEditor(occurrence, event.currentTarget)}
         title={title}
         type="button"
       >
@@ -1175,7 +1260,8 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
         aria-label={`View ${event.privacyTitle}`}
         className={className}
         key={event.id}
-        onClick={() => {
+        onClick={(clickEvent) => {
+          modalTriggerRef.current = clickEvent.currentTarget;
           setEditorMode("closed");
           setSelectedCleanlyCalendarEventId(event.id);
         }}
@@ -1950,7 +2036,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
           <div className="calendar-header-actions" aria-label="Calendar actions">
             <button className="section-action" onClick={openImportModal} type="button">Import events</button>
             <button className="section-action" onClick={startExportMode} type="button">Export</button>
-            <button onClick={openCreateEditor} type="button">Add chore</button>
+            <button onClick={(event) => openCreateEditor(event.currentTarget)} type="button">Add chore</button>
           </div>
         ) : null}
       </header>
@@ -2146,11 +2232,18 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
           </section>
 
           {editorMode !== "closed" && editorDraft ? (
-            <div className="chore-editor-backdrop" role="presentation">
+            <div
+              className="chore-editor-backdrop"
+              onMouseDown={(event) => {
+                if (event.currentTarget === event.target) closeChoreEditor();
+              }}
+              role="presentation"
+            >
               <form
                 aria-label={editorMode === "create" ? "New chore" : editorMode === "view" ? "Chore details" : "Edit chore"}
                 aria-modal="true"
                 className="chore-editor-modal"
+                ref={choreEditorModalRef}
                 role="dialog"
                 onSubmit={(event) => {
                   if (editorMode === "create") {
@@ -2170,7 +2263,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                     <p className="eyebrow">{editorMode === "create" ? "New chore" : editorMode === "view" ? "Chore details" : "Edit chore"}</p>
                     <h2>{editorMode === "create" ? "Chore Details" : editorDraft.title}</h2>
                   </div>
-                  <button aria-label="Close dialog" className="icon-button modal-close-button" onClick={() => setEditorMode("closed")} type="button" />
+                  <button aria-label="Close dialog" className="icon-button modal-close-button" onClick={closeChoreEditor} type="button" />
                 </div>
                 {editorMode === "view" && selectedOccurrence ? (
                   <section className="chore-view-details">
@@ -2483,7 +2576,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                 {editorStatus ? <p role="status">{editorStatus}</p> : null}
                 {editorMode === "view" && selectedOccurrence ? (
                   <div className="form-actions modal-actions">
-                    <button className="section-action" onClick={() => setEditorMode("closed")} type="button">Close</button>
+                    <button className="section-action" onClick={closeChoreEditor} type="button">Close</button>
                     <div className="modal-action-group">
                       {completionCheckIn ? (
                         <button onClick={() => void handleComplete(selectedOccurrence, completionCheckIn)} type="button">Submit</button>
@@ -2492,14 +2585,14 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                           {selectedOccurrence.status === "planned" && selectedOccurrence.assignedUserId === currentUserId ? (
                           <button className="section-action" onClick={startCompletionCheckIn} type="button">Complete chore</button>
                           ) : null}
-                          <button onClick={() => openEditEditor(selectedOccurrence)} type="button">Edit</button>
+                          <button onClick={(event) => openEditEditor(selectedOccurrence, event.currentTarget)} type="button">Edit</button>
                         </>
                       )}
                     </div>
                   </div>
                 ) : (
                   <div className="form-actions modal-actions">
-                    <button className="section-action" onClick={() => setEditorMode("closed")} type="button">Cancel</button>
+                    <button className="section-action" onClick={closeChoreEditor} type="button">Cancel</button>
                     {editorMode === "create" || editorMode === "edit" ? <button type="submit">{editorMode === "create" ? "Add chore" : "Save changes"}</button> : null}
                     {editorMode === "edit" && selectedOccurrence ? <button className="section-action" onClick={() => void handleSkip()} type="button">Skip occurrence</button> : null}
                   </div>
@@ -2508,12 +2601,20 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
             </div>
           ) : null}
           {selectedCleanlyCalendarEvent ? (
-            <div className="chore-editor-backdrop" role="presentation">
+            <div
+              className="chore-editor-backdrop"
+              onMouseDown={(event) => {
+                if (event.currentTarget === event.target) closeCleanlyCalendarEventDetail();
+              }}
+              role="presentation"
+            >
               <section
                 aria-label="Calendar event details"
                 aria-modal="true"
                 className="chore-editor-modal calendar-event-detail-modal"
+                ref={cleanlyEventModalRef}
                 role="dialog"
+                tabIndex={-1}
               >
                 <div className="panel-heading">
                   <div>
@@ -2523,7 +2624,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                   <button
                     aria-label="Close dialog"
                     className="icon-button modal-close-button"
-                    onClick={() => setSelectedCleanlyCalendarEventId(undefined)}
+                    onClick={closeCleanlyCalendarEventDetail}
                     type="button"
                   />
                 </div>
@@ -2548,7 +2649,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                   </div>
                 </div>
                 <div className="form-actions modal-actions">
-                  <button className="section-action" onClick={() => setSelectedCleanlyCalendarEventId(undefined)} type="button">Close</button>
+                  <button className="section-action" onClick={closeCleanlyCalendarEventDetail} type="button">Close</button>
                 </div>
               </section>
             </div>
