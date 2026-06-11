@@ -2488,6 +2488,9 @@ describe("App", () => {
       expect(monthChore.classList.contains("calendar-event")).toBe(false);
       expect(monthChore.getAttribute("title")).toBe("Clean bathrooms");
       expect(monthChore.querySelector(".calendar-chore-title")).not.toBeNull();
+      const monthAssigneeToken = within(monthChore).getByRole("img", { name: "Assigned to Alex Owner" });
+      expect(monthAssigneeToken.closest(".calendar-chore-assignee")).not.toBeNull();
+      expect(monthChore.lastElementChild).toBe(monthAssigneeToken.closest(".calendar-chore-assignee"));
       expect(within(friday).queryByText("Anytime / 60 min")).toBeNull();
       expect(within(friday).queryByText("Alex Owner")).toBeNull();
       expect(screen.queryByText("Assigned member")).toBeNull();
@@ -2508,7 +2511,11 @@ describe("App", () => {
 
       const agenda = screen.getByRole("region", { name: "Selected day agenda" });
       expect(within(agenda).getByRole("heading", { name: "Saturday, May 30" })).toBeTruthy();
-      expect(within(agenda).getByRole("button", { name: "View Clean bathrooms" })).toBeTruthy();
+      const mobileAgendaChore = within(agenda).getByRole("button", { name: "View Clean bathrooms" });
+      expect(mobileAgendaChore).toBeTruthy();
+      const mobileAssigneeToken = within(mobileAgendaChore).getByRole("img", { name: "Assigned to Alex Owner" });
+      expect(mobileAssigneeToken.closest(".calendar-chore-assignee")).not.toBeNull();
+      expect(mobileAgendaChore.lastElementChild).toBe(mobileAssigneeToken.closest(".calendar-chore-assignee"));
       expect(within(agenda).getByRole("button", { name: "View Pet cats" })).toBeTruthy();
 
       fireEvent.click(within(mobileMonth).getByRole("button", { name: /Select Friday, May 29, 1 item/ }));
@@ -2684,6 +2691,8 @@ describe("App", () => {
     expect(dayRows[0].classList.contains("is-chore")).toBe(true);
     const dayAssigneeToken = within(dayRows[0]).getByRole("img", { name: "Assigned to Alex Owner" });
     expect(dayAssigneeToken.textContent).toContain("AO");
+    expect(dayAssigneeToken.closest(".calendar-chore-assignee")).not.toBeNull();
+    expect(dayRows[0].lastElementChild).toBe(dayAssigneeToken.closest(".calendar-chore-assignee"));
     const dayTimeSummary = dayRows[0].querySelector(".calendar-time-summary");
     expect(dayTimeSummary).not.toBeNull();
     expect(within(dayTimeSummary as HTMLElement).getByText("Anytime")).toBeTruthy();

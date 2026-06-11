@@ -1232,6 +1232,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
 
   function renderOccurrenceCompact(occurrence: ChoreOccurrence, date: Date, density: OccurrenceCardDensity) {
     const title = occurrenceTitle(occurrence);
+    const assigneeToken = assigneeIdentity(occurrence);
     return (
       <button
         aria-label={`View ${title}`}
@@ -1251,16 +1252,14 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
           {density === "summary" ? (
             <>
               <span className="calendar-chore-detail">
-                {assigneeIdentity(occurrence)}
                 {occurrenceTimeSummary(occurrence)}
               </span>
               {isFlexibleOverdue(occurrence) ? <span className="occurrence-overdue-badge">Overdue</span> : null}
             </>
-          ) : (
-            <span className="calendar-chore-detail calendar-chore-detail-token-only">
-              {assigneeIdentity(occurrence)}
-            </span>
-          )}
+          ) : null}
+        </span>
+        <span className="calendar-chore-assignee">
+          {assigneeToken}
         </span>
       </button>
     );
@@ -1268,6 +1267,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
 
   function renderMonthOccurrence(occurrence: ChoreOccurrence, date: Date) {
     const title = occurrenceTitle(occurrence);
+    const assigneeToken = assigneeIdentity(occurrence);
     return (
       <button
         aria-label={`View ${title}`}
@@ -1282,6 +1282,9 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
         ) : null}
         <span className="calendar-chore-main">
           <span className="calendar-chore-title">{title}</span>
+        </span>
+        <span className="calendar-chore-assignee">
+          {assigneeToken}
         </span>
       </button>
     );
