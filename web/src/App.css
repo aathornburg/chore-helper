@@ -7756,6 +7756,95 @@ button.chore-row-summary[aria-expanded="true"] {
     position: fixed;
   }
 
+  .chore-editor-backdrop.is-detail-view {
+    align-items: start;
+    padding: 16px;
+    place-items: start center;
+  }
+
+  .chore-editor-modal.is-detail-view {
+    border-radius: 0;
+    gap: 14px;
+    inset: auto;
+    max-height: calc(100vh - 32px);
+    max-width: 640px;
+    overflow: auto;
+    padding: 18px;
+    position: relative;
+    width: min(100%, calc(100vw - 32px));
+  }
+
+  .chore-editor-modal.is-detail-view .panel-heading {
+    padding-right: 42px;
+  }
+
+  .chore-editor-modal.is-detail-view .panel-heading h2 {
+    font-size: 1.35rem;
+    overflow-wrap: anywhere;
+  }
+
+  .chore-editor-modal.is-detail-view .modal-close-button {
+    right: 12px;
+    top: 12px;
+  }
+
+  .chore-editor-modal.is-detail-view .chore-view-details {
+    gap: 12px;
+  }
+
+  .chore-editor-modal.is-detail-view .chore-detail-meta-grid {
+    gap: 8px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .chore-editor-modal.is-detail-view .chore-detail-meta-grid div,
+  .chore-editor-modal.is-detail-view .schedule-card,
+  .chore-editor-modal.is-detail-view .schedule-occurrence-section {
+    border-radius: 0;
+    padding: 10px;
+  }
+
+  .chore-editor-modal.is-detail-view .schedule-occurrence-section h3 {
+    font-size: 0.86rem;
+    margin-bottom: 8px;
+  }
+
+  .chore-editor-modal.is-detail-view .schedule-occurrence-list {
+    gap: 0;
+  }
+
+  .chore-editor-modal.is-detail-view .schedule-occurrence-row {
+    align-items: start;
+    display: grid;
+    gap: 4px;
+    grid-template-columns: minmax(0, 1fr);
+    padding: 8px 0;
+  }
+
+  .chore-editor-modal.is-detail-view .modal-actions,
+  .chore-editor-modal.is-detail-view .modal-action-group {
+    align-items: stretch;
+    display: grid;
+    gap: 8px;
+  }
+
+  .chore-editor-modal.is-detail-view .modal-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .chore-editor-modal.is-detail-view .modal-action-group {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .chore-editor-modal.is-detail-view .modal-actions button,
+  .chore-editor-modal.is-detail-view .modal-action-group button {
+    width: 100%;
+  }
+
+  .chore-editor-modal.is-detail-view .modal-actions button[type="submit"] {
+    margin-left: 0;
+  }
+
   .family-row {
     align-items: start;
     flex-direction: column;

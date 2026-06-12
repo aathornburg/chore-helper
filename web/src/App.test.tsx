@@ -2867,6 +2867,22 @@ describe("App", () => {
     });
   });
 
+  it("uses the compact inset chore detail modal on mobile", async () => {
+    await withMay2026CalendarClock(async () => {
+      setViewportWidth(390);
+      vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
+      renderAt("/calendar");
+
+      fireEvent.click(await findPlannedCleanBathroomsButton());
+
+      const modal = getChoreEditorElement();
+      expect(modal.classList.contains("is-detail-view")).toBe(true);
+      expect(modal.classList.contains("calendar-sync-modal")).toBe(false);
+      expect(document.querySelector(".chore-editor-backdrop")?.classList.contains("is-detail-view")).toBe(true);
+      expect(modal.querySelector(".chore-detail-meta-grid")).not.toBeNull();
+    });
+  });
+
   it("keeps keyboard focus inside the chore detail modal and closes accessibly", async () => {
     await withMay2026CalendarClock(async () => {
       vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());

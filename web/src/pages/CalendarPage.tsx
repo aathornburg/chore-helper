@@ -2408,7 +2408,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
 
           {editorMode !== "closed" && editorDraft ? (
             <div
-              className="chore-editor-backdrop"
+              className={`chore-editor-backdrop ${editorMode === "view" ? "is-detail-view" : ""}`}
               onMouseDown={(event) => {
                 if (event.currentTarget === event.target) closeChoreEditor();
               }}
@@ -2417,7 +2417,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
               <form
                 aria-label={editorMode === "create" ? "New chore" : editorMode === "view" ? "Chore details" : "Edit chore"}
                 aria-modal="true"
-                className="chore-editor-modal"
+                className={`chore-editor-modal ${editorMode === "view" ? "is-detail-view" : ""}`}
                 ref={choreEditorModalRef}
                 role="dialog"
                 onSubmit={(event) => {
