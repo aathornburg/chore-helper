@@ -3787,6 +3787,41 @@ describe("App", () => {
     });
   });
 
+  it("uses the compact inset calendar event detail modal on mobile", async () => {
+    await withMay2026CalendarClock(async () => {
+      setViewportWidth(390);
+      vi.stubGlobal("fetch", mockCalendarWorkspaceFetches({
+        calendarConnected: true,
+        cleanlyCalendarEvents: [{
+          id: "cleanly-event-1",
+          householdId: "household-1",
+          createdByUserId: "app-user-1",
+          type: "commitment",
+          title: "Soccer practice",
+          privacyTitle: "Soccer practice",
+          detailLevel: "full_details",
+          startsAt: "2026-05-29T21:00:00.000Z",
+          endsAt: "2026-05-29T22:00:00.000Z",
+          timezone: "America/New_York",
+          source: "google",
+          status: "active"
+        }]
+      }));
+      stubScrollIntoView();
+      renderAt("/calendar");
+
+      const mobileMonth = await screen.findByRole("grid", { name: "May 2026 mobile month calendar" });
+      fireEvent.click(within(mobileMonth).getByRole("button", { name: /Select Friday, May 29/ }));
+      const agenda = screen.getByRole("region", { name: "Selected day agenda" });
+      fireEvent.click(await within(agenda).findByRole("button", { name: "View Soccer practice" }));
+
+      const dialog = await screen.findByRole("dialog", { name: "Calendar event details" });
+      expect(dialog.classList.contains("calendar-event-detail-modal")).toBe(true);
+      expect(dialog.classList.contains("is-detail-view")).toBe(true);
+      expect(document.querySelector(".chore-editor-backdrop")?.classList.contains("is-detail-view")).toBe(true);
+    });
+  });
+
   it("shows a blocked import state when the member import policy is off", async () => {
     await withMay2026CalendarClock(async () => {
       vi.stubGlobal("fetch", mockCalendarWorkspaceFetches({

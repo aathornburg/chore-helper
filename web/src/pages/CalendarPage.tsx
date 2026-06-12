@@ -2777,7 +2777,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
           ) : null}
           {selectedCleanlyCalendarEvent ? (
             <div
-              className="chore-editor-backdrop"
+              className="chore-editor-backdrop is-detail-view"
               onMouseDown={(event) => {
                 if (event.currentTarget === event.target) closeCleanlyCalendarEventDetail();
               }}
@@ -2786,7 +2786,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
               <section
                 aria-label="Calendar event details"
                 aria-modal="true"
-                className="chore-editor-modal calendar-event-detail-modal"
+                className="chore-editor-modal calendar-event-detail-modal is-detail-view"
                 ref={cleanlyEventModalRef}
                 role="dialog"
                 tabIndex={-1}
