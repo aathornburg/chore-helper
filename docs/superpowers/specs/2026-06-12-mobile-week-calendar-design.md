@@ -6,6 +6,8 @@ Make the Calendar week view readable and usable on phones without squeezing the 
 
 The mobile Calendar page should also feel calendar-first. When a user taps Calendar on a phone, the first impression should be the calendar surface and the selected day's work, not a stack of management buttons.
 
+The Calendar page should also avoid implying a single-household scope in the header. Household identity belongs on events and filters, not beneath the page title.
+
 ## Approved Direction
 
 Use a mobile-only Week surface built around a week strip and selected-day agenda.
@@ -17,8 +19,30 @@ Use a mobile-only Week surface built around a week strip and selected-day agenda
 - Tapping a day updates the agenda.
 - Tapping an agenda row opens the existing chore detail or calendar event detail modal.
 - Mobile header actions are compressed so they do not push the calendar below the fold.
+- The Calendar page header is simplified across all views and viewport sizes.
+- Event cards and detail modals identify which household the event belongs to.
+- Calendar modals share one cohesive shell pattern.
 
 This mirrors the mobile Month pattern: the calendar grid answers "which days have work?" and the agenda answers "what is scheduled for this selected day?"
+
+## Calendar Header
+
+The Calendar page header should be minimal on desktop, tablet, and mobile.
+
+Rules:
+
+- Remove the entire descriptive/status row under the `Calendar` H1.
+- Do not show household name, period label, `open` count, or `completed` count under the H1.
+- Do not use the H1 support area to communicate calendar scope.
+- The page header should contain the `Calendar` H1 and compact actions only.
+- Date period, view mode, filters, and selected scope belong in the calendar control area.
+- Active household scope, if any, should appear as a filter value or active filter chip, not as page identity.
+
+Reasoning:
+
+- Counts such as `1 open` and `0 completed` are ambiguous because their scope is not obvious.
+- A household name beneath the H1 implies the whole calendar is only for that household.
+- The Calendar page should read as the user's calendar, with household scope explained by event labels and filters.
 
 ## Mobile Calendar Header And Actions
 
@@ -35,6 +59,38 @@ Rules:
 - Desktop and wider tablet layouts may keep `Add event` visible as a primary action.
 
 The mobile header should preserve useful context, but keep it compact. The period label, view selector, filters, and action menu should be arranged so the Week strip is visible quickly on a normal phone viewport.
+
+## Household Identity On Events
+
+Calendar event surfaces should make household ownership visible.
+
+Requirements:
+
+- Event cards and agenda rows show the household name for the event.
+- The household label should be compact and visually quieter than the event title.
+- The label should work for manual chore events and imported calendar events.
+- The label should appear in Month agenda rows, mobile Week agenda rows, desktop Week event cards, Day view cards, and List view rows where space allows.
+- If space is tight, the label may be abbreviated or placed in metadata text, but it must not disappear from mobile agenda rows.
+- The detail modal includes `Household` as a metadata row.
+- If the calendar is filtered to one household, event cards may keep the household label quiet, but detail modals should still show it.
+
+This supports a future default where Calendar can show events from all households. Household should be event-level identity, not page-level identity.
+
+## Modal Cohesion
+
+Calendar modals should feel like one modal system.
+
+Requirements:
+
+- `Add event`, `Chore details`, `Calendar event details`, `Import calendar events`, review/import, and export/review modals should use the same modal shell principles.
+- Modals should be centered in the viewport unless content height requires scrolling.
+- Mobile modals should use the same inset modal pattern as the import events modal, not a full-width/full-screen treatment by default.
+- Large modal content should scroll inside the modal shell instead of changing the modal's placement model.
+- All modals keep backdrop-click close, Escape close, focus trapping, and focus return behavior.
+- Close buttons, headings, spacing, border treatment, and max-width rules should feel consistent across modal types.
+- A modal may use a wider max width only when the content genuinely needs it, but it should still look like the same family.
+
+The add event modal specifically should stop reading as a different full-width page surface. It should share the import modal's cohesive centered/inset behavior while still supporting its larger form content.
 
 ## Mobile Week Strip
 
@@ -101,6 +157,8 @@ Requirements:
 - Keyboard users can select a day, then tab into the agenda rows.
 - The mobile action menu trigger exposes expanded or collapsed state.
 - The mobile action menu items are reachable without trapping focus.
+- Household labels on event rows are exposed as readable text, not color alone.
+- Modal focus behavior is consistent across add, detail, import, review, and export modals.
 - Desktop Week semantics stay unchanged.
 
 ## Responsive Behavior
@@ -115,9 +173,14 @@ The mobile header cleanup also applies at the same breakpoint. The goal is not o
 
 Add tests for:
 
+- Calendar header does not render the old descriptive/status row under the H1 on desktop or mobile.
+- Calendar header does not display household name, `open`, or `completed` metrics as page-title support text.
 - Mobile Calendar renders one compact `Calendar actions` trigger instead of stacked top action buttons.
 - Opening mobile `Calendar actions` reveals `Add event`, `Import events`, and `Export events`.
 - Mobile Calendar shows the calendar surface without requiring the user to scroll past header action buttons.
+- Event cards or rows include household identity for multi-household calendar data.
+- Chore detail and calendar event detail modals show a `Household` metadata row.
+- Add event and import event modals use the same centered/inset shell behavior on mobile.
 - Mobile Week renders the week strip and selected-day agenda instead of the desktop time rail.
 - Selecting a day updates the selected-day agenda.
 - Agenda rows open existing chore and calendar event detail modals.
@@ -132,3 +195,4 @@ Add tests for:
 - Adding drag-and-drop on mobile Week.
 - Adding a new route for agenda details.
 - Reworking import/export behavior beyond how actions are surfaced on mobile.
+- Implementing all-households calendar data loading in this same pass, unless the implementation plan explicitly scopes it in.
