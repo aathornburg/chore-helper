@@ -268,6 +268,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   const [calendarSyncStatus, setCalendarSyncStatus] = useState<string>();
   const [syncModal, setSyncModal] = useState<CalendarSyncModal>("closed");
   const [isExportMode, setIsExportMode] = useState(false);
+  const [isCalendarActionsOpen, setIsCalendarActionsOpen] = useState(false);
   const [connections, setConnections] = useState<CalendarConnectionSummary[]>([]);
   const [externalCalendars, setExternalCalendars] = useState<ExternalCalendarSummary[]>([]);
   const [calendarPreferences, setCalendarPreferences] = useState<CalendarPreferences>();
@@ -291,6 +292,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   const choreEditorModalRef = useRef<HTMLFormElement>(null);
   const cleanlyEventModalRef = useRef<HTMLElement>(null);
   const modalTriggerRef = useRef<HTMLElement | null>(null);
+  const calendarActionsButtonRef = useRef<HTMLButtonElement>(null);
   const mobileMonthAgendaRef = useRef<HTMLElement>(null);
 
   const selectedHousehold = households.find((household) => household.id === filters.householdId) ?? households[0];
@@ -508,6 +510,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
       isImportRangeOpen ||
       isQueueRangeOpen ||
       isQueueBulkApprovalMenuOpen ||
+      isCalendarActionsOpen ||
       Boolean(queueApprovalMenuOpenId);
     if (!hasOpenFloatingSurface) return;
 
@@ -518,6 +521,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
         ".calendar-sync-apply-menu",
         ".calendar-sync-range-popover",
         ".calendar-sync-date-trigger",
+        ".calendar-actions-menu",
         ".calendar-queue-approve-split"
       ].join(", "));
       if (clickedInsideFloatingSurface) return;
@@ -526,12 +530,13 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
       setIsImportRangeOpen(false);
       setIsQueueRangeOpen(false);
       setIsQueueBulkApprovalMenuOpen(false);
+      setIsCalendarActionsOpen(false);
       setQueueApprovalMenuOpenId(undefined);
     }
 
     document.addEventListener("mousedown", handleDocumentMouseDown);
     return () => document.removeEventListener("mousedown", handleDocumentMouseDown);
-  }, [isImportApplyMenuOpen, isImportRangeOpen, isQueueBulkApprovalMenuOpen, isQueueRangeOpen, queueApprovalMenuOpenId]);
+  }, [isCalendarActionsOpen, isImportApplyMenuOpen, isImportRangeOpen, isQueueBulkApprovalMenuOpen, isQueueRangeOpen, queueApprovalMenuOpenId]);
 
   useEffect(() => {
     if (syncModal !== "import") return;
@@ -788,6 +793,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   }
 
   function openCreateEditor(trigger?: HTMLElement) {
+    setIsCalendarActionsOpen(false);
     modalTriggerRef.current = trigger ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
     setSelectedCleanlyCalendarEventId(undefined);
     setSelectedOccurrenceId(undefined);
@@ -1409,11 +1415,13 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   }
 
   function openImportModal() {
+    setIsCalendarActionsOpen(false);
     setSyncModal("import");
     setCalendarSyncStatus(undefined);
   }
 
   function startExportMode() {
+    setIsCalendarActionsOpen(false);
     setIsExportMode(true);
     setSyncModal("closed");
     setCalendarSyncStatus(undefined);
@@ -2194,10 +2202,35 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
           </div>
         </div>
         {!isExportMode ? (
-          <div className="calendar-header-actions" aria-label="Calendar actions">
-            <button className="section-action" onClick={openImportModal} type="button">Import events</button>
-            <button className="section-action" onClick={startExportMode} type="button">Export</button>
-            <button onClick={(event) => openCreateEditor(event.currentTarget)} type="button">Add chore</button>
+          <div className="calendar-header-actions" aria-label="Calendar header actions">
+            <button onClick={(event) => openCreateEditor(event.currentTarget)} type="button">Add event</button>
+            <div
+              className="calendar-actions-menu"
+              onKeyDown={(event) => {
+                if (event.key !== "Escape") return;
+                event.preventDefault();
+                setIsCalendarActionsOpen(false);
+                calendarActionsButtonRef.current?.focus();
+              }}
+            >
+              <button
+                ref={calendarActionsButtonRef}
+                aria-controls="calendar-actions-menu"
+                aria-expanded={isCalendarActionsOpen}
+                aria-haspopup="true"
+                className="section-action calendar-actions-menu-trigger"
+                onClick={() => setIsCalendarActionsOpen((isOpen) => !isOpen)}
+                type="button"
+              >
+                Calendar actions
+              </button>
+              {isCalendarActionsOpen ? (
+                <div className="calendar-actions-popover" id="calendar-actions-menu" role="region" aria-label="Calendar actions menu">
+                  <button onClick={openImportModal} type="button">Import events</button>
+                  <button onClick={startExportMode} type="button">Export events</button>
+                </div>
+              ) : null}
+            </div>
           </div>
         ) : null}
       </header>
@@ -2768,7 +2801,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                 ) : (
                   <div className="form-actions modal-actions">
                     <button className="section-action" onClick={closeChoreEditor} type="button">Cancel</button>
-                    {editorMode === "create" || editorMode === "edit" ? <button type="submit">{editorMode === "create" ? "Add chore" : "Save changes"}</button> : null}
+                    {editorMode === "create" || editorMode === "edit" ? <button type="submit">{editorMode === "create" ? "Add event" : "Save changes"}</button> : null}
                     {editorMode === "edit" && selectedOccurrence ? <button className="section-action" onClick={() => void handleSkip()} type="button">Skip occurrence</button> : null}
                   </div>
                 )}
