@@ -2194,12 +2194,6 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
       <header className="page-command-header">
         <div>
           <h1>Calendar</h1>
-          <div className="command-metrics" aria-label="Calendar status summary">
-            <span>{selectedHousehold?.name ?? "No household"}</span>
-            <span>{periodLabel}</span>
-            <span>{visibleOccurrences.filter((occurrence) => occurrence.status !== "completed").length} open</span>
-            <span>{visibleOccurrences.filter((occurrence) => occurrence.status === "completed").length} completed</span>
-          </div>
         </div>
         {!isExportMode ? (
           <div className="calendar-header-actions" aria-label="Calendar header actions">

@@ -2429,6 +2429,12 @@ describe("App", () => {
     renderAt("/calendar");
 
     expect(await screen.findByRole("heading", { name: "Calendar" })).toBeTruthy();
+    expect(screen.queryByLabelText("Calendar status summary")).toBeNull();
+    const pageHeader = document.querySelector(".page-command-header");
+    expect(pageHeader).not.toBeNull();
+    expect(within(pageHeader as HTMLElement).queryByText("Home")).toBeNull();
+    expect(within(pageHeader as HTMLElement).queryByText(/open$/)).toBeNull();
+    expect(within(pageHeader as HTMLElement).queryByText(/completed$/)).toBeNull();
     expect(screen.queryByRole("link", { name: "Chores" })).toBeNull();
     expect(screen.getByRole("button", { name: "Add event" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Add chore" })).toBeNull();

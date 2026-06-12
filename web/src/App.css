@@ -1469,18 +1469,6 @@ button:where(:not(.link-button)):hover {
   margin: 0 0 10px;
 }
 
-.command-metrics {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 18px;
-}
-
-.command-metrics span {
-  color: #11231b;
-  font-size: 0.96rem;
-}
-
 .calendar-header-actions {
   align-items: center;
   display: flex;
