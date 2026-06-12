@@ -2879,6 +2879,7 @@ describe("App", () => {
       expect(modal.classList.contains("is-detail-view")).toBe(true);
       expect(modal.classList.contains("calendar-sync-modal")).toBe(false);
       expect(document.querySelector(".chore-editor-backdrop")?.classList.contains("is-detail-view")).toBe(true);
+      expect(document.querySelector(".chore-editor-backdrop")?.classList.contains("is-centered-detail-view")).toBe(true);
       expect(modal.querySelector(".chore-detail-meta-grid")).not.toBeNull();
     });
   });
@@ -3819,6 +3820,7 @@ describe("App", () => {
       expect(dialog.classList.contains("calendar-event-detail-modal")).toBe(true);
       expect(dialog.classList.contains("is-detail-view")).toBe(true);
       expect(document.querySelector(".chore-editor-backdrop")?.classList.contains("is-detail-view")).toBe(true);
+      expect(document.querySelector(".chore-editor-backdrop")?.classList.contains("is-centered-detail-view")).toBe(true);
     });
   });
 

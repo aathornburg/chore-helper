@@ -2408,7 +2408,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
 
           {editorMode !== "closed" && editorDraft ? (
             <div
-              className={`chore-editor-backdrop ${editorMode === "view" ? "is-detail-view" : ""}`}
+              className={`chore-editor-backdrop ${editorMode === "view" ? "is-detail-view is-centered-detail-view" : ""}`}
               onMouseDown={(event) => {
                 if (event.currentTarget === event.target) closeChoreEditor();
               }}
@@ -2777,7 +2777,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
           ) : null}
           {selectedCleanlyCalendarEvent ? (
             <div
-              className="chore-editor-backdrop is-detail-view"
+              className="chore-editor-backdrop is-detail-view is-centered-detail-view"
               onMouseDown={(event) => {
                 if (event.currentTarget === event.target) closeCleanlyCalendarEventDetail();
               }}

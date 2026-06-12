@@ -7757,9 +7757,12 @@ button.chore-row-summary[aria-expanded="true"] {
   }
 
   .chore-editor-backdrop.is-detail-view {
-    align-items: start;
     padding: 16px;
     place-items: start center;
+  }
+
+  .chore-editor-backdrop.is-centered-detail-view {
+    place-items: center;
   }
 
   .chore-editor-modal.is-detail-view {
