@@ -7928,15 +7928,15 @@ button.chore-row-summary[aria-expanded="true"] {
   }
 
   .calendar-header-actions {
-    align-items: stretch;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    display: flex;
+    justify-content: flex-end;
     width: 100%;
   }
 
-  .calendar-header-actions > button,
   .calendar-actions-menu-trigger {
-    width: 100%;
+    min-height: 40px;
+    width: auto;
   }
 
   .calendar-actions-popover {

@@ -2462,6 +2462,24 @@ describe("App", () => {
     expect(within(workspace).queryByRole("button", { name: /View Practice/i })).toBeNull();
   });
 
+  it("uses one compact calendar actions trigger on mobile", async () => {
+    setViewportWidth(390);
+    vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
+    renderAt("/calendar");
+
+    expect(await screen.findByRole("heading", { name: "Calendar" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Calendar actions" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Add event" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Import events" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Export events" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Calendar actions" }));
+
+    expect(screen.getByRole("button", { name: "Add event" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Import events" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Export events" })).toBeTruthy();
+  });
+
   it("normalizes the removed Chores route away", async () => {
     mockEmptyAppDataFetches();
     renderAt("/chores");

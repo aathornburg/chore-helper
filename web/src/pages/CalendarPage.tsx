@@ -2197,7 +2197,9 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
         </div>
         {!isExportMode ? (
           <div className="calendar-header-actions" aria-label="Calendar header actions">
-            <button onClick={(event) => openCreateEditor(event.currentTarget)} type="button">Add event</button>
+            {!isMobileMonthViewport ? (
+              <button onClick={(event) => openCreateEditor(event.currentTarget)} type="button">Add event</button>
+            ) : null}
             <div
               className="calendar-actions-menu"
               onKeyDown={(event) => {
@@ -2220,6 +2222,9 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
               </button>
               {isCalendarActionsOpen ? (
                 <div className="calendar-actions-popover" id="calendar-actions-menu" role="region" aria-label="Calendar actions menu">
+                  {isMobileMonthViewport ? (
+                    <button onClick={(event) => openCreateEditor(event.currentTarget)} type="button">Add event</button>
+                  ) : null}
                   <button onClick={openImportModal} type="button">Import events</button>
                   <button onClick={startExportMode} type="button">Export events</button>
                 </div>
