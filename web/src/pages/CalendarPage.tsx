@@ -1554,7 +1554,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
 
     return (
       <div
-        className="chore-editor-backdrop calendar-sync-backdrop"
+        className="chore-editor-backdrop calendar-modal-backdrop calendar-sync-backdrop"
         onMouseDown={(event) => {
           if (event.target === event.currentTarget) {
             setIsImportApplyMenuOpen(false);
@@ -1564,7 +1564,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
         }}
         role="presentation"
       >
-        <section className="chore-editor-modal calendar-sync-modal" role="dialog" aria-modal="true" aria-labelledby="calendar-sync-modal-heading">
+        <section className="chore-editor-modal calendar-modal-shell calendar-sync-modal" role="dialog" aria-modal="true" aria-labelledby="calendar-sync-modal-heading">
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Work my calendar</p>
@@ -2457,7 +2457,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
 
           {editorMode !== "closed" && editorDraft ? (
             <div
-              className={`chore-editor-backdrop ${editorMode === "view" ? "is-detail-view is-centered-detail-view" : ""}`}
+              className={`chore-editor-backdrop calendar-modal-backdrop ${editorMode === "view" ? "is-detail-view is-centered-detail-view" : ""}`}
               onMouseDown={(event) => {
                 if (event.currentTarget === event.target) closeChoreEditor();
               }}
@@ -2466,7 +2466,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
               <form
                 aria-label={editorMode === "create" ? "New chore" : editorMode === "view" ? "Chore details" : "Edit chore"}
                 aria-modal="true"
-                className={`chore-editor-modal ${editorMode === "view" ? "is-detail-view" : ""}`}
+                className={`chore-editor-modal calendar-modal-shell ${editorMode === "view" ? "is-detail-view" : ""}`}
                 ref={choreEditorModalRef}
                 role="dialog"
                 onSubmit={(event) => {
@@ -2826,7 +2826,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
           ) : null}
           {selectedCleanlyCalendarEvent ? (
             <div
-              className="chore-editor-backdrop is-detail-view is-centered-detail-view"
+              className="chore-editor-backdrop calendar-modal-backdrop is-detail-view is-centered-detail-view"
               onMouseDown={(event) => {
                 if (event.currentTarget === event.target) closeCleanlyCalendarEventDetail();
               }}
@@ -2835,7 +2835,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
               <section
                 aria-label="Calendar event details"
                 aria-modal="true"
-                className="chore-editor-modal calendar-event-detail-modal is-detail-view"
+                className="chore-editor-modal calendar-modal-shell calendar-event-detail-modal is-detail-view"
                 ref={cleanlyEventModalRef}
                 role="dialog"
                 tabIndex={-1}

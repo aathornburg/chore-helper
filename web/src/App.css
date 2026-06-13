@@ -1550,14 +1550,7 @@ button:where(:not(.link-button)):hover {
 }
 
 .calendar-sync-backdrop {
-  align-items: start;
   background: rgba(20, 45, 51, 0.28);
-  display: grid;
-  inset: 0;
-  overflow: auto;
-  padding: 34px;
-  place-items: start center;
-  position: fixed;
   z-index: 35;
 }
 
@@ -1567,11 +1560,9 @@ button:where(:not(.link-button)):hover {
   box-shadow: -8px 8px 0 rgba(19, 106, 129, 0.16), 0 24px 70px rgba(18, 40, 44, 0.2);
   display: grid;
   gap: 18px;
-  max-height: none;
   max-width: 880px;
   padding: 22px;
   position: relative;
-  width: min(880px, calc(100vw - 68px));
 }
 
 .calendar-sync-modal .modal-heading {
@@ -3304,6 +3295,23 @@ button.calendar-event:hover {
   padding: 24px;
   position: relative;
   width: min(980px, 100%);
+}
+
+.calendar-modal-backdrop {
+  align-items: center;
+  overflow: auto;
+  padding: 24px;
+  place-items: center;
+}
+
+.calendar-modal-shell {
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  width: min(880px, calc(100vw - 48px));
+}
+
+.calendar-modal-shell.calendar-event-detail-modal {
+  max-width: 720px;
 }
 
 .icon-button {
@@ -7792,6 +7800,15 @@ button.chore-row-summary[aria-expanded="true"] {
     max-height: none;
     max-width: none;
     position: fixed;
+  }
+
+  .calendar-modal-shell {
+    border-radius: 18px;
+    inset: auto;
+    max-height: calc(100vh - 32px);
+    max-width: calc(100vw - 32px);
+    position: relative;
+    width: min(880px, calc(100vw - 32px));
   }
 
   .chore-editor-backdrop.is-detail-view {

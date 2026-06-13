@@ -2480,6 +2480,28 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Export events" })).toBeTruthy();
   });
 
+  it("uses a cohesive centered modal shell for add and import event modals on mobile", async () => {
+    setViewportWidth(390);
+    vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
+    renderAt("/calendar");
+
+    await screen.findByRole("heading", { name: "Calendar" });
+    fireEvent.click(screen.getByRole("button", { name: "Calendar actions" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add event" }));
+
+    const addModal = await screen.findByRole("dialog", { name: "New chore" });
+    expect(addModal.classList.contains("calendar-modal-shell")).toBe(true);
+    expect(document.querySelector(".chore-editor-backdrop")?.classList.contains("calendar-modal-backdrop")).toBe(true);
+    fireEvent.click(within(addModal).getByRole("button", { name: "Cancel" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Calendar actions" }));
+    fireEvent.click(screen.getByRole("button", { name: "Import events" }));
+
+    const importModal = await screen.findByRole("dialog", { name: "Import calendar events" });
+    expect(importModal.classList.contains("calendar-modal-shell")).toBe(true);
+    expect(importModal.classList.contains("calendar-sync-modal")).toBe(true);
+  });
+
   it("normalizes the removed Chores route away", async () => {
     mockEmptyAppDataFetches();
     renderAt("/chores");
