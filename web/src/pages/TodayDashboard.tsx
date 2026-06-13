@@ -186,6 +186,11 @@ export function TodayDashboard({ households, isLoading, loadError, onNavigate, w
   const memberCount = Object.values(membersByHousehold).reduce((total, members) => total + members.length, 0);
   const selectedDateLabel = format(new Date(`${selectedDateKey}T00:00:00`), "EEEE, MMM d");
 
+  function centerSelectedDateButton(button: HTMLButtonElement | null) {
+    if (!button || window.innerWidth > 680) return;
+    button.scrollIntoView({ behavior: "auto", block: "nearest", inline: "center" });
+  }
+
   function remainingHoursLabel(minutes: number) {
     if (minutes === 0) return "0";
     const hours = minutes / 60;
@@ -379,6 +384,7 @@ export function TodayDashboard({ households, isLoading, loadError, onNavigate, w
                     className="today-date-button"
                     key={dateKey}
                     onClick={() => setSelectedDateKey(dateKey)}
+                    ref={selectedDateKey === dateKey ? centerSelectedDateButton : undefined}
                     type="button"
                   >
                     <span className="today-date-weekday">{format(date, "EEE")}</span>

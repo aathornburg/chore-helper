@@ -4453,6 +4453,27 @@ describe("App", () => {
     });
   });
 
+  it("centers the selected Today rail date on mobile only", async () => {
+    await withMay2026CalendarClock(async () => {
+      setViewportWidth(390);
+      const scrollIntoView = stubScrollIntoView();
+      mockRestoredHouseholdFetches();
+      renderAt("/today");
+
+      await screen.findByRole("button", { name: /Saturday May 30 \d+ due/ });
+      await waitFor(() => expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "auto", block: "nearest", inline: "center" }));
+
+      cleanup();
+      setViewportWidth(1024);
+      const desktopScrollIntoView = stubScrollIntoView();
+      mockRestoredHouseholdFetches();
+      renderAt("/today");
+
+      await screen.findByRole("button", { name: /Saturday May 30 \d+ due/ });
+      expect(desktopScrollIntoView).not.toHaveBeenCalled();
+    });
+  });
+
   it("shows the Optimize recommendation selection flow", async () => {
     restoreHouseholdInStorage();
     mockRestoredHouseholdFetches();
