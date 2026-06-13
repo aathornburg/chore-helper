@@ -1296,6 +1296,18 @@ button:where(:not(.link-button)):hover {
   font-weight: 760;
 }
 
+.settings-sidebar-tab:hover,
+.settings-sidebar-tab:focus-visible {
+  background: #f7fcfd;
+  border-color: #b9d7df;
+  color: var(--color-primary-strong);
+}
+
+.settings-sidebar-tab:hover span,
+.settings-sidebar-tab:focus-visible span {
+  color: #416774;
+}
+
 .settings-sidebar-tab[aria-selected="true"] {
   background: var(--color-surface-elevated);
   border-color: var(--color-border);
