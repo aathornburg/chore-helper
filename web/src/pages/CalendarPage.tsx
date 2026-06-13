@@ -608,13 +608,26 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
 
   const listGroups = useMemo(() => {
     const today = format(new Date(), "yyyy-MM-dd");
-    return Array.from(occurrenceDateBuckets.entries())
-      .filter(([date]) => date >= today)
-      .sort(([first], [second]) => first.localeCompare(second));
-  }, [occurrenceDateBuckets]);
+    const listDates = new Set<string>();
+    for (const date of occurrenceDateBuckets.keys()) {
+      if (date >= today) listDates.add(date);
+    }
+    for (const date of cleanlyEventDateBuckets.keys()) {
+      if (date >= today) listDates.add(date);
+    }
+
+    return Array.from(listDates)
+      .sort((first, second) => first.localeCompare(second))
+      .map((date) => ({
+        date,
+        cleanlyEvents: (cleanlyEventDateBuckets.get(date) ?? []).filter((event) => event.status === "active"),
+        occurrences: occurrenceDateBuckets.get(date) ?? []
+      }))
+      .filter((group) => group.cleanlyEvents.length > 0 || group.occurrences.length > 0);
+  }, [cleanlyEventDateBuckets, occurrenceDateBuckets]);
 
   const listStatusCounts = useMemo(() => {
-    const listOccurrences = listGroups.flatMap(([, dateOccurrences]) => dateOccurrences);
+    const listOccurrences = listGroups.flatMap((group) => group.occurrences);
     return {
       planned: listOccurrences.filter((occurrence) => occurrence.status === "planned").length,
       completed: listOccurrences.filter((occurrence) => occurrence.status === "completed").length,
@@ -2540,15 +2553,36 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                       <span>{listStatusCounts.skipped} skipped</span>
                     </div>
                   </div>
-                  {listGroups.map(([date, dateOccurrences]) => (
-                    <section className="calendar-list-day" key={date}>
-                      <h3>{format(parseISO(date), "EEEE, MMM d")}</h3>
-                      <div className="calendar-list-day-items">
-                        {orderCompletedLast(dateOccurrences)
-                          .map((occurrence) => renderAgendaOccurrence(occurrence, parseISO(date)))}
-                      </div>
-                    </section>
-                  ))}
+                  {listGroups.length === 0 ? (
+                    <p className="calendar-empty-state">No events match these filters.</p>
+                  ) : null}
+                  {listGroups.map(({ cleanlyEvents, date, occurrences: dateOccurrences }) => {
+                    const parsedDate = parseISO(date);
+                    const listItems = [
+                      ...cleanlyEvents.map((event) => ({
+                        content: renderCleanlyCalendarEvent(event, false),
+                        key: `event-${event.id}`,
+                        sortAt: event.startsAt,
+                        statusOrder: 0
+                      })),
+                      ...orderCompletedLast(dateOccurrences).map((occurrence) => ({
+                        content: renderAgendaOccurrence(occurrence, parsedDate),
+                        key: `occurrence-${occurrence.id}`,
+                        sortAt: occurrence.plannedStartAt ?? `${date}T23:59:59.999Z`,
+                        statusOrder: occurrence.status === "completed" ? 1 : 0
+                      }))
+                    ].sort((first, second) =>
+                      first.statusOrder - second.statusOrder || Date.parse(first.sortAt) - Date.parse(second.sortAt)
+                    );
+                    return (
+                      <section className="calendar-list-day" key={date}>
+                        <h3>{format(parsedDate, "EEEE, MMM d")}</h3>
+                        <div className="calendar-list-day-items">
+                          {listItems.map((item) => <Fragment key={item.key}>{item.content}</Fragment>)}
+                        </div>
+                      </section>
+                    );
+                  })}
                   </section>
                 ) : null}
               </div>

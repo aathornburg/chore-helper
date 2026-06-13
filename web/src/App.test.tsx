@@ -2572,6 +2572,47 @@ describe("App", () => {
     });
   });
 
+  it("shows imported calendar events in the chronological list", async () => {
+    await withMay2026CalendarClock(async () => {
+      setViewportWidth(390);
+      vi.stubGlobal("fetch", mockCalendarWorkspaceFetches({
+        cleanlyCalendarEvents: [{
+          id: "cleanly-event-list",
+          householdId: "household-1",
+          createdByUserId: "app-user-1",
+          type: "commitment",
+          title: "Busy",
+          privacyTitle: "Busy",
+          detailLevel: "busy_only",
+          startsAt: "2026-05-30T12:00:00.000Z",
+          endsAt: "2026-05-30T12:30:00.000Z",
+          timezone: "America/New_York",
+          source: "google",
+          status: "active"
+        }],
+        occurrences: []
+      }));
+      renderAt("/calendar");
+
+      fireEvent.click(await screen.findByRole("tab", { name: "List" }));
+      const agenda = await screen.findByRole("region", { name: "Chore agenda" });
+      expect(within(agenda).getByRole("button", { name: "View Busy" })).toBeTruthy();
+      expect(within(agenda).queryByText("No events match these filters.")).toBeNull();
+    });
+  });
+
+  it("shows an empty state when the chronological list has no items", async () => {
+    await withMay2026CalendarClock(async () => {
+      setViewportWidth(390);
+      vi.stubGlobal("fetch", mockCalendarWorkspaceFetches({ occurrences: [] }));
+      renderAt("/calendar");
+
+      fireEvent.click(await screen.findByRole("tab", { name: "List" }));
+      const agenda = await screen.findByRole("region", { name: "Chore agenda" });
+      expect(within(agenda).getByText("No events match these filters.")).toBeTruthy();
+    });
+  });
+
   it("renders month as dated calendar cells with lightweight truncated chore rows", async () => {
     await withMay2026CalendarClock(async () => {
       vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
