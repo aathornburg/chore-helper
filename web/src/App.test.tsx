@@ -1271,6 +1271,7 @@ describe("App", () => {
     renderAt("/today");
 
     const nav = await screen.findByRole("navigation", { name: "Primary" });
+    expect(nav.classList.contains("workspace-nav-mobile-overlay")).toBe(true);
     expect(nav.getAttribute("data-open")).toBe("false");
 
     fireEvent.click(screen.getByRole("button", { name: "Open navigation menu" }));
