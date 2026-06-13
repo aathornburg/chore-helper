@@ -2514,6 +2514,7 @@ describe("App", () => {
     const popover = screen.getByRole("region", { name: "Calendar actions menu" });
     expect(popover.classList.contains("calendar-actions-popover")).toBe(true);
     expect(popover.classList.contains("is-mobile-positioned")).toBe(true);
+    expect(popover.classList.contains("is-edge-aligned")).toBe(true);
   });
 
   it("uses a cohesive centered modal shell for add and import event modals on mobile", async () => {
@@ -4476,6 +4477,7 @@ describe("App", () => {
 
       const todayButton = await screen.findByRole("button", { name: /Saturday May 30 \d+ due, today/ });
       expect(todayButton.classList.contains("is-today")).toBe(true);
+      expect(within(todayButton).queryByText("Today")).toBeNull();
       const dateStrip = document.querySelector(".today-date-strip");
       expect(dateStrip?.classList.contains("is-sliding-next")).toBe(false);
 

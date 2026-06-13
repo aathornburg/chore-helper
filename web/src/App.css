@@ -4601,18 +4601,6 @@ button.calendar-event:hover {
   color: #fff;
 }
 
-.today-date-marker {
-  color: #0e6070;
-  font-size: 0.7rem;
-  letter-spacing: 0;
-  line-height: 1;
-  text-transform: uppercase;
-}
-
-.today-date-button[aria-pressed="true"] .today-date-marker {
-  color: #d3fbff;
-}
-
 @keyframes today-week-slide-next {
   from {
     opacity: 0.6;
@@ -8131,11 +8119,15 @@ button.chore-row-summary[aria-expanded="true"] {
 
   .calendar-actions-popover.is-mobile-positioned {
     box-sizing: border-box;
-    left: 0;
+    left: auto;
     max-width: calc(100vw - 32px);
     min-width: 210px;
-    right: auto;
+    right: 0;
     width: max-content;
+  }
+
+  .calendar-actions-popover.is-mobile-positioned.is-edge-aligned {
+    transform: translateX(0);
   }
 
   .calendar-export-layout {

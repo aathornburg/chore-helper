@@ -403,7 +403,6 @@ export function TodayDashboard({ households, isLoading, loadError, onNavigate, w
                     <span className="today-date-month">{format(date, "MMM")}</span>
                     <strong className="today-date-number">{format(date, "d")}</strong>
                     <span className="today-date-due-count">{dueCount} due</span>
-                    {isToday ? <span className="today-date-marker">Today</span> : null}
                   </button>
                 );
               })}
