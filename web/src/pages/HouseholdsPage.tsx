@@ -436,7 +436,7 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
                 </button>
               ))}
             </div>
-            <div className="field-grid">
+            <div className="field-grid aligned-field-grid">
               <label>
                 Pet impact
                 <select

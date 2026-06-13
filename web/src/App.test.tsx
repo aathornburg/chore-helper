@@ -3886,6 +3886,37 @@ describe("App", () => {
     await waitFor(() => expect(screen.getByText("hardwood, rugs")).toBeTruthy());
   });
 
+  it("keeps room edit select fields from stretching beside notes", async () => {
+    restoreHouseholdInStorage();
+    mockHouseholdsPageFetches({
+      householdId: "household-1",
+      floors: [
+        {
+          id: "floor-main",
+          householdId: "household-1",
+          name: "Main floor",
+          levelType: "main",
+          flooring: ["hardwood"],
+          petImpact: "medium",
+          robotVacuumCoverage: "most",
+          robotMopCoverage: "partial",
+          rooms: []
+        }
+      ]
+    });
+
+    renderAt("/households");
+
+    await manageHomeHousehold();
+    await openHouseholdManageTab("Floors");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Add room to Main floor" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Add room to Main floor" }));
+
+    const mopCoverage = screen.getByLabelText("Mop coverage");
+    const fieldGrid = mopCoverage.closest(".field-grid");
+    expect(fieldGrid?.classList.contains("aligned-field-grid")).toBe(true);
+  });
+
   it("saves a room to the floor where editing started after switching floors", async () => {
     restoreHouseholdInStorage();
     const fetchMock = mockHouseholdsPageFetches({
