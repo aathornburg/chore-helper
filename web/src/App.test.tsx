@@ -2533,6 +2533,46 @@ describe("App", () => {
     });
   });
 
+  it("shows household identity on calendar event rows and detail modals", async () => {
+    await withMay2026CalendarClock(async () => {
+      vi.stubGlobal("fetch", mockCalendarWorkspaceFetches({
+        calendarConnected: true,
+        cleanlyCalendarEvents: [{
+          id: "cleanly-event-1",
+          householdId: "household-1",
+          createdByUserId: "app-user-1",
+          type: "commitment",
+          title: "Soccer practice",
+          privacyTitle: "Soccer practice",
+          detailLevel: "full_details",
+          startsAt: "2026-05-29T21:00:00.000Z",
+          endsAt: "2026-05-29T22:00:00.000Z",
+          timezone: "America/New_York",
+          source: "google",
+          status: "active"
+        }]
+      }));
+      renderAt("/calendar");
+
+      const friday = await screen.findByRole("gridcell", { name: "Friday, May 29" });
+      const choreCard = within(friday).getByRole("button", { name: "View Clean bathrooms" });
+      expect(within(choreCard).getByText("Home")).toBeTruthy();
+      const calendarCard = within(friday).getByRole("button", { name: "View Soccer practice" });
+      expect(within(calendarCard).getByText("Home")).toBeTruthy();
+
+      fireEvent.click(choreCard);
+      const choreDialog = await screen.findByRole("dialog", { name: "Chore details" });
+      expect(within(choreDialog).getByText("Household")).toBeTruthy();
+      expect(within(choreDialog).getByText("Home")).toBeTruthy();
+      fireEvent.click(within(choreDialog).getByRole("button", { name: "Close" }));
+
+      fireEvent.click(calendarCard);
+      const eventDialog = await screen.findByRole("dialog", { name: "Calendar event details" });
+      expect(within(eventDialog).getByText("Household")).toBeTruthy();
+      expect(within(eventDialog).getByText("Home")).toBeTruthy();
+    });
+  });
+
   it("renders mobile Month as date buttons with a selected-day agenda", async () => {
     await withMay2026CalendarClock(async () => {
       setViewportWidth(390);

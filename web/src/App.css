@@ -2143,6 +2143,15 @@ button:where(:not(.link-button)):hover {
   border-left-color: var(--color-accent);
 }
 
+.calendar-household-label {
+  color: #5a6a70;
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 750;
+  line-height: 1.2;
+  margin-top: 2px;
+}
+
 .calendar-workspace-panel {
   background: var(--color-surface-elevated);
   border: 1px solid var(--color-border);

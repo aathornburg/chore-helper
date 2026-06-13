@@ -734,6 +734,15 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     return fallback;
   }
 
+  function householdLabel(householdId?: string) {
+    if (!householdId) return selectedHousehold?.name ?? "Household";
+    return households.find((household) => household.id === householdId)?.name ?? selectedHousehold?.name ?? "Household";
+  }
+
+  function renderHouseholdLabel(householdId?: string) {
+    return <span className="calendar-household-label">{householdLabel(householdId)}</span>;
+  }
+
   function memberInitials(userId?: string) {
     const label = memberDisplayName(userId, "Unknown");
     const initials = label
@@ -1172,6 +1181,10 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
       <>
         <div className="chore-detail-meta-grid">
           <div>
+            <span>Household</span>
+            <strong>{householdLabel(selectedOccurrence.householdId)}</strong>
+          </div>
+          <div>
             <span>Assigned to</span>
             <strong>{assignedMemberLabel(selectedOccurrence)}</strong>
           </div>
@@ -1255,6 +1268,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
         ) : null}
         <span className="calendar-chore-main">
           <span className="calendar-chore-title">{title}</span>
+          {renderHouseholdLabel(occurrence.householdId)}
           {density === "summary" ? (
             <>
               <span className="calendar-chore-detail">
@@ -1288,6 +1302,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
         ) : null}
         <span className="calendar-chore-main">
           <span className="calendar-chore-title">{title}</span>
+          {renderHouseholdLabel(occurrence.householdId)}
         </span>
         <span className="calendar-chore-assignee">
           {assigneeToken}
@@ -1313,6 +1328,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
         <span className="calendar-chore-main">
           <span className="calendar-chore-title">{title}</span>
           <span className="calendar-chore-detail">{occurrence.status === "completed" ? occurrenceCompletionLine(occurrence) : occurrenceDateLine(occurrence)}</span>
+          {renderHouseholdLabel(occurrence.householdId)}
         </span>
         <span className="calendar-chore-meta">
           <span>{assigneeIdentity(occurrence)}</span>
@@ -1336,6 +1352,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
               {cleanlyEventTimeLine(event)}
             </span>
           ) : null}
+          {renderHouseholdLabel(event.householdId)}
         </span>
       </>
     );
@@ -2836,6 +2853,10 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                   />
                 </div>
                 <div className="chore-detail-meta-grid">
+                  <div>
+                    <span>Household</span>
+                    <strong>{householdLabel(selectedCleanlyCalendarEvent.householdId)}</strong>
+                  </div>
                   <div>
                     <span>When</span>
                     <strong>
