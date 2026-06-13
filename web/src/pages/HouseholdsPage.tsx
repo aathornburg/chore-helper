@@ -896,7 +896,7 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
                   </div>
                 </div>
               ) : null}
-              <div className="field-grid">
+              <div className="field-grid aligned-field-grid">
                 <label>
                   Floor name
                   <input

@@ -3737,6 +3737,36 @@ describe("App", () => {
     });
   });
 
+  it("keeps floor edit select fields from stretching beside notes", async () => {
+    restoreHouseholdInStorage();
+    mockHouseholdsPageFetches({
+      householdId: "household-1",
+      floors: [
+        {
+          id: "floor-main",
+          householdId: "household-1",
+          name: "Main floor",
+          levelType: "main",
+          flooring: [],
+          petImpact: "none",
+          robotVacuumCoverage: "none",
+          robotMopCoverage: "none",
+          rooms: []
+        }
+      ]
+    });
+
+    renderAt("/households");
+
+    await manageHomeHousehold();
+    await openHouseholdManageTab("Floors");
+    await editSelectedFloor();
+
+    const mopCoverage = screen.getByLabelText("Mop coverage");
+    const fieldGrid = mopCoverage.closest(".field-grid");
+    expect(fieldGrid?.classList.contains("aligned-field-grid")).toBe(true);
+  });
+
   it("rolls back floor edits when saving structure fails", async () => {
     restoreHouseholdInStorage();
     mockHouseholdsPageFetches(
