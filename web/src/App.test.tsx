@@ -803,7 +803,8 @@ function mockCalendarWorkspaceFetches({
   frequency = "weekly",
   includeHistory = true,
   importCandidates = [],
-  importQueueMode = "manual"
+  importQueueMode = "manual",
+  occurrences: occurrenceOverrides
 }: {
   calendarConnected?: boolean;
   cleanlyCalendarEvents?: Array<{
@@ -823,6 +824,7 @@ function mockCalendarWorkspaceFetches({
   frequency?: "daily" | "weekly" | "monthly" | "yearly";
   includeHistory?: boolean;
   importQueueMode?: "off" | "manual" | "auto";
+  occurrences?: ChoreOccurrence[];
   importCandidates?: Array<{
     id: string;
     sourceExternalCalendarId: string;
@@ -836,20 +838,7 @@ function mockCalendarWorkspaceFetches({
   }>;
 } = {}) {
   let storedCleanlyCalendarEvents = [...cleanlyCalendarEvents];
-  let occurrences = [{
-    id: "occurrence-flexible",
-    householdId: "household-1",
-    choreId: "chore-1",
-    scheduleId: "schedule-1",
-    sequence: 0,
-    planningMode: "flexible",
-    estimatedMinutes: 60,
-    eligibleStartOn: "2026-05-28",
-    eligibleEndOn: "2026-05-30",
-    assignedUserId: "app-user-1",
-    exceptionType: "none",
-    status: "planned"
-  }, ...(includeHistory ? [{
+  const historyOccurrences: ChoreOccurrence[] = includeHistory ? [{
     id: "occurrence-history",
     householdId: "household-1",
     choreId: "chore-1",
@@ -864,7 +853,21 @@ function mockCalendarWorkspaceFetches({
     status: "completed",
     completedAt: "2026-05-27T14:00:00.000Z",
     completedByUserId: "app-user-1"
-  }] : []), {
+  }] : [];
+  let occurrences: ChoreOccurrence[] = occurrenceOverrides ?? [{
+    id: "occurrence-flexible",
+    householdId: "household-1",
+    choreId: "chore-1",
+    scheduleId: "schedule-1",
+    sequence: 0,
+    planningMode: "flexible",
+    estimatedMinutes: 60,
+    eligibleStartOn: "2026-05-28",
+    eligibleEndOn: "2026-05-30",
+    assignedUserId: "app-user-1",
+    exceptionType: "none",
+    status: "planned"
+  }, ...historyOccurrences, {
     id: "occurrence-pet-completed",
     householdId: "household-1",
     choreId: "chore-2",
@@ -2650,6 +2653,54 @@ describe("App", () => {
       const agenda = screen.getByRole("region", { name: "Selected week day agenda" });
       expect(within(agenda).getByRole("heading", { name: "Friday, May 29" })).toBeTruthy();
       expect(within(agenda).getByRole("button", { name: "View Clean bathrooms" })).toBeTruthy();
+    });
+  });
+
+  it("orders mobile Week timed chores and imported calendar events chronologically", async () => {
+    await withMay2026CalendarClock(async () => {
+      setViewportWidth(390);
+      vi.stubGlobal("fetch", mockCalendarWorkspaceFetches({
+        cleanlyCalendarEvents: [{
+          id: "cleanly-event-1",
+          householdId: "household-1",
+          createdByUserId: "app-user-1",
+          type: "commitment",
+          title: "Morning appointment",
+          privacyTitle: "Morning appointment",
+          detailLevel: "full_details",
+          startsAt: "2026-05-29T13:00:00.000Z",
+          endsAt: "2026-05-29T13:30:00.000Z",
+          timezone: "America/New_York",
+          source: "google",
+          status: "active"
+        }],
+        occurrences: [{
+          id: "occurrence-timed",
+          householdId: "household-1",
+          choreId: "chore-1",
+          scheduleId: "schedule-1",
+          sequence: 0,
+          planningMode: "timed",
+          plannedStartAt: "2026-05-29T21:00:00.000Z",
+          plannedEndAt: "2026-05-29T21:30:00.000Z",
+          estimatedMinutes: 30,
+          eligibleStartOn: "2026-05-29",
+          eligibleEndOn: "2026-05-29",
+          assignedUserId: "app-user-1",
+          exceptionType: "none",
+          status: "planned"
+        }]
+      }));
+      renderAt("/calendar");
+
+      fireEvent.click(await screen.findByRole("button", { name: "Week" }));
+      const weekDays = await screen.findByRole("group", { name: "Week days" });
+      fireEvent.click(within(weekDays).getByRole("button", { name: /Select Friday, May 29/ }));
+
+      const agenda = screen.getByRole("region", { name: "Selected week day agenda" });
+      const morningEvent = within(agenda).getByRole("button", { name: "View Morning appointment" });
+      const eveningChore = within(agenda).getByRole("button", { name: "View Clean bathrooms" });
+      expect(morningEvent.compareDocumentPosition(eveningChore) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
   });
 

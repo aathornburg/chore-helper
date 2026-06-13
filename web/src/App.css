@@ -7876,6 +7876,10 @@ button.chore-row-summary[aria-expanded="true"] {
     width: min(100%, calc(100vw - 32px));
   }
 
+  .calendar-modal-shell.is-detail-view {
+    border-radius: 18px;
+  }
+
   .chore-editor-modal.is-detail-view .panel-heading {
     padding-right: 42px;
   }

@@ -1,6 +1,6 @@
 import { addDays, addMinutes, addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format, parseISO, startOfMonth, startOfWeek } from "date-fns";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { CalendarConnectionSummary, CalendarImportCandidate, CalendarImportPolicy, CalendarImportQueueItem, CalendarPreferences, ChoreOccurrence, ChoreSchedule, CleanlyCalendarEvent, CompletionCheckInInput, ExternalCalendarSummary, HouseholdAppData, HouseholdMemberSummary, ScheduleInput } from "@chore-helper/shared";
 import { completeOccurrence, createScheduledChore, decideCalendarImportQueueItem, exportCleanlyCalendarEvents, getCalendarPreferences, getCurrentUser, getMyCalendarImportPolicy, listCalendarConnections, listCalendarImportCandidates, listCalendarImportPolicies, listCalendarImportQueue, listCleanlyCalendarEvents, listExternalCalendars, listHouseholdMembers, listOccurrences, listSchedules, skipOccurrence, startGoogleCalendarConnection, submitCalendarImportEvents, updateCalendarPreferences, updateOccurrence, updateSchedule as updateScheduleApi } from "../api";
 import { CalendarExportPreselectPanel, CalendarExportReviewPanel } from "./calendar/CalendarExportPanel";
@@ -1901,6 +1901,18 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     const selectedOccurrences = orderCompletedLast(occurrenceDateBuckets.get(selectedKey) ?? []);
     const flexibleOccurrences = selectedOccurrences.filter((occurrence) => occurrence.planningMode === "flexible");
     const timedOccurrences = selectedOccurrences.filter((occurrence) => occurrence.planningMode !== "flexible");
+    const timedAgendaItems = [
+      ...timedOccurrences.map((occurrence) => ({
+        key: `occurrence-${occurrence.id}`,
+        startsAt: occurrence.plannedStartAt ?? `${selectedKey}T23:59:59.999Z`,
+        content: renderAgendaOccurrence(occurrence, selectedDate)
+      })),
+      ...selectedEvents.map((event) => ({
+        key: `event-${event.id}`,
+        startsAt: event.startsAt,
+        content: renderCleanlyCalendarEvent(event, false)
+      }))
+    ].sort((first, second) => Date.parse(first.startsAt) - Date.parse(second.startsAt));
     const selectedItemCount = selectedOccurrences.length + selectedEvents.length;
     const todayKey = format(new Date(), "yyyy-MM-dd");
 
@@ -1948,8 +1960,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                   </section>
                 ) : null}
                 <div className="calendar-list-day-items">
-                  {timedOccurrences.map((occurrence) => renderAgendaOccurrence(occurrence, selectedDate))}
-                  {selectedEvents.map((event) => renderCleanlyCalendarEvent(event, false))}
+                  {timedAgendaItems.map((item) => <Fragment key={item.key}>{item.content}</Fragment>)}
                 </div>
               </>
             )}
