@@ -2653,6 +2653,43 @@ describe("App", () => {
     });
   });
 
+  it("shows mobile Week empty state and opens detail modals from agenda rows", async () => {
+    await withMay2026CalendarClock(async () => {
+      setViewportWidth(390);
+      vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
+      renderAt("/calendar");
+
+      fireEvent.click(await screen.findByRole("button", { name: "Week" }));
+      const weekDays = await screen.findByRole("group", { name: "Week days" });
+
+      fireEvent.click(within(weekDays).getByRole("button", { name: /Select Sunday, May 24/ }));
+      expect(screen.getByText("No events scheduled for this day.")).toBeTruthy();
+
+      fireEvent.click(within(weekDays).getByRole("button", { name: /Select Friday, May 29/ }));
+      const agenda = screen.getByRole("region", { name: "Selected week day agenda" });
+      fireEvent.click(within(agenda).getByRole("button", { name: "View Clean bathrooms" }));
+
+      expect(await screen.findByRole("dialog", { name: "Chore details" })).toBeTruthy();
+    });
+  });
+
+  it("scrolls the mobile Week agenda into view only after selecting a day", async () => {
+    await withMay2026CalendarClock(async () => {
+      setViewportWidth(390);
+      const scrollIntoView = stubScrollIntoView();
+      vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
+      renderAt("/calendar");
+
+      fireEvent.click(await screen.findByRole("button", { name: "Week" }));
+      expect(scrollIntoView).not.toHaveBeenCalled();
+
+      const weekDays = await screen.findByRole("group", { name: "Week days" });
+      fireEvent.click(within(weekDays).getByRole("button", { name: /Select Friday, May 29/ }));
+
+      await waitFor(() => expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "start" }));
+    });
+  });
+
   it("collapses calendar filters and stretches the scale selector on mobile", async () => {
     await withMay2026CalendarClock(async () => {
       setViewportWidth(390);

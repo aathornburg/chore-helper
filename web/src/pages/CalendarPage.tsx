@@ -731,7 +731,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     setSelectedMobileWeekDateKey(nextDateKey);
     if (!isMobileMonthViewport) return;
     window.setTimeout(() => {
-      mobileWeekAgendaRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      mobileWeekAgendaRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
     }, 0);
   }
 
