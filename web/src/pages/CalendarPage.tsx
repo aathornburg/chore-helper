@@ -288,12 +288,14 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     typeof window !== "undefined" ? window.innerWidth <= mobileMonthBreakpoint : false
   );
   const [selectedMobileMonthDateKey, setSelectedMobileMonthDateKey] = useState<string>();
+  const [selectedMobileWeekDateKey, setSelectedMobileWeekDateKey] = useState<string>();
   const [isCalendarFiltersOpen, setIsCalendarFiltersOpen] = useState(false);
   const choreEditorModalRef = useRef<HTMLFormElement>(null);
   const cleanlyEventModalRef = useRef<HTMLElement>(null);
   const modalTriggerRef = useRef<HTMLElement | null>(null);
   const calendarActionsButtonRef = useRef<HTMLButtonElement>(null);
   const mobileMonthAgendaRef = useRef<HTMLElement>(null);
+  const mobileWeekAgendaRef = useRef<HTMLElement>(null);
 
   const selectedHousehold = households.find((household) => household.id === filters.householdId) ?? households[0];
   const timeZone = selectedHousehold?.timeZone ?? "UTC";
@@ -673,6 +675,14 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     end: endOfWeek(focusDate, { weekStartsOn: 0 })
   }), [focusDate]);
 
+  useEffect(() => {
+    if (calendarScale !== "week" || weekDates.length === 0) return;
+
+    const todayKey = format(new Date(), "yyyy-MM-dd");
+    const visibleToday = weekDates.some((date) => dateKey(date) === todayKey);
+    setSelectedMobileWeekDateKey(visibleToday ? todayKey : dateKey(weekDates[0]));
+  }, [calendarScale, focusDate, weekDates]);
+
   const periodLabel = calendarScale === "month"
     ? formatInTimeZone(focusDate, timeZone, "MMMM yyyy")
     : calendarScale === "week"
@@ -714,6 +724,14 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     if (!isMobileMonthViewport) return;
     window.setTimeout(() => {
       mobileMonthAgendaRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
+  }
+
+  function selectMobileWeekDate(nextDateKey: string) {
+    setSelectedMobileWeekDateKey(nextDateKey);
+    if (!isMobileMonthViewport) return;
+    window.setTimeout(() => {
+      mobileWeekAgendaRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 0);
   }
 
@@ -1876,6 +1894,71 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     );
   }
 
+  function renderMobileWeekCalendar() {
+    const selectedKey = selectedMobileWeekDateKey ?? dateKey(weekDates[0]);
+    const selectedDate = weekDates.find((date) => dateKey(date) === selectedKey) ?? weekDates[0];
+    const selectedEvents = cleanlyEventDateBuckets.get(selectedKey) ?? [];
+    const selectedOccurrences = orderCompletedLast(occurrenceDateBuckets.get(selectedKey) ?? []);
+    const flexibleOccurrences = selectedOccurrences.filter((occurrence) => occurrence.planningMode === "flexible");
+    const timedOccurrences = selectedOccurrences.filter((occurrence) => occurrence.planningMode !== "flexible");
+    const selectedItemCount = selectedOccurrences.length + selectedEvents.length;
+    const todayKey = format(new Date(), "yyyy-MM-dd");
+
+    return (
+      <section className="calendar-mobile-week" aria-label="Mobile week calendar">
+        <div className="calendar-mobile-week-strip" role="group" aria-label="Week days">
+          {weekDates.map((date) => {
+            const key = dateKey(date);
+            const itemCount = (occurrenceDateBuckets.get(key)?.length ?? 0) + (cleanlyEventDateBuckets.get(key)?.length ?? 0);
+            const isSelected = key === selectedKey;
+            const isToday = key === todayKey;
+            return (
+              <button
+                aria-label={`Select ${longDateLabel(date)}, ${itemCount} ${itemCount === 1 ? "item" : "items"}`}
+                aria-pressed={isSelected}
+                className={`calendar-mobile-week-day ${isSelected ? "is-selected" : ""} ${isToday ? "is-today" : ""}`}
+                key={key}
+                onClick={() => selectMobileWeekDate(key)}
+                type="button"
+              >
+                <span>{format(date, "EEE")}</span>
+                <strong>{format(date, "d")}</strong>
+                <em>{itemCount}</em>
+              </button>
+            );
+          })}
+        </div>
+
+        <section className="calendar-mobile-selected-agenda calendar-mobile-week-agenda" aria-label="Selected week day agenda" ref={mobileWeekAgendaRef}>
+          <header className="calendar-mobile-selected-agenda-header">
+            <h3>{longDateLabel(selectedDate)}</h3>
+            <span>{selectedItemCount} {selectedItemCount === 1 ? "item" : "items"}</span>
+          </header>
+          <div className="calendar-mobile-selected-agenda-list" aria-live="polite">
+            {selectedItemCount === 0 ? (
+              <p className="calendar-mobile-selected-agenda-empty">No events scheduled for this day.</p>
+            ) : (
+              <>
+                {flexibleOccurrences.length > 0 ? (
+                  <section className="calendar-list-day">
+                    <h3>Anytime</h3>
+                    <div className="calendar-list-day-items">
+                      {flexibleOccurrences.map((occurrence) => renderAgendaOccurrence(occurrence, selectedDate))}
+                    </div>
+                  </section>
+                ) : null}
+                <div className="calendar-list-day-items">
+                  {timedOccurrences.map((occurrence) => renderAgendaOccurrence(occurrence, selectedDate))}
+                  {selectedEvents.map((event) => renderCleanlyCalendarEvent(event, false))}
+                </div>
+              </>
+            )}
+          </div>
+        </section>
+      </section>
+    );
+  }
+
   function renderCalendarColumns(dates: Date[], label: string, density: OccurrenceCardDensity) {
     return (
       <section className={`calendar-column-grid ${dates.length > 1 ? "has-time-rail" : ""}`} aria-label={label} role="grid">
@@ -2401,7 +2484,9 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                     {calendarScale === "month" ? (
                       renderMonthCalendar()
                     ) : calendarScale === "week" ? (
-                      renderCalendarColumns(weekDates, `Week of ${format(weekDates[0], "MMM d, yyyy")}`, "title")
+                      isMobileMonthViewport
+                        ? renderMobileWeekCalendar()
+                        : renderCalendarColumns(weekDates, `Week of ${format(weekDates[0], "MMM d, yyyy")}`, "title")
                     ) : (
                       renderCalendarColumns([focusDate], `${longDateLabel(focusDate)} day calendar`, "summary")
                     )}
