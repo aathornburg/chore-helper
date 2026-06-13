@@ -167,7 +167,8 @@ const ownerMember: HouseholdMemberSummary = {
   clerkUserId: "test-user-a",
   primaryEmail: "owner@example.com",
   displayName: "Alex Owner",
-  role: "owner"
+  role: "owner",
+  choreLibraryPermission: "manage"
 };
 
 const secondMember: HouseholdMemberSummary = {
@@ -176,7 +177,8 @@ const secondMember: HouseholdMemberSummary = {
   clerkUserId: "test-user-b",
   primaryEmail: "member@example.com",
   displayName: "Morgan Member",
-  role: "member"
+  role: "member",
+  choreLibraryPermission: "view"
 };
 
 function createHouseholdAppData({
@@ -211,15 +213,24 @@ function createHouseholdAppData({
 
 function mockRestoredHouseholdFetches({
   chores = [cleanBathroomsChore],
+  archivedChores = [],
   recommendations = [],
   chatResponses = [],
-  calendarPreferencesOk = true
+  calendarPreferencesOk = true,
+  currentUserId = "app-user-1",
+  members = [ownerMember, secondMember]
 }: {
   chores?: typeof cleanBathroomsChore[];
+  archivedChores?: typeof cleanBathroomsChore[];
   recommendations?: unknown[];
   chatResponses?: Array<{ ok: boolean; json: () => Promise<unknown> }>;
   calendarPreferencesOk?: boolean;
+  currentUserId?: string;
+  members?: HouseholdMemberSummary[];
 } = {}) {
+  let activeChores = [...chores];
+  let inactiveChores = [...archivedChores];
+  let householdMembers = [...members];
   const nextChatResponses = [...chatResponses];
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = input.toString();
@@ -230,15 +241,55 @@ function mockRestoredHouseholdFetches({
     }
 
     if (url === "http://localhost:3001/api/me" && method === "GET") {
-      return { ok: true, json: async () => ({ id: "app-user-1", clerkUserId: "test-user-a" }) };
+      return { ok: true, json: async () => ({ id: currentUserId, clerkUserId: "test-user-a" }) };
     }
 
     if (url === "http://localhost:3001/api/households/household-1/chores" && method === "GET") {
-      return { ok: true, json: async () => chores };
+      return { ok: true, json: async () => activeChores };
+    }
+
+    if (url === "http://localhost:3001/api/households/household-1/chores?status=archived" && method === "GET") {
+      return { ok: true, json: async () => inactiveChores };
+    }
+
+    if (url === "http://localhost:3001/api/households/household-1/chores" && method === "POST") {
+      const body = JSON.parse(String(init?.body));
+      const created = { id: "chore-new", householdId: "household-1", ...body.chore };
+      activeChores = [...activeChores, created];
+      return { ok: true, json: async () => created };
+    }
+
+    if (url === "http://localhost:3001/api/households/household-1/chores/chore-1" && method === "PUT") {
+      const body = JSON.parse(String(init?.body));
+      const updated = { ...activeChores.find((chore) => chore.id === "chore-1")!, ...body };
+      activeChores = activeChores.map((chore) => chore.id === "chore-1" ? updated : chore);
+      return { ok: true, json: async () => updated };
+    }
+
+    if (url === "http://localhost:3001/api/households/household-1/chores/chore-1/archive" && method === "POST") {
+      const archived = { ...activeChores.find((chore) => chore.id === "chore-1")!, archivedAt: "2026-06-13T12:00:00.000Z" };
+      activeChores = activeChores.filter((chore) => chore.id !== "chore-1");
+      inactiveChores = [archived, ...inactiveChores];
+      return { ok: true, json: async () => archived };
+    }
+
+    if (url === "http://localhost:3001/api/households/household-1/chores/chore-1/restore" && method === "POST") {
+      const restored = { ...inactiveChores.find((chore) => chore.id === "chore-1")!, archivedAt: undefined };
+      inactiveChores = inactiveChores.filter((chore) => chore.id !== "chore-1");
+      activeChores = [restored, ...activeChores];
+      return { ok: true, json: async () => restored };
     }
 
     if (url === "http://localhost:3001/api/households/household-1/members" && method === "GET") {
-      return { ok: true, json: async () => [ownerMember, secondMember] };
+      return { ok: true, json: async () => householdMembers };
+    }
+
+    if (url === "http://localhost:3001/api/households/household-1/members/app-user-2/chore-library-permission" && method === "PATCH") {
+      const body = JSON.parse(String(init?.body));
+      householdMembers = householdMembers.map((member) =>
+        member.userId === "app-user-2" ? { ...member, choreLibraryPermission: body.choreLibraryPermission } : member
+      );
+      return { ok: true, json: async () => householdMembers.find((member) => member.userId === "app-user-2") };
     }
 
     if (url === "http://localhost:3001/api/me/calendar/connections" && method === "GET") {
@@ -414,7 +465,8 @@ function mockFamilyPageFetches(currentRole: "owner" | "member" = "owner") {
       clerkUserId: "test-user-a",
       primaryEmail: "owner@example.com",
       displayName: "Alex Owner",
-      role: currentRole
+      role: currentRole,
+      choreLibraryPermission: currentRole === "owner" ? "manage" : "view"
     },
     {
       householdId: "household-1",
@@ -422,7 +474,8 @@ function mockFamilyPageFetches(currentRole: "owner" | "member" = "owner") {
       clerkUserId: "test-user-b",
       primaryEmail: "member@example.com",
       displayName: "Morgan Member",
-      role: currentRole === "owner" ? "member" : "owner"
+      role: currentRole === "owner" ? "member" : "owner",
+      choreLibraryPermission: currentRole === "owner" ? "view" : "manage"
     }
   ];
   let invitations: HouseholdInvitation[] = [{
@@ -608,7 +661,8 @@ function mockCalendarPageFetches(importQueueItems: CalendarImportQueueItem[] = [
       clerkUserId: "test-user-a",
       primaryEmail: "owner@example.com",
       displayName: "Alex Owner",
-      role: "owner"
+      role: "owner",
+      choreLibraryPermission: "manage"
     },
     {
       householdId: "household-1",
@@ -616,7 +670,8 @@ function mockCalendarPageFetches(importQueueItems: CalendarImportQueueItem[] = [
       clerkUserId: "test-user-b",
       primaryEmail: "member@example.com",
       displayName: "Morgan Member",
-      role: "member"
+      role: "member",
+      choreLibraryPermission: "view"
     }
   ];
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -889,14 +944,16 @@ function mockCalendarWorkspaceFetches({
     clerkUserId: "test-user-a",
     primaryEmail: "owner@example.com",
     displayName: "Alex Owner",
-    role: "owner"
+    role: "owner",
+    choreLibraryPermission: "manage"
   }, {
     householdId: "household-1",
     userId: "app-user-2",
     clerkUserId: "test-user-b",
     primaryEmail: "member@example.com",
     displayName: "Taylor Member",
-    role: "member"
+    role: "member",
+    choreLibraryPermission: "view"
   }];
   return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
@@ -4108,7 +4165,7 @@ describe("App", () => {
     expect(screen.getByRole("tab", { name: "Connections" }).getAttribute("aria-selected")).toBe("true");
     expect(await screen.findByRole("region", { name: "Calendar sync" })).toBeTruthy();
     expect(await screen.findByRole("heading", { name: "Your calendar connection" })).toBeTruthy();
-    expect(screen.queryByRole("heading", { name: "Family import controls" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Family permissions" })).toBeNull();
     expect(screen.getByText(/When you are ready to import or export events, use Calendar\./)).toBeTruthy();
     expect(screen.queryByLabelText("Source calendars")).toBeNull();
     expect(screen.queryByLabelText("Export destination")).toBeNull();
@@ -4118,7 +4175,7 @@ describe("App", () => {
     expect(await screen.findByText(/Google Calendar login needs/i)).toBeTruthy();
 
     fireEvent.click(screen.getByRole("tab", { name: "Family" }));
-    expect(await screen.findByRole("heading", { name: "Family import controls" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Family permissions" })).toBeTruthy();
   });
 
   it("organizes Settings into sidebar views with General as the default", async () => {
@@ -4138,10 +4195,59 @@ describe("App", () => {
     expect(await screen.findByRole("region", { name: "Calendar sync" })).toBeTruthy();
     expect(screen.queryByRole("region", { name: "General settings" })).toBeNull();
 
-    fireEvent.click(within(sections).getByRole("tab", { name: "Master chore list" }));
-    const masterList = await screen.findByRole("region", { name: "Master chore list" });
-    expect(within(masterList).getByText("Clean bathrooms")).toBeTruthy();
-    expect(within(masterList).getByText("Pet cats")).toBeTruthy();
+    fireEvent.click(within(sections).getByRole("tab", { name: "Chore library" }));
+    const choreLibrary = await screen.findByRole("region", { name: "Chore library" });
+    expect(within(choreLibrary).getByText("Clean bathrooms")).toBeTruthy();
+    expect(within(choreLibrary).getByText("Pet cats")).toBeTruthy();
+  });
+
+  it("lets owners update each member's Chore library permission from Family settings", async () => {
+    const fetchMock = mockRestoredHouseholdFetches();
+    renderAt("/settings");
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Settings" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("tab", { name: "Family" }));
+    const permissionSelect = await screen.findByLabelText("Morgan Member chore library permission");
+    fireEvent.change(permissionSelect, { target: { value: "manage" } });
+
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.some(([url, init]) =>
+        url === "http://localhost:3001/api/households/household-1/members/app-user-2/chore-library-permission" &&
+        init?.method === "PATCH"
+      )).toBe(true);
+    });
+  });
+
+  it("shows Chore library CRUD controls to members with manage access", async () => {
+    mockRestoredHouseholdFetches({
+      currentUserId: "app-user-2",
+      members: [ownerMember, { ...secondMember, choreLibraryPermission: "manage" }]
+    });
+    renderAt("/settings");
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Settings" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("tab", { name: "Chore library" }));
+
+    const choreLibrary = await screen.findByRole("region", { name: "Chore library" });
+    expect(within(choreLibrary).getByRole("button", { name: "Add chore" })).toBeTruthy();
+    expect(within(choreLibrary).getAllByRole("button", { name: "Edit chore" }).length).toBeGreaterThan(0);
+    expect(within(choreLibrary).getAllByRole("button", { name: "Archive chore" }).length).toBeGreaterThan(0);
+  });
+
+  it("keeps Chore library mutation controls unavailable to view-only members", async () => {
+    mockRestoredHouseholdFetches({
+      currentUserId: "app-user-2",
+      members: [ownerMember, { ...secondMember, choreLibraryPermission: "view" }]
+    });
+    renderAt("/settings");
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Settings" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("tab", { name: "Chore library" }));
+
+    const choreLibrary = await screen.findByRole("region", { name: "Chore library" });
+    expect(within(choreLibrary).getByText("Your household owner controls who can manage the Chore library.")).toBeTruthy();
+    expect(within(choreLibrary).queryByRole("button", { name: "Add chore" })).toBeNull();
+    expect(within(choreLibrary).queryByRole("button", { name: "Archive chore" })).toBeNull();
   });
 
   it("does not show a calendar sync settings error just because a disconnected user has no sync preferences", async () => {

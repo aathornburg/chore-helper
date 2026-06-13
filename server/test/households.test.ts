@@ -42,6 +42,7 @@ function request(app: ReturnType<typeof createApp>, userId = "test-user-a") {
   return {
     get: (url: string) => supertest(app).get(url).set("Authorization", authorization),
     post: (url: string) => supertest(app).post(url).set("Authorization", authorization),
+    patch: (url: string) => supertest(app).patch(url).set("Authorization", authorization),
     put: (url: string) => supertest(app).put(url).set("Authorization", authorization),
     delete: (url: string) => supertest(app).delete(url).set("Authorization", authorization)
   };
@@ -90,6 +91,15 @@ async function joinHouseholdMember(
   await request(app, email)
     .post(`/api/invitations/${token}/accept`)
     .expect(200);
+}
+
+async function findHouseholdMemberId(app: ReturnType<typeof createApp>, householdId: string, primaryEmail: string) {
+  const members = await request(app, "owner@example.com")
+    .get(`/api/households/${householdId}/members`)
+    .expect(200);
+  const member = members.body.find((candidate: { primaryEmail?: string }) => candidate.primaryEmail === primaryEmail);
+  expect(member).toBeTruthy();
+  return member.userId as string;
 }
 
 class FailingAgentProvider implements AgentProvider {
@@ -821,6 +831,105 @@ describe("household profile flow", () => {
       .expect((response) => {
         expect(response.body.archivedAt).toBeUndefined();
       });
+  });
+
+  it("defaults new household members to view-only chore library access", async () => {
+    const { app, invitationLinks } = createInvitationTestApp();
+    const created = await request(app, "owner@example.com").post("/api/households").send({ name: "Home" }).expect(201);
+
+    await joinHouseholdMember(app, invitationLinks, created.body.id, "member@example.com");
+
+    await request(app, "owner@example.com")
+      .get(`/api/households/${created.body.id}/members`)
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toEqual(expect.arrayContaining([
+          expect.objectContaining({
+            primaryEmail: "member@example.com",
+            choreLibraryPermission: "view"
+          })
+        ]));
+      });
+  });
+
+  it("lets owners grant chore library management to individual members", async () => {
+    const { app, invitationLinks } = createInvitationTestApp();
+    const created = await request(app, "owner@example.com").post("/api/households").send({ name: "Home" }).expect(201);
+    await joinHouseholdMember(app, invitationLinks, created.body.id, "member@example.com");
+    const memberId = await findHouseholdMemberId(app, created.body.id, "member@example.com");
+
+    await request(app, "owner@example.com")
+      .patch(`/api/households/${created.body.id}/members/${memberId}/chore-library-permission`)
+      .send({ choreLibraryPermission: "manage" })
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toEqual(expect.objectContaining({
+          userId: memberId,
+          choreLibraryPermission: "manage"
+        }));
+      });
+  });
+
+  it("allows manage members to create, update, archive, and restore library chores", async () => {
+    const { app, invitationLinks } = createInvitationTestApp();
+    const created = await request(app, "owner@example.com").post("/api/households").send({ name: "Home" }).expect(201);
+    await joinHouseholdMember(app, invitationLinks, created.body.id, "member@example.com");
+    const memberId = await findHouseholdMemberId(app, created.body.id, "member@example.com");
+    await request(app, "owner@example.com")
+      .patch(`/api/households/${created.body.id}/members/${memberId}/chore-library-permission`)
+      .send({ choreLibraryPermission: "manage" })
+      .expect(200);
+
+    const chore = await request(app, "member@example.com")
+      .post(`/api/households/${created.body.id}/chores`)
+      .send({ chore: { title: "Wipe counters", source: "manual", instructions: "Use spray.", tags: ["kitchen"] } })
+      .expect(201);
+
+    await request(app, "member@example.com")
+      .put(`/api/households/${created.body.id}/chores/${chore.body.id}`)
+      .send({ title: "Wipe kitchen counters", source: "manual", instructions: "Use spray.", tags: ["kitchen"] })
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.title).toBe("Wipe kitchen counters");
+      });
+
+    await request(app, "member@example.com")
+      .post(`/api/households/${created.body.id}/chores/${chore.body.id}/archive`)
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.archivedAt).toEqual(expect.any(String));
+      });
+
+    await request(app, "member@example.com")
+      .post(`/api/households/${created.body.id}/chores/${chore.body.id}/restore`)
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.archivedAt).toBeUndefined();
+      });
+  });
+
+  it("blocks view-only members from mutating chore library chores", async () => {
+    const { app, invitationLinks } = createInvitationTestApp();
+    const created = await request(app, "owner@example.com").post("/api/households").send({ name: "Home" }).expect(201);
+    await joinHouseholdMember(app, invitationLinks, created.body.id, "member@example.com");
+    const chore = await request(app, "owner@example.com")
+      .post(`/api/households/${created.body.id}/chores`)
+      .send({ chore: { title: "Dust shelves", source: "manual", tags: ["dusting"] } })
+      .expect(201);
+
+    await request(app, "member@example.com")
+      .post(`/api/households/${created.body.id}/chores`)
+      .send({ chore: { title: "Vacuum stairs", source: "manual" } })
+      .expect(403);
+
+    await request(app, "member@example.com")
+      .put(`/api/households/${created.body.id}/chores/${chore.body.id}`)
+      .send({ title: "Dust book shelves", source: "manual", tags: ["dusting"] })
+      .expect(403);
+
+    await request(app, "member@example.com")
+      .post(`/api/households/${created.body.id}/chores/${chore.body.id}/archive`)
+      .expect(403);
   });
 
   it("lists active chores across households from the top-level chores route", async () => {

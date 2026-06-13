@@ -12,6 +12,7 @@ import type {
   CleanlyCalendarEvent,
   CleanlyCalendarEventType,
   Chore,
+  ChoreLibraryPermission,
   ChoreCompletionCheckIn,
   ChoreOccurrence,
   ChoreSchedule,
@@ -508,10 +509,13 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
 
       return membership
         ? {
-            householdId: membership.householdId,
-            userId: membership.userId,
-            role: membership.role as "owner" | "member"
-          }
+        householdId: membership.householdId,
+        userId: membership.userId,
+        role: membership.role as "owner" | "member",
+        choreLibraryPermission: membership.role === "owner"
+          ? "manage"
+          : (membership.choreLibraryPermission as ChoreLibraryPermission)
+      }
         : undefined;
     },
 
@@ -528,7 +532,10 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
         clerkUserId: membership.user.clerkUserId,
         primaryEmail: membership.user.primaryEmail ?? undefined,
         displayName: membership.user.displayName ?? undefined,
-        role: membership.role as "owner" | "member"
+        role: membership.role as "owner" | "member",
+        choreLibraryPermission: membership.role === "owner"
+          ? "manage"
+          : (membership.choreLibraryPermission as ChoreLibraryPermission)
       }));
     },
 
@@ -556,10 +563,38 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
           membership: {
             householdId: updated.householdId,
             userId: updated.userId,
-            role: updated.role as "owner" | "member"
+            role: updated.role as "owner" | "member",
+            choreLibraryPermission: updated.role === "owner"
+              ? "manage"
+              : (updated.choreLibraryPermission as ChoreLibraryPermission)
           }
         };
       }, { isolationLevel: "Serializable" });
+    },
+
+    async updateChoreLibraryPermission(householdId, userId, update) {
+      const existing = await prisma.householdMember.findUnique({
+        where: { householdId_userId: { householdId, userId } }
+      });
+      if (!existing) return undefined;
+
+      const saved = await prisma.householdMember.update({
+        where: { householdId_userId: { householdId, userId } },
+        data: { choreLibraryPermission: update.choreLibraryPermission },
+        include: { user: true }
+      });
+
+      return {
+        householdId: saved.householdId,
+        userId: saved.userId,
+        clerkUserId: saved.user.clerkUserId,
+        primaryEmail: saved.user.primaryEmail ?? undefined,
+        displayName: saved.user.displayName ?? undefined,
+        role: saved.role as "owner" | "member",
+        choreLibraryPermission: saved.role === "owner"
+          ? "manage"
+          : (saved.choreLibraryPermission as ChoreLibraryPermission)
+      };
     },
 
     async removeMember(householdId, userId) {
@@ -585,7 +620,10 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
           membership: {
             householdId: removed.householdId,
             userId: removed.userId,
-            role: removed.role as "owner" | "member"
+            role: removed.role as "owner" | "member",
+            choreLibraryPermission: removed.role === "owner"
+              ? "manage"
+              : (removed.choreLibraryPermission as ChoreLibraryPermission)
           }
         };
       }, { isolationLevel: "Serializable" });
@@ -688,7 +726,8 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
             members: {
               create: {
                 userId,
-                role: "owner"
+                role: "owner",
+                choreLibraryPermission: "manage"
               }
             }
           },
@@ -849,6 +888,28 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
       return this.getHouseholdStructure(householdId);
     },
 
+    async createChore(householdId, chore) {
+      const created = await prisma.$transaction(async (tx) => {
+        const nextChore = await tx.chore.create({
+          data: {
+            id: crypto.randomUUID(),
+            householdId,
+            title: chore.title,
+            source: chore.source,
+            instructions: chore.instructions,
+            tags: serializeOptionalList(chore.tags ?? [])
+          }
+        });
+        await tx.recommendation.updateMany({
+          where: { householdId, staleAt: null },
+          data: { staleAt: new Date() }
+        });
+        return nextChore;
+      });
+
+      return toChore(created);
+    },
+
     async createChoreWithSchedules({ householdId, chore, schedules }) {
       const created = await prisma.$transaction(async (tx) => {
         const nextChore = await tx.chore.create({
@@ -931,9 +992,14 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
       if (!existing) return undefined;
 
       const updated = await prisma.$transaction(async (tx) => {
+        const archivedAt = new Date();
         const nextChore = await tx.chore.update({
           where: { id: choreId },
-          data: { archivedAt: new Date() }
+          data: { archivedAt }
+        });
+        await tx.choreSchedule.updateMany({
+          where: { householdId, choreId, archivedAt: null },
+          data: { archivedAt }
         });
         await tx.recommendation.updateMany({
           where: { householdId, staleAt: null },
@@ -1128,6 +1194,9 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
       const occurrences = await prisma.choreOccurrence.findMany({
         where: {
           householdId,
+          schedule: {
+            archivedAt: null
+          },
           OR: [
             {
               planningMode: "timed",

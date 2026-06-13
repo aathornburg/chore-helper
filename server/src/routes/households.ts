@@ -120,7 +120,7 @@ const householdStructureSchema = z.object({
 
 const choreSchema = z.object({
   title: z.string().trim().min(1),
-  source: z.enum(["manual"]),
+  source: z.enum(["manual", "google-calendar"]),
   instructions: z.string().trim().optional(),
   tags: z.array(z.string().trim().min(1)).optional()
 });
@@ -207,6 +207,12 @@ const createScheduledChoreSchema = z.object({
   chore: choreSchema,
   schedules: z.array(scheduleSchema).min(1)
 });
+
+const choreLibraryPermissions = ["view", "manage"] as const;
+
+function isOneOf<T extends string>(value: unknown, options: readonly T[]): value is T {
+  return typeof value === "string" && options.includes(value as T);
+}
 
 const occurrenceRangeSchema = z.object({
   startAt: z.string().datetime(),
@@ -340,6 +346,23 @@ export function createHouseholdRouter(
     const membership = await store.getMembership(access.user.id, access.household.id);
     if (membership?.role !== "owner") {
       res.status(403).json({ error: "Household owner access required" });
+      return undefined;
+    }
+
+    return access;
+  }
+
+  async function requireChoreLibraryManage(req: Request, res: Response) {
+    const access = await requireHouseholdAccess(req, res);
+    if (!access) return undefined;
+
+    const membership = await store.getMembership(access.user.id, access.household.id);
+    if (membership?.role === "owner") return access;
+
+    const members = await store.listHouseholdMembers(access.household.id);
+    const currentMember = members.find((member) => member.userId === access.user.id);
+    if (currentMember?.choreLibraryPermission !== "manage") {
+      res.status(403).json({ error: "You do not have permission to manage the chore library." });
       return undefined;
     }
 
@@ -532,6 +555,22 @@ export function createHouseholdRouter(
     return res.status(200).json(result.membership);
   });
 
+  router.patch("/:householdId/members/:userId/chore-library-permission", async (req, res) => {
+    const access = await requireHouseholdOwner(req, res);
+    if (!access) return;
+
+    if (!isOneOf(req.body.choreLibraryPermission, choreLibraryPermissions)) {
+      return res.status(400).json({ error: "Invalid chore library permission" });
+    }
+
+    const updated = await store.updateChoreLibraryPermission(access.household.id, req.params.userId, {
+      choreLibraryPermission: req.body.choreLibraryPermission
+    });
+    if (!updated) return res.status(404).json({ error: "Household member not found" });
+
+    return res.status(200).json(updated);
+  });
+
   router.delete("/:householdId/members/:userId", async (req, res) => {
     const access = await requireHouseholdOwner(req, res);
     if (!access) return;
@@ -604,8 +643,16 @@ export function createHouseholdRouter(
   });
 
   router.post("/:householdId/chores", async (req, res) => {
-    const access = await requireHouseholdOwner(req, res);
+    const access = await requireChoreLibraryManage(req, res);
     if (!access) return;
+
+    if (!Array.isArray(req.body.schedules)) {
+      const parsedChore = choreSchema.safeParse(req.body.chore);
+      if (!parsedChore.success) return res.status(400).json({ error: "Invalid chore payload" });
+
+      const chore = await store.createChore(access.household.id, parsedChore.data);
+      return res.status(201).json(chore);
+    }
 
     const parsed = createScheduledChoreSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid chore payload" });
@@ -835,7 +882,7 @@ export function createHouseholdRouter(
   });
 
   router.put("/:householdId/chores/:choreId", async (req, res) => {
-    const access = await requireHouseholdOwner(req, res);
+    const access = await requireChoreLibraryManage(req, res);
     if (!access) return;
 
     const parsed = choreSchema.safeParse(req.body);
@@ -848,7 +895,7 @@ export function createHouseholdRouter(
   });
 
   router.post("/:householdId/chores/:choreId/archive", async (req, res) => {
-    const access = await requireHouseholdOwner(req, res);
+    const access = await requireChoreLibraryManage(req, res);
     if (!access) return;
 
     const chore = await store.archiveChore(access.household.id, req.params.choreId);
@@ -858,7 +905,7 @@ export function createHouseholdRouter(
   });
 
   router.post("/:householdId/chores/:choreId/restore", async (req, res) => {
-    const access = await requireHouseholdOwner(req, res);
+    const access = await requireChoreLibraryManage(req, res);
     if (!access) return;
 
     const chore = await store.restoreChore(access.household.id, req.params.choreId);

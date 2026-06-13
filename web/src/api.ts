@@ -9,6 +9,8 @@ import type {
   CalendarImportCandidate,
   CleanlyCalendarEvent,
   Chore,
+  ChoreLibraryPermission,
+  CreateChoreInput,
   ChoreDefinitionInput,
   ChoreCompletionCheckIn,
   ChoreOccurrence,
@@ -229,6 +231,17 @@ export async function createScheduledChore(
   return response.json();
 }
 
+export async function createChore(householdId: string, chore: CreateChoreInput): Promise<Chore> {
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/chores`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chore })
+  });
+
+  if (!response.ok) throw new Error("Failed to create chore");
+  return response.json();
+}
+
 export async function listAllChores(options: { includeArchived?: boolean; status?: "archived" } = {}): Promise<Chore[]> {
   const params = new URLSearchParams();
   if (options.includeArchived) params.set("includeArchived", "true");
@@ -286,6 +299,24 @@ export async function listArchivedChores(householdId: string): Promise<Chore[]> 
   const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/chores?status=archived`);
 
   if (!response.ok) throw new Error("Failed to fetch archived chores");
+  return response.json();
+}
+
+export async function updateChoreLibraryPermission(
+  householdId: string,
+  memberId: string,
+  choreLibraryPermission: ChoreLibraryPermission
+): Promise<HouseholdMemberSummary> {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/households/${householdId}/members/${memberId}/chore-library-permission`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ choreLibraryPermission })
+    }
+  );
+
+  if (!response.ok) throw new Error("Failed to update chore library permission");
   return response.json();
 }
 

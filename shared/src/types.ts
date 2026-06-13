@@ -73,6 +73,8 @@ export type AppUserProfile = {
   displayName?: string;
 };
 
+export type ChoreLibraryPermission = "view" | "manage";
+
 export type HouseholdMemberSummary = {
   householdId: string;
   userId: string;
@@ -80,6 +82,7 @@ export type HouseholdMemberSummary = {
   primaryEmail?: string;
   displayName?: string;
   role: "owner" | "member";
+  choreLibraryPermission: ChoreLibraryPermission;
 };
 
 export type HouseholdInvitationStatus = "pending" | "accepted" | "cancelled" | "expired";
@@ -177,6 +180,7 @@ export type Chore = {
 };
 
 export type ChoreDefinitionInput = Omit<Chore, "id" | "householdId" | "householdName" | "archivedAt">;
+export type CreateChoreInput = ChoreDefinitionInput;
 export type ScheduleInput =
   | Omit<TimedChoreSchedule, "id" | "householdId" | "choreId" | "archivedAt">
   | Omit<FlexibleChoreSchedule, "id" | "householdId" | "choreId" | "archivedAt">;

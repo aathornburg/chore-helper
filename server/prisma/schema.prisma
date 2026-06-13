@@ -74,14 +74,15 @@ model AppNotification {
 }
 
 model HouseholdMember {
-  id          String    @id @default(cuid())
-  householdId String
-  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role        String
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id                     String    @id @default(cuid())
+  householdId            String
+  household              Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  userId                 String
+  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role                   String
+  choreLibraryPermission String    @default("view")
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 
   @@unique([householdId, userId])
 }

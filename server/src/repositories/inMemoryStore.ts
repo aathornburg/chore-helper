@@ -7,10 +7,12 @@ import type {
   CalendarPreferences,
   CleanlyCalendarEvent,
   Chore,
+  ChoreLibraryPermission,
   ChoreCompletionCheckIn,
   ChoreDefinitionInput,
   ChoreOccurrence,
   ChoreSchedule,
+  CreateChoreInput,
   Household,
   HouseholdFloor,
   HouseholdInvitation,
@@ -96,12 +98,17 @@ export type HouseholdMembership = {
   householdId: string;
   userId: string;
   role: "owner" | "member";
+  choreLibraryPermission: ChoreLibraryPermission;
 };
 
 export type HouseholdMemberMutationResult =
   | { outcome: "updated"; membership: HouseholdMembership }
   | { outcome: "not_found" }
   | { outcome: "last_owner" };
+
+export type ChoreLibraryPermissionUpdate = {
+  choreLibraryPermission: ChoreLibraryPermission;
+};
 
 export type NewHouseholdInvitation = {
   householdId: string;
@@ -129,6 +136,11 @@ export type HouseholdStore = {
     userId: string,
     role: HouseholdMembership["role"]
   ): StoreResult<HouseholdMemberMutationResult>;
+  updateChoreLibraryPermission(
+    householdId: string,
+    userId: string,
+    update: ChoreLibraryPermissionUpdate
+  ): StoreResult<HouseholdMemberSummary | undefined>;
   removeMember(householdId: string, userId: string): StoreResult<HouseholdMemberMutationResult>;
   createInvitation(invitation: NewHouseholdInvitation): StoreResult<HouseholdInvitation>;
   listInvitations(householdId: string): StoreResult<HouseholdInvitation[]>;
@@ -154,6 +166,7 @@ export type HouseholdStore = {
     householdId: string,
     floors: HouseholdFloor[]
   ): StoreResult<HouseholdStructure | undefined>;
+  createChore(householdId: string, chore: CreateChoreInput): StoreResult<Chore>;
   createChoreWithSchedules(input: NewScheduledChore): StoreResult<ScheduledChore>;
   updateChore(householdId: string, choreId: string, chore: ChoreUpdate): StoreResult<Chore | undefined>;
   archiveChore(householdId: string, choreId: string): StoreResult<Chore | undefined>;
@@ -431,6 +444,7 @@ export function createInMemoryStore(): HouseholdStore {
           return [{
             ...membership,
             clerkUserId: user.clerkUserId,
+            choreLibraryPermission: membership.role === "owner" ? "manage" : membership.choreLibraryPermission,
             ...(user.primaryEmail ? { primaryEmail: user.primaryEmail } : {}),
             ...(user.displayName ? { displayName: user.displayName } : {})
           } satisfies HouseholdMemberSummary];
@@ -452,6 +466,25 @@ export function createInMemoryStore(): HouseholdStore {
       const updated = { ...membership, role };
       memberships.set(key, updated);
       return { outcome: "updated", membership: updated };
+    },
+
+    updateChoreLibraryPermission(householdId, userId, update) {
+      const key = `${householdId}:${userId}`;
+      const membership = memberships.get(key);
+      if (!membership) return undefined;
+
+      const updated = { ...membership, choreLibraryPermission: update.choreLibraryPermission };
+      memberships.set(key, updated);
+      const user = users.get(userId);
+      if (!user) return undefined;
+
+      return {
+        ...updated,
+        clerkUserId: user.clerkUserId,
+        choreLibraryPermission: updated.role === "owner" ? "manage" : updated.choreLibraryPermission,
+        ...(user.primaryEmail ? { primaryEmail: user.primaryEmail } : {}),
+        ...(user.displayName ? { displayName: user.displayName } : {})
+      };
     },
 
     removeMember(householdId, userId) {
@@ -531,7 +564,8 @@ export function createInMemoryStore(): HouseholdStore {
       memberships.set(`${updated.householdId}:${userId}`, {
         householdId: updated.householdId,
         userId,
-        role: "member"
+        role: "member",
+        choreLibraryPermission: "view"
       });
       const { tokenDigest: _tokenDigest, ...publicInvitation } = updated;
       return publicInvitation;
@@ -550,7 +584,8 @@ export function createInMemoryStore(): HouseholdStore {
       memberships.set(`${household.id}:${userId}`, {
         householdId: household.id,
         userId,
-        role: "owner"
+        role: "owner",
+        choreLibraryPermission: "manage"
       });
       return household;
     },
@@ -665,6 +700,13 @@ export function createInMemoryStore(): HouseholdStore {
       };
     },
 
+    createChore(householdId, chore) {
+      const createdChore: Chore = { ...chore, householdId, id: crypto.randomUUID() };
+      chores.set(householdId, [...(chores.get(householdId) ?? []), createdChore]);
+      markStale(householdId);
+      return createdChore;
+    },
+
     createChoreWithSchedules({ householdId, chore, schedules: inputs }) {
       const createdChore: Chore = { ...chore, householdId, id: crypto.randomUUID() };
       const createdSchedules: ChoreSchedule[] = inputs.map((schedule) => ({
@@ -687,10 +729,17 @@ export function createInMemoryStore(): HouseholdStore {
     },
 
     archiveChore(householdId, choreId) {
-      return replaceChore(householdId, choreId, (existing) => ({
+      const archived = replaceChore(householdId, choreId, (existing) => ({
         ...existing,
         archivedAt: new Date().toISOString()
       }));
+      if (!archived?.archivedAt) return archived;
+      for (const [scheduleId, schedule] of schedules.entries()) {
+        if (schedule.householdId === householdId && schedule.choreId === choreId && !schedule.archivedAt) {
+          schedules.set(scheduleId, { ...schedule, archivedAt: archived.archivedAt });
+        }
+      }
+      return archived;
     },
 
     restoreChore(householdId, choreId) {
@@ -785,6 +834,7 @@ export function createInMemoryStore(): HouseholdStore {
           return (
             occurrence.householdId === householdId &&
             inRange &&
+            !schedules.get(occurrence.scheduleId)?.archivedAt &&
             (!range.assignedUserId || occurrence.assignedUserId === range.assignedUserId)
           );
         })
