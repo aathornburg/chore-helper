@@ -239,6 +239,7 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
   const [structure, setStructure] = useState<HouseholdStructure>(initialStructure);
   const [selectedFloorId, setSelectedFloorId] = useState<string | undefined>(() => getMainFloorId(initialStructure.floors));
   const [pendingRemoveFloorId, setPendingRemoveFloorId] = useState<string>();
+  const [pendingWorkspaceView, setPendingWorkspaceView] = useState<HomeWorkspaceView>();
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string>();
   const [editingRoom, setEditingRoom] = useState<HouseholdRoom>();
@@ -256,7 +257,11 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
   const floors = useMemo(() => sortFloors(activeStructure.floors), [activeStructure]);
   const selectedFloor = floors.find((floor) => floor.id === selectedFloorId);
 
-  function handleSelectWorkspaceView(nextView: HomeWorkspaceView) {
+  function hasPendingWorkspaceEdits() {
+    return isEditingProfile || isEditingFloor || Boolean(editingRoom);
+  }
+
+  function forceSelectWorkspaceView(nextView: HomeWorkspaceView) {
     setWorkspaceView(nextView);
     setIsDeleteConfirming(false);
     if (nextView !== "overview") resetProfileDraft();
@@ -266,6 +271,38 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
       setEditingRoom(undefined);
     }
     setPendingRemoveFloorId(undefined);
+  }
+
+  function handleSelectWorkspaceView(nextView: HomeWorkspaceView) {
+    if (nextView === workspaceView) return;
+    if (hasPendingWorkspaceEdits()) {
+      setPendingWorkspaceView(nextView);
+      return;
+    }
+    forceSelectWorkspaceView(nextView);
+  }
+
+  function closePendingWorkspaceDialog() {
+    setPendingWorkspaceView(undefined);
+  }
+
+  function resetWorkspaceDrafts() {
+    resetProfileDraft();
+    setStructure(initialStructure);
+    setSelectedFloorId((currentFloorId) =>
+      initialStructure.floors.some((floor) => floor.id === currentFloorId)
+        ? currentFloorId
+        : getMainFloorId(initialStructure.floors)
+    );
+    resetFloorEdit();
+    setEditingRoom(undefined);
+  }
+
+  function confirmDiscardWorkspaceChanges() {
+    const nextView = pendingWorkspaceView;
+    setPendingWorkspaceView(undefined);
+    resetWorkspaceDrafts();
+    if (nextView) forceSelectWorkspaceView(nextView);
   }
 
   function handleSelectFloor(floorId: string) {
@@ -716,6 +753,39 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
           </div>
         </section>
       ) : null}
+      {pendingWorkspaceView ? (
+        <div
+          className="chore-editor-backdrop calendar-modal-backdrop is-centered-detail-view"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closePendingWorkspaceDialog();
+          }}
+          role="presentation"
+        >
+          <section
+            aria-labelledby={`${household.id}-discard-changes-heading`}
+            aria-modal="true"
+            className="chore-editor-modal calendar-modal-shell household-discard-modal"
+            onKeyDown={(event) => {
+              if (event.key !== "Escape") return;
+              event.preventDefault();
+              closePendingWorkspaceDialog();
+            }}
+            role="dialog"
+            tabIndex={-1}
+          >
+            <div className="floor-detail-heading">
+              <div>
+                <h2 id={`${household.id}-discard-changes-heading`}>Discard changes?</h2>
+                <p>You have unsaved changes. Switching tabs will discard them.</p>
+              </div>
+            </div>
+            <div className="form-actions">
+              <button className="secondary-action" onClick={closePendingWorkspaceDialog} type="button">Keep editing</button>
+              <button className="danger-action" onClick={confirmDiscardWorkspaceChanges} type="button">Discard changes</button>
+            </div>
+          </section>
+        </div>
+      ) : null}
 
       <section
         aria-label={`${household.name} overview`}
@@ -961,9 +1031,11 @@ function HouseholdWorkspace({ household, onReload }: { household: HouseholdAppDa
                     <span>Flooring</span>
                     <strong>{selectedFloor.flooring.length > 0 ? selectedFloor.flooring.join(", ") : "No floor surfaces set"}</strong>
                   </div>
-                  <button className="secondary-action" disabled={isSaving} onClick={() => setIsEditingSurfaces(true)} type="button">
-                    Edit surfaces
-                  </button>
+                  {!isEditingSurfaces ? (
+                    <button className="secondary-action" disabled={isSaving} onClick={() => setIsEditingSurfaces(true)} type="button">
+                      Edit surfaces
+                    </button>
+                  ) : null}
                 </div>
                 {isEditingSurfaces ? (
                   <div className="chip-list" aria-label="Flooring">

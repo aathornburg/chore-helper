@@ -3627,6 +3627,7 @@ describe("App", () => {
     expect(within(screen.getByRole("region", { name: "Flooring surfaces" })).getByRole("button", { name: "Edit surfaces" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "hardwood" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Edit surfaces" }));
+    expect(within(screen.getByRole("region", { name: "Flooring surfaces" })).queryByRole("button", { name: "Edit surfaces" })).toBeNull();
     expect(screen.getByRole("button", { name: "hardwood" }).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByRole("button", { name: "rugs" }).getAttribute("aria-pressed")).toBe("true");
     expect(fetchMock).not.toHaveBeenCalledWith("http://localhost:3001/api/households/household-1/structure");
@@ -3670,6 +3671,75 @@ describe("App", () => {
       );
     });
     expect(within(screen.getByRole("region", { name: "Home profile summary" })).getByRole("button", { name: "Edit home details" })).toBeTruthy();
+  });
+
+  it("confirms before switching away from unsaved overview edits", async () => {
+    mockHouseholdsPageFetches({
+      householdId: "household-1",
+      floors: [{
+        id: "floor-main",
+        householdId: "household-1",
+        name: "Main floor",
+        levelType: "main",
+        flooring: [],
+        petImpact: "medium",
+        robotVacuumCoverage: "none",
+        robotMopCoverage: "none",
+        rooms: []
+      }]
+    });
+
+    renderAt("/households");
+    await manageHomeHousehold();
+    await editHomeDetails();
+    fireEvent.change(screen.getByLabelText("Household name"), { target: { value: "Changed home" } });
+    fireEvent.click(screen.getByRole("tab", { name: "Floors" }));
+
+    expect(await screen.findByRole("dialog", { name: "Discard changes?" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Overview" }).getAttribute("aria-selected")).toBe("true");
+    expect((screen.getByLabelText("Household name") as HTMLInputElement).value).toBe("Changed home");
+
+    fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+    expect(screen.queryByRole("dialog", { name: "Discard changes?" })).toBeNull();
+    expect(screen.getByRole("tab", { name: "Overview" }).getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("discards floor edits only after confirmation when switching tabs", async () => {
+    restoreHouseholdInStorage();
+    mockHouseholdsPageFetches({
+      householdId: "household-1",
+      floors: [
+        {
+          id: "floor-main",
+          householdId: "household-1",
+          name: "Main floor",
+          levelType: "main",
+          flooring: [],
+          petImpact: "none",
+          robotVacuumCoverage: "none",
+          robotMopCoverage: "none",
+          rooms: []
+        }
+      ]
+    });
+
+    renderAt("/households");
+    await manageHomeHousehold();
+    await openHouseholdManageTab("Floors");
+    await editSelectedFloor();
+    fireEvent.change(screen.getByLabelText("Floor name"), { target: { value: "Renamed floor" } });
+    fireEvent.click(screen.getByRole("tab", { name: "Overview" }));
+
+    expect(await screen.findByRole("dialog", { name: "Discard changes?" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Floors" }).getAttribute("aria-selected")).toBe("true");
+    expect((screen.getByLabelText("Floor name") as HTMLInputElement).value).toBe("Renamed floor");
+
+    fireEvent.click(screen.getByRole("button", { name: "Discard changes" }));
+    expect(screen.queryByRole("dialog", { name: "Discard changes?" })).toBeNull();
+    expect(screen.getByRole("tab", { name: "Overview" }).getAttribute("aria-selected")).toBe("true");
+    await openHouseholdManageTab("Floors");
+    expect(screen.getByRole("heading", { name: "Main floor" })).toBeTruthy();
+    expect(screen.queryByDisplayValue("Renamed floor")).toBeNull();
   });
 
   it("adds and removes a basement floor with confirmation", async () => {
