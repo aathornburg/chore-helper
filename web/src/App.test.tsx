@@ -1272,12 +1272,15 @@ describe("App", () => {
 
     const nav = await screen.findByRole("navigation", { name: "Primary" });
     expect(nav.classList.contains("workspace-nav-mobile-overlay")).toBe(true);
+    expect(nav.classList.contains("is-closed")).toBe(true);
     expect(nav.getAttribute("data-open")).toBe("false");
 
     fireEvent.click(screen.getByRole("button", { name: "Open navigation menu" }));
+    expect(nav.classList.contains("is-open")).toBe(true);
     expect(nav.getAttribute("data-open")).toBe("true");
 
     fireEvent.click(screen.getByRole("button", { name: "Close navigation menu" }));
+    expect(nav.classList.contains("is-closed")).toBe(true);
     expect(nav.getAttribute("data-open")).toBe("false");
   });
 

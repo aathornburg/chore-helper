@@ -270,7 +270,7 @@ function AppShell({
             Clenella
           </a>
         </div>
-        <nav className="workspace-nav workspace-nav-mobile-overlay" aria-label="Primary" data-open={isNavOpen ? "true" : "false"}>
+        <nav className={`workspace-nav workspace-nav-mobile-overlay ${isNavOpen ? "is-open" : "is-closed"}`} aria-label="Primary" data-open={isNavOpen ? "true" : "false"}>
           {navItems.map((item) => (
             <a
               aria-current={currentPath === item.path ? "page" : undefined}
