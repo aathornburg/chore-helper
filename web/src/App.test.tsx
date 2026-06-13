@@ -2483,6 +2483,19 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Export events" })).toBeTruthy();
   });
 
+  it("anchors the mobile calendar actions popover inside the viewport", async () => {
+    setViewportWidth(246);
+    vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
+    renderAt("/calendar");
+
+    await screen.findByRole("heading", { name: "Calendar" });
+    fireEvent.click(screen.getByRole("button", { name: "Calendar actions" }));
+
+    const popover = screen.getByRole("region", { name: "Calendar actions menu" });
+    expect(popover.classList.contains("calendar-actions-popover")).toBe(true);
+    expect(popover.classList.contains("is-mobile-positioned")).toBe(true);
+  });
+
   it("uses a cohesive centered modal shell for add and import event modals on mobile", async () => {
     setViewportWidth(390);
     vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());

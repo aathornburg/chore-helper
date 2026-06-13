@@ -2345,7 +2345,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                 Calendar actions
               </button>
               {isCalendarActionsOpen ? (
-                <div className="calendar-actions-popover" id="calendar-actions-menu" role="region" aria-label="Calendar actions menu">
+                <div className={`calendar-actions-popover ${isMobileMonthViewport ? "is-mobile-positioned" : ""}`} id="calendar-actions-menu" role="region" aria-label="Calendar actions menu">
                   {isMobileMonthViewport ? (
                     <button onClick={(event) => openCreateEditor(event.currentTarget)} type="button">Add event</button>
                   ) : null}

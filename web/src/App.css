@@ -8030,9 +8030,13 @@ button.chore-row-summary[aria-expanded="true"] {
     width: auto;
   }
 
-  .calendar-actions-popover {
+  .calendar-actions-popover.is-mobile-positioned {
+    box-sizing: border-box;
+    left: 0;
     max-width: calc(100vw - 32px);
     min-width: 210px;
+    right: auto;
+    width: max-content;
   }
 
   .calendar-export-layout {
