@@ -1935,7 +1935,11 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
               >
                 <span>{format(date, "EEE")}</span>
                 <strong>{format(date, "d")}</strong>
-                <em>{itemCount}</em>
+                <span className="calendar-mobile-week-markers" aria-hidden="true">
+                  {Array.from({ length: Math.min(itemCount, 3) }, (_item, index) => (
+                    <span className="calendar-mobile-week-dot" key={`${key}-week-dot-${index}`} />
+                  ))}
+                </span>
               </button>
             );
           })}

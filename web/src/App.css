@@ -2978,10 +2978,8 @@ button.calendar-event:hover {
     text-align: center;
   }
 
-  .calendar-mobile-week-day span,
-  .calendar-mobile-week-day em {
+  .calendar-mobile-week-day span {
     font-size: 0.68rem;
-    font-style: normal;
     font-weight: 750;
   }
 
@@ -2989,10 +2987,29 @@ button.calendar-event:hover {
     font-size: 1rem;
   }
 
+  .calendar-mobile-week-markers {
+    align-items: center;
+    display: flex;
+    gap: 2px;
+    justify-content: center;
+    min-height: 6px;
+  }
+
+  .calendar-mobile-week-dot {
+    background: var(--color-primary);
+    border-radius: 999px;
+    height: 5px;
+    width: 5px;
+  }
+
   .calendar-mobile-week-day.is-selected {
     background: var(--color-primary);
     border-color: var(--color-primary);
     color: #fff;
+  }
+
+  .calendar-mobile-week-day.is-selected .calendar-mobile-week-dot {
+    background: #fff;
   }
 
   .calendar-mobile-week-day.is-today:not(.is-selected) {

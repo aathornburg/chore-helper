@@ -2640,6 +2640,50 @@ describe("App", () => {
     });
   });
 
+  it("uses capped dot markers instead of visible counts in the mobile Week strip", async () => {
+    await withMay2026CalendarClock(async () => {
+      setViewportWidth(390);
+      vi.stubGlobal("fetch", mockCalendarWorkspaceFetches({
+        cleanlyCalendarEvents: [{
+          id: "cleanly-event-1",
+          householdId: "household-1",
+          createdByUserId: "app-user-1",
+          type: "commitment",
+          title: "Morning appointment",
+          privacyTitle: "Morning appointment",
+          detailLevel: "full_details",
+          startsAt: "2026-05-29T13:00:00.000Z",
+          endsAt: "2026-05-29T13:30:00.000Z",
+          timezone: "America/New_York",
+          source: "google",
+          status: "active"
+        }, {
+          id: "cleanly-event-2",
+          householdId: "household-1",
+          createdByUserId: "app-user-1",
+          type: "commitment",
+          title: "Afternoon appointment",
+          privacyTitle: "Afternoon appointment",
+          detailLevel: "full_details",
+          startsAt: "2026-05-29T18:00:00.000Z",
+          endsAt: "2026-05-29T18:30:00.000Z",
+          timezone: "America/New_York",
+          source: "google",
+          status: "active"
+        }]
+      }));
+      renderAt("/calendar");
+
+      fireEvent.click(await screen.findByRole("button", { name: "Week" }));
+      const weekDays = await screen.findByRole("group", { name: "Week days" });
+      const friday = within(weekDays).getByRole("button", { name: /Select Friday, May 29, 3 items/ });
+
+      expect(friday.querySelectorAll(".calendar-mobile-week-dot")).toHaveLength(3);
+      expect(friday.querySelector(".calendar-mobile-week-count")).toBeNull();
+      expect(friday.querySelector("em")).toBeNull();
+    });
+  });
+
   it("updates the mobile Week selected-day agenda when a day is selected", async () => {
     await withMay2026CalendarClock(async () => {
       setViewportWidth(390);
