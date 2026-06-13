@@ -31,6 +31,7 @@ function isProfileComplete(household: HouseholdAppData) {
 
 type TodayViewMode = "merged" | "grouped";
 type TodayDataStatus = "idle" | "loading" | "ready" | "error";
+type TodayRailDirection = "previous" | "next";
 type TodayOccurrenceRow = {
   occurrence: ChoreOccurrence;
   household: HouseholdAppData;
@@ -76,7 +77,9 @@ function buildOccurrenceRange(startDate: Date, endDate: Date, timeZone: string) 
 
 export function TodayDashboard({ households, isLoading, loadError, onNavigate, weekStartDay }: TodayDashboardProps) {
   const todayStart = useMemo(() => startOfDay(new Date()), []);
+  const todayKey = useMemo(() => format(todayStart, "yyyy-MM-dd"), [todayStart]);
   const [weekOffset, setWeekOffset] = useState(0);
+  const [railDirection, setRailDirection] = useState<TodayRailDirection>();
   const stripDates = useMemo(
     () => {
       const weekStart = addWeeks(
@@ -189,6 +192,11 @@ export function TodayDashboard({ households, isLoading, loadError, onNavigate, w
   function centerSelectedDateButton(button: HTMLButtonElement | null) {
     if (!button || window.innerWidth > 680) return;
     button.scrollIntoView({ behavior: "auto", block: "nearest", inline: "center" });
+  }
+
+  function moveWeek(direction: TodayRailDirection) {
+    setRailDirection(direction);
+    setWeekOffset((currentOffset) => currentOffset + (direction === "next" ? 1 : -1));
   }
 
   function remainingHoursLabel(minutes: number) {
@@ -368,20 +376,24 @@ export function TodayDashboard({ households, isLoading, loadError, onNavigate, w
             <button
               aria-label="Previous week"
               className="today-rail-arrow"
-              onClick={() => setWeekOffset((currentOffset) => currentOffset - 1)}
+              onClick={() => moveWeek("previous")}
               type="button"
             >
               <ChevronLeftIcon />
             </button>
-            <div className="today-date-strip">
+            <div
+              className={`today-date-strip ${railDirection ? `is-sliding-${railDirection}` : ""}`}
+              key={weekOffset}
+            >
               {stripDates.map((date) => {
                 const dateKey = format(date, "yyyy-MM-dd");
+                const isToday = dateKey === todayKey;
                 const dueCount = allRows.filter((row) => occurrenceDateKey(row.occurrence, row.household.timeZone) === dateKey).length;
                 return (
                   <button
-                    aria-label={`${format(date, "EEEE MMM d")} ${dueCount} due`}
+                    aria-label={`${format(date, "EEEE MMM d")} ${dueCount} due${isToday ? ", today" : ""}`}
                     aria-pressed={selectedDateKey === dateKey}
-                    className="today-date-button"
+                    className={`today-date-button ${isToday ? "is-today" : ""}`}
                     key={dateKey}
                     onClick={() => setSelectedDateKey(dateKey)}
                     ref={selectedDateKey === dateKey ? centerSelectedDateButton : undefined}
@@ -391,6 +403,7 @@ export function TodayDashboard({ households, isLoading, loadError, onNavigate, w
                     <span className="today-date-month">{format(date, "MMM")}</span>
                     <strong className="today-date-number">{format(date, "d")}</strong>
                     <span className="today-date-due-count">{dueCount} due</span>
+                    {isToday ? <span className="today-date-marker">Today</span> : null}
                   </button>
                 );
               })}
@@ -398,7 +411,7 @@ export function TodayDashboard({ households, isLoading, loadError, onNavigate, w
             <button
               aria-label="Next week"
               className="today-rail-arrow"
-              onClick={() => setWeekOffset((currentOffset) => currentOffset + 1)}
+              onClick={() => moveWeek("next")}
               type="button"
             >
               <ChevronRightIcon />

@@ -2290,6 +2290,24 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     );
   }
 
+  function renderWorkspaceTabs() {
+    return (
+      <nav className="calendar-workspace-tabs" role="tablist" aria-label="Workspace view">
+        {(["calendar", "list"] as WorkspaceView[]).map((option) => (
+          <button
+            aria-selected={workspaceView === option}
+            key={option}
+            onClick={() => setWorkspaceView(option)}
+            role="tab"
+            type="button"
+          >
+            {capitalize(option)}
+          </button>
+        ))}
+      </nav>
+    );
+  }
+
   if (isLoading) return <div className="calendar-page operational-page"><p>Loading calendar...</p></div>;
 
   if (!selectedHousehold) {
@@ -2319,6 +2337,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
         <div>
           <h1>Calendar</h1>
         </div>
+        {isMobileMonthViewport ? renderWorkspaceTabs() : null}
         {!isExportMode ? (
           <div className="calendar-header-actions" aria-label="Calendar header actions">
             {!isMobileMonthViewport ? (
@@ -2335,6 +2354,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
             >
               <button
                 ref={calendarActionsButtonRef}
+                aria-label="Calendar actions"
                 aria-controls="calendar-actions-menu"
                 aria-expanded={isCalendarActionsOpen}
                 aria-haspopup="true"
@@ -2342,7 +2362,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                 onClick={() => setIsCalendarActionsOpen((isOpen) => !isOpen)}
                 type="button"
               >
-                Calendar actions
+                {isMobileMonthViewport ? "Actions" : "Calendar actions"}
               </button>
               {isCalendarActionsOpen ? (
                 <div className={`calendar-actions-popover ${isMobileMonthViewport ? "is-mobile-positioned" : ""}`} id="calendar-actions-menu" role="region" aria-label="Calendar actions menu">
@@ -2368,21 +2388,11 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
       ) : null}
 
       <section className="calendar-workspace-shell has-external-tabs" aria-label="Calendar workspace">
+        {!isMobileMonthViewport ? (
             <div className="calendar-workspace-panel-header">
-              <nav className="calendar-workspace-tabs" role="tablist" aria-label="Workspace view">
-                {(["calendar", "list"] as WorkspaceView[]).map((option) => (
-                  <button
-                    aria-selected={workspaceView === option}
-                    key={option}
-                    onClick={() => setWorkspaceView(option)}
-                    role="tab"
-                    type="button"
-                  >
-                    {capitalize(option)}
-                  </button>
-                ))}
-              </nav>
+              {renderWorkspaceTabs()}
             </div>
+        ) : null}
 
             <div className="panel calendar-workspace-panel">
             <section className="calendar-control-panel" aria-label="Calendar controls">

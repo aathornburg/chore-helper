@@ -1380,7 +1380,7 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "Cabin" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Upcoming next 7 days" })).toBeTruthy();
     expect(await screen.findByRole("button", { name: "Sunday May 24 0 due" })).toBeTruthy();
-    expect(await screen.findByRole("button", { name: "Saturday May 30 3 due" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: /Saturday May 30 3 due, today/ })).toBeTruthy();
     expect(screen.getByText("TO DO (1)")).toBeTruthy();
     expect(screen.getByText("DONE (1)")).toBeTruthy();
     expect(screen.getByText("SKIPPED (1)")).toBeTruthy();
@@ -2485,6 +2485,22 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Add event" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Import events" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Export events" })).toBeTruthy();
+  });
+
+  it("puts the mobile Calendar/List selector directly after the heading before actions", async () => {
+    setViewportWidth(390);
+    vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
+    renderAt("/calendar");
+
+    const heading = await screen.findByRole("heading", { name: "Calendar" });
+    const header = heading.closest(".page-command-header");
+    expect(header).not.toBeNull();
+    const headerChildren = Array.from((header as HTMLElement).children);
+    expect(headerChildren[0]?.contains(heading)).toBe(true);
+    expect(headerChildren[1]?.classList.contains("calendar-workspace-tabs")).toBe(true);
+    expect(headerChildren[2]?.classList.contains("calendar-header-actions")).toBe(true);
+    expect(within(header as HTMLElement).getByRole("tab", { name: "Calendar" })).toBeTruthy();
+    expect(within(header as HTMLElement).getByRole("tab", { name: "List" })).toBeTruthy();
   });
 
   it("anchors the mobile calendar actions popover inside the viewport", async () => {
@@ -4450,6 +4466,27 @@ describe("App", () => {
       fireEvent.click(screen.getByRole("button", { name: "Previous week" }));
       expect(await screen.findByRole("button", { name: "Sunday May 24 0 due" })).toBeTruthy();
       expect(screen.getByRole("button", { name: "Sunday May 24 0 due" }).getAttribute("aria-pressed")).toBe("true");
+    });
+  });
+
+  it("marks actual today in the Today week rail and animates arrow changes", async () => {
+    await withMay2026CalendarClock(async () => {
+      mockRestoredHouseholdFetches();
+      renderAt("/today");
+
+      const todayButton = await screen.findByRole("button", { name: /Saturday May 30 \d+ due, today/ });
+      expect(todayButton.classList.contains("is-today")).toBe(true);
+      const dateStrip = document.querySelector(".today-date-strip");
+      expect(dateStrip?.classList.contains("is-sliding-next")).toBe(false);
+
+      fireEvent.click(screen.getByRole("button", { name: "Next week" }));
+      expect(await screen.findByRole("button", { name: "Sunday May 31 0 due" })).toBeTruthy();
+      expect(document.querySelector(".today-date-strip")?.classList.contains("is-sliding-next")).toBe(true);
+      expect(screen.queryByRole("button", { name: /Saturday May 30 \d+ due, today/ })).toBeNull();
+
+      fireEvent.click(screen.getByRole("button", { name: "Previous week" }));
+      expect(await screen.findByRole("button", { name: /Sunday May 24 \d+ due/ })).toBeTruthy();
+      expect(document.querySelector(".today-date-strip")?.classList.contains("is-sliding-previous")).toBe(true);
     });
   });
 
