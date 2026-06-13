@@ -790,20 +790,30 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     return event.source === "google" ? "Google Calendar" : "Manual event";
   }
 
+  function eventDurationInMinutes(event: CleanlyCalendarEvent) {
+    return Math.max(1, Math.round((Date.parse(event.endsAt) - Date.parse(event.startsAt)) / 60000));
+  }
+
+  function isAllDayCleanlyEvent(event: CleanlyCalendarEvent) {
+    return eventDurationInMinutes(event) >= 23 * 60;
+  }
+
   function eventDurationLabel(event: CleanlyCalendarEvent) {
-    const minutes = Math.max(1, Math.round((Date.parse(event.endsAt) - Date.parse(event.startsAt)) / 60000));
-    return `${minutes} min`;
+    return `${eventDurationInMinutes(event)} min`;
   }
 
   function cleanlyEventTimeLine(event: CleanlyCalendarEvent) {
+    if (isAllDayCleanlyEvent(event)) {
+      return renderTimeSummary("Anytime");
+    }
     return renderTimeSummary(formatInTimeZone(event.startsAt, timeZone, "h:mm a"), eventDurationLabel(event));
   }
 
-  function renderTimeSummary(startLabel: string, durationLabel: string) {
+  function renderTimeSummary(startLabel: string, durationLabel?: string) {
     return (
       <span className="calendar-time-summary">
         <span>{startLabel}</span>
-        <span>{durationLabel}</span>
+        {durationLabel ? <span>{durationLabel}</span> : null}
       </span>
     );
   }
@@ -1345,12 +1355,11 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
         ) : null}
         <span className="calendar-chore-main">
           <span className="calendar-chore-title">{title}</span>
-          <span className="calendar-chore-detail">{occurrence.status === "completed" ? occurrenceCompletionLine(occurrence) : occurrenceDateLine(occurrence)}</span>
+          <span className="calendar-chore-detail">{occurrence.status === "completed" ? occurrenceCompletionLine(occurrence) : occurrenceTimeSummary(occurrence)}</span>
           {renderHouseholdLabel(occurrence.householdId)}
         </span>
         <span className="calendar-chore-meta">
           <span>{assigneeIdentity(occurrence)}</span>
-          <span>{durationInMinutes(occurrence)} min</span>
         </span>
         <span className={`agenda-status-chip is-${occurrence.status}`}>{occurrenceStatusLabel(occurrence)}</span>
       </button>

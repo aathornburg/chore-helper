@@ -2527,7 +2527,12 @@ describe("App", () => {
     expect(plannedCard.classList.contains("is-chore")).toBe(true);
     expect(plannedCard.classList.contains("calendar-agenda-row")).toBe(true);
     expect(plannedCard.classList.contains("calendar-agenda-card")).toBe(false);
-    expect(within(plannedCard).getByText("Anytime / 60 min")).toBeTruthy();
+    const plannedTimeSummary = plannedCard.querySelector(".calendar-time-summary");
+    expect(plannedTimeSummary).not.toBeNull();
+    expect(plannedTimeSummary?.children).toHaveLength(2);
+    expect(within(plannedTimeSummary as HTMLElement).getByText("Anytime")).toBeTruthy();
+    expect(within(plannedTimeSummary as HTMLElement).getByText("60 min")).toBeTruthy();
+    expect(within(plannedCard).queryByText("Anytime / 60 min")).toBeNull();
     expect(within(agenda).getByRole("button", { name: "View Pet cats" })).toBeTruthy();
     expect(screen.queryByText("Flexible")).toBeNull();
     });
@@ -2745,6 +2750,78 @@ describe("App", () => {
       const morningEvent = within(agenda).getByRole("button", { name: "View Morning appointment" });
       const eveningChore = within(agenda).getByRole("button", { name: "View Clean bathrooms" });
       expect(morningEvent.compareDocumentPosition(eveningChore) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+  });
+
+  it("shows timed chore duration only once in the mobile Week agenda", async () => {
+    await withMay2026CalendarClock(async () => {
+      setViewportWidth(390);
+      vi.stubGlobal("fetch", mockCalendarWorkspaceFetches({
+        occurrences: [{
+          id: "occurrence-timed",
+          householdId: "household-1",
+          choreId: "chore-1",
+          scheduleId: "schedule-1",
+          sequence: 0,
+          planningMode: "timed",
+          plannedStartAt: "2026-05-30T00:00:00.000Z",
+          plannedEndAt: "2026-05-30T01:00:00.000Z",
+          estimatedMinutes: 60,
+          eligibleStartOn: "2026-05-29",
+          eligibleEndOn: "2026-05-29",
+          assignedUserId: "app-user-1",
+          exceptionType: "none",
+          status: "planned"
+        }]
+      }));
+      renderAt("/calendar");
+
+      fireEvent.click(await screen.findByRole("button", { name: "Week" }));
+      const weekDays = await screen.findByRole("group", { name: "Week days" });
+      fireEvent.click(within(weekDays).getByRole("button", { name: /Select Friday, May 29/ }));
+
+      const agenda = screen.getByRole("region", { name: "Selected week day agenda" });
+      const choreCard = within(agenda).getByRole("button", { name: "View Clean bathrooms" });
+      const timeSummary = choreCard.querySelector(".calendar-time-summary");
+      expect(timeSummary).not.toBeNull();
+      expect(timeSummary?.children).toHaveLength(2);
+      expect(within(timeSummary as HTMLElement).getByText("8:00 PM")).toBeTruthy();
+      expect(within(timeSummary as HTMLElement).getByText("60 min")).toBeTruthy();
+      expect(within(choreCard).getAllByText("60 min")).toHaveLength(1);
+      expect(within(choreCard).queryByText("8:00 PM / 60 min")).toBeNull();
+    });
+  });
+
+  it("shows all-day imported events as anytime without a 1440 minute duration", async () => {
+    await withMay2026CalendarClock(async () => {
+      setViewportWidth(390);
+      vi.stubGlobal("fetch", mockCalendarWorkspaceFetches({
+        cleanlyCalendarEvents: [{
+          id: "cleanly-event-all-day",
+          householdId: "household-1",
+          createdByUserId: "app-user-1",
+          type: "commitment",
+          title: "Busy",
+          privacyTitle: "Busy",
+          detailLevel: "busy_only",
+          startsAt: "2026-05-30T00:00:00.000Z",
+          endsAt: "2026-05-31T00:00:00.000Z",
+          timezone: "America/New_York",
+          source: "google",
+          status: "active"
+        }],
+        occurrences: []
+      }));
+      renderAt("/calendar");
+
+      fireEvent.click(await screen.findByRole("button", { name: "Week" }));
+      const weekDays = await screen.findByRole("group", { name: "Week days" });
+      fireEvent.click(within(weekDays).getByRole("button", { name: /Select Friday, May 29/ }));
+
+      const agenda = screen.getByRole("region", { name: "Selected week day agenda" });
+      const eventCard = within(agenda).getByRole("button", { name: "View Busy" });
+      expect(within(eventCard).getByText("Anytime")).toBeTruthy();
+      expect(within(eventCard).queryByText("1440 min")).toBeNull();
     });
   });
 
