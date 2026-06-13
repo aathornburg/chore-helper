@@ -1237,6 +1237,133 @@ button:where(:not(.link-button)):hover {
   position: relative;
 }
 
+.settings-workspace {
+  align-items: start;
+  display: grid;
+  gap: 20px;
+  grid-template-columns: 246px minmax(0, 1fr);
+}
+
+.settings-sidebar {
+  align-self: start;
+  background: var(--color-primary-muted);
+  border: 1px solid var(--color-border);
+  box-shadow: -6px 6px 0 rgba(19, 106, 129, 0.1);
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+  position: sticky;
+  top: 16px;
+}
+
+.settings-sidebar-tab {
+  align-items: start;
+  background: transparent;
+  border: 1px solid transparent;
+  color: #24444d;
+  display: grid;
+  gap: 3px;
+  justify-items: start;
+  min-height: 58px;
+  padding: 11px 12px 11px 16px;
+  position: relative;
+  text-align: left;
+  width: 100%;
+}
+
+.settings-sidebar-tab::before {
+  background: transparent;
+  bottom: 9px;
+  content: "";
+  left: 6px;
+  position: absolute;
+  top: 9px;
+  width: 4px;
+}
+
+.settings-sidebar-tab strong,
+.settings-sidebar-tab span {
+  color: inherit;
+}
+
+.settings-sidebar-tab strong {
+  font-size: 0.96rem;
+}
+
+.settings-sidebar-tab span {
+  color: #63727a;
+  font-size: 0.78rem;
+  font-weight: 760;
+}
+
+.settings-sidebar-tab[aria-selected="true"] {
+  background: var(--color-surface-elevated);
+  border-color: var(--color-border);
+  color: var(--color-primary-strong);
+}
+
+.settings-sidebar-tab[aria-selected="true"]::before {
+  background: var(--color-primary);
+}
+
+.settings-sidebar-tab[aria-selected="true"] span {
+  color: #416774;
+}
+
+.settings-content {
+  min-width: 0;
+}
+
+.settings-view-panel {
+  align-content: start;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-section-offset);
+  display: grid;
+  gap: 16px;
+  padding: 24px;
+}
+
+.settings-view-panel > .sync-panel {
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+}
+
+.settings-view-panel .panel-heading {
+  margin-bottom: 0;
+}
+
+.settings-master-list {
+  display: grid;
+  gap: 10px;
+}
+
+.settings-master-row {
+  align-items: center;
+  background: #fbfeff;
+  border: 1px solid var(--color-border);
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  padding: 14px 16px;
+}
+
+.settings-master-row strong,
+.settings-master-row span {
+  display: block;
+}
+
+.settings-master-row strong {
+  color: #102f3b;
+}
+
+.settings-master-row span {
+  color: #52646d;
+  font-size: 0.9rem;
+  font-weight: 760;
+}
+
 .calendar-sync-section.highlighted .sync-panel {
   border-color: #a8d3dd;
   box-shadow: -6px 6px 0 rgba(19, 106, 129, 0.18);
@@ -8109,6 +8236,51 @@ button.chore-row-summary[aria-expanded="true"] {
   .calendar-page .calendar-header-actions {
     grid-column: 2;
     grid-row: 1;
+  }
+
+  .settings-workspace {
+    gap: 14px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-sidebar {
+    display: grid;
+    gap: 5px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    overflow-x: auto;
+    padding: 6px;
+    position: static;
+  }
+
+  .settings-sidebar-tab {
+    align-content: center;
+    justify-items: center;
+    min-height: 46px;
+    min-width: 86px;
+    padding: 9px 8px;
+    text-align: center;
+  }
+
+  .settings-sidebar-tab::before {
+    bottom: 0;
+    height: 4px;
+    left: 8px;
+    right: 8px;
+    top: auto;
+    width: auto;
+  }
+
+  .settings-sidebar-tab span {
+    display: none;
+  }
+
+  .settings-view-panel {
+    padding: 16px;
+  }
+
+  .settings-master-row {
+    align-items: start;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .calendar-actions-menu-trigger {

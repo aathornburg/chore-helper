@@ -4105,9 +4105,10 @@ describe("App", () => {
     renderAt("/settings#calendar");
 
     await waitFor(() => expect(screen.getByRole("heading", { name: "Settings" })).toBeTruthy());
+    expect(screen.getByRole("tab", { name: "Connections" }).getAttribute("aria-selected")).toBe("true");
     expect(await screen.findByRole("region", { name: "Calendar sync" })).toBeTruthy();
     expect(await screen.findByRole("heading", { name: "Your calendar connection" })).toBeTruthy();
-    expect(await screen.findByRole("heading", { name: "Family import controls" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Family import controls" })).toBeNull();
     expect(screen.getByText(/When you are ready to import or export events, use Calendar\./)).toBeTruthy();
     expect(screen.queryByLabelText("Source calendars")).toBeNull();
     expect(screen.queryByLabelText("Export destination")).toBeNull();
@@ -4115,6 +4116,32 @@ describe("App", () => {
     expect(screen.getByText("Not connected")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Connect Google Calendar" }));
     expect(await screen.findByText(/Google Calendar login needs/i)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Family" }));
+    expect(await screen.findByRole("heading", { name: "Family import controls" })).toBeTruthy();
+  });
+
+  it("organizes Settings into sidebar views with General as the default", async () => {
+    mockRestoredHouseholdFetches({
+      chores: [cleanBathroomsChore, { ...cleanBathroomsChore, id: "chore-2", title: "Pet cats" }]
+    });
+    renderAt("/settings");
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Settings" })).toBeTruthy());
+    const sections = screen.getByRole("tablist", { name: "Settings sections" });
+    expect(within(sections).getByRole("tab", { name: "General" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("region", { name: "General settings" })).toBeTruthy();
+    expect(screen.getByRole("combobox", { name: "Week starts on" })).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "Calendar sync" })).toBeNull();
+
+    fireEvent.click(within(sections).getByRole("tab", { name: "Connections" }));
+    expect(await screen.findByRole("region", { name: "Calendar sync" })).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "General settings" })).toBeNull();
+
+    fireEvent.click(within(sections).getByRole("tab", { name: "Master chore list" }));
+    const masterList = await screen.findByRole("region", { name: "Master chore list" });
+    expect(within(masterList).getByText("Clean bathrooms")).toBeTruthy();
+    expect(within(masterList).getByText("Pet cats")).toBeTruthy();
   });
 
   it("does not show a calendar sync settings error just because a disconnected user has no sync preferences", async () => {
