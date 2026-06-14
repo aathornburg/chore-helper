@@ -1,7 +1,7 @@
 import { addDays, addMinutes, addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format, parseISO, startOfMonth, startOfWeek } from "date-fns";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import type { CalendarConnectionSummary, CalendarImportCandidate, CalendarImportPolicy, CalendarImportQueueItem, CalendarPreferences, TaskOccurrence, TaskSchedule, CleanlyCalendarEvent, CompletionCheckInInput, ExternalCalendarSummary, HouseholdAppData, HouseholdMemberSummary, ScheduleInput } from "@chore-helper/shared";
+import type { CalendarConnectionSummary, CalendarImportCandidate, CalendarImportPolicy, CalendarImportQueueItem, CalendarPreferences, Task, TaskOccurrence, TaskSchedule, CleanlyCalendarEvent, CompletionCheckInInput, ExternalCalendarSummary, HouseholdAppData, HouseholdMemberSummary, ScheduleInput } from "@chore-helper/shared";
 import { completeOccurrence, createScheduledTask, decideCalendarImportQueueItem, exportCleanlyCalendarEvents, getCalendarPreferences, getCurrentUser, getMyCalendarImportPolicy, listCalendarConnections, listCalendarImportCandidates, listCalendarImportPolicies, listCalendarImportQueue, listCleanlyCalendarEvents, listExternalCalendars, listHouseholdMembers, listOccurrences, listSchedules, skipOccurrence, startGoogleCalendarConnection, submitCalendarImportEvents, updateCalendarPreferences, updateOccurrence, updateSchedule as updateScheduleApi } from "../api";
 import { CalendarExportPreselectPanel, CalendarExportReviewPanel } from "./calendar/CalendarExportPanel";
 import { DateRangePicker } from "./calendar/DateRangePicker";
@@ -23,6 +23,8 @@ type QueueDecisionDraft = {
 type EditorDraft = {
   taskId?: string;
   title: string;
+  type: Task["type"];
+  saveToLibrary: boolean;
   instructions: string;
   tags: string;
   startTime: string;
@@ -852,6 +854,8 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     setCompletionCheckIn(undefined);
     setEditorDraft({
       title: "",
+      type: "chore",
+      saveToLibrary: true,
       instructions: "",
       tags: "",
       startTime: "",
@@ -884,6 +888,8 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     return {
       taskId: occurrence.taskId,
       title: occurrenceTitle(occurrence),
+      type: chore?.type ?? "chore",
+      saveToLibrary: chore?.libraryState !== "one_time",
       instructions: chore?.instructions ?? "",
       tags: chore?.tags?.join(", ") ?? "",
       startTime: occurrence.plannedStartAt ? formatInTimeZone(occurrence.plannedStartAt, timeZone, "HH:mm") : "",
@@ -978,8 +984,8 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
       const created = await createScheduledTask(selectedHousehold.id, {
         task: {
           title: editorDraft.title,
-          type: "chore",
-          libraryState: "saved",
+          type: editorDraft.type,
+          libraryState: editorDraft.saveToLibrary ? "saved" : "one_time",
           source: "manual",
           ...(editorDraft.instructions.trim() ? { instructions: editorDraft.instructions.trim() } : {}),
           tags: tagsFromText(editorDraft.tags)
@@ -991,9 +997,9 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
       await reloadOccurrences();
       setEditorMode("closed");
       setEditorDraft(undefined);
-      setEditorStatus("Task saved.");
+      setEditorStatus("Task scheduled.");
     } catch {
-      setEditorStatus("Could not save chore.");
+      setEditorStatus("Could not schedule task.");
     }
   }
 
@@ -2356,7 +2362,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
         {!isExportMode ? (
           <div className="calendar-header-actions" aria-label="Calendar header actions">
             {!isMobileMonthViewport ? (
-              <button onClick={(event) => openCreateEditor(event.currentTarget)} type="button">Add event</button>
+              <button onClick={(event) => openCreateEditor(event.currentTarget)} type="button">Schedule task</button>
             ) : null}
             <div
               className="calendar-actions-menu"
@@ -2382,7 +2388,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
               {isCalendarActionsOpen ? (
                 <div className={`calendar-actions-popover ${isMobileMonthViewport ? "is-mobile-positioned is-edge-aligned" : ""}`} id="calendar-actions-menu" role="region" aria-label="Calendar actions menu">
                   {isMobileMonthViewport ? (
-                    <button onClick={(event) => openCreateEditor(event.currentTarget)} type="button">Add event</button>
+                    <button onClick={(event) => openCreateEditor(event.currentTarget)} type="button">Schedule task</button>
                   ) : null}
                   <button onClick={openImportModal} type="button">Import events</button>
                   <button onClick={startExportMode} type="button">Export events</button>
@@ -2619,7 +2625,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
               role="presentation"
             >
               <form
-                aria-label={editorMode === "create" ? "New chore" : editorMode === "view" ? "Task details" : "Edit chore"}
+                aria-label={editorMode === "create" ? "Schedule task" : editorMode === "view" ? "Scheduled task details" : "Edit scheduled task"}
                 aria-modal="true"
                 className={`chore-editor-modal calendar-modal-shell ${editorMode === "view" ? "is-detail-view" : ""}`}
                 ref={choreEditorModalRef}
@@ -2639,8 +2645,8 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
               >
                 <div className="panel-heading">
                   <div>
-                    <p className="eyebrow">{editorMode === "create" ? "New chore" : editorMode === "view" ? "Task details" : "Edit chore"}</p>
-                    <h2>{editorMode === "create" ? "Task Details" : editorDraft.title}</h2>
+                    <p className="eyebrow">{editorMode === "create" ? "Schedule task" : editorMode === "view" ? "Scheduled task details" : "Edit scheduled task"}</p>
+                    <h2>{editorMode === "create" ? "Task details" : editorDraft.title}</h2>
                   </div>
                   <button aria-label="Close dialog" className="icon-button modal-close-button" onClick={closeTaskEditor} type="button" />
                 </div>
@@ -2711,6 +2717,18 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                     {editorMode === "create" || editorMode === "edit" ? <span className="field-help-placeholder" aria-hidden="true" /> : null}
                   </label>
                   <label className="aligned-field">
+                    Task type
+                    <select
+                      disabled={editorMode === "edit"}
+                      value={editorDraft.type}
+                      onChange={(event) => setEditorDraft({ ...editorDraft, type: event.target.value as Task["type"] })}
+                    >
+                      <option value="chore">Chore</option>
+                      <option value="commitment">Commitment</option>
+                    </select>
+                    {editorMode === "create" || editorMode === "edit" ? <span className="field-help-placeholder" aria-hidden="true" /> : null}
+                  </label>
+                  <label className="aligned-field">
                     Tags
                     <input
                       aria-describedby={editorMode === "create" ? "chore-tags-help" : undefined}
@@ -2735,6 +2753,16 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                     <span className="field-help" id="chore-instructions-help">Add steps, scope, or preferences. This helps future optimization understand what the chore includes.</span>
                   ) : null}
                 </label>
+                {editorMode === "create" ? (
+                  <label className="checkbox-field save-to-library-field">
+                    <input
+                      checked={editorDraft.saveToLibrary}
+                      onChange={(event) => setEditorDraft({ ...editorDraft, saveToLibrary: event.target.checked })}
+                      type="checkbox"
+                    />
+                    Save to Task library
+                  </label>
+                ) : null}
                 {editorDraft.schedules[0] ? (
                   <section className="create-schedule-panel" aria-label="Task schedule">
                     <div className="panel-heading">
@@ -2972,7 +3000,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                 ) : (
                   <div className="form-actions modal-actions">
                     <button className="section-action" onClick={closeTaskEditor} type="button">Cancel</button>
-                    {editorMode === "create" || editorMode === "edit" ? <button type="submit">{editorMode === "create" ? "Add event" : "Save changes"}</button> : null}
+                    {editorMode === "create" || editorMode === "edit" ? <button type="submit">{editorMode === "create" ? "Schedule task" : "Save changes"}</button> : null}
                     {editorMode === "edit" && selectedOccurrence ? <button className="section-action" onClick={() => void handleSkip()} type="button">Skip occurrence</button> : null}
                   </div>
                 )}

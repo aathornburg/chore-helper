@@ -2342,7 +2342,7 @@ describe("App", () => {
 
       fireEvent.click(await screen.findByRole("button", { name: "View Clean bathrooms" }));
 
-      const dialog = await screen.findByRole("dialog", { name: "Task details" });
+      const dialog = await screen.findByRole("dialog", { name: "Scheduled task details" });
       expect(within(dialog).getByText("Assigned to")).toBeTruthy();
       expect(within(dialog).getByText("Morgan Member")).toBeTruthy();
       expect(within(dialog).getByText("Source")).toBeTruthy();
@@ -2516,7 +2516,7 @@ describe("App", () => {
     expect(within(pageHeader as HTMLElement).queryByText(/open$/)).toBeNull();
     expect(within(pageHeader as HTMLElement).queryByText(/completed$/)).toBeNull();
     expect(screen.getByRole("link", { name: "Tasks" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Add event" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Schedule task" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Add chore" })).toBeNull();
     expect(screen.getByRole("button", { name: "Calendar actions" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Import events" })).toBeNull();
@@ -2542,6 +2542,25 @@ describe("App", () => {
     expect(within(workspace).queryByRole("button", { name: /View Practice/i })).toBeNull();
   });
 
+  it("uses Schedule task as the primary Calendar creation action", async () => {
+    vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
+    renderAt("/calendar");
+
+    expect(await screen.findByRole("heading", { name: "Calendar" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Schedule task" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Add chore" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add event" })).toBeNull();
+  });
+
+  it("defaults new manually scheduled tasks to save to the Task library", async () => {
+    vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
+    renderAt("/calendar");
+
+    fireEvent.click(await screen.findByRole("button", { name: "Schedule task" }));
+
+    expect((screen.getByRole("checkbox", { name: "Save to Task library" }) as HTMLInputElement).checked).toBe(true);
+  });
+
   it("uses one compact calendar actions trigger on mobile", async () => {
     setViewportWidth(390);
     vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
@@ -2549,13 +2568,13 @@ describe("App", () => {
 
     expect(await screen.findByRole("heading", { name: "Calendar" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Calendar actions" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Add event" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Schedule task" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Import events" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Export events" })).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Calendar actions" }));
 
-    expect(screen.getByRole("button", { name: "Add event" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Schedule task" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Import events" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Export events" })).toBeTruthy();
   });
@@ -2597,9 +2616,9 @@ describe("App", () => {
 
     await screen.findByRole("heading", { name: "Calendar" });
     fireEvent.click(screen.getByRole("button", { name: "Calendar actions" }));
-    fireEvent.click(screen.getByRole("button", { name: "Add event" }));
+    fireEvent.click(screen.getByRole("button", { name: "Schedule task" }));
 
-    const addModal = await screen.findByRole("dialog", { name: "New chore" });
+    const addModal = await screen.findByRole("dialog", { name: "Schedule task" });
     expect(addModal.classList.contains("calendar-modal-shell")).toBe(true);
     expect(document.querySelector(".chore-editor-backdrop")?.classList.contains("calendar-modal-backdrop")).toBe(true);
     fireEvent.click(within(addModal).getByRole("button", { name: "Cancel" }));
@@ -2740,7 +2759,7 @@ describe("App", () => {
       expect(within(calendarCard).getByText("Home")).toBeTruthy();
 
       fireEvent.click(choreCard);
-      const choreDialog = await screen.findByRole("dialog", { name: "Task details" });
+      const choreDialog = await screen.findByRole("dialog", { name: "Scheduled task details" });
       expect(within(choreDialog).getByText("Household")).toBeTruthy();
       expect(within(choreDialog).getByText("Home")).toBeTruthy();
       fireEvent.click(within(choreDialog).getByRole("button", { name: "Close" }));
@@ -2990,7 +3009,7 @@ describe("App", () => {
       const agenda = screen.getByRole("region", { name: "Selected week day agenda" });
       fireEvent.click(within(agenda).getByRole("button", { name: "View Clean bathrooms" }));
 
-      expect(await screen.findByRole("dialog", { name: "Task details" })).toBeTruthy();
+      expect(await screen.findByRole("dialog", { name: "Scheduled task details" })).toBeTruthy();
     });
   });
 
@@ -3044,7 +3063,7 @@ describe("App", () => {
       const agenda = await screen.findByRole("region", { name: "Selected day agenda" });
       fireEvent.click(within(agenda).getByRole("button", { name: "View Clean bathrooms" }));
 
-      const dialog = await screen.findByRole("dialog", { name: "Task details" });
+      const dialog = await screen.findByRole("dialog", { name: "Scheduled task details" });
       expect(within(dialog).getByRole("heading", { name: "Clean bathrooms" })).toBeTruthy();
     });
   });
@@ -3389,13 +3408,13 @@ describe("App", () => {
       expect(document.activeElement).toBe(within(modal).getByRole("button", { name: "Close dialog" }));
 
       fireEvent.keyDown(document, { key: "Escape" });
-      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Task details" })).toBeNull());
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Scheduled task details" })).toBeNull());
       expect(document.activeElement).toBe(opener);
 
       fireEvent.click(opener);
-      await screen.findByRole("dialog", { name: "Task details" });
+      await screen.findByRole("dialog", { name: "Scheduled task details" });
       fireEvent.mouseDown(document.querySelector(".chore-editor-backdrop") as HTMLElement);
-      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Task details" })).toBeNull());
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Scheduled task details" })).toBeNull());
       expect(document.activeElement).toBe(opener);
     });
   });
@@ -3423,11 +3442,11 @@ describe("App", () => {
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/calendar");
 
-    fireEvent.click(await screen.findByRole("button", { name: "Add event" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Schedule task" }));
     const editor = getTaskEditor();
     expect(editor.getByRole("button", { name: "Close dialog" })).toBeTruthy();
     expect(editor.getByRole("button", { name: "Cancel" })).toBeTruthy();
-    expect(editor.getByRole("button", { name: "Add event" })).toBeTruthy();
+    expect(editor.getByRole("button", { name: "Schedule task" })).toBeTruthy();
     expect(editor.queryByRole("button", { name: "Save chore" })).toBeNull();
     expect(screen.getByText("Add steps, scope, or preferences. This helps future optimization understand what the chore includes.")).toBeTruthy();
     expect(screen.getByText("Optional labels like bathroom, outdoor, or deep clean. Tags help group chores and give optimization more context.")).toBeTruthy();
@@ -3451,7 +3470,7 @@ describe("App", () => {
     expect(screen.getByText("Days")).toBeTruthy();
     fireEvent.change(screen.getByLabelText("Repeat interval"), { target: { value: "5" } });
 
-    fireEvent.click(editor.getByRole("button", { name: "Add event" }));
+    fireEvent.click(editor.getByRole("button", { name: "Schedule task" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:3001/api/households/household-1/tasks",
@@ -3487,10 +3506,10 @@ describe("App", () => {
     vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
     renderAt("/calendar");
 
-    fireEvent.click(await screen.findByRole("button", { name: "Add event" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Schedule task" }));
     fireEvent.change(screen.getByLabelText("Task title"), { target: { value: "Wash windows" } });
     fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2026-06-06" } });
-    fireEvent.click(getTaskEditor().getByRole("button", { name: "Add event" }));
+    fireEvent.click(getTaskEditor().getByRole("button", { name: "Schedule task" }));
 
     expect(await screen.findByRole("button", { name: "View Wash windows" })).toBeTruthy();
   });
@@ -3500,12 +3519,12 @@ describe("App", () => {
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/calendar");
 
-    fireEvent.click(await screen.findByRole("button", { name: "Add event" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Schedule task" }));
     fireEvent.change(screen.getByLabelText("Task title"), { target: { value: "Clean kitchen" } });
     fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2026-06-06" } });
     fireEvent.change(screen.getByLabelText(/Start time/), { target: { value: "10:30" } });
     fireEvent.change(screen.getByLabelText(/Estimated duration/), { target: { value: "45" } });
-    fireEvent.click(getTaskEditor().getByRole("button", { name: "Add event" }));
+    fireEvent.click(getTaskEditor().getByRole("button", { name: "Schedule task" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:3001/api/households/household-1/tasks",
@@ -3535,7 +3554,7 @@ describe("App", () => {
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/calendar");
 
-    fireEvent.click(await screen.findByRole("button", { name: "Add event" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Schedule task" }));
     fireEvent.change(screen.getByLabelText("Task title"), { target: { value: "Replace filter" } });
     fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2026-06-15" } });
     expect(screen.queryByLabelText("Monthly anchor date")).toBeNull();
@@ -3546,7 +3565,7 @@ describe("App", () => {
     expect(screen.getByRole("radio", { name: "On day 15 of the month" })).toBeTruthy();
     expect(screen.getByRole("radio", { name: "On the third Monday" })).toBeTruthy();
     fireEvent.click(screen.getByRole("radio", { name: "On the third Monday" }));
-    fireEvent.click(getTaskEditor().getByRole("button", { name: "Add event" }));
+    fireEvent.click(getTaskEditor().getByRole("button", { name: "Schedule task" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:3001/api/households/household-1/tasks",
@@ -3576,14 +3595,14 @@ describe("App", () => {
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/calendar");
 
-    fireEvent.click(await screen.findByRole("button", { name: "Add event" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Schedule task" }));
     fireEvent.change(screen.getByLabelText("Task title"), { target: { value: "Service HVAC" } });
     fireEvent.click(screen.getByRole("button", { name: "Repeats" }));
     fireEvent.change(screen.getByLabelText("Repeat interval"), { target: { value: "1" } });
     fireEvent.change(screen.getByLabelText("Repeat unit"), { target: { value: "yearly" } });
     expect(screen.queryByText("Days")).toBeNull();
     expect(screen.queryByLabelText("Monthly anchor date")).toBeNull();
-    fireEvent.click(getTaskEditor().getByRole("button", { name: "Add event" }));
+    fireEvent.click(getTaskEditor().getByRole("button", { name: "Schedule task" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:3001/api/households/household-1/tasks",
@@ -3605,7 +3624,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     const dialog = getTaskEditor();
     expect(dialog.getByRole("heading", { name: "Clean bathrooms" })).toBeTruthy();
-    expect(dialog.getByText("Edit chore")).toBeTruthy();
+    expect(dialog.getByText("Edit scheduled task")).toBeTruthy();
     const schedulePanel = screen.getByRole("region", { name: "Task schedule" });
     expect(schedulePanel.classList.contains("create-schedule-panel")).toBe(true);
     expect(schedulePanel.querySelector(".aligned-field-grid")).not.toBeNull();
@@ -4364,7 +4383,7 @@ describe("App", () => {
     expect(screen.getByText(/Review selected events before choosing a destination calendar/i)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Import events" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Export events" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Add event" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Schedule task" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Add chore" })).toBeNull();
     expect(screen.queryByRole("region", { name: "Calendar import queue" })).toBeNull();
     expect(
