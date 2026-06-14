@@ -1260,6 +1260,10 @@ button:where(:not(.link-button)):hover {
   display: none;
 }
 
+.settings-mobile-section-selector {
+  display: none;
+}
+
 .settings-sidebar-tab {
   align-items: start;
   background: transparent;
@@ -1378,7 +1382,7 @@ button:where(:not(.link-button)):hover {
   border: 1px solid var(--color-border);
   display: grid;
   gap: 14px;
-  grid-template-columns: minmax(0, 1.35fr) minmax(90px, auto) minmax(120px, 0.75fr) auto;
+  grid-template-columns: minmax(0, 1.4fr) minmax(80px, auto) minmax(100px, 0.55fr) minmax(100px, 0.55fr) auto;
   padding: 14px 16px;
 }
 
@@ -1420,6 +1424,7 @@ button:where(:not(.link-button)):hover {
   flex-wrap: wrap;
   gap: 8px;
   justify-content: flex-end;
+  justify-self: end;
 }
 
 .task-inbox-list {
@@ -1846,8 +1851,10 @@ button:where(:not(.link-button)):hover {
 }
 
 .calendar-workspace-shell {
+  align-items: start;
   display: grid;
-  gap: 10px;
+  gap: 20px;
+  grid-template-columns: 246px minmax(0, 1fr);
 }
 
 .calendar-sync-backdrop {
@@ -8449,12 +8456,14 @@ button.chore-row-summary[aria-expanded="true"] {
     grid-row: 1;
   }
 
-  .settings-workspace {
+  .settings-workspace,
+  .calendar-workspace-shell {
     gap: 14px;
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .settings-mobile-section-switcher {
+  .settings-mobile-section-switcher,
+  .settings-mobile-section-selector {
     display: grid;
     gap: 8px;
     position: relative;
@@ -8616,6 +8625,7 @@ button.chore-row-summary[aria-expanded="true"] {
   .chore-library-actions,
   .task-inbox-actions {
     justify-content: flex-start;
+    justify-self: stretch;
   }
 
   .calendar-actions-menu-trigger {

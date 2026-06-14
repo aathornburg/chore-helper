@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { HouseholdAppData, HouseholdMemberSummary, Task, TaskDefinitionInput, TaskInboxItem } from "@chore-helper/shared";
 import {
   archiveTask,
@@ -27,6 +27,11 @@ type TaskFormState = {
   instructions: string;
   tags: string;
 };
+
+const taskSections: Array<{ id: TasksSection; label: string; summary: string }> = [
+  { id: "library", label: "Task library", summary: "Saved work" },
+  { id: "inbox", label: "Task inbox", summary: "Needs review" }
+];
 
 function taskTypeLabel(type: Task["type"]) {
   return type === "commitment" ? "Commitment" : "Chore";
@@ -114,7 +119,9 @@ function TaskLibraryModal({
 
 export function TasksPage({ households, isLoading }: TasksPageProps) {
   const selectedHousehold = households[0];
+  const mobileTaskMenuRef = useRef<HTMLDivElement | null>(null);
   const [activeSection, setActiveSection] = useState<TasksSection>("library");
+  const [isMobileTaskMenuOpen, setIsMobileTaskMenuOpen] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string>();
   const [members, setMembers] = useState<HouseholdMemberSummary[]>([]);
   const [permissionStatus, setPermissionStatus] = useState<"loading" | "ready" | "error">(
@@ -140,6 +147,12 @@ export function TasksPage({ households, isLoading }: TasksPageProps) {
   );
   const currentMember = members.find((member) => member.userId === currentUserId);
   const canManageTaskLibrary = isOwner || currentMember?.taskLibraryPermission === "manage";
+  const activeTaskSection = taskSections.find((section) => section.id === activeSection) ?? taskSections[0];
+
+  function selectTaskSection(section: TasksSection) {
+    setActiveSection(section);
+    setIsMobileTaskMenuOpen(false);
+  }
 
   useEffect(() => {
     if (!selectedHousehold) {
@@ -169,6 +182,19 @@ export function TasksPage({ households, isLoading }: TasksPageProps) {
       cancelled = true;
     };
   }, [selectedHousehold?.id]);
+
+  useEffect(() => {
+    if (!isMobileTaskMenuOpen) return;
+
+    function closeMobileTaskMenuOnOutsideClick(event: MouseEvent) {
+      const target = event.target;
+      if (!(target instanceof Node) || mobileTaskMenuRef.current?.contains(target)) return;
+      setIsMobileTaskMenuOpen(false);
+    }
+
+    document.addEventListener("mousedown", closeMobileTaskMenuOnOutsideClick);
+    return () => document.removeEventListener("mousedown", closeMobileTaskMenuOnOutsideClick);
+  }, [isMobileTaskMenuOpen]);
 
   useEffect(() => {
     if (!selectedHousehold) {
@@ -480,36 +506,62 @@ export function TasksPage({ households, isLoading }: TasksPageProps) {
         </div>
       </header>
 
-      <div className="settings-layout">
+      <section className="settings-workspace" aria-label="Tasks workspace">
+        <div className="settings-mobile-section-switcher" ref={mobileTaskMenuRef}>
+          <button
+            aria-expanded={isMobileTaskMenuOpen}
+            aria-label={`Task section: ${activeTaskSection.label}. Change section`}
+            className="settings-mobile-section-trigger"
+            onClick={() => setIsMobileTaskMenuOpen((current) => !current)}
+            type="button"
+          >
+            <span>
+              <small>Task section</small>
+              <strong>{activeTaskSection.label}</strong>
+            </span>
+            <b>Change</b>
+          </button>
+          {isMobileTaskMenuOpen ? (
+            <div className="settings-mobile-section-menu" role="menu" aria-label="Task sections">
+              {taskSections.map((section) => (
+                <button
+                  aria-current={activeSection === section.id ? "true" : undefined}
+                  aria-label={`${section.label} ${section.summary}`}
+                  className="settings-mobile-section-menu-item"
+                  key={section.id}
+                  onClick={() => selectTaskSection(section.id)}
+                  role="menuitem"
+                  type="button"
+                >
+                  <strong>{section.label}</strong>
+                  <span>{section.summary}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
         <aside className="settings-sidebar" role="tablist" aria-label="Task sections">
-          <button
-            aria-label="Task library"
-            aria-selected={activeSection === "library"}
-            className="settings-sidebar-tab"
-            onClick={() => setActiveSection("library")}
-            role="tab"
-            type="button"
-          >
-            <strong>Task library</strong>
-            <span>Saved work</span>
-          </button>
-          <button
-            aria-label="Task inbox"
-            aria-selected={activeSection === "inbox"}
-            className="settings-sidebar-tab"
-            onClick={() => setActiveSection("inbox")}
-            role="tab"
-            type="button"
-          >
-            <strong>Task inbox</strong>
-            <span>Needs review</span>
-          </button>
+          {taskSections.map((section) => (
+            <button
+              aria-label={section.label}
+              aria-selected={activeSection === section.id}
+              className="settings-sidebar-tab"
+              key={section.id}
+              onClick={() => selectTaskSection(section.id)}
+              role="tab"
+              type="button"
+            >
+              <strong>{section.label}</strong>
+              <span>{section.summary}</span>
+            </button>
+          ))}
         </aside>
 
         <div className="settings-content">
           {activeSection === "library" ? renderTaskLibrary() : renderTaskInbox()}
         </div>
-      </div>
+      </section>
 
       {editingTask ? (
         <TaskLibraryModal
