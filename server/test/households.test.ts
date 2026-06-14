@@ -19,6 +19,17 @@ function createTestApp() {
   });
 }
 
+function createTestAppWithStore() {
+  const store = createInMemoryStore();
+  const app = createApp({
+    store,
+    agentProvider: new MockChoreAgentProvider(),
+    authMode: "test"
+  });
+
+  return { app, store };
+}
+
 function createInvitationTestApp() {
   const invitationLinks: string[] = [];
   const app = createApp({
@@ -452,6 +463,109 @@ describe("household profile flow", () => {
           recurrence: expect.objectContaining({ frequency: "one_time" })
         }));
       });
+  });
+
+  it("lists pending imports and one-time scheduled tasks in the task inbox", async () => {
+    const { app, store } = createTestAppWithStore();
+    const created = await request(app)
+      .post("/api/households")
+      .send({ name: "Home" })
+      .expect(201);
+    const householdId = created.body.id as string;
+    const members = await request(app)
+      .get(`/api/households/${householdId}/members`)
+      .expect(200);
+    const assigneeId = members.body[0].userId as string;
+
+    await store.createCalendarImportQueueItem({
+      householdId,
+      submittedByUserId: assigneeId,
+      submittedByName: "Alex",
+      proposedType: "commitment",
+      detailLevel: "full_details",
+      title: "Busy",
+      privacyTitle: "Busy",
+      startsAt: "2026-06-20T12:00:00.000Z",
+      endsAt: "2026-06-20T13:00:00.000Z"
+    });
+
+    await request(app)
+      .post(`/api/households/${householdId}/tasks`)
+      .send({
+        task: {
+          title: "Drop off donation",
+          type: "commitment",
+          libraryState: "one_time",
+          source: "manual"
+        },
+        schedules: [{
+          planningMode: "timed",
+          recurrence: { frequency: "one_time", interval: 1 },
+          localStartTime: "10:00",
+          localEndTime: "11:00",
+          startsOn: "2026-06-20",
+          assignment: { mode: "fixed", memberUserIds: [assigneeId] }
+        }]
+      })
+      .expect(201);
+
+    const response = await request(app)
+      .get(`/api/households/${householdId}/task-inbox`)
+      .expect(200);
+
+    expect(response.body.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "import_queue", badge: "Pending import", title: "Busy" }),
+        expect.objectContaining({ kind: "task", badge: "Scheduled", title: "Drop off donation" })
+      ])
+    );
+  });
+
+  it("links a pending import inbox item to an existing task without approving the calendar import", async () => {
+    const { app, store } = createTestAppWithStore();
+    const created = await request(app)
+      .post("/api/households")
+      .send({ name: "Home" })
+      .expect(201);
+    const householdId = created.body.id as string;
+    const members = await request(app)
+      .get(`/api/households/${householdId}/members`)
+      .expect(200);
+    const assigneeId = members.body[0].userId as string;
+    const task = await request(app)
+      .post(`/api/households/${householdId}/tasks`)
+      .send({
+        task: {
+          title: "Clean bathrooms",
+          type: "chore",
+          libraryState: "saved",
+          source: "manual"
+        }
+      })
+      .expect(201);
+    const queueItem = await store.createCalendarImportQueueItem({
+      householdId,
+      submittedByUserId: assigneeId,
+      submittedByName: "Alex",
+      proposedType: "chore",
+      detailLevel: "full_details",
+      title: "Clean bathrooms",
+      privacyTitle: "Busy",
+      startsAt: "2026-06-20T12:00:00.000Z",
+      endsAt: "2026-06-20T13:00:00.000Z"
+    });
+
+    const response = await request(app)
+      .post(`/api/households/${householdId}/task-inbox/import_queue/${queueItem.id}/link`)
+      .send({ taskId: task.body.id, scope: "single" })
+      .expect(200);
+
+    expect(response.body).toEqual(expect.objectContaining({
+      queueStatus: "pending",
+      taskLinkStatus: "linked",
+      linkedTaskId: task.body.id,
+      importScope: "single"
+    }));
   });
 
   it("creates a household, saves profile facts, and returns expert recommendations", async () => {

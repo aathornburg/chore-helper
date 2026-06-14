@@ -9,7 +9,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import { Router } from "express";
 import type { Request, Response } from "express";
 import { z } from "zod";
-import type { Task, TaskSchedule, Recommendation } from "@chore-helper/shared";
+import type { ImportScope, Task, TaskInboxItemKind, TaskSchedule, Recommendation } from "@chore-helper/shared";
 import type { AgentProvider } from "../agent/AgentProvider.js";
 import type { AuthMode } from "../auth/currentUser.js";
 import { resolveCurrentUser } from "../auth/currentUser.js";
@@ -126,6 +126,8 @@ const taskSchema = z.object({
   instructions: z.string().trim().optional(),
   tags: z.array(z.string().trim().min(1)).optional()
 });
+const taskInboxKindSchema = z.enum(["task", "import_queue"]);
+const importScopeSchema = z.enum(["single", "series", "future_matching"]);
 
 const recurrenceSchema = z.object({
   frequency: z.enum(["one_time", "daily", "weekly", "monthly", "yearly"]),
@@ -643,6 +645,78 @@ export function createHouseholdRouter(
     if (!invitation) return res.status(404).json({ error: "Pending invitation not found" });
 
     return res.status(200).json(invitation);
+  });
+
+  router.get("/:householdId/task-inbox", async (req, res) => {
+    const access = await requireHouseholdAccess(req, res);
+    if (!access) return;
+
+    return res.status(200).json(await store.listTaskInboxItems(access.household.id));
+  });
+
+  router.post("/:householdId/task-inbox/:kind/:itemId/link", async (req, res) => {
+    const access = await requireTaskLibraryManage(req, res);
+    if (!access) return;
+
+    const kind = taskInboxKindSchema.safeParse(req.params.kind);
+    if (!kind.success) return res.status(400).json({ error: "Invalid task inbox item kind" });
+    const parsed = z.object({
+      taskId: z.string().min(1),
+      scope: importScopeSchema.default("single")
+    }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+    const updated = await store.linkTaskInboxItem(
+      access.household.id,
+      kind.data as TaskInboxItemKind,
+      req.params.itemId,
+      parsed.data.taskId,
+      parsed.data.scope as ImportScope
+    );
+    return updated
+      ? res.status(200).json(updated)
+      : res.status(404).json({ error: "Task inbox item not found" });
+  });
+
+  router.post("/:householdId/task-inbox/:kind/:itemId/save", async (req, res) => {
+    const access = await requireTaskLibraryManage(req, res);
+    if (!access) return;
+
+    const kind = taskInboxKindSchema.safeParse(req.params.kind);
+    if (!kind.success) return res.status(400).json({ error: "Invalid task inbox item kind" });
+    const parsed = z.object({
+      task: taskSchema,
+      scope: importScopeSchema.default("single")
+    }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+    const updated = await store.saveTaskInboxItem(
+      access.household.id,
+      kind.data as TaskInboxItemKind,
+      req.params.itemId,
+      parsed.data.task,
+      parsed.data.scope as ImportScope
+    );
+    return updated
+      ? res.status(200).json(updated)
+      : res.status(404).json({ error: "Task inbox item not found" });
+  });
+
+  router.post("/:householdId/task-inbox/:kind/:itemId/keep-one-time", async (req, res) => {
+    const access = await requireTaskLibraryManage(req, res);
+    if (!access) return;
+
+    const kind = taskInboxKindSchema.safeParse(req.params.kind);
+    if (!kind.success) return res.status(400).json({ error: "Invalid task inbox item kind" });
+
+    const updated = await store.keepTaskInboxItemOneTime(
+      access.household.id,
+      kind.data as TaskInboxItemKind,
+      req.params.itemId
+    );
+    return updated
+      ? res.status(200).json(updated)
+      : res.status(404).json({ error: "Task inbox item not found" });
   });
 
   router.post("/:householdId/tasks", async (req, res) => {

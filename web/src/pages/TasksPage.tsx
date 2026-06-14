@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
-import type { HouseholdAppData, HouseholdMemberSummary, Task, TaskDefinitionInput } from "@chore-helper/shared";
+import type { HouseholdAppData, HouseholdMemberSummary, Task, TaskDefinitionInput, TaskInboxItem } from "@chore-helper/shared";
 import {
   archiveTask,
   createTask,
   getCurrentUser,
+  keepTaskInboxItemOneTime,
   listArchivedTasks,
   listHouseholdMembers,
+  listTaskInbox,
   listTasks,
+  linkTaskInboxItem,
   restoreTask,
+  saveTaskInboxItem,
   updateTask
 } from "../api";
 
@@ -118,6 +122,10 @@ export function TasksPage({ households, isLoading }: TasksPageProps) {
   );
   const [libraryTasks, setLibraryTasks] = useState<Task[]>([]);
   const [archivedTasks, setArchivedTasks] = useState<Task[]>([]);
+  const [taskInboxItems, setTaskInboxItems] = useState<TaskInboxItem[]>([]);
+  const [taskInboxStatus, setTaskInboxStatus] = useState<"loading" | "ready" | "error">(
+    selectedHousehold ? "loading" : "ready"
+  );
   const [librarySearch, setLibrarySearch] = useState("");
   const [librarySource, setLibrarySource] = useState<"all" | Task["source"]>("all");
   const [libraryType, setLibraryType] = useState<"all" | Task["type"]>("all");
@@ -166,19 +174,28 @@ export function TasksPage({ households, isLoading }: TasksPageProps) {
     if (!selectedHousehold) {
       setLibraryTasks([]);
       setArchivedTasks([]);
+      setTaskInboxItems([]);
+      setTaskInboxStatus("ready");
       return;
     }
 
     let cancelled = false;
+    setTaskInboxStatus("loading");
     void Promise.all([
       listTasks(selectedHousehold.id),
-      listArchivedTasks(selectedHousehold.id)
-    ]).then(([active, archived]) => {
+      listArchivedTasks(selectedHousehold.id),
+      listTaskInbox(selectedHousehold.id)
+    ]).then(([active, archived, inbox]) => {
       if (cancelled) return;
       setLibraryTasks(active);
       setArchivedTasks(archived);
+      setTaskInboxItems(inbox.items);
+      setTaskInboxStatus("ready");
     }).catch(() => {
-      if (!cancelled) setStatusMessage("Could not load the Task library.");
+      if (!cancelled) {
+        setTaskInboxStatus("error");
+        setStatusMessage("Could not load task data.");
+      }
     });
 
     return () => {
@@ -236,6 +253,50 @@ export function TasksPage({ households, isLoading }: TasksPageProps) {
         setStatusMessage("Task restored.");
       })
       .catch(() => setStatusMessage("Could not restore task."));
+  }
+
+  function taskInputFromInboxItem(item: TaskInboxItem): TaskDefinitionInput {
+    return {
+      title: item.title.trim(),
+      type: item.proposedType,
+      libraryState: "saved",
+      source: item.source,
+      tags: []
+    };
+  }
+
+  function removeInboxItem(item: TaskInboxItem) {
+    setTaskInboxItems((current) => current.filter((candidate) => candidate.id !== item.id));
+  }
+
+  function saveInboxItem(item: TaskInboxItem) {
+    if (!selectedHousehold) return;
+    void saveTaskInboxItem(selectedHousehold.id, item.kind, item.id, taskInputFromInboxItem(item), "single")
+      .then(() => {
+        removeInboxItem(item);
+        setStatusMessage("Task saved to the library.");
+      })
+      .catch(() => setStatusMessage("Could not save this inbox item."));
+  }
+
+  function linkInboxItem(item: TaskInboxItem) {
+    if (!selectedHousehold || !item.suggestedTaskId) return;
+    void linkTaskInboxItem(selectedHousehold.id, item.kind, item.id, item.suggestedTaskId, "single")
+      .then(() => {
+        removeInboxItem(item);
+        setStatusMessage("Task linked.");
+      })
+      .catch(() => setStatusMessage("Could not link this inbox item."));
+  }
+
+  function keepInboxItemOneTime(item: TaskInboxItem) {
+    if (!selectedHousehold) return;
+    void keepTaskInboxItemOneTime(selectedHousehold.id, item.kind, item.id)
+      .then(() => {
+        removeInboxItem(item);
+        setStatusMessage("Task kept one-time.");
+      })
+      .catch(() => setStatusMessage("Could not update this inbox item."));
   }
 
   const tasksForStatus = libraryStatus === "active" ? libraryTasks : archivedTasks;
@@ -360,8 +421,49 @@ export function TasksPage({ households, isLoading }: TasksPageProps) {
             <p className="eyebrow">Needs review</p>
             <h2>Task inbox</h2>
           </div>
+          <span>{taskInboxItems.length} item{taskInboxItems.length === 1 ? "" : "s"}</span>
         </div>
-        <p className="empty-state">Imported and one-time scheduled tasks that can be saved or linked will appear here.</p>
+        {taskInboxStatus === "loading" ? (
+          <p className="section-summary" role="status">Loading Task inbox...</p>
+        ) : null}
+        {taskInboxStatus === "error" ? (
+          <p className="section-summary" role="status">Could not load the Task inbox.</p>
+        ) : null}
+        {statusMessage ? <p role="status" className="section-summary">{statusMessage}</p> : null}
+        {taskInboxStatus === "ready" && taskInboxItems.length === 0 ? (
+          <p className="empty-state">Imported and one-time scheduled tasks that can be saved or linked will appear here.</p>
+        ) : null}
+        {taskInboxItems.length > 0 ? (
+          <div className="task-inbox-list">
+            {taskInboxItems.map((item) => (
+              <article className={`task-inbox-row is-${item.proposedType}`} key={`${item.kind}-${item.id}`}>
+                <div>
+                  <div className="task-inbox-title-line">
+                    <strong>{item.title}</strong>
+                    <span className="calendar-queue-badge">{item.badge}</span>
+                    <span className={`task-type-badge is-${item.proposedType}`}>{taskTypeLabel(item.proposedType)}</span>
+                  </div>
+                  <span>{taskSourceLabel(item.source)}</span>
+                  {item.suggestedReason ? (
+                    <span>Suggested link: {item.suggestedReason}</span>
+                  ) : null}
+                </div>
+                <div className="task-inbox-actions">
+                  {canManageTaskLibrary ? (
+                    <>
+                      <button type="button" onClick={() => saveInboxItem(item)}>Save as task</button>
+                      <button type="button" onClick={() => linkInboxItem(item)} disabled={!item.suggestedTaskId}>Link to existing task</button>
+                      <button type="button" onClick={() => keepInboxItemOneTime(item)}>Keep one-time</button>
+                    </>
+                  ) : null}
+                  {item.kind === "import_queue" ? (
+                    <a className="button-link" href="/calendar?section=import-queue">Open in Import queue</a>
+                  ) : null}
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : null}
       </section>
     );
   }

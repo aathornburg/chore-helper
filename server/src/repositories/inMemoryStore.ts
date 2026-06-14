@@ -6,7 +6,10 @@ import type {
   CalendarImportQueueItem,
   CalendarPreferences,
   CleanlyCalendarEvent,
+  ImportScope,
   Task,
+  TaskInboxItem,
+  TaskInboxItemKind,
   TaskLibraryPermission,
   TaskCompletionCheckIn,
   TaskDefinitionInput,
@@ -253,6 +256,26 @@ export type HouseholdStore = {
   updateCalendarPreferences(userId: string, householdId: string, update: CalendarPreferences): StoreResult<CalendarPreferences>;
   listCalendarImportQueue(householdId: string): StoreResult<CalendarImportQueueItem[]>;
   createCalendarImportQueueItem(input: CalendarImportQueueCreateInput): StoreResult<CalendarImportQueueItem>;
+  listTaskInboxItems(householdId: string): StoreResult<{ items: TaskInboxItem[] }>;
+  linkTaskInboxItem(
+    householdId: string,
+    kind: TaskInboxItemKind,
+    itemId: string,
+    taskId: string,
+    scope: ImportScope
+  ): StoreResult<CalendarImportQueueItem | Task | undefined>;
+  saveTaskInboxItem(
+    householdId: string,
+    kind: TaskInboxItemKind,
+    itemId: string,
+    task: TaskDefinitionInput,
+    scope: ImportScope
+  ): StoreResult<CalendarImportQueueItem | Task | undefined>;
+  keepTaskInboxItemOneTime(
+    householdId: string,
+    kind: TaskInboxItemKind,
+    itemId: string
+  ): StoreResult<CalendarImportQueueItem | Task | undefined>;
   upsertCalendarImportQueueReviewNotifications(householdId: string): StoreResult<AppNotification[]>;
   listNotificationsForUser(userId: string): StoreResult<AppNotification[]>;
   markNotificationsRead(userId: string, notificationIds: string[]): StoreResult<AppNotification[]>;
@@ -410,6 +433,75 @@ export function createInMemoryStore(): HouseholdStore {
     );
     markStale(householdId);
     return updated;
+  }
+
+  function normalizeTaskTitle(title: string) {
+    return title.trim().toLocaleLowerCase().replace(/\s+/g, " ");
+  }
+
+  function findSuggestedTask(householdId: string, title: string) {
+    const normalizedTitle = normalizeTaskTitle(title);
+    return (tasks.get(householdId) ?? []).find((task) =>
+      task.libraryState === "saved" &&
+      !task.archivedAt &&
+      normalizeTaskTitle(task.title) === normalizedTitle
+    );
+  }
+
+  function inboxStatusFromLinkStatus(status: CalendarImportQueueItem["taskLinkStatus"]): TaskInboxItem["status"] {
+    if (status === "linked") return "linked";
+    if (status === "saved") return "saved";
+    if (status === "one_time") return "kept_one_time";
+    return "needs_review";
+  }
+
+  function toPendingImportInboxItem(item: CalendarImportQueueItem): TaskInboxItem {
+    const suggestedTask = findSuggestedTask(item.householdId, item.title);
+    return {
+      id: item.id,
+      kind: "import_queue",
+      householdId: item.householdId,
+      status: inboxStatusFromLinkStatus(item.taskLinkStatus),
+      title: item.title,
+      proposedType: item.proposedType,
+      source: "google-calendar",
+      importQueueItemId: item.id,
+      badge: suggestedTask ? "Suggested link" : "Pending import",
+      startsAt: item.startsAt,
+      endsAt: item.endsAt,
+      ...(suggestedTask ? {
+        suggestedTaskId: suggestedTask.id,
+        suggestedReason: "Matched by title"
+      } : {})
+    };
+  }
+
+  function toOneTimeTaskInboxItem(task: Task): TaskInboxItem {
+    const suggestedTask = findSuggestedTask(task.householdId, task.title);
+    const schedule = Array.from(schedules.values()).find((candidate) =>
+      candidate.householdId === task.householdId &&
+      candidate.taskId === task.id &&
+      !candidate.archivedAt
+    );
+    return {
+      id: task.id,
+      kind: "task",
+      householdId: task.householdId,
+      status: "needs_review",
+      title: task.title,
+      proposedType: task.type,
+      source: task.source,
+      taskId: task.id,
+      badge: suggestedTask ? "Suggested link" : "Scheduled",
+      ...(schedule?.planningMode === "timed" ? {
+        startsAt: `${schedule.startsOn}T${schedule.localStartTime}:00`,
+        endsAt: `${schedule.startsOn}T${schedule.localEndTime}:00`
+      } : {}),
+      ...(suggestedTask ? {
+        suggestedTaskId: suggestedTask.id,
+        suggestedReason: "Matched by title"
+      } : {})
+    };
   }
 
   return {
@@ -1123,6 +1215,109 @@ export function createInMemoryStore(): HouseholdStore {
       };
       calendarImportQueueItems.set(item.id, item);
       return item;
+    },
+
+    listTaskInboxItems(householdId) {
+      const pendingImports = Array.from(calendarImportQueueItems.values())
+        .filter((item) => item.householdId === householdId && item.queueStatus === "pending")
+        .map(toPendingImportInboxItem);
+      const oneTimeTasks = (tasks.get(householdId) ?? [])
+        .filter((task) => task.libraryState === "one_time" && !task.archivedAt)
+        .map(toOneTimeTaskInboxItem);
+
+      return {
+        items: [...pendingImports, ...oneTimeTasks]
+      };
+    },
+
+    linkTaskInboxItem(householdId, kind, itemId, taskId, scope) {
+      const linkedTask = (tasks.get(householdId) ?? []).find((task) =>
+        task.id === taskId &&
+        task.householdId === householdId &&
+        task.libraryState === "saved" &&
+        !task.archivedAt
+      );
+      if (!linkedTask) return undefined;
+
+      if (kind === "import_queue") {
+        const item = calendarImportQueueItems.get(itemId);
+        if (!item || item.householdId !== householdId || item.queueStatus !== "pending") return undefined;
+        const updated: CalendarImportQueueItem = {
+          ...item,
+          linkedTaskId: linkedTask.id,
+          taskLinkStatus: "linked",
+          taskMatchReason: "Linked from Task inbox",
+          importScope: scope
+        };
+        calendarImportQueueItems.set(item.id, updated);
+        return updated;
+      }
+
+      if (kind === "task") {
+        return replaceTask(householdId, itemId, (task) => ({
+          ...task,
+          libraryState: "one_time"
+        }));
+      }
+
+      return undefined;
+    },
+
+    saveTaskInboxItem(householdId, kind, itemId, task, scope) {
+      if (kind === "import_queue") {
+        const item = calendarImportQueueItems.get(itemId);
+        if (!item || item.householdId !== householdId || item.queueStatus !== "pending") return undefined;
+        const createdTask: Task = {
+          ...task,
+          householdId,
+          id: crypto.randomUUID(),
+          libraryState: "saved"
+        };
+        tasks.set(householdId, [...(tasks.get(householdId) ?? []), createdTask]);
+        const updated: CalendarImportQueueItem = {
+          ...item,
+          linkedTaskId: createdTask.id,
+          taskLinkStatus: "saved",
+          taskMatchReason: "Saved from Task inbox",
+          importScope: scope
+        };
+        calendarImportQueueItems.set(item.id, updated);
+        markStale(householdId);
+        return updated;
+      }
+
+      if (kind === "task") {
+        return replaceTask(householdId, itemId, (existing) => ({
+          ...existing,
+          ...task,
+          libraryState: "saved"
+        }));
+      }
+
+      return undefined;
+    },
+
+    keepTaskInboxItemOneTime(householdId, kind, itemId) {
+      if (kind === "import_queue") {
+        const item = calendarImportQueueItems.get(itemId);
+        if (!item || item.householdId !== householdId || item.queueStatus !== "pending") return undefined;
+        const updated: CalendarImportQueueItem = {
+          ...item,
+          taskLinkStatus: "one_time",
+          taskMatchReason: "Kept one-time from Task inbox"
+        };
+        calendarImportQueueItems.set(item.id, updated);
+        return updated;
+      }
+
+      if (kind === "task") {
+        return replaceTask(householdId, itemId, (task) => ({
+          ...task,
+          libraryState: "one_time"
+        }));
+      }
+
+      return undefined;
     },
 
     async upsertCalendarImportQueueReviewNotifications(householdId) {

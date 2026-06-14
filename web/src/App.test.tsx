@@ -8,7 +8,8 @@ import type {
   HouseholdAppData,
   HouseholdInvitation,
   HouseholdMemberSummary,
-  HouseholdStructure
+  HouseholdStructure,
+  TaskInboxItem
 } from "@chore-helper/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { completeOccurrence, createScheduledTask, listOccurrences, updateCompletionCheckIn } from "./api";
@@ -219,7 +220,8 @@ function mockRestoredHouseholdFetches({
   calendarPreferencesOk = true,
   currentUserId = "app-user-1",
   membersOk = true,
-  members = [ownerMember, secondMember]
+  members = [ownerMember, secondMember],
+  taskInboxItems = []
 }: {
   chores?: typeof cleanBathroomsTask[];
   archivedTasks?: typeof cleanBathroomsTask[];
@@ -229,6 +231,7 @@ function mockRestoredHouseholdFetches({
   currentUserId?: string;
   membersOk?: boolean;
   members?: HouseholdMemberSummary[];
+  taskInboxItems?: TaskInboxItem[];
 } = {}) {
   let activeTasks = [...chores];
   let inactiveTasks = [...archivedTasks];
@@ -252,6 +255,10 @@ function mockRestoredHouseholdFetches({
 
     if (url === "http://localhost:3001/api/households/household-1/tasks?status=archived" && method === "GET") {
       return { ok: true, json: async () => inactiveTasks };
+    }
+
+    if (url === "http://localhost:3001/api/households/household-1/task-inbox" && method === "GET") {
+      return { ok: true, json: async () => ({ items: taskInboxItems }) };
     }
 
     if (url === "http://localhost:3001/api/households/household-1/tasks" && method === "POST") {
@@ -4322,6 +4329,48 @@ describe("App", () => {
     expect(within(choreLibrary).getByText(/Could not load household permissions/i)).toBeTruthy();
     expect(within(choreLibrary).getByText(/database migration may still need to run/i)).toBeTruthy();
     expect(within(choreLibrary).queryByText("Your household owner controls who can manage the Task library.")).toBeNull();
+  });
+
+  it("shows Task inbox items with pending import and scheduled badges", async () => {
+    mockRestoredHouseholdFetches({
+      taskInboxItems: [
+        {
+          id: "queue-1",
+          kind: "import_queue",
+          householdId: "household-1",
+          status: "needs_review",
+          title: "Busy",
+          proposedType: "commitment",
+          source: "google-calendar",
+          importQueueItemId: "queue-1",
+          badge: "Pending import",
+          startsAt: "2026-06-20T12:00:00.000Z",
+          endsAt: "2026-06-20T13:00:00.000Z"
+        },
+        {
+          id: "task-1",
+          kind: "task",
+          householdId: "household-1",
+          status: "needs_review",
+          title: "Drop off donation",
+          proposedType: "commitment",
+          source: "manual",
+          taskId: "task-1",
+          badge: "Scheduled"
+        }
+      ]
+    });
+    renderAt("/tasks");
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Tasks" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("tab", { name: "Task inbox" }));
+
+    const inbox = await screen.findByRole("region", { name: "Task inbox" });
+    expect(within(inbox).getByRole("heading", { name: "Task inbox" })).toBeTruthy();
+    expect(within(inbox).getByText("Busy")).toBeTruthy();
+    expect(within(inbox).getByText("Pending import")).toBeTruthy();
+    expect(within(inbox).getByText("Drop off donation")).toBeTruthy();
+    expect(within(inbox).getByText("Scheduled")).toBeTruthy();
   });
 
   it("does not show a calendar sync settings error just because a disconnected user has no sync preferences", async () => {

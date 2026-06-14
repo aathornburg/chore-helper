@@ -11,7 +11,11 @@ import type {
   CalendarSyncMode,
   CleanlyCalendarEvent,
   CleanlyCalendarEventType,
+  ImportScope,
   Task,
+  TaskDefinitionInput,
+  TaskInboxItem,
+  TaskInboxItemKind,
   TaskLibraryPermission,
   TaskCompletionCheckIn,
   TaskOccurrence,
@@ -475,6 +479,75 @@ function importReviewNotificationCopy(householdName: string, pendingCount: numbe
     title: "Calendar imports need review",
     body: `${pendingCount} ${eventLabel} waiting in ${householdName}.`,
     targetPath: "/calendar?reviewImports=1"
+  };
+}
+
+function normalizeTaskTitle(title: string) {
+  return title.trim().toLocaleLowerCase().replace(/\s+/g, " ");
+}
+
+function taskInboxStatusFromLinkStatus(status: CalendarImportQueueItem["taskLinkStatus"]): TaskInboxItem["status"] {
+  if (status === "linked") return "linked";
+  if (status === "saved") return "saved";
+  if (status === "one_time") return "kept_one_time";
+  return "needs_review";
+}
+
+function suggestedTaskForTitle(tasks: Task[], title: string) {
+  const normalizedTitle = normalizeTaskTitle(title);
+  return tasks.find((task) =>
+    task.libraryState === "saved" &&
+    !task.archivedAt &&
+    normalizeTaskTitle(task.title) === normalizedTitle
+  );
+}
+
+function toPendingImportInboxItem(item: CalendarImportQueueItem, savedTasks: Task[]): TaskInboxItem {
+  const suggestedTask = suggestedTaskForTitle(savedTasks, item.title);
+  return {
+    id: item.id,
+    kind: "import_queue",
+    householdId: item.householdId,
+    status: taskInboxStatusFromLinkStatus(item.taskLinkStatus),
+    title: item.title,
+    proposedType: item.proposedType,
+    source: "google-calendar",
+    importQueueItemId: item.id,
+    badge: suggestedTask ? "Suggested link" : "Pending import",
+    startsAt: item.startsAt,
+    endsAt: item.endsAt,
+    ...(suggestedTask ? {
+      suggestedTaskId: suggestedTask.id,
+      suggestedReason: "Matched by title"
+    } : {})
+  };
+}
+
+function toOneTimeTaskInboxItem(
+  task: Task,
+  schedules: Array<{ planningMode: string; startsOn: string; localStartTime?: string | null; localEndTime?: string | null }>,
+  savedTasks: Task[]
+): TaskInboxItem {
+  const suggestedTask = suggestedTaskForTitle(savedTasks, task.title);
+  const schedule = schedules.find((candidate) => candidate.planningMode === "timed");
+  return {
+    id: task.id,
+    kind: "task",
+    householdId: task.householdId,
+    status: "needs_review",
+    title: task.title,
+    proposedType: task.type,
+    source: task.source,
+    taskId: task.id,
+    badge: suggestedTask ? "Suggested link" : "Scheduled",
+    ...(schedule?.localStartTime && schedule.localEndTime ? {
+      startsAt: `${schedule.startsOn}T${schedule.localStartTime}:00`,
+      endsAt: `${schedule.startsOn}T${schedule.localEndTime}:00`
+    } : {}),
+    ...(suggestedTask ? {
+      suggestedTaskId: suggestedTask.id,
+      suggestedReason: "Matched by title"
+    } : {})
   };
 }
 
@@ -1766,6 +1839,176 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
       });
 
       return toCalendarImportQueueItem(item);
+    },
+
+    async listTaskInboxItems(householdId) {
+      const [queueItems, oneTimeTasks, savedTasks] = await Promise.all([
+        prisma.calendarImportQueueItem.findMany({
+          where: { householdId, queueStatus: "pending" },
+          include: { submittedByUser: true },
+          orderBy: { createdAt: "asc" }
+        }),
+        prisma.task.findMany({
+          where: { householdId, libraryState: "one_time", archivedAt: null },
+          include: { schedules: { where: { archivedAt: null }, orderBy: { createdAt: "asc" } } },
+          orderBy: { createdAt: "asc" }
+        }),
+        prisma.task.findMany({
+          where: { householdId, libraryState: "saved", archivedAt: null },
+          orderBy: { createdAt: "asc" }
+        })
+      ]);
+      const saved = savedTasks.map(toTask);
+
+      return {
+        items: [
+          ...queueItems.map((item) => toPendingImportInboxItem(toCalendarImportQueueItem(item), saved)),
+          ...oneTimeTasks.map((task) => toOneTimeTaskInboxItem(toTask(task), task.schedules, saved))
+        ]
+      };
+    },
+
+    async linkTaskInboxItem(
+      householdId: string,
+      kind: TaskInboxItemKind,
+      itemId: string,
+      taskId: string,
+      scope: ImportScope
+    ) {
+      const linkedTask = await prisma.task.findFirst({
+        where: { id: taskId, householdId, libraryState: "saved", archivedAt: null }
+      });
+      if (!linkedTask) return undefined;
+
+      if (kind === "import_queue") {
+        const item = await prisma.calendarImportQueueItem.findFirst({
+          where: { id: itemId, householdId, queueStatus: "pending" }
+        });
+        if (!item) return undefined;
+
+        const updated = await prisma.calendarImportQueueItem.update({
+          where: { id: itemId },
+          data: {
+            linkedTaskId: linkedTask.id,
+            taskLinkStatus: "linked",
+            taskMatchReason: "Linked from Task inbox",
+            importScope: scope
+          },
+          include: { submittedByUser: true }
+        });
+        return toCalendarImportQueueItem(updated);
+      }
+
+      if (kind === "task") {
+        const task = await prisma.task.findFirst({
+          where: { id: itemId, householdId, libraryState: "one_time", archivedAt: null }
+        });
+        return task ? toTask(task) : undefined;
+      }
+
+      return undefined;
+    },
+
+    async saveTaskInboxItem(
+      householdId: string,
+      kind: TaskInboxItemKind,
+      itemId: string,
+      task: TaskDefinitionInput,
+      scope: ImportScope
+    ) {
+      if (kind === "import_queue") {
+        const item = await prisma.calendarImportQueueItem.findFirst({
+          where: { id: itemId, householdId, queueStatus: "pending" }
+        });
+        if (!item) return undefined;
+
+        const updated = await prisma.$transaction(async (tx) => {
+          const createdTask = await tx.task.create({
+            data: {
+              id: crypto.randomUUID(),
+              householdId,
+              title: task.title,
+              type: task.type,
+              libraryState: "saved",
+              source: task.source,
+              instructions: task.instructions,
+              tags: serializeOptionalList(task.tags ?? [])
+            }
+          });
+          await tx.recommendation.updateMany({
+            where: { householdId, staleAt: null },
+            data: { staleAt: new Date() }
+          });
+          return tx.calendarImportQueueItem.update({
+            where: { id: itemId },
+            data: {
+              linkedTaskId: createdTask.id,
+              taskLinkStatus: "saved",
+              taskMatchReason: "Saved from Task inbox",
+              importScope: scope
+            },
+            include: { submittedByUser: true }
+          });
+        });
+        return toCalendarImportQueueItem(updated);
+      }
+
+      if (kind === "task") {
+        const existing = await prisma.task.findFirst({
+          where: { id: itemId, householdId, libraryState: "one_time", archivedAt: null }
+        });
+        if (!existing) return undefined;
+
+        const updated = await prisma.$transaction(async (tx) => {
+          const nextTask = await tx.task.update({
+            where: { id: itemId },
+            data: {
+              title: task.title,
+              type: task.type,
+              libraryState: "saved",
+              source: task.source,
+              instructions: task.instructions,
+              tags: serializeOptionalList(task.tags ?? [])
+            }
+          });
+          await tx.recommendation.updateMany({
+            where: { householdId, staleAt: null },
+            data: { staleAt: new Date() }
+          });
+          return nextTask;
+        });
+        return toTask(updated);
+      }
+
+      return undefined;
+    },
+
+    async keepTaskInboxItemOneTime(householdId, kind, itemId) {
+      if (kind === "import_queue") {
+        const item = await prisma.calendarImportQueueItem.findFirst({
+          where: { id: itemId, householdId, queueStatus: "pending" }
+        });
+        if (!item) return undefined;
+
+        const updated = await prisma.calendarImportQueueItem.update({
+          where: { id: itemId },
+          data: {
+            taskLinkStatus: "one_time",
+            taskMatchReason: "Kept one-time from Task inbox"
+          },
+          include: { submittedByUser: true }
+        });
+        return toCalendarImportQueueItem(updated);
+      }
+
+      if (kind === "task") {
+        const task = await prisma.task.findFirst({
+          where: { id: itemId, householdId, libraryState: "one_time", archivedAt: null }
+        });
+        return task ? toTask(task) : undefined;
+      }
+
+      return undefined;
     },
 
     async upsertCalendarImportQueueReviewNotifications(householdId) {

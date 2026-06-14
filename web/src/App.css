@@ -1422,6 +1422,63 @@ button:where(:not(.link-button)):hover {
   justify-content: flex-end;
 }
 
+.task-inbox-list {
+  display: grid;
+  gap: 10px;
+}
+
+.task-inbox-row {
+  align-items: center;
+  background: #fbfeff;
+  border: 1px solid var(--color-border);
+  border-left: 5px solid #146f83;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 14px 16px;
+}
+
+.task-inbox-row.is-commitment {
+  border-left-color: #d7a947;
+}
+
+.task-inbox-title-line {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.task-inbox-title-line strong {
+  color: #102f3b;
+}
+
+.task-inbox-row span {
+  color: #52646d;
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 760;
+}
+
+.task-inbox-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.button-link {
+  align-items: center;
+  background: #eef8fb;
+  border: 1px solid var(--color-border);
+  color: #0b556b;
+  display: inline-flex;
+  font-weight: 800;
+  min-height: 40px;
+  padding: 0 14px;
+  text-decoration: none;
+}
+
 .modal-backdrop {
   align-items: center;
   background: rgba(9, 45, 58, 0.36);
@@ -8513,12 +8570,14 @@ button.chore-row-summary[aria-expanded="true"] {
   }
 
   .chore-library-toolbar,
-  .chore-library-row {
+  .chore-library-row,
+  .task-inbox-row {
     align-items: start;
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .chore-library-actions {
+  .chore-library-actions,
+  .task-inbox-actions {
     justify-content: flex-start;
   }
 

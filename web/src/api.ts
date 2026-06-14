@@ -8,7 +8,10 @@ import type {
   CalendarPreferences,
   CalendarImportCandidate,
   CleanlyCalendarEvent,
+  ImportScope,
   Task,
+  TaskInboxItem,
+  TaskInboxItemKind,
   TaskLibraryPermission,
   CreateTaskInput,
   TaskDefinitionInput,
@@ -299,6 +302,60 @@ export async function listArchivedTasks(householdId: string): Promise<Task[]> {
   const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/tasks?status=archived`);
 
   if (!response.ok) throw new Error("Failed to fetch archived tasks");
+  return response.json();
+}
+
+export async function listTaskInbox(householdId: string): Promise<{ items: TaskInboxItem[] }> {
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/task-inbox`);
+
+  if (!response.ok) throw new Error("Failed to fetch Task inbox");
+  return response.json();
+}
+
+export async function linkTaskInboxItem(
+  householdId: string,
+  kind: TaskInboxItemKind,
+  itemId: string,
+  taskId: string,
+  scope: ImportScope
+): Promise<CalendarImportQueueItem | Task> {
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/task-inbox/${kind}/${itemId}/link`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ taskId, scope })
+  });
+
+  if (!response.ok) throw new Error("Failed to link Task inbox item");
+  return response.json();
+}
+
+export async function saveTaskInboxItem(
+  householdId: string,
+  kind: TaskInboxItemKind,
+  itemId: string,
+  task: TaskDefinitionInput,
+  scope: ImportScope
+): Promise<CalendarImportQueueItem | Task> {
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/task-inbox/${kind}/${itemId}/save`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ task, scope })
+  });
+
+  if (!response.ok) throw new Error("Failed to save Task inbox item");
+  return response.json();
+}
+
+export async function keepTaskInboxItemOneTime(
+  householdId: string,
+  kind: TaskInboxItemKind,
+  itemId: string
+): Promise<CalendarImportQueueItem | Task> {
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/task-inbox/${kind}/${itemId}/keep-one-time`, {
+    method: "POST"
+  });
+
+  if (!response.ok) throw new Error("Failed to keep Task inbox item one-time");
   return response.json();
 }
 
