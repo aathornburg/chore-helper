@@ -2595,7 +2595,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
           <div>
             <p className="eyebrow">No household yet</p>
             <h2 id="calendar-empty-heading">Add or join a household</h2>
-            <p>Once you belong to a household, you can schedule chores, import events, and review shared calendar work.</p>
+            <p>Once you belong to a household, you can schedule tasks, import events, and review shared calendar work.</p>
           </div>
         </section>
       </div>
@@ -2835,7 +2835,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
               ) : null}
 
               <div className="calendar-export-calendar-surface">
-                {loadState === "error" ? <section className="calendar-empty-state">Could not load scheduled chores.</section> : null}
+                {loadState === "error" ? <section className="calendar-empty-state">Could not load scheduled tasks.</section> : null}
 
                 {workspaceView === "calendar" && loadState === "ready" ? (
                   <div className="calendar-workspace-content">
@@ -3040,7 +3040,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                       onChange={(event) => setEditorDraft({ ...editorDraft, tags: event.target.value })}
                     />
                     {editorMode === "create" ? (
-                      <span className="field-help" id="chore-tags-help">Optional labels like bathroom, outdoor, or deep clean. Tags help group chores and give optimization more context.</span>
+                      <span className="field-help" id="chore-tags-help">Optional labels like bathroom, outdoor, or deep clean. Tags help group tasks and give optimization more context.</span>
                     ) : null}
                   </label>
                 </div>
@@ -3052,7 +3052,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                     onChange={(event) => setEditorDraft({ ...editorDraft, instructions: event.target.value })}
                   />
                   {editorMode === "create" ? (
-                    <span className="field-help" id="chore-instructions-help">Add steps, scope, or preferences. This helps future optimization understand what the chore includes.</span>
+                    <span className="field-help" id="chore-instructions-help">Add steps, scope, or preferences. This helps future optimization understand what the task includes.</span>
                   ) : null}
                 </label>
                 {editorMode === "create" ? (
@@ -3094,7 +3094,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                       <div>
                         <p className="eyebrow">Schedule</p>
                         <h3>When should this happen?</h3>
-                        <p className="section-help">Choose the first date, optional timing, owner, and whether this chore repeats.</p>
+                        <p className="section-help">Choose the first date, optional timing, owner, and whether this task repeats.</p>
                       </div>
                     </div>
                     <div className="field-grid aligned-field-grid">
@@ -3170,7 +3170,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                             }
                           }}
                         />
-                        <span className="field-help" id="chore-duration-help">Used for flexible chores. If you add a start time, the end time is calculated from this duration.</span>
+                        <span className="field-help" id="chore-duration-help">Used for flexible tasks. If you add a start time, the end time is calculated from this duration.</span>
                       </label>
                     </div>
                     <div className="repeat-segmented-field">
@@ -3315,7 +3315,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                       ) : (
                         <>
                           {selectedOccurrence.status === "planned" && selectedOccurrence.assignedUserId === currentUserId ? (
-                          <button className="section-action" onClick={startCompletionCheckIn} type="button">Complete chore</button>
+                          <button className="section-action" onClick={startCompletionCheckIn} type="button">Complete task</button>
                           ) : null}
                           <button onClick={(event) => openEditEditor(selectedOccurrence, event.currentTarget)} type="button">Edit</button>
                         </>

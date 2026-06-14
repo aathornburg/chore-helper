@@ -16,25 +16,25 @@ export const demoPlanHealth = [
   {
     label: "Coverage gaps",
     value: "4",
-    detail: "Outdoor, appliance, and seasonal chores need review.",
+    detail: "Outdoor, appliance, and seasonal tasks need review.",
     tone: "attention"
   },
   {
     label: "Cadence risks",
     value: "6",
-    detail: "Several chores may be too infrequent for the household profile.",
+    detail: "Several tasks may be too infrequent for the household profile.",
     tone: "warning"
   },
   {
     label: "Duration concerns",
     value: "3",
-    detail: "Bathroom and floor chores look shorter than typical expert estimates.",
+    detail: "Bathroom and floor tasks look shorter than typical expert estimates.",
     tone: "strong"
   },
   {
     label: "Recommendation confidence",
     value: "82%",
-    detail: "Demo confidence based on known home context and current chore coverage.",
+    detail: "Demo confidence based on known home context and current task coverage.",
     tone: "good"
   }
 ];
@@ -47,13 +47,13 @@ export const demoTasks = [
 ];
 
 export const demoWeek = [
-  { day: "Mon", chores: ["Kitchen reset"] },
-  { day: "Tue", chores: ["Vacuum bedrooms"] },
-  { day: "Wed", chores: ["Bathrooms"] },
-  { day: "Thu", chores: ["Laundry reset"] },
-  { day: "Fri", chores: ["Kitchen reset"] },
-  { day: "Sat", chores: ["Floors", "Outdoor sweep"] },
-  { day: "Sun", chores: ["Plan review"] }
+  { day: "Mon", tasks: ["Kitchen reset"] },
+  { day: "Tue", tasks: ["Vacuum bedrooms"] },
+  { day: "Wed", tasks: ["Bathrooms"] },
+  { day: "Thu", tasks: ["Laundry reset"] },
+  { day: "Fri", tasks: ["Kitchen reset"] },
+  { day: "Sat", tasks: ["Floors", "Outdoor sweep"] },
+  { day: "Sun", tasks: ["Plan review"] }
 ];
 
 export const setupChecklist = [

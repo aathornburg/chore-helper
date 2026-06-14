@@ -3435,16 +3435,16 @@ describe("App", () => {
     expect(dialog.getByRole("button", { name: "Close dialog" })).toBeTruthy();
     expect(dialog.getByRole("button", { name: "Close" })).toBeTruthy();
     expect(dialog.getByRole("button", { name: "Edit" })).toBeTruthy();
-    expect(dialog.getByRole("button", { name: "Complete chore" })).toBeTruthy();
+    expect(dialog.getByRole("button", { name: "Complete task" })).toBeTruthy();
     const modalActions = document.querySelector(".modal-actions");
     expect(Array.from(modalActions?.querySelectorAll("button") ?? []).map((button) => button.textContent)).toEqual([
       "Close",
-      "Complete chore",
+      "Complete task",
       "Edit"
     ]);
-    expect(dialog.getByRole("button", { name: "Complete chore" }).classList.contains("section-action")).toBe(true);
+    expect(dialog.getByRole("button", { name: "Complete task" }).classList.contains("section-action")).toBe(true);
     expect(dialog.getByRole("button", { name: "Edit" }).classList.contains("section-action")).toBe(false);
-    fireEvent.click(dialog.getByRole("button", { name: "Complete chore" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Complete task" }));
     expect(screen.getByRole("region", { name: "Completion check-in" })).toBeTruthy();
     expect(screen.getByLabelText("This was done on time")).toBeTruthy();
     expect(screen.queryByLabelText("Keep this assignee for future work")).toBeNull();
@@ -3541,7 +3541,7 @@ describe("App", () => {
       "http://localhost:3001/api/households/household-1/tasks/chore-1/schedules",
       expect.objectContaining({ headers: expect.any(Object) })
     ));
-    fireEvent.click(getTaskEditor().getByRole("button", { name: "Complete chore" }));
+    fireEvent.click(getTaskEditor().getByRole("button", { name: "Complete task" }));
 
     expect(screen.getByRole("region", { name: "Completion check-in" })).toBeTruthy();
       expect(screen.queryByLabelText("Base future occurrences on this completion date")).toBeNull();
@@ -3559,11 +3559,11 @@ describe("App", () => {
     expect(editor.getByRole("button", { name: "Cancel" })).toBeTruthy();
     expect(editor.getByRole("button", { name: "Schedule task" })).toBeTruthy();
     expect(editor.queryByRole("button", { name: "Save chore" })).toBeNull();
-    expect(screen.getByText("Add steps, scope, or preferences. This helps future optimization understand what the chore includes.")).toBeTruthy();
-    expect(screen.getByText("Optional labels like bathroom, outdoor, or deep clean. Tags help group chores and give optimization more context.")).toBeTruthy();
-    expect(screen.getByText("Choose the first date, optional timing, owner, and whether this chore repeats.")).toBeTruthy();
+    expect(screen.getByText("Add steps, scope, or preferences. This helps future optimization understand what the task includes.")).toBeTruthy();
+    expect(screen.getByText("Optional labels like bathroom, outdoor, or deep clean. Tags help group tasks and give optimization more context.")).toBeTruthy();
+    expect(screen.getByText("Choose the first date, optional timing, owner, and whether this task repeats.")).toBeTruthy();
     expect(screen.getByText("Leave blank if this can be done anytime on the selected day.")).toBeTruthy();
-    expect(screen.getByText("Used for flexible chores. If you add a start time, the end time is calculated from this duration.")).toBeTruthy();
+    expect(screen.getByText("Used for flexible tasks. If you add a start time, the end time is calculated from this duration.")).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "Upcoming Occurrences" })).toBeNull();
     expect(screen.queryByRole("button", { name: "History" })).toBeNull();
     fireEvent.change(screen.getByLabelText("Task title"), { target: { value: "Clean bathrooms" } });
@@ -3843,7 +3843,7 @@ describe("App", () => {
 
     await selectCalendarSection("List");
     fireEvent.click(screen.getByRole("button", { name: "View Clean bathrooms" }));
-    fireEvent.click(screen.getByRole("button", { name: "Complete chore" }));
+    fireEvent.click(screen.getByRole("button", { name: "Complete task" }));
     fireEvent.click(await screen.findByLabelText("Base future occurrences on this completion date"));
     fireEvent.click(screen.getByRole("button", { name: "Submit" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "View Clean bathrooms" }).classList.contains("is-completed")).toBe(true));
