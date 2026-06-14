@@ -352,6 +352,42 @@ describe("calendar sync governance", () => {
     }));
   });
 
+  it("stores import scope on queue decisions and rejects invalid scopes", async () => {
+    const { app, household, member, store } = await createHouseholdWithMember();
+    const queueItem = await store.createCalendarImportQueueItem({
+      householdId: household.id,
+      submittedByUserId: member.id,
+      submittedByName: "Member",
+      proposedType: "commitment",
+      detailLevel: "busy_only",
+      title: "Dentist appointment",
+      privacyTitle: "Busy",
+      startsAt: "2026-06-18T14:00:00.000Z",
+      endsAt: "2026-06-18T15:00:00.000Z"
+    });
+
+    const invalid = await auth(app, "owner")
+      .patch(`/api/households/${household.id}/calendar/import-queue/${queueItem.id}`)
+      .send({ decision: "approve", proposedType: "commitment", importScope: "everything" });
+
+    expect(invalid.status).toBe(400);
+
+    const response = await auth(app, "owner")
+      .patch(`/api/households/${household.id}/calendar/import-queue/${queueItem.id}`)
+      .send({
+        decision: "approve",
+        proposedType: "commitment",
+        importScope: "future_matching",
+        taskLinkStatus: "one_time"
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(expect.objectContaining({
+      importScope: "future_matching",
+      taskLinkStatus: "one_time"
+    }));
+  });
+
   it("does not create a new Clenella event id when approving an already approved queue item", async () => {
     const { app, household, member, store } = await createHouseholdWithMember();
     const queueItem = await store.createCalendarImportQueueItem({

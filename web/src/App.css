@@ -7039,7 +7039,7 @@ button.chore-row-summary[aria-expanded="true"] {
   border-bottom: 1px solid var(--color-border);
   display: grid;
   gap: 12px;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) minmax(190px, auto) auto;
   min-height: 70px;
   padding: 12px;
 }
@@ -7075,6 +7075,39 @@ button.chore-row-summary[aria-expanded="true"] {
   font-size: 0.9rem;
   font-weight: 500;
   overflow-wrap: anywhere;
+}
+
+.calendar-queue-scope-controls {
+  border: 0;
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  min-width: 190px;
+  padding: 0;
+}
+
+.calendar-queue-scope-controls legend {
+  color: #536173;
+  font-size: 0.74rem;
+  font-weight: 850;
+  letter-spacing: 0;
+  margin-bottom: 3px;
+  text-transform: uppercase;
+}
+
+.calendar-queue-scope-controls label {
+  align-items: center;
+  color: #1f343d;
+  display: inline-flex;
+  font-size: 0.84rem;
+  font-weight: 650;
+  gap: 7px;
+}
+
+.calendar-queue-scope-controls input {
+  accent-color: var(--color-primary-strong);
+  height: 15px;
+  width: 15px;
 }
 
 .calendar-queue-decision-actions {
@@ -7243,6 +7276,10 @@ button.chore-row-summary[aria-expanded="true"] {
 
   .calendar-queue-decision-actions {
     justify-content: start;
+    min-width: 0;
+  }
+
+  .calendar-queue-scope-controls {
     min-width: 0;
   }
 }

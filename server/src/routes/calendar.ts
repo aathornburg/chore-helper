@@ -20,6 +20,8 @@ const exportModes: CalendarExportMode[] = ["off", "review", "auto"];
 const contentModes: CalendarContentMode[] = ["chores", "commitments", "both"];
 const detailLevels: CalendarDetailLevel[] = ["busy_only", "full_details"];
 const cleanlyEventTypes: CleanlyCalendarEventType[] = ["chore", "commitment"];
+const taskLinkStatuses = ["unreviewed", "linked", "saved", "one_time"] as const;
+const importScopes = ["single", "series", "future_matching"] as const;
 const googleOAuthStates = new Map<string, { userId: string; expiresAt: number }>();
 const googleOAuthStateTtlMs = 10 * 60 * 1000;
 const maxGoogleImportRangeMs = 31 * 24 * 60 * 60 * 1000;
@@ -216,18 +218,23 @@ export function createCalendarRouter(
     if (req.body.decision !== "approve" && req.body.decision !== "reject") {
       return res.status(400).json({ error: "Decision must be approve or reject." });
     }
+    if (req.body.proposedType !== undefined && !isOneOf(req.body.proposedType, cleanlyEventTypes)) {
+      return res.status(400).json({ error: "Invalid imported task type." });
+    }
+    if (req.body.taskLinkStatus !== undefined && !isOneOf(req.body.taskLinkStatus, taskLinkStatuses)) {
+      return res.status(400).json({ error: "Invalid task link status." });
+    }
+    if (req.body.importScope !== undefined && !isOneOf(req.body.importScope, importScopes)) {
+      return res.status(400).json({ error: "Invalid import scope." });
+    }
 
     const input: CalendarImportQueueDecisionInput = {
       decision: req.body.decision,
-      proposedType: isOneOf(req.body.proposedType, ["chore", "commitment"] as const) ? req.body.proposedType : undefined,
+      proposedType: req.body.proposedType,
       linkedTaskId: typeof req.body.linkedTaskId === "string" ? req.body.linkedTaskId : undefined,
-      taskLinkStatus: isOneOf(req.body.taskLinkStatus, ["unreviewed", "linked", "saved", "one_time"] as const)
-        ? req.body.taskLinkStatus
-        : undefined,
+      taskLinkStatus: req.body.taskLinkStatus,
       taskMatchReason: typeof req.body.taskMatchReason === "string" ? req.body.taskMatchReason : undefined,
-      importScope: isOneOf(req.body.importScope, ["single", "series", "future_matching"] as const)
-        ? req.body.importScope
-        : undefined
+      importScope: req.body.importScope
     };
 
     try {

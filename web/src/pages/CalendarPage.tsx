@@ -21,6 +21,7 @@ type ScheduleDraft = ScheduleInput & { key: string };
 type QueueDecisionDraft = {
   decision: "approve" | "reject";
   proposedType: CalendarImportQueueItem["proposedType"];
+  importScope: CalendarImportQueueItem["importScope"];
 };
 type EditorDraft = {
   taskId?: string;
@@ -43,6 +44,11 @@ type CalendarPageProps = {
 
 const scaleOptions: CalendarScale[] = ["month", "week", "day"];
 const calendarSectionValues: CalendarSection[] = ["calendar", "list", "import-queue", "import-events", "export"];
+const importScopeOptions: Array<{ label: string; value: CalendarImportQueueItem["importScope"] }> = [
+  { label: "This imported item only", value: "single" },
+  { label: "This repeating series", value: "series" },
+  { label: "Future matching imports", value: "future_matching" }
+];
 const weekdays = [
   { label: "Sun", value: 0 },
   { label: "Mon", value: 1 },
@@ -267,6 +273,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   const [selectedCleanlyCalendarEventId, setSelectedCleanlyCalendarEventId] = useState<string>();
   const [isQueueReviewOpen, setIsQueueReviewOpen] = useState(false);
   const [queueDecisionDrafts, setQueueDecisionDrafts] = useState(() => new Map<string, QueueDecisionDraft>());
+  const [queueImportScopeDrafts, setQueueImportScopeDrafts] = useState(() => new Map<string, CalendarImportQueueItem["importScope"]>());
   const [queueApprovalMenuOpenId, setQueueApprovalMenuOpenId] = useState<string>();
   const [isQueueBulkApprovalMenuOpen, setIsQueueBulkApprovalMenuOpen] = useState(false);
   const [selectedQueueReviewItemIds, setSelectedQueueReviewItemIds] = useState<string[]>([]);
@@ -1175,11 +1182,34 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   function stageQueueDecision(item: CalendarImportQueueItem, decision: QueueDecisionDraft["decision"], proposedType = item.proposedType) {
     setQueueDecisionDrafts((current) => {
       const next = new Map(current);
-      next.set(item.id, { decision, proposedType });
+      next.set(item.id, {
+        decision,
+        proposedType,
+        importScope: queueImportScopeDrafts.get(item.id) ?? current.get(item.id)?.importScope ?? item.importScope ?? "single"
+      });
       return next;
     });
     setQueueApprovalMenuOpenId(undefined);
     setIsQueueBulkApprovalMenuOpen(false);
+  }
+
+  function updateQueueDecisionScope(item: CalendarImportQueueItem, importScope: CalendarImportQueueItem["importScope"]) {
+    setQueueImportScopeDrafts((current) => {
+      const next = new Map(current);
+      next.set(item.id, importScope);
+      return next;
+    });
+    setQueueDecisionDrafts((current) => {
+      if (!current.has(item.id)) return current;
+      const next = new Map(current);
+      const existing = current.get(item.id);
+      next.set(item.id, {
+        decision: existing?.decision ?? "approve",
+        proposedType: existing?.proposedType ?? item.proposedType,
+        importScope
+      });
+      return next;
+    });
   }
 
   function clearQueueDecision(itemId: string) {
@@ -1212,7 +1242,11 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     setQueueDecisionDrafts((current) => {
       const next = new Map(current);
       selectedItems.forEach((item) => {
-        next.set(item.id, { decision, proposedType: decision === "approve" ? proposedType : item.proposedType });
+        next.set(item.id, {
+          decision,
+          proposedType: decision === "approve" ? proposedType : item.proposedType,
+          importScope: queueImportScopeDrafts.get(item.id) ?? current.get(item.id)?.importScope ?? item.importScope ?? "single"
+        });
       });
       return next;
     });
@@ -1225,13 +1259,15 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     const updatedItems = await Promise.all(stagedEntries.map(([itemId, draft]) =>
       decideCalendarImportQueueItem(selectedHousehold.id, itemId, {
         decision: draft.decision,
-        proposedType: draft.proposedType
+        proposedType: draft.proposedType,
+        importScope: draft.importScope
       })
     ));
     setImportQueueItems((current) => current.map((item) =>
       updatedItems.find((updated) => updated.id === item.id) ?? item
     ));
     setQueueDecisionDrafts(new Map());
+    setQueueImportScopeDrafts(new Map());
     setQueueApprovalMenuOpenId(undefined);
     setIsQueueBulkApprovalMenuOpen(false);
     setSelectedQueueReviewItemIds([]);
@@ -2370,6 +2406,20 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                         <strong>{item.privacyTitle}</strong>
                         <span>{formatInTimeZone(item.startsAt, timeZone, "MMM d, h:mm a")} - {formatInTimeZone(item.endsAt, timeZone, "h:mm a")} / {item.submittedByName} / {item.detailLevel === "busy_only" ? "Busy only" : "Full details"} / submitted as {item.proposedType}</span>
                       </span>
+                      <fieldset className="calendar-queue-scope-controls">
+                        <legend>Import scope</legend>
+                        {importScopeOptions.map((option) => (
+                          <label key={option.value}>
+                            <input
+                              checked={(queueImportScopeDrafts.get(item.id) ?? draft?.importScope ?? item.importScope ?? "single") === option.value}
+                              name={`import-scope-${item.id}`}
+                              onChange={() => updateQueueDecisionScope(item, option.value)}
+                              type="radio"
+                            />
+                            {option.label}
+                          </label>
+                        ))}
+                      </fieldset>
                       <span className="calendar-queue-decision-actions">
                         {draft ? (
                           <>

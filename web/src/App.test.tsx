@@ -2445,9 +2445,48 @@ describe("App", () => {
       "http://localhost:3001/api/households/household-1/calendar/import-queue/queue-1",
       expect.objectContaining({
         method: "PATCH",
-        body: JSON.stringify({ decision: "approve", proposedType: "chore" })
+        body: JSON.stringify({ decision: "approve", proposedType: "chore", importScope: "single" })
       })
     );
+  });
+
+  it("requires an import scope when approving an imported scheduled task", async () => {
+    const fetchMock = mockCalendarPageFetches([{
+      id: "queue-1",
+      householdId: "household-1",
+      submittedByUserId: "app-user-2",
+      submittedByName: "Morgan Member",
+      proposedType: "commitment",
+      detailLevel: "busy_only",
+      title: "Dentist appointment",
+      privacyTitle: "Dentist appointment",
+      startsAt: "2026-06-18T14:00:00.000Z",
+      endsAt: "2026-06-18T15:00:00.000Z",
+      queueStatus: "pending",
+      taskLinkStatus: "unreviewed",
+      importScope: "single",
+      createdAt: "2026-06-01T12:00:00.000Z"
+    }]);
+    renderAt("/calendar");
+
+    await openCalendarImportQueueSection();
+    fireEvent.click(await screen.findByRole("button", { name: "Review imports" }));
+
+    expect((screen.getByRole("radio", { name: "This imported item only" }) as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByRole("radio", { name: "This repeating series" })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "Future matching imports" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("radio", { name: "Future matching imports" }));
+    fireEvent.click(screen.getByRole("button", { name: "Approve" }));
+    fireEvent.click(screen.getByRole("button", { name: "Submit 1 decision" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/households/household-1/calendar/import-queue/queue-1",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({ decision: "approve", proposedType: "commitment", importScope: "future_matching" })
+      })
+    ));
   });
 
   it("hides the calendar import review panel when no imports need review", async () => {
