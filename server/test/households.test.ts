@@ -155,6 +155,21 @@ class RecordingChatAgentProvider implements AgentProvider {
   }
 }
 
+class RecordingRecommendationAgentProvider implements AgentProvider {
+  receivedContext?: AgentRecommendationContext;
+
+  async recommendSetupImprovements(
+    context: AgentRecommendationContext
+  ): Promise<Recommendation[]> {
+    this.receivedContext = context;
+    return [];
+  }
+
+  async answerHouseholdQuestion(_context: AgentChatContext): Promise<AgentChatResponse> {
+    return { answer: "Not used by this test." };
+  }
+}
+
 class FailingChatAgentProvider implements AgentProvider {
   async recommendSetupImprovements(
     _context: AgentRecommendationContext
@@ -270,7 +285,7 @@ describe("household profile flow", () => {
     const chore = await createScheduledTask(app, householdId, "Clean kitchen");
     await request(app)
       .post(`/api/households/${householdId}/recommendations`)
-      .send({ selectedChoreIds: [chore.body.id] })
+      .send({ selectedTaskIds: [chore.body.id] })
       .expect(201);
 
     const response = await request(app).get("/api/households").expect(200);
@@ -973,6 +988,46 @@ describe("household profile flow", () => {
     );
   });
 
+  it("accepts selected task ids for chore optimization and treats commitments as context", async () => {
+    const store = createInMemoryStore();
+    const agentProvider = new RecordingRecommendationAgentProvider();
+    const app = createApp({
+      store,
+      agentProvider,
+      authMode: "test"
+    });
+    const created = await request(app).post("/api/households").send({ name: "Home" }).expect(201);
+    const householdId = created.body.id;
+    const chore = await createScheduledTask(app, householdId, "Clean bathrooms");
+    const commitment = await request(app)
+      .post(`/api/households/${householdId}/tasks`)
+      .send({
+        task: {
+          title: "Work",
+          type: "commitment",
+          libraryState: "saved",
+          source: "manual"
+        }
+      })
+      .expect(201);
+
+    await request(app)
+      .post(`/api/households/${householdId}/recommendations`)
+      .send({
+        selectedTaskIds: [chore.body.id, commitment.body.id],
+        reviewPrompt: "Review the selected chores."
+      })
+      .expect(201);
+
+    expect(agentProvider.receivedContext?.chores).toEqual([
+      expect.objectContaining({
+        id: chore.body.id,
+        title: "Clean bathrooms",
+        type: "chore"
+      })
+    ]);
+  });
+
   it("stages a recommendation decision without immediately changing chores", async () => {
     const app = createTestApp();
     const created = await request(app).post("/api/households").send({ name: "Home" }).expect(201);
@@ -982,7 +1037,7 @@ describe("household profile flow", () => {
     const recommendations = await request(app)
       .post(`/api/households/${householdId}/recommendations`)
       .send({
-        selectedChoreIds: [chore.body.id],
+        selectedTaskIds: [chore.body.id],
         reviewPrompt: "Review the selected chores."
       })
       .expect(201);
@@ -1023,7 +1078,7 @@ describe("household profile flow", () => {
 
     const recommendations = await request(app)
       .post(`/api/households/${householdId}/recommendations`)
-      .send({ selectedChoreIds: [chore.body.id] })
+      .send({ selectedTaskIds: [chore.body.id] })
       .expect(201);
     const recommendation = recommendations.body[0];
 
@@ -1427,7 +1482,7 @@ describe("household profile flow", () => {
 
     const recommendations = await request(app)
       .post(`/api/households/${householdId}/recommendations`)
-      .send({ selectedChoreIds: [chore.body.id] })
+      .send({ selectedTaskIds: [chore.body.id] })
       .expect(201);
 
     await request(app)

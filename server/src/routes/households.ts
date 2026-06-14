@@ -280,8 +280,7 @@ const occurrenceTaskDetailSchema = z.object({
 
 const recommendationRequestSchema = z.object({
   reviewPrompt: z.string().trim().optional(),
-  selectedTaskIds: z.array(z.string()).optional(),
-  selectedChoreIds: z.array(z.string()).optional()
+  selectedTaskIds: z.array(z.string()).optional()
 });
 
 const recommendationDecisionSchema = z.object({
@@ -1063,8 +1062,8 @@ export function createHouseholdRouter(
     const parsed = assistantChatRequestSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid assistant chat payload" });
 
-    const chores = await store.listTasks(household.id);
-    const activeChores = chores.filter((Task) => !Task.archivedAt);
+    const tasks = await store.listTasks(household.id);
+    const activeChores = tasks.filter((task) => task.type === "chore" && !task.archivedAt);
     const activeRecommendations = (await store.listRecommendations(household.id)).filter(
       (recommendation) => !recommendation.staleAt
     );
@@ -1116,10 +1115,11 @@ export function createHouseholdRouter(
     if (!parsed.success) return res.status(400).json({ error: "Invalid recommendation payload" });
 
     const chores = await store.listTasks(household.id);
-    const selectedTaskIds = parsed.data.selectedTaskIds ?? parsed.data.selectedChoreIds;
+    const activeChores = chores.filter((task) => task.type === "chore" && !task.archivedAt);
+    const selectedTaskIds = parsed.data.selectedTaskIds;
     const selectedChores = selectedTaskIds
-      ? chores.filter((Task) => selectedTaskIds.includes(Task.id))
-      : chores;
+      ? activeChores.filter((task) => selectedTaskIds.includes(task.id))
+      : activeChores;
 
     try {
       const recommendations = await agentProvider.recommendSetupImprovements({

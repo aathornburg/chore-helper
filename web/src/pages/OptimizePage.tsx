@@ -122,7 +122,7 @@ function HouseholdOptimizePanel({
   showHouseholdPicker,
   structure
 }: HouseholdOptimizePanelProps) {
-  const [chores, setTasks] = useState<Task[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [existingRecommendations, setExistingRecommendations] = useState<Recommendation[]>([]);
   const [reviewRecommendations, setReviewRecommendations] = useState<Recommendation[]>([]);
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
@@ -135,8 +135,16 @@ function HouseholdOptimizePanel({
   const [chatIsSending, setChatIsSending] = useState(false);
 
   const activeTasks = useMemo(
-    () => chores.filter((chore) => !chore.archivedAt),
-    [chores]
+    () => tasks.filter((task) => !task.archivedAt),
+    [tasks]
+  );
+  const activeChores = useMemo(
+    () => activeTasks.filter((task) => task.type === "chore"),
+    [activeTasks]
+  );
+  const activeCommitments = useMemo(
+    () => activeTasks.filter((task) => task.type === "commitment"),
+    [activeTasks]
   );
   const pendingRecommendations = useMemo(
     () => existingRecommendations.filter((recommendation) => recommendation.decision !== "applied"),
@@ -166,10 +174,11 @@ function HouseholdOptimizePanel({
         ]);
         if (cancelled) return;
 
-        const nextActiveTasks = nextTasks.filter((chore) => !chore.archivedAt);
+        const nextActiveTasks = nextTasks.filter((task) => !task.archivedAt);
+        const nextActiveChores = nextActiveTasks.filter((task) => task.type === "chore");
         setTasks(nextActiveTasks);
         setExistingRecommendations(nextRecommendations);
-        setSelectedTaskIds(getReviewDefaultSelection(nextActiveTasks, nextRecommendations));
+        setSelectedTaskIds(getReviewDefaultSelection(nextActiveChores, nextRecommendations));
         setReviewRecommendations([]);
         setMode("recommendations");
         setReviewStep("select");
@@ -197,10 +206,11 @@ function HouseholdOptimizePanel({
       listTasks(householdId),
       listRecommendations(householdId)
     ]);
-    const nextActiveTasks = nextTasks.filter((chore) => !chore.archivedAt);
+    const nextActiveTasks = nextTasks.filter((task) => !task.archivedAt);
+    const nextActiveChores = nextActiveTasks.filter((task) => task.type === "chore");
     setTasks(nextActiveTasks);
     setExistingRecommendations(nextRecommendations);
-    setSelectedTaskIds(getReviewDefaultSelection(nextActiveTasks, nextRecommendations));
+    setSelectedTaskIds(getReviewDefaultSelection(nextActiveChores, nextRecommendations));
   }
 
   async function handleGenerateSelectedReview() {
@@ -370,7 +380,7 @@ function HouseholdOptimizePanel({
                   <div>
                     <p className="eyebrow">Recommendation review</p>
                     <h2 id="review-flow-heading">
-                      {reviewStep === "select" ? "Choose chores to review" : null}
+                      {reviewStep === "select" ? "Choose chores to optimize" : null}
                       {reviewStep === "decide" ? "Decide on recommendations" : null}
                       {reviewStep === "complete" ? "Review complete" : null}
                     </h2>
@@ -406,11 +416,11 @@ function HouseholdOptimizePanel({
                     <span><strong>Apply changes</strong><small>Commit together</small></span>
                   </div>
 
-                  {activeTasks.length === 0 ? (
+                  {activeChores.length === 0 ? (
                     <div className="empty-state">No active chores are ready for review.</div>
                   ) : (
                     <div className="review-checkbox-list">
-                      {activeTasks.map((chore) => (
+                      {activeChores.map((chore) => (
                         <label className="review-checkbox-row" key={chore.id}>
                           <input
                             checked={selectedTaskIds.includes(chore.id)}
@@ -428,6 +438,13 @@ function HouseholdOptimizePanel({
                       ))}
                     </div>
                   )}
+
+                  {activeCommitments.length > 0 ? (
+                    <div className="context-support">
+                      <strong>Commitments are included as schedule context.</strong>
+                      <p>{activeCommitments.map((commitment) => commitment.title).join(", ")}</p>
+                    </div>
+                  ) : null}
 
                   <div className="form-actions">
                     <button

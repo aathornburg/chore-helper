@@ -221,7 +221,7 @@ function createHouseholdAppData({
     }]
   }
 }: {
-  chores?: typeof cleanBathroomsTask[];
+  chores?: Task[];
   recommendations?: unknown[];
   structure?: HouseholdStructure;
 } = {}): HouseholdAppData {
@@ -244,8 +244,8 @@ function mockRestoredHouseholdFetches({
   members = [ownerMember, secondMember],
   taskInboxItems = []
 }: {
-  chores?: typeof cleanBathroomsTask[];
-  archivedTasks?: typeof cleanBathroomsTask[];
+  chores?: Task[];
+  archivedTasks?: Task[];
   recommendations?: unknown[];
   chatResponses?: Array<{ ok: boolean; json: () => Promise<unknown> }>;
   calendarPreferencesOk?: boolean;
@@ -1484,8 +1484,8 @@ describe("App", () => {
 
     renderAt("/today");
 
-    expect(await screen.findByRole("region", { name: "Seven day chore strip" })).toBeTruthy();
-    expect(screen.getByRole("region", { name: "Selected day chores" })).toBeTruthy();
+    expect(await screen.findByRole("region", { name: "Seven day task strip" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Selected day tasks" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "View full calendar" })).toBeTruthy();
     expect(screen.getByText("done")).toBeTruthy();
     expect(screen.getByText("to do")).toBeTruthy();
@@ -1504,8 +1504,8 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Complete Clean bathrooms" })).toBeTruthy();
     expect(screen.getByText("Improve future suggestions")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "By household" }));
-    expect(screen.getByRole("region", { name: "Home chores" })).toBeTruthy();
-    expect(screen.getByRole("region", { name: "Cabin chores" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Home tasks" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Cabin tasks" })).toBeTruthy();
     expect(fetchMock.mock.calls.some(([url]) =>
       String(url).startsWith("http://localhost:3001/api/households/household-1/occurrences?") &&
       String(url).includes("startOn=") &&
@@ -2316,7 +2316,7 @@ describe("App", () => {
     await waitFor(() => {
       expect(within(collaboration).getByText("People with household access").parentElement?.textContent).toContain("2");
       expect(within(collaboration).getByText("Owner-managed invite queue").parentElement?.textContent).toContain("1");
-      expect(within(collaboration).getByText("Scheduled chores on the family board").parentElement?.textContent).toContain("2");
+      expect(within(collaboration).getByText("Scheduled tasks on the family board").parentElement?.textContent).toContain("2");
     });
   });
 
@@ -4971,6 +4971,33 @@ describe("App", () => {
     expect(screen.getByRole("region", { name: "Recommendation review" })).toBeTruthy();
     expect(screen.queryByRole("region", { name: "Assistant chat" })).toBeNull();
     expect(screen.getByRole("button", { name: "Review selected chores" })).toBeTruthy();
+  });
+
+  it("optimizes chores while showing commitments as context", async () => {
+    restoreHouseholdInStorage();
+    mockRestoredHouseholdFetches({
+      chores: [
+        cleanBathroomsTask,
+        {
+          ...cleanBathroomsTask,
+          id: "task-work",
+          title: "Work",
+          type: "commitment"
+        }
+      ]
+    });
+
+    renderAt("/optimize");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Run a plan checkup for Home." })).toBeTruthy();
+      expect(screen.getByLabelText("Clean bathrooms")).toBeTruthy();
+    });
+
+    expect(screen.getByText("Choose chores to optimize")).toBeTruthy();
+    expect(screen.getByText("Commitments are included as schedule context.")).toBeTruthy();
+    expect(screen.queryByLabelText("Work")).toBeNull();
+    expect(screen.getByText("Work")).toBeTruthy();
   });
 
   it("renders Optimize as a special command-center workspace", async () => {

@@ -75,8 +75,8 @@ function occurrenceDateKey(occurrence: TaskOccurrence, timeZone: string) {
     : occurrence.eligibleStartOn;
 }
 
-function choreTitle(household: HouseholdAppData, occurrence: TaskOccurrence) {
-  return household.tasks.find((chore) => chore.id === occurrence.taskId)?.title ?? "Scheduled chore";
+function taskTitle(household: HouseholdAppData, occurrence: TaskOccurrence) {
+  return household.tasks.find((task) => task.id === occurrence.taskId)?.title ?? "Scheduled task";
 }
 
 function minutesLabel(minutes: number) {
@@ -166,7 +166,7 @@ export function FamilyPage({ households, isLoading }: FamilyPageProps) {
         <div>
           <p className="eyebrow">Collaboration</p>
           <h1>Family</h1>
-          <p className="lede">Invite household members and coordinate shared chore ownership.</p>
+          <p className="lede">Invite household members and coordinate shared task ownership.</p>
         </div>
       </header>
 
@@ -185,12 +185,12 @@ export function FamilyPage({ households, isLoading }: FamilyPageProps) {
           <div>
             <span>This week</span>
             <strong>{isLoading ? "-" : familySummary.plannedTasks}</strong>
-            <p>Scheduled chores on the family board</p>
+            <p>Scheduled tasks on the family board</p>
           </div>
           <div>
             <span>Task load</span>
             <strong>{isLoading ? "-" : minutesLabel(familySummary.plannedMinutes)}</strong>
-            <p>Estimated shared chore time</p>
+            <p>Estimated shared task time</p>
           </div>
         </div>
 
@@ -267,7 +267,7 @@ function FamilyHouseholdPanel({ currentUserId, household, onSummaryChange }: Fam
     if (!moveCandidate) return undefined;
 
     return {
-      title: choreTitle(household, moveCandidate),
+      title: taskTitle(household, moveCandidate),
       from: memberLabel(heavy.member),
       to: memberLabel(light.member)
     };
@@ -424,7 +424,7 @@ function FamilyHouseholdPanel({ currentUserId, household, onSummaryChange }: Fam
                       <div className="family-board-cell family-board-work" key={`${row.member.userId}-${dateKey}`}>
                         {dayOccurrences.slice(0, 2).map((occurrence) => (
                           <span className={`family-board-chip is-${occurrence.status}`} key={occurrence.id}>
-                            {choreTitle(household, occurrence)}
+                            {taskTitle(household, occurrence)}
                           </span>
                         ))}
                         {dayOccurrences.length > 2 ? <small>+{dayOccurrences.length - 2} more</small> : null}
@@ -508,11 +508,11 @@ function FamilyHouseholdPanel({ currentUserId, household, onSummaryChange }: Fam
               {suggestedMove ? (
                 <>
                   <h3>Move {suggestedMove.title} from {suggestedMove.from} to {suggestedMove.to}.</h3>
-                  <p>That would bring this week closer to an even chore load.</p>
+                  <p>That would bring this week closer to an even task load.</p>
                 </>
               ) : (
                 <>
-                  <h3>Weekly chore load looks steady.</h3>
+                  <h3>Weekly task load looks steady.</h3>
                   <p>Clenella will surface suggested handoffs when one person starts carrying too much.</p>
                 </>
               )}
