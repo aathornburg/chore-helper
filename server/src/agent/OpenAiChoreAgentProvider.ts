@@ -1,5 +1,5 @@
 import { Agent, run } from "@openai/agents";
-import type { Chore, Recommendation } from "@chore-helper/shared";
+import type { Recommendation, Task } from "@chore-helper/shared";
 import { z } from "zod";
 import type {
   AgentChatContext,
@@ -78,7 +78,7 @@ async function runOpenAiChoreAgent({
   return result.finalOutput;
 }
 
-function formatChores(chores: Chore[]) {
+function formatChores(chores: Task[]) {
   if (chores.length === 0) {
     return "No selected chores.";
   }
@@ -102,7 +102,7 @@ function formatPrompt({ household, chores, reviewPrompt }: AgentRecommendationCo
   ].join("\n\n");
 }
 
-function formatChatChores(chores: Chore[]) {
+function formatChatChores(chores: Task[]) {
   if (chores.length === 0) {
     return "No active chores.";
   }
@@ -135,7 +135,7 @@ function formatChatRecommendations(recommendations: AgentChatContext["recommenda
         `confidence=${recommendation.confidence}`,
         `status=${recommendation.status}`,
         `decision=${recommendation.decision ?? "pending"}`,
-        `affectedChoreId=${recommendation.affectedChoreId ?? "none"}`
+        `affectedTaskId=${recommendation.affectedTaskId ?? "none"}`
       ].join("; ")
     )
     .join("\n");
@@ -154,7 +154,7 @@ function formatChatPrompt({ household, chores, recommendations, message }: Agent
   ].join("\n\n");
 }
 
-function findAffectedChoreId(affectedChoreTitle: string | undefined, chores: Chore[]) {
+function findAffectedChoreId(affectedChoreTitle: string | undefined, chores: Task[]) {
   if (!affectedChoreTitle) return undefined;
 
   const normalizedTitle = affectedChoreTitle.trim().toLowerCase();
@@ -168,7 +168,7 @@ function mapOutputToRecommendations(
   return output.recommendations.map((recommendation) => ({
     id: crypto.randomUUID(),
     householdId: context.household.id,
-    affectedChoreId: findAffectedChoreId(recommendation.affectedChoreTitle, context.chores),
+    affectedTaskId: findAffectedChoreId(recommendation.affectedChoreTitle, context.chores),
     title: recommendation.title,
     rationale: recommendation.rationale,
     confidence: recommendation.confidence,

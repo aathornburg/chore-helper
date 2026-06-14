@@ -19,6 +19,8 @@ function createContext(): AgentRecommendationContext {
       {
         id: "chore-1",
         householdId: "household-1",
+        type: "chore",
+        libraryState: "saved",
         title: "Clean bathrooms",
         source: "manual",
         instructions: "Sink, toilet, mirror and floor."
@@ -45,6 +47,8 @@ function createChatContext(): AgentChatContext {
       {
         id: "chore-1",
         householdId: "household-1",
+        type: "chore",
+        libraryState: "saved",
         title: "Clean bathrooms",
         source: "manual",
         instructions: "Sink, toilet, mirror and floor."
@@ -52,6 +56,8 @@ function createChatContext(): AgentChatContext {
       {
         id: "chore-2",
         householdId: "household-1",
+        type: "chore",
+        libraryState: "saved",
         title: "Reset kitchen",
         source: "manual",
         instructions: "Counters and sink."
@@ -61,7 +67,7 @@ function createChatContext(): AgentChatContext {
       {
         id: "recommendation-1",
         householdId: "household-1",
-        affectedChoreId: "chore-1",
+        affectedTaskId: "chore-1",
         title: "Review duration for Clean bathrooms",
         rationale: "The scope may need more time.",
         confidence: "high",
@@ -102,7 +108,7 @@ describe("OpenAiChoreAgentProvider", () => {
     expect(recommendations).toEqual([
       expect.objectContaining({
         householdId: "household-1",
-        affectedChoreId: "chore-1",
+        affectedTaskId: "chore-1",
         title: "Review duration for Clean bathrooms",
         rationale: "Ten minutes may be too short for a full bathroom reset.",
         confidence: "high",

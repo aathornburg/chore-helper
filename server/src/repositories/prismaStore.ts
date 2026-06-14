@@ -11,11 +11,11 @@ import type {
   CalendarSyncMode,
   CleanlyCalendarEvent,
   CleanlyCalendarEventType,
-  Chore,
-  ChoreLibraryPermission,
-  ChoreCompletionCheckIn,
-  ChoreOccurrence,
-  ChoreSchedule,
+  Task,
+  TaskLibraryPermission,
+  TaskCompletionCheckIn,
+  TaskOccurrence,
+  TaskSchedule,
   Household,
   HouseholdFloor,
   HouseholdInvitation,
@@ -179,26 +179,30 @@ function toHouseholdFloor(floor: {
   };
 }
 
-function toChore(chore: {
+function toTask(task: {
   id: string;
   householdId: string;
   household?: { name: string } | null;
   title: string;
+  type: string;
+  libraryState: string;
   source: string;
   instructions?: string | null;
   tags?: string;
   archivedAt?: Date | null;
-}): Chore {
-  const tags = chore.tags ? deserializeOptionalList<string>(chore.tags) : [];
+}): Task {
+  const tags = task.tags ? deserializeOptionalList<string>(task.tags) : [];
   return {
-    id: chore.id,
-    householdId: chore.householdId,
-    householdName: chore.household?.name,
-    title: chore.title,
-    source: chore.source as Chore["source"],
-    ...(chore.instructions ? { instructions: chore.instructions } : {}),
+    id: task.id,
+    householdId: task.householdId,
+    householdName: task.household?.name,
+    title: task.title,
+    type: task.type as Task["type"],
+    libraryState: task.libraryState as Task["libraryState"],
+    source: task.source as Task["source"],
+    ...(task.instructions ? { instructions: task.instructions } : {}),
     ...(tags.length ? { tags } : {}),
-    archivedAt: serializeDate(chore.archivedAt)
+    archivedAt: serializeDate(task.archivedAt)
   };
 }
 
@@ -220,6 +224,10 @@ function toCalendarImportQueueItem(item: {
   startsAt: Date;
   endsAt: Date;
   queueStatus: string;
+  linkedTaskId: string | null;
+  taskLinkStatus: string;
+  taskMatchReason: string | null;
+  importScope: string;
   createdCleanlyEventId: string | null;
   createdAt: Date;
 }): CalendarImportQueueItem {
@@ -237,6 +245,10 @@ function toCalendarImportQueueItem(item: {
     startsAt: item.startsAt.toISOString(),
     endsAt: item.endsAt.toISOString(),
     queueStatus: item.queueStatus as CalendarQueueStatus,
+    linkedTaskId: item.linkedTaskId ?? undefined,
+    taskLinkStatus: item.taskLinkStatus as CalendarImportQueueItem["taskLinkStatus"],
+    taskMatchReason: item.taskMatchReason ?? undefined,
+    importScope: item.importScope as CalendarImportQueueItem["importScope"],
     ...(item.createdCleanlyEventId ? { createdCleanlyEventId: item.createdCleanlyEventId } : {}),
     createdAt: item.createdAt.toISOString()
   };
@@ -245,7 +257,7 @@ function toCalendarImportQueueItem(item: {
 function toSchedule(schedule: {
   id: string;
   householdId: string;
-  choreId: string;
+  taskId: string;
   planningMode: string;
   frequency: string;
   interval: number;
@@ -263,17 +275,17 @@ function toSchedule(schedule: {
   assignmentMode: string;
   archivedAt?: Date | null;
   assignees: Array<{ userId: string; position: number }>;
-}): ChoreSchedule {
+}): TaskSchedule {
   const weekDays = deserializeOptionalList<number>(schedule.weekDays);
   const base = {
     id: schedule.id,
     householdId: schedule.householdId,
-    choreId: schedule.choreId,
+    taskId: schedule.taskId,
     recurrence: {
-      frequency: schedule.frequency as ChoreSchedule["recurrence"]["frequency"],
+      frequency: schedule.frequency as TaskSchedule["recurrence"]["frequency"],
       interval: schedule.interval,
       ...(weekDays.length ? { weekDays } : {}),
-      ...(schedule.monthlyPattern ? { monthlyPattern: schedule.monthlyPattern as ChoreSchedule["recurrence"]["monthlyPattern"] } : {}),
+      ...(schedule.monthlyPattern ? { monthlyPattern: schedule.monthlyPattern as TaskSchedule["recurrence"]["monthlyPattern"] } : {}),
       ...(schedule.monthlyDay ? { monthlyDay: schedule.monthlyDay } : {}),
       ...(schedule.monthlyWeek ? { monthlyWeek: schedule.monthlyWeek } : {}),
       ...(schedule.monthlyWeekday !== null && schedule.monthlyWeekday !== undefined ? { monthlyWeekday: schedule.monthlyWeekday } : {})
@@ -281,7 +293,7 @@ function toSchedule(schedule: {
     startsOn: schedule.startsOn,
     ...(schedule.endsOn ? { endsOn: schedule.endsOn } : {}),
     assignment: {
-      mode: schedule.assignmentMode as ChoreSchedule["assignment"]["mode"],
+      mode: schedule.assignmentMode as TaskSchedule["assignment"]["mode"],
       memberUserIds: schedule.assignees
         .sort((first, second) => first.position - second.position)
         .map((assignee) => assignee.userId)
@@ -307,7 +319,7 @@ function toSchedule(schedule: {
 function toOccurrence(occurrence: {
   id: string;
   householdId: string;
-  choreId: string;
+  taskId: string;
   scheduleId: string;
   sequence: number;
   planningMode: string;
@@ -321,22 +333,22 @@ function toOccurrence(occurrence: {
   status: string;
   completedAt?: Date | null;
   completedByUserId?: string | null;
-}): ChoreOccurrence {
+}): TaskOccurrence {
   return {
     id: occurrence.id,
     householdId: occurrence.householdId,
-    choreId: occurrence.choreId,
+    taskId: occurrence.taskId,
     scheduleId: occurrence.scheduleId,
     sequence: occurrence.sequence,
-    planningMode: occurrence.planningMode as ChoreOccurrence["planningMode"],
+    planningMode: occurrence.planningMode as TaskOccurrence["planningMode"],
     plannedStartAt: serializeDate(occurrence.plannedStartAt),
     plannedEndAt: serializeDate(occurrence.plannedEndAt),
     estimatedMinutes: occurrence.estimatedMinutes,
     eligibleStartOn: occurrence.eligibleStartOn,
     eligibleEndOn: occurrence.eligibleEndOn,
     assignedUserId: occurrence.assignedUserId,
-    exceptionType: occurrence.exceptionType as ChoreOccurrence["exceptionType"],
-    status: occurrence.status as ChoreOccurrence["status"],
+    exceptionType: occurrence.exceptionType as TaskOccurrence["exceptionType"],
+    status: occurrence.status as TaskOccurrence["status"],
     completedAt: serializeDate(occurrence.completedAt),
     completedByUserId: occurrence.completedByUserId ?? undefined
   };
@@ -354,7 +366,7 @@ function toCompletionCheckIn(checkIn: {
   rebaseFutureOccurrences: boolean;
   createdAt: Date;
   updatedAt: Date;
-}): ChoreCompletionCheckIn {
+}): TaskCompletionCheckIn {
   return {
     id: checkIn.id,
     householdId: checkIn.householdId,
@@ -374,7 +386,7 @@ async function completionCheckInRelations(
   prisma: PrismaClient,
   input: CompletionCheckInCreate
 ) {
-  const occurrence = await prisma.choreOccurrence.findFirst({
+  const occurrence = await prisma.taskOccurrence.findFirst({
     where: {
       id: input.occurrenceId,
       householdId: input.householdId,
@@ -382,7 +394,7 @@ async function completionCheckInRelations(
       status: "completed"
     },
     select: {
-      choreId: true,
+      taskId: true,
       scheduleId: true
     }
   });
@@ -394,7 +406,7 @@ async function completionCheckInRelations(
 function toRecommendation(recommendation: {
   id: string;
   householdId: string;
-  affectedChoreId?: string | null;
+  affectedTaskId?: string | null;
   title: string;
   rationale: string;
   confidence: string;
@@ -407,7 +419,7 @@ function toRecommendation(recommendation: {
   return {
     id: recommendation.id,
     householdId: recommendation.householdId,
-    affectedChoreId: recommendation.affectedChoreId ?? undefined,
+    affectedTaskId: recommendation.affectedTaskId ?? undefined,
     title: recommendation.title,
     rationale: recommendation.rationale,
     confidence: recommendation.confidence as RecommendationConfidence,
@@ -512,9 +524,9 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
         householdId: membership.householdId,
         userId: membership.userId,
         role: membership.role as "owner" | "member",
-        choreLibraryPermission: membership.role === "owner"
+        taskLibraryPermission: membership.role === "owner"
           ? "manage"
-          : (membership.choreLibraryPermission as ChoreLibraryPermission)
+          : (membership.taskLibraryPermission as TaskLibraryPermission)
       }
         : undefined;
     },
@@ -533,9 +545,9 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
         primaryEmail: membership.user.primaryEmail ?? undefined,
         displayName: membership.user.displayName ?? undefined,
         role: membership.role as "owner" | "member",
-        choreLibraryPermission: membership.role === "owner"
+        taskLibraryPermission: membership.role === "owner"
           ? "manage"
-          : (membership.choreLibraryPermission as ChoreLibraryPermission)
+          : (membership.taskLibraryPermission as TaskLibraryPermission)
       }));
     },
 
@@ -564,15 +576,15 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
             householdId: updated.householdId,
             userId: updated.userId,
             role: updated.role as "owner" | "member",
-            choreLibraryPermission: updated.role === "owner"
+            taskLibraryPermission: updated.role === "owner"
               ? "manage"
-              : (updated.choreLibraryPermission as ChoreLibraryPermission)
+              : (updated.taskLibraryPermission as TaskLibraryPermission)
           }
         };
       }, { isolationLevel: "Serializable" });
     },
 
-    async updateChoreLibraryPermission(householdId, userId, update) {
+    async updateTaskLibraryPermission(householdId, userId, update) {
       const existing = await prisma.householdMember.findUnique({
         where: { householdId_userId: { householdId, userId } }
       });
@@ -580,7 +592,7 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
 
       const saved = await prisma.householdMember.update({
         where: { householdId_userId: { householdId, userId } },
-        data: { choreLibraryPermission: update.choreLibraryPermission },
+        data: { taskLibraryPermission: update.taskLibraryPermission },
         include: { user: true }
       });
 
@@ -591,9 +603,9 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
         primaryEmail: saved.user.primaryEmail ?? undefined,
         displayName: saved.user.displayName ?? undefined,
         role: saved.role as "owner" | "member",
-        choreLibraryPermission: saved.role === "owner"
+        taskLibraryPermission: saved.role === "owner"
           ? "manage"
-          : (saved.choreLibraryPermission as ChoreLibraryPermission)
+          : (saved.taskLibraryPermission as TaskLibraryPermission)
       };
     },
 
@@ -621,9 +633,9 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
             householdId: removed.householdId,
             userId: removed.userId,
             role: removed.role as "owner" | "member",
-            choreLibraryPermission: removed.role === "owner"
+            taskLibraryPermission: removed.role === "owner"
               ? "manage"
-              : (removed.choreLibraryPermission as ChoreLibraryPermission)
+              : (removed.taskLibraryPermission as TaskLibraryPermission)
           }
         };
       }, { isolationLevel: "Serializable" });
@@ -727,7 +739,7 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
               create: {
                 userId,
                 role: "owner",
-                choreLibraryPermission: "manage"
+                taskLibraryPermission: "manage"
               }
             }
           },
@@ -888,38 +900,42 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
       return this.getHouseholdStructure(householdId);
     },
 
-    async createChore(householdId, chore) {
+    async createTask(householdId, task) {
       const created = await prisma.$transaction(async (tx) => {
-        const nextChore = await tx.chore.create({
+        const nextTask = await tx.task.create({
           data: {
             id: crypto.randomUUID(),
             householdId,
-            title: chore.title,
-            source: chore.source,
-            instructions: chore.instructions,
-            tags: serializeOptionalList(chore.tags ?? [])
+            title: task.title,
+            type: task.type,
+            libraryState: task.libraryState,
+            source: task.source,
+            instructions: task.instructions,
+            tags: serializeOptionalList(task.tags ?? [])
           }
         });
         await tx.recommendation.updateMany({
           where: { householdId, staleAt: null },
           data: { staleAt: new Date() }
         });
-        return nextChore;
+        return nextTask;
       });
 
-      return toChore(created);
+      return toTask(created);
     },
 
-    async createChoreWithSchedules({ householdId, chore, schedules }) {
+    async createTaskWithSchedules({ householdId, task, schedules }) {
       const created = await prisma.$transaction(async (tx) => {
-        const nextChore = await tx.chore.create({
+        const nextTask = await tx.task.create({
           data: {
             id: crypto.randomUUID(),
             householdId,
-            title: chore.title,
-            source: chore.source,
-            instructions: chore.instructions,
-            tags: serializeOptionalList(chore.tags ?? []),
+            title: task.title,
+            type: task.type,
+            libraryState: task.libraryState,
+            source: task.source,
+            instructions: task.instructions,
+            tags: serializeOptionalList(task.tags ?? []),
             schedules: {
               create: schedules.map((schedule) => ({
                 household: { connect: { id: householdId } },
@@ -950,90 +966,92 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
           where: { householdId, staleAt: null },
           data: { staleAt: new Date() }
         });
-        return nextChore;
+        return nextTask;
       });
 
       return {
-        chore: toChore(created),
+        task: toTask(created),
         schedules: created.schedules.map(toSchedule)
       };
     },
 
-    async updateChore(householdId, choreId, chore) {
-      const existing = await prisma.chore.findFirst({
-        where: { id: choreId, householdId }
+    async updateTask(householdId, taskId, task) {
+      const existing = await prisma.task.findFirst({
+        where: { id: taskId, householdId }
       });
       if (!existing) return undefined;
 
       const updated = await prisma.$transaction(async (tx) => {
-        const nextChore = await tx.chore.update({
-          where: { id: choreId },
+        const nextTask = await tx.task.update({
+          where: { id: taskId },
           data: {
-            title: chore.title,
-            source: chore.source,
-            instructions: chore.instructions,
-            tags: serializeOptionalList(chore.tags ?? [])
+            title: task.title,
+            type: task.type,
+            libraryState: task.libraryState,
+            source: task.source,
+            instructions: task.instructions,
+            tags: serializeOptionalList(task.tags ?? [])
           }
         });
         await tx.recommendation.updateMany({
           where: { householdId, staleAt: null },
           data: { staleAt: new Date() }
         });
-        return nextChore;
+        return nextTask;
       });
 
-      return toChore(updated);
+      return toTask(updated);
     },
 
-    async archiveChore(householdId, choreId) {
-      const existing = await prisma.chore.findFirst({
-        where: { id: choreId, householdId }
+    async archiveTask(householdId, taskId) {
+      const existing = await prisma.task.findFirst({
+        where: { id: taskId, householdId }
       });
       if (!existing) return undefined;
 
       const updated = await prisma.$transaction(async (tx) => {
         const archivedAt = new Date();
-        const nextChore = await tx.chore.update({
-          where: { id: choreId },
+        const nextTask = await tx.task.update({
+          where: { id: taskId },
           data: { archivedAt }
         });
-        await tx.choreSchedule.updateMany({
-          where: { householdId, choreId, archivedAt: null },
+        await tx.taskSchedule.updateMany({
+          where: { householdId, taskId, archivedAt: null },
           data: { archivedAt }
         });
         await tx.recommendation.updateMany({
           where: { householdId, staleAt: null },
           data: { staleAt: new Date() }
         });
-        return nextChore;
+        return nextTask;
       });
 
-      return toChore(updated);
+      return toTask(updated);
     },
 
-    async restoreChore(householdId, choreId) {
-      const existing = await prisma.chore.findFirst({
-        where: { id: choreId, householdId }
+    async restoreTask(householdId, taskId) {
+      const existing = await prisma.task.findFirst({
+        where: { id: taskId, householdId }
       });
       if (!existing) return undefined;
 
       const updated = await prisma.$transaction(async (tx) => {
-        const nextChore = await tx.chore.update({
-          where: { id: choreId },
+        const nextTask = await tx.task.update({
+          where: { id: taskId },
           data: { archivedAt: null }
         });
         await tx.recommendation.updateMany({
           where: { householdId, staleAt: null },
           data: { staleAt: new Date() }
         });
-        return nextChore;
+        return nextTask;
       });
 
-      return toChore(updated);
+      return toTask(updated);
     },
 
-    async listChores(householdId, options = {}) {
-      const chores = await prisma.chore.findMany({
+    async listTasks(householdId, options = {}) {
+      const tasks = await prisma.task.findMany({
         where: options.archivedOnly
           ? { householdId, archivedAt: { not: null } }
           : options.includeArchived
@@ -1042,11 +1060,11 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
         orderBy: { createdAt: "asc" }
       });
 
-      return chores.map(toChore);
+      return tasks.map(toTask);
     },
 
-    async listAllChores(options = {}) {
-      const chores = await prisma.chore.findMany({
+    async listAllTasks(options = {}) {
+      const tasks = await prisma.task.findMany({
         where: options.archivedOnly
           ? { archivedAt: { not: null } }
           : options.includeArchived
@@ -1060,14 +1078,14 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
         orderBy: { createdAt: "asc" }
       });
 
-      return chores.map(toChore);
+      return tasks.map(toTask);
     },
 
     async createSchedule(schedule) {
-      const created = await prisma.choreSchedule.create({
+      const created = await prisma.taskSchedule.create({
         data: {
           householdId: schedule.householdId,
-          choreId: schedule.choreId,
+          taskId: schedule.taskId,
           planningMode: schedule.planningMode,
           frequency: schedule.recurrence.frequency,
           interval: schedule.recurrence.interval,
@@ -1093,12 +1111,12 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
       return toSchedule(created);
     },
 
-    async listSchedules(householdId, choreId) {
-      const schedules = await prisma.choreSchedule.findMany({
+    async listSchedules(householdId, taskId) {
+      const schedules = await prisma.taskSchedule.findMany({
         where: {
           householdId,
           archivedAt: null,
-          ...(choreId ? { choreId } : {})
+          ...(taskId ? { taskId } : {})
         },
         include: { assignees: true },
         orderBy: { createdAt: "asc" }
@@ -1108,12 +1126,12 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
     },
 
     async updateSchedule(householdId, scheduleId, update) {
-      const existing = await prisma.choreSchedule.findFirst({
+      const existing = await prisma.taskSchedule.findFirst({
         where: { id: scheduleId, householdId, archivedAt: null }
       });
       if (!existing) return undefined;
 
-      const updated = await prisma.choreSchedule.update({
+      const updated = await prisma.taskSchedule.update({
         where: { id: scheduleId },
         data: {
           planningMode: update.planningMode,
@@ -1143,12 +1161,12 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
     },
 
     async archiveSchedule(householdId, scheduleId) {
-      const existing = await prisma.choreSchedule.findFirst({
+      const existing = await prisma.taskSchedule.findFirst({
         where: { id: scheduleId, householdId, archivedAt: null }
       });
       if (!existing) return undefined;
 
-      const updated = await prisma.choreSchedule.update({
+      const updated = await prisma.taskSchedule.update({
         where: { id: scheduleId },
         data: { archivedAt: new Date() },
         include: { assignees: true }
@@ -1160,7 +1178,7 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
     async materializeScheduleOccurrences(householdId, scheduleId, occurrences) {
       const storedOccurrences = await Promise.all(
         occurrences.map((occurrence) =>
-          prisma.choreOccurrence.upsert({
+          prisma.taskOccurrence.upsert({
             where: {
               id: occurrence.id
             },
@@ -1168,7 +1186,7 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
             create: {
               id: occurrence.id,
               householdId,
-              choreId: occurrence.choreId,
+              taskId: occurrence.taskId,
               scheduleId,
               sequence: occurrence.sequence,
               planningMode: occurrence.planningMode,
@@ -1191,7 +1209,7 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
     },
 
     async listOccurrences(householdId, range) {
-      const occurrences = await prisma.choreOccurrence.findMany({
+      const occurrences = await prisma.taskOccurrence.findMany({
         where: {
           householdId,
           schedule: {
@@ -1225,7 +1243,7 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
     },
 
     async getOccurrence(householdId, occurrenceId) {
-      const occurrence = await prisma.choreOccurrence.findFirst({
+      const occurrence = await prisma.taskOccurrence.findFirst({
         where: { id: occurrenceId, householdId }
       });
 
@@ -1233,7 +1251,7 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
     },
 
     async completeOccurrence(householdId, occurrenceId, completedByUserId, completedAt) {
-      const updated = await prisma.choreOccurrence.updateMany({
+      const updated = await prisma.taskOccurrence.updateMany({
         where: {
           id: occurrenceId,
           householdId,
@@ -1248,7 +1266,7 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
       });
       if (updated.count === 0) return undefined;
 
-      const occurrence = await prisma.choreOccurrence.findFirst({
+      const occurrence = await prisma.taskOccurrence.findFirst({
         where: { id: occurrenceId, householdId }
       });
       return occurrence ? toOccurrence(occurrence) : undefined;
@@ -1260,7 +1278,7 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
         throw new Error("Cannot record a check-in for an incomplete occurrence");
       }
 
-      const checkIn = await prisma.choreCompletionCheckIn.upsert({
+      const checkIn = await prisma.taskCompletionCheckIn.upsert({
         where: {
           householdId_occurrenceId: {
             householdId: input.householdId,
@@ -1269,7 +1287,7 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
         },
         create: {
           householdId: input.householdId,
-          choreId: occurrence.choreId,
+          taskId: occurrence.taskId,
           scheduleId: occurrence.scheduleId,
           occurrenceId: input.occurrenceId,
           completedByUserId: input.completedByUserId,
@@ -1293,7 +1311,7 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
     },
 
     async getCompletionCheckInForOccurrence(householdId, occurrenceId) {
-      const checkIn = await prisma.choreCompletionCheckIn.findUnique({
+      const checkIn = await prisma.taskCompletionCheckIn.findUnique({
         where: {
           householdId_occurrenceId: {
             householdId,
@@ -1306,7 +1324,7 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
     },
 
     async updateOccurrenceException(householdId, occurrenceId, update) {
-      const existing = await prisma.choreOccurrence.findFirst({
+      const existing = await prisma.taskOccurrence.findFirst({
         where: { id: occurrenceId, householdId }
       });
       if (!existing) return undefined;
@@ -1319,7 +1337,7 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
             : update.assignedUserId !== existing.assignedUserId
               ? "reassigned"
               : existing.exceptionType;
-      const updated = await prisma.choreOccurrence.update({
+      const updated = await prisma.taskOccurrence.update({
         where: { id: occurrenceId },
         data: {
           plannedStartAt: new Date(update.plannedStartAt),
@@ -1333,12 +1351,12 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
     },
 
     async skipOccurrence(householdId, occurrenceId) {
-      const existing = await prisma.choreOccurrence.findFirst({
+      const existing = await prisma.taskOccurrence.findFirst({
         where: { id: occurrenceId, householdId }
       });
       if (!existing) return undefined;
 
-      const updated = await prisma.choreOccurrence.update({
+      const updated = await prisma.taskOccurrence.update({
         where: { id: occurrenceId },
         data: { exceptionType: "skipped", status: "skipped" }
       });
@@ -1347,7 +1365,7 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
     },
 
     async clearFutureUntouchedOccurrences(householdId, scheduleId, cutoff: OccurrenceClearFutureCutoff) {
-      await prisma.choreOccurrence.deleteMany({
+      await prisma.taskOccurrence.deleteMany({
         where: {
           householdId,
           scheduleId,
@@ -1378,7 +1396,7 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
             rationale: recommendation.rationale,
             confidence: recommendation.confidence,
             status: recommendation.status,
-            affectedChoreId: recommendation.affectedChoreId,
+            affectedTaskId: recommendation.affectedTaskId,
             decision: recommendation.decision ?? "pending",
             proposedCadence: recommendation.proposedCadence,
             proposedEstimatedMinutes: recommendation.proposedEstimatedMinutes,
@@ -1740,7 +1758,9 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
           startsAt: new Date(input.startsAt),
           endsAt: new Date(input.endsAt),
           timezone: "UTC",
-          queueStatus: "pending"
+          queueStatus: "pending",
+          taskLinkStatus: input.taskLinkStatus ?? "unreviewed",
+          importScope: input.importScope ?? "single"
         },
         include: { submittedByUser: true }
       });
@@ -1863,6 +1883,10 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
         where: { id: queueItemId },
         data: {
           proposedType: input.proposedType ?? item.proposedType,
+          linkedTaskId: input.linkedTaskId ?? item.linkedTaskId,
+          taskLinkStatus: input.taskLinkStatus ?? item.taskLinkStatus,
+          taskMatchReason: input.taskMatchReason ?? item.taskMatchReason,
+          importScope: input.importScope ?? item.importScope,
           queueStatus: input.decision === "approve" ? "approved" : "rejected",
           ownerDecisionByUserId: ownerUserId,
           ownerDecisionAt: new Date(),
@@ -1966,3 +1990,4 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
     }
   };
 }
+

@@ -219,7 +219,15 @@ export function createCalendarRouter(
 
     const input: CalendarImportQueueDecisionInput = {
       decision: req.body.decision,
-      proposedType: isOneOf(req.body.proposedType, ["chore", "commitment"] as const) ? req.body.proposedType : undefined
+      proposedType: isOneOf(req.body.proposedType, ["chore", "commitment"] as const) ? req.body.proposedType : undefined,
+      linkedTaskId: typeof req.body.linkedTaskId === "string" ? req.body.linkedTaskId : undefined,
+      taskLinkStatus: isOneOf(req.body.taskLinkStatus, ["unreviewed", "linked", "saved", "one_time"] as const)
+        ? req.body.taskLinkStatus
+        : undefined,
+      taskMatchReason: typeof req.body.taskMatchReason === "string" ? req.body.taskMatchReason : undefined,
+      importScope: isOneOf(req.body.importScope, ["single", "series", "future_matching"] as const)
+        ? req.body.importScope
+        : undefined
     };
 
     try {
@@ -446,13 +454,17 @@ export function createCalendarRouter(
         title,
         privacyTitle,
         startsAt: new Date(event.startsAt).toISOString(),
-        endsAt: new Date(event.endsAt).toISOString()
+        endsAt: new Date(event.endsAt).toISOString(),
+        taskLinkStatus: "unreviewed",
+        importScope: "single"
       });
 
       items.push(importQueueMode === "auto"
         ? await store.decideCalendarImportQueueItem(req.body.householdId, created.id, user.id, {
             decision: "approve",
-            proposedType: created.proposedType
+            proposedType: created.proposedType,
+            taskLinkStatus: created.taskLinkStatus,
+            importScope: created.importScope
           })
         : created);
     }

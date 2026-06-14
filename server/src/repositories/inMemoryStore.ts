@@ -29,6 +29,10 @@ import type {
 
 export type StoreResult<T> = T | Promise<T>;
 
+export type CalendarImportQueueCreateInput =
+  Omit<CalendarImportQueueItem, "id" | "createdAt" | "queueStatus" | "taskLinkStatus" | "importScope"> &
+  Partial<Pick<CalendarImportQueueItem, "taskLinkStatus" | "importScope">>;
+
 export type TaskListOptions = {
   includeArchived?: boolean;
   archivedOnly?: boolean;
@@ -248,7 +252,7 @@ export type HouseholdStore = {
   getCalendarPreferences(userId: string, householdId: string): StoreResult<CalendarPreferences>;
   updateCalendarPreferences(userId: string, householdId: string, update: CalendarPreferences): StoreResult<CalendarPreferences>;
   listCalendarImportQueue(householdId: string): StoreResult<CalendarImportQueueItem[]>;
-  createCalendarImportQueueItem(input: Omit<CalendarImportQueueItem, "id" | "createdAt" | "queueStatus">): StoreResult<CalendarImportQueueItem>;
+  createCalendarImportQueueItem(input: CalendarImportQueueCreateInput): StoreResult<CalendarImportQueueItem>;
   upsertCalendarImportQueueReviewNotifications(householdId: string): StoreResult<AppNotification[]>;
   listNotificationsForUser(userId: string): StoreResult<AppNotification[]>;
   markNotificationsRead(userId: string, notificationIds: string[]): StoreResult<AppNotification[]>;

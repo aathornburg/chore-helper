@@ -12,10 +12,10 @@ model Household {
   timeZone        String             @default("America/New_York")
   profile         HouseholdProfile?
   floors          HouseholdFloor[]
-  chores          Chore[]
-  schedules       ChoreSchedule[]
-  occurrences     ChoreOccurrence[]
-  completionCheckIns ChoreCompletionCheckIn[]
+  tasks           Task[]
+  schedules       TaskSchedule[]
+  occurrences     TaskOccurrence[]
+  completionCheckIns TaskCompletionCheckIn[]
   recommendations Recommendation[]
   members         HouseholdMember[]
   invitations     HouseholdInvitation[]
@@ -37,9 +37,9 @@ model User {
   displayName     String?
   memberships     HouseholdMember[]
   sentInvitations HouseholdInvitation[] @relation("InvitationInviter")
-  scheduleAssignees ChoreScheduleAssignee[]
-  assignedOccurrences ChoreOccurrence[] @relation("OccurrenceAssignee")
-  completedCheckIns ChoreCompletionCheckIn[] @relation("CheckInCompletedBy")
+  scheduleAssignees TaskScheduleAssignee[]
+  assignedOccurrences TaskOccurrence[] @relation("OccurrenceAssignee")
+  completedCheckIns TaskCompletionCheckIn[] @relation("CheckInCompletedBy")
   calendarConnections CalendarConnection[]
   calendarPolicies CalendarImportPolicy[]
   calendarSharingPreferences CalendarSharingPreference[]
@@ -80,7 +80,7 @@ model HouseholdMember {
   userId                 String
   user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   role                   String
-  choreLibraryPermission String    @default("view")
+  taskLibraryPermission  String    @default("view")
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
 
@@ -155,28 +155,33 @@ model HouseholdRoom {
   @@unique([floorDbId, id])
 }
 
-model Chore {
+model Task {
   id               String    @id
   householdId      String
   household        Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
   title            String
+  type             String    @default("chore")
+  libraryState     String    @default("saved")
   source           String
   instructions     String?
   tags             String    @default("[]")
   archivedAt       DateTime?
-  schedules        ChoreSchedule[]
-  occurrences      ChoreOccurrence[]
-  completionCheckIns ChoreCompletionCheckIn[]
+  schedules        TaskSchedule[]
+  occurrences      TaskOccurrence[]
+  completionCheckIns TaskCompletionCheckIn[]
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+
+  @@index([householdId, libraryState])
+  @@index([householdId, type])
 }
 
-model ChoreSchedule {
+model TaskSchedule {
   id                 String                   @id @default(cuid())
   householdId        String
   household          Household                @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  choreId            String
-  chore              Chore                    @relation(fields: [choreId], references: [id], onDelete: Cascade)
+  taskId             String
+  task               Task                     @relation(fields: [taskId], references: [id], onDelete: Cascade)
   planningMode       String
   frequency          String
   interval           Int
@@ -192,19 +197,19 @@ model ChoreSchedule {
   startsOn           String
   endsOn             String?
   assignmentMode     String
-  assignees          ChoreScheduleAssignee[]
-  occurrences        ChoreOccurrence[]
-  completionCheckIns ChoreCompletionCheckIn[]
+  assignees          TaskScheduleAssignee[]
+  occurrences        TaskOccurrence[]
+  completionCheckIns TaskCompletionCheckIn[]
   archivedAt         DateTime?
   createdAt          DateTime                 @default(now())
   updatedAt          DateTime                 @updatedAt
 
-  @@index([householdId, choreId])
+  @@index([householdId, taskId])
 }
 
-model ChoreScheduleAssignee {
+model TaskScheduleAssignee {
   scheduleId String
-  schedule   ChoreSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  schedule   TaskSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
   userId     String
   user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   position   Int
@@ -213,14 +218,14 @@ model ChoreScheduleAssignee {
   @@unique([scheduleId, position])
 }
 
-model ChoreOccurrence {
+model TaskOccurrence {
   id                String        @id @default(cuid())
   householdId       String
   household         Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  choreId           String
-  chore             Chore         @relation(fields: [choreId], references: [id], onDelete: Cascade)
+  taskId            String
+  task              Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
   scheduleId        String
-  schedule          ChoreSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  schedule          TaskSchedule  @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
   sequence          Int
   planningMode      String
   plannedStartAt    DateTime?
@@ -234,7 +239,7 @@ model ChoreOccurrence {
   status            String        @default("planned")
   completedAt       DateTime?
   completedByUserId String?
-  completionCheckIn ChoreCompletionCheckIn?
+  completionCheckIn TaskCompletionCheckIn?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
@@ -244,16 +249,16 @@ model ChoreOccurrence {
   @@index([householdId, planningMode, eligibleEndOn, eligibleStartOn])
 }
 
-model ChoreCompletionCheckIn {
+model TaskCompletionCheckIn {
   id                       String          @id @default(cuid())
   householdId              String
   household                Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  choreId                  String
-  chore                    Chore           @relation(fields: [choreId], references: [id], onDelete: Cascade)
+  taskId                   String
+  task                     Task            @relation(fields: [taskId], references: [id], onDelete: Cascade)
   scheduleId               String
-  schedule                 ChoreSchedule   @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  schedule                 TaskSchedule    @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
   occurrenceId             String          @unique
-  occurrence               ChoreOccurrence @relation(fields: [occurrenceId], references: [id], onDelete: Cascade)
+  occurrence               TaskOccurrence  @relation(fields: [occurrenceId], references: [id], onDelete: Cascade)
   completedByUserId        String
   completedByUser          User            @relation("CheckInCompletedBy", fields: [completedByUserId], references: [id], onDelete: Restrict)
   completedAt              DateTime
@@ -266,7 +271,7 @@ model ChoreCompletionCheckIn {
 
   @@unique([householdId, occurrenceId])
   @@index([householdId, completedAt])
-  @@index([householdId, choreId])
+  @@index([householdId, taskId])
   @@index([householdId, scheduleId])
 }
 
@@ -274,7 +279,7 @@ model Recommendation {
   id                       String    @id
   householdId              String
   household                Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  affectedChoreId          String?
+  affectedTaskId           String?
   title                    String
   rationale                String
   confidence               String
@@ -420,6 +425,10 @@ model CalendarImportQueueItem {
   timezone                 String
   allowedPayloadJson       String                @default("{}")
   queueStatus              String                @default("pending")
+  linkedTaskId             String?
+  taskLinkStatus           String                @default("unreviewed")
+  taskMatchReason          String?
+  importScope              String                @default("single")
   ownerDecisionByUserId    String?
   ownerDecisionByUser      User?                 @relation("DecidedImportQueueItems", fields: [ownerDecisionByUserId], references: [id], onDelete: SetNull)
   ownerDecisionAt          DateTime?

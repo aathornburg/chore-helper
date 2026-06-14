@@ -9,7 +9,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import { Router } from "express";
 import type { Request, Response } from "express";
 import { z } from "zod";
-import type { Task, TaskOccurrence, TaskSchedule, Recommendation } from "@chore-helper/shared";
+import type { Task, TaskSchedule, Recommendation } from "@chore-helper/shared";
 import type { AgentProvider } from "../agent/AgentProvider.js";
 import type { AuthMode } from "../auth/currentUser.js";
 import { resolveCurrentUser } from "../auth/currentUser.js";
@@ -381,19 +381,10 @@ export function createHouseholdRouter(
   async function materializeInitialScheduleOccurrences(schedule: TaskSchedule, householdTimeZone: string) {
     const rangeStart = schedule.startsOn;
     const rangeEnd = format(addDays(parseISO(rangeStart), 89), "yyyy-MM-dd");
-    const occurrences = materializeOccurrences({
-      schedule: { ...schedule, choreId: schedule.taskId } as never,
-      householdTimeZone,
-      rangeStart,
-      rangeEnd
-    }).map((occurrence) => {
-      const { choreId: _choreId, ...rest } = occurrence as TaskOccurrence & { choreId?: string };
-      return { ...rest, taskId: schedule.taskId };
-    });
     await store.materializeScheduleOccurrences(
       schedule.householdId,
       schedule.id,
-      occurrences
+      materializeOccurrences({ schedule, householdTimeZone, rangeStart, rangeEnd })
     );
   }
 
