@@ -12,6 +12,8 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
+    "db:deploy": "prisma migrate deploy",
+    "db:resolve:baseline": "prisma migrate resolve --applied 20260613160000_baseline_current_schema",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio"
   },

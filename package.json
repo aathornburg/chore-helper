@@ -10,6 +10,8 @@
     "db:down": "docker compose down",
     "db:logs": "docker compose logs -f postgres",
     "db:push": "npm run db:push -w server",
+    "db:deploy": "npm run db:deploy -w server",
+    "db:resolve:baseline": "npm run db:resolve:baseline -w server",
     "db:studio": "npm run db:studio -w server",
     "db:dev:reset": "npm run db:up && npm run db:generate -w server && npm run db:push -w server -- --force-reset",
     "test": "npm run test -ws",
