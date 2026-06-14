@@ -3,6 +3,7 @@ import type {
   AppNotification,
   CalendarImportQueueItem,
   CleanlyCalendarEvent,
+  Task,
   TaskOccurrence,
   CreateScheduledTaskInput,
   HouseholdAppData,
@@ -173,12 +174,12 @@ const household = {
   }
 };
 
-const cleanBathroomsTask = {
+const cleanBathroomsTask: Task = {
   id: "chore-1",
   householdId: "household-1",
   title: "Clean bathrooms",
-  type: "chore" as const,
-  libraryState: "saved" as const,
+  type: "chore",
+  libraryState: "saved",
   source: "manual"
 };
 
@@ -889,6 +890,7 @@ function mockCalendarWorkspaceFetches({
   includeHistory = true,
   importCandidates = [],
   importQueueMode = "manual",
+  taskLibraryState = "saved",
   occurrences: occurrenceOverrides
 }: {
   calendarConnected?: boolean;
@@ -909,6 +911,7 @@ function mockCalendarWorkspaceFetches({
   frequency?: "daily" | "weekly" | "monthly" | "yearly";
   includeHistory?: boolean;
   importQueueMode?: "off" | "manual" | "auto";
+  taskLibraryState?: "saved" | "one_time";
   occurrences?: TaskOccurrence[];
   importCandidates?: Array<{
     id: string;
@@ -994,7 +997,7 @@ function mockCalendarWorkspaceFetches({
         ok: true,
         json: async () => [createHouseholdAppData({
           chores: [
-            cleanBathroomsTask,
+            { ...cleanBathroomsTask, libraryState: taskLibraryState },
             { ...cleanBathroomsTask, id: "chore-2", title: "Pet cats" }
           ]
         })]
@@ -1137,6 +1140,24 @@ function mockCalendarWorkspaceFetches({
           ...JSON.parse(String(init?.body))
         })
       };
+    }
+    if (url.endsWith("/api/households/household-1/occurrences/occurrence-flexible/task-details") && method === "PATCH") {
+      const body = JSON.parse(String(init?.body));
+      const updated = {
+        ...occurrences[0],
+        customTitle: body.title,
+        customType: body.type,
+        customInstructions: body.instructions,
+        customTags: body.tags,
+        hasTaskOverrides: true
+      };
+      occurrences = [updated, ...occurrences.slice(1)];
+      return { ok: true, json: async () => updated };
+    }
+    if (url.endsWith("/api/households/household-1/occurrences/occurrence-flexible/save-to-library") && method === "POST") {
+      const updated = { ...occurrences[0], hasTaskOverrides: false };
+      occurrences = [updated, ...occurrences.slice(1)];
+      return { ok: true, json: async () => updated };
     }
     if (url.endsWith("/api/households/household-1/tasks") && method === "POST") {
       const body = JSON.parse(String(init?.body));
@@ -2373,7 +2394,7 @@ describe("App", () => {
       expect(within(dialog).getByText("Assigned to")).toBeTruthy();
       expect(within(dialog).getByText("Morgan Member")).toBeTruthy();
       expect(within(dialog).getByText("Source")).toBeTruthy();
-      expect(within(dialog).getByText("Manual chore")).toBeTruthy();
+      expect(within(dialog).getByText("Manual task")).toBeTruthy();
     });
   });
 
@@ -2975,6 +2996,7 @@ describe("App", () => {
     await withMay2026CalendarClock(async () => {
       setViewportWidth(390);
       vi.stubGlobal("fetch", mockCalendarWorkspaceFetches({
+        taskLibraryState: "one_time",
         occurrences: [{
           id: "occurrence-timed",
           householdId: "household-1",
@@ -3718,6 +3740,59 @@ describe("App", () => {
       })
     );
       expect(screen.getByRole("status").textContent).toContain("Schedule saved.");
+    });
+  });
+
+  it("lets linked scheduled tasks keep custom details without unlinking", async () => {
+    await withMay2026CalendarClock(async () => {
+      const fetchMock = mockCalendarWorkspaceFetches();
+      vi.stubGlobal("fetch", fetchMock);
+      renderAt("/calendar");
+
+      fireEvent.click(await findPlannedCleanBathroomsButton());
+      fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+      await waitFor(() => expect(screen.getByRole("button", { name: "Save changes" })).toBeTruthy());
+
+      fireEvent.change(screen.getByLabelText("Instructions"), { target: { value: "Toilet only today" } });
+      fireEvent.click(screen.getByRole("radio", { name: "This scheduled task only" }));
+      fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+        "http://localhost:3001/api/households/household-1/occurrences/occurrence-flexible/task-details",
+        expect.objectContaining({
+          method: "PATCH",
+          body: expect.stringContaining("Toilet only today")
+        })
+      ));
+      expect(await screen.findByText("Custom details for this scheduled task")).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Sync to saved task" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Reset to saved task defaults" })).toBeTruthy();
+    });
+  });
+
+  it("lets a one-time scheduled task be saved to the Task library from details", async () => {
+    await withMay2026CalendarClock(async () => {
+      vi.stubGlobal("fetch", mockCalendarWorkspaceFetches({
+        taskLibraryState: "one_time",
+        occurrences: [{
+          id: "occurrence-flexible",
+          householdId: "household-1",
+          taskId: "chore-1",
+          scheduleId: "schedule-1",
+          sequence: 0,
+          planningMode: "flexible",
+          estimatedMinutes: 60,
+          eligibleStartOn: "2026-05-28",
+          eligibleEndOn: "2026-05-30",
+          assignedUserId: "app-user-1",
+          exceptionType: "none",
+          status: "planned"
+        }]
+      }));
+      renderAt("/calendar");
+
+      fireEvent.click(await findPlannedCleanBathroomsButton());
+      expect(await screen.findByRole("button", { name: "Save to Task library" })).toBeTruthy();
     });
   });
 

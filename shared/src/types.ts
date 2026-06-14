@@ -173,6 +173,11 @@ export type TaskOccurrence = {
   status: "planned" | "completed" | "skipped";
   completedAt?: string;
   completedByUserId?: string;
+  customTitle?: string;
+  customType?: TaskType;
+  customInstructions?: string;
+  customTags?: string[];
+  hasTaskOverrides?: boolean;
 };
 
 export type Task = {
@@ -200,6 +205,13 @@ export type CreateScheduledTaskInput = {
 export type ScheduledTask = {
   task: Task;
   schedules: TaskSchedule[];
+};
+
+export type OccurrenceTaskDetailsInput = {
+  title: string;
+  type: TaskType;
+  instructions?: string;
+  tags?: string[];
 };
 
 export type CompletionCheckInInput = {

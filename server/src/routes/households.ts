@@ -271,6 +271,13 @@ const occurrenceUpdateSchema = z.object({
   }
 });
 
+const occurrenceTaskDetailSchema = z.object({
+  title: z.string().trim().min(1),
+  type: z.enum(["chore", "commitment"]),
+  instructions: z.string().trim().optional(),
+  tags: z.array(z.string().trim().min(1)).optional()
+});
+
 const recommendationRequestSchema = z.object({
   reviewPrompt: z.string().trim().optional(),
   selectedTaskIds: z.array(z.string()).optional(),
@@ -798,6 +805,53 @@ export function createHouseholdRouter(
       parsed.data
     );
     if (!occurrence) return res.status(404).json({ error: "Occurrence not found" });
+
+    return res.status(200).json(occurrence);
+  });
+
+  router.patch("/:householdId/occurrences/:occurrenceId/task-details", async (req, res) => {
+    const access = await requireHouseholdAccess(req, res);
+    if (!access) return;
+
+    const parsed = occurrenceTaskDetailSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid scheduled task details payload" });
+
+    const occurrence = await store.updateOccurrenceTaskDetails(
+      access.household.id,
+      req.params.occurrenceId,
+      parsed.data
+    );
+    if (!occurrence) return res.status(404).json({ error: "Scheduled task not found" });
+
+    return res.status(200).json(occurrence);
+  });
+
+  router.post("/:householdId/occurrences/:occurrenceId/save-to-library", async (req, res) => {
+    const access = await requireTaskLibraryManage(req, res);
+    if (!access) return;
+
+    const occurrence = await store.saveOccurrenceTaskToLibrary(access.household.id, req.params.occurrenceId);
+    if (!occurrence) return res.status(404).json({ error: "Scheduled task not found" });
+
+    return res.status(200).json(occurrence);
+  });
+
+  router.post("/:householdId/occurrences/:occurrenceId/sync-to-task", async (req, res) => {
+    const access = await requireTaskLibraryManage(req, res);
+    if (!access) return;
+
+    const occurrence = await store.syncOccurrenceDetailsToTask(access.household.id, req.params.occurrenceId);
+    if (!occurrence) return res.status(404).json({ error: "Scheduled task not found" });
+
+    return res.status(200).json(occurrence);
+  });
+
+  router.post("/:householdId/occurrences/:occurrenceId/reset-task-overrides", async (req, res) => {
+    const access = await requireHouseholdAccess(req, res);
+    if (!access) return;
+
+    const occurrence = await store.resetOccurrenceTaskOverrides(access.household.id, req.params.occurrenceId);
+    if (!occurrence) return res.status(404).json({ error: "Scheduled task not found" });
 
     return res.status(200).json(occurrence);
   });

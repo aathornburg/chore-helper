@@ -2,7 +2,7 @@ import { addDays, addMinutes, addMonths, addWeeks, eachDayOfInterval, endOfMonth
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { CalendarConnectionSummary, CalendarImportCandidate, CalendarImportPolicy, CalendarImportQueueItem, CalendarPreferences, Task, TaskOccurrence, TaskSchedule, CleanlyCalendarEvent, CompletionCheckInInput, ExternalCalendarSummary, HouseholdAppData, HouseholdMemberSummary, ScheduleInput } from "@chore-helper/shared";
-import { completeOccurrence, createScheduledTask, decideCalendarImportQueueItem, exportCleanlyCalendarEvents, getCalendarPreferences, getCurrentUser, getMyCalendarImportPolicy, listCalendarConnections, listCalendarImportCandidates, listCalendarImportPolicies, listCalendarImportQueue, listCleanlyCalendarEvents, listExternalCalendars, listHouseholdMembers, listOccurrences, listSchedules, skipOccurrence, startGoogleCalendarConnection, submitCalendarImportEvents, updateCalendarPreferences, updateOccurrence, updateSchedule as updateScheduleApi } from "../api";
+import { completeOccurrence, createScheduledTask, decideCalendarImportQueueItem, exportCleanlyCalendarEvents, getCalendarPreferences, getCurrentUser, getMyCalendarImportPolicy, listCalendarConnections, listCalendarImportCandidates, listCalendarImportPolicies, listCalendarImportQueue, listCleanlyCalendarEvents, listExternalCalendars, listHouseholdMembers, listOccurrences, listSchedules, resetOccurrenceTaskOverrides, saveOccurrenceTaskToLibrary, skipOccurrence, startGoogleCalendarConnection, submitCalendarImportEvents, syncOccurrenceDetailsToTask, updateCalendarPreferences, updateOccurrence, updateOccurrenceTaskDetails, updateSchedule as updateScheduleApi } from "../api";
 import { CalendarExportPreselectPanel, CalendarExportReviewPanel } from "./calendar/CalendarExportPanel";
 import { DateRangePicker } from "./calendar/DateRangePicker";
 import type { CalendarDateRange, CalendarDateRangePreset } from "./calendar/dateRange";
@@ -14,6 +14,7 @@ type CalendarSection = WorkspaceView | "import-queue" | "import-events" | "expor
 type CalendarScale = "month" | "week" | "day";
 type CalendarFilters = { householdId?: string; assignedUserId?: string; status?: string; planningMode?: string };
 type EditorMode = "closed" | "create" | "view" | "edit";
+type TaskDetailScope = "occurrence" | "saved-task";
 type OccurrenceCardDensity = "title" | "summary";
 type CalendarSyncModal = "closed" | "import";
 type ScheduleDraft = ScheduleInput & { key: string };
@@ -253,6 +254,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   const [occurrences, setOccurrences] = useState<TaskOccurrence[]>([]);
   const [loadState, setLoadState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [editorMode, setEditorMode] = useState<EditorMode>("closed");
+  const [taskDetailScope, setTaskDetailScope] = useState<TaskDetailScope>("occurrence");
   const [selectedOccurrenceId, setSelectedOccurrenceId] = useState<string>();
   const [editorDraft, setEditorDraft] = useState<EditorDraft>();
   const [editorStatus, setEditorStatus] = useState<string>();
@@ -724,7 +726,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   }
 
   function occurrenceTitle(occurrence: TaskOccurrence) {
-    return choreTitles.get(occurrence.taskId) ?? "Scheduled chore";
+    return occurrence.customTitle ?? choreTitles.get(occurrence.taskId) ?? "Scheduled task";
   }
 
   function monthItemsForDate(date: Date) {
@@ -858,6 +860,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     setEditorStatus(undefined);
     setScheduleAccordionOpen(false);
     setCompletionCheckIn(undefined);
+    setTaskDetailScope("occurrence");
     setEditorDraft({
       title: "",
       type: "chore",
@@ -894,10 +897,10 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     return {
       taskId: occurrence.taskId,
       title: occurrenceTitle(occurrence),
-      type: chore?.type ?? "chore",
+      type: occurrence.customType ?? chore?.type ?? "chore",
       saveToLibrary: chore?.libraryState !== "one_time",
-      instructions: chore?.instructions ?? "",
-      tags: chore?.tags?.join(", ") ?? "",
+      instructions: occurrence.customInstructions ?? chore?.instructions ?? "",
+      tags: (occurrence.customTags ?? chore?.tags)?.join(", ") ?? "",
       startTime: occurrence.plannedStartAt ? formatInTimeZone(occurrence.plannedStartAt, timeZone, "HH:mm") : "",
       schedules: [seedDraftAssignees(scheduleDraft)]
     };
@@ -923,6 +926,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     setEditorStatus(undefined);
     setScheduleAccordionOpen(false);
     setCompletionCheckIn(undefined);
+    setTaskDetailScope("occurrence");
     setEditorDraft(draftFromOccurrence(occurrence));
     loadScheduleDetailsForEditor(occurrence);
     setEditorMode("view");
@@ -935,6 +939,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     setEditorStatus(undefined);
     setScheduleAccordionOpen(false);
     setCompletionCheckIn(undefined);
+    setTaskDetailScope("occurrence");
     setEditorDraft(draftFromOccurrence(occurrence));
     loadScheduleDetailsForEditor(occurrence);
     setEditorMode("edit");
@@ -1040,17 +1045,102 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   async function handleScheduleSeriesSave() {
     if (!selectedHousehold || !editorDraft) return;
     try {
+      let detailUpdate: TaskOccurrence | undefined;
+      if (selectedOccurrence && hasEditorDetailChanges(selectedOccurrence, editorDraft)) {
+        detailUpdate = await updateOccurrenceTaskDetails(selectedHousehold.id, selectedOccurrence.id, {
+          title: editorDraft.title,
+          type: editorDraft.type,
+          ...(editorDraft.instructions.trim() ? { instructions: editorDraft.instructions.trim() } : {}),
+          tags: tagsFromText(editorDraft.tags)
+        });
+
+        if (taskDetailScope === "saved-task") {
+          detailUpdate = await syncOccurrenceDetailsToTask(selectedHousehold.id, selectedOccurrence.id);
+          const task = selectedHousehold.tasks.find((item) => item.id === selectedOccurrence.taskId);
+          if (task) {
+            task.title = editorDraft.title;
+            task.type = editorDraft.type;
+            task.instructions = editorDraft.instructions.trim() || undefined;
+            task.tags = tagsFromText(editorDraft.tags);
+          }
+        }
+      }
+
       const savedSchedules = await Promise.all(editorDraft.schedules.map(({ key, ...schedule }) =>
         updateScheduleApi(selectedHousehold.id, key, schedule)
       ));
+      if (detailUpdate) {
+        setOccurrences((current) => current.map((item) => item.id === detailUpdate.id ? detailUpdate : item));
+      }
       setEditorDraft((current) => current ? {
         ...current,
         schedules: savedSchedules.map(scheduleToDraft)
       } : current);
       await reloadOccurrences();
+      if (detailUpdate) {
+        setEditorDraft(draftFromOccurrence(detailUpdate));
+        setEditorMode("view");
+      }
       setEditorStatus("Schedule saved.");
     } catch {
       setEditorStatus("Could not save schedule.");
+    }
+  }
+
+  function hasEditorDetailChanges(occurrence: TaskOccurrence, draft: EditorDraft) {
+    const task = selectedHousehold?.tasks.find((item) => item.id === occurrence.taskId);
+    const currentTags = occurrence.customTags ?? task?.tags ?? [];
+    const nextTags = tagsFromText(draft.tags);
+
+    return draft.title !== occurrenceTitle(occurrence) ||
+      draft.type !== (occurrence.customType ?? task?.type ?? "chore") ||
+      draft.instructions.trim() !== (occurrence.customInstructions ?? task?.instructions ?? "") ||
+      currentTags.length !== nextTags.length ||
+      currentTags.some((tag, index) => tag !== nextTags[index]);
+  }
+
+  async function handleSaveOccurrenceTaskToLibrary() {
+    if (!selectedHousehold || !selectedOccurrence) return;
+    try {
+      const updated = await saveOccurrenceTaskToLibrary(selectedHousehold.id, selectedOccurrence.id);
+      const task = selectedHousehold.tasks.find((item) => item.id === selectedOccurrence.taskId);
+      if (task) task.libraryState = "saved";
+      setOccurrences((current) => current.map((item) => item.id === updated.id ? updated : item));
+      setEditorDraft(draftFromOccurrence(updated));
+      setEditorStatus("Task saved to library.");
+    } catch {
+      setEditorStatus("Could not save task to library.");
+    }
+  }
+
+  async function handleSyncOccurrenceDetailsToTask() {
+    if (!selectedHousehold || !selectedOccurrence) return;
+    try {
+      const updated = await syncOccurrenceDetailsToTask(selectedHousehold.id, selectedOccurrence.id);
+      const task = selectedHousehold.tasks.find((item) => item.id === selectedOccurrence.taskId);
+      if (task && editorDraft) {
+        task.title = editorDraft.title;
+        task.type = editorDraft.type;
+        task.instructions = editorDraft.instructions.trim() || undefined;
+        task.tags = tagsFromText(editorDraft.tags);
+      }
+      setOccurrences((current) => current.map((item) => item.id === updated.id ? updated : item));
+      setEditorDraft(draftFromOccurrence(updated));
+      setEditorStatus("Saved task updated.");
+    } catch {
+      setEditorStatus("Could not sync details to saved task.");
+    }
+  }
+
+  async function handleResetOccurrenceTaskOverrides() {
+    if (!selectedHousehold || !selectedOccurrence) return;
+    try {
+      const updated = await resetOccurrenceTaskOverrides(selectedHousehold.id, selectedOccurrence.id);
+      setOccurrences((current) => current.map((item) => item.id === updated.id ? updated : item));
+      setEditorDraft(draftFromOccurrence(updated));
+      setEditorStatus("Scheduled task details reset.");
+    } catch {
+      setEditorStatus("Could not reset scheduled task details.");
     }
   }
 
@@ -1228,7 +1318,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   function renderTaskViewDetailSections() {
     if (!selectedOccurrence || !editorDraft) return null;
     const selectedTask = selectedHousehold?.tasks.find((item) => item.id === selectedOccurrence.taskId);
-    const sourceLabel = selectedTask?.source === "google-calendar" ? "Google Calendar" : "Manual chore";
+    const sourceLabel = selectedTask?.source === "google-calendar" ? "Google Calendar" : "Manual task";
     const upcomingRows = relatedOccurrenceDateRows("upcoming").slice(0, 4);
     const historyRows = relatedOccurrenceDateRows("history").slice(0, 4);
 
@@ -1256,6 +1346,25 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
             <strong>{sourceLabel}</strong>
           </div>
         </div>
+        {selectedOccurrence.hasTaskOverrides ? (
+          <section className="schedule-card">
+            <strong>Custom details for this scheduled task</strong>
+            <span>This scheduled task stays linked to {selectedTask?.title ?? "the saved task"}.</span>
+            <div className="form-actions compact-actions">
+              <button className="section-action" onClick={() => void handleSyncOccurrenceDetailsToTask()} type="button">Sync to saved task</button>
+              <button className="section-action" onClick={() => void handleResetOccurrenceTaskOverrides()} type="button">Reset to saved task defaults</button>
+            </div>
+          </section>
+        ) : null}
+        {!editorDraft.saveToLibrary ? (
+          <section className="schedule-card">
+            <strong>One-time scheduled task</strong>
+            <span>Save this task to reuse it next time.</span>
+            <div className="form-actions compact-actions">
+              <button className="section-action" onClick={() => void handleSaveOccurrenceTaskToLibrary()} type="button">Save to Task library</button>
+            </div>
+          </section>
+        ) : null}
         {editorDraft.instructions ? (
           <section className="schedule-card">
             <strong>Instructions</strong>
@@ -2859,13 +2968,12 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                 <div className="field-grid aligned-field-grid">
                   <label className="aligned-field">
                     Task title
-                    <input disabled={editorMode === "edit"} value={editorDraft.title} onChange={(event) => setEditorDraft({ ...editorDraft, title: event.target.value })} required />
+                    <input value={editorDraft.title} onChange={(event) => setEditorDraft({ ...editorDraft, title: event.target.value })} required />
                     {editorMode === "create" || editorMode === "edit" ? <span className="field-help-placeholder" aria-hidden="true" /> : null}
                   </label>
                   <label className="aligned-field">
                     Task type
                     <select
-                      disabled={editorMode === "edit"}
                       value={editorDraft.type}
                       onChange={(event) => setEditorDraft({ ...editorDraft, type: event.target.value as Task["type"] })}
                     >
@@ -2878,7 +2986,6 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                     Tags
                     <input
                       aria-describedby={editorMode === "create" ? "chore-tags-help" : undefined}
-                      disabled={editorMode === "edit"}
                       value={editorDraft.tags}
                       onChange={(event) => setEditorDraft({ ...editorDraft, tags: event.target.value })}
                     />
@@ -2891,7 +2998,6 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                   Instructions
                   <textarea
                     aria-describedby={editorMode === "create" ? "chore-instructions-help" : undefined}
-                    disabled={editorMode === "edit"}
                     value={editorDraft.instructions}
                     onChange={(event) => setEditorDraft({ ...editorDraft, instructions: event.target.value })}
                   />
@@ -2908,6 +3014,29 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                     />
                     Save to Task library
                   </label>
+                ) : null}
+                {editorMode === "edit" && selectedOccurrence ? (
+                  <fieldset className="schedule-assignees">
+                    <legend>Task details</legend>
+                    <label className="checkbox-field">
+                      <input
+                        checked={taskDetailScope === "occurrence"}
+                        name="task-detail-scope"
+                        onChange={() => setTaskDetailScope("occurrence")}
+                        type="radio"
+                      />
+                      This scheduled task only
+                    </label>
+                    <label className="checkbox-field">
+                      <input
+                        checked={taskDetailScope === "saved-task"}
+                        name="task-detail-scope"
+                        onChange={() => setTaskDetailScope("saved-task")}
+                        type="radio"
+                      />
+                      Sync to saved task
+                    </label>
+                  </fieldset>
                 ) : null}
                 {editorDraft.schedules[0] ? (
                   <section className="create-schedule-panel" aria-label="Task schedule">

@@ -337,6 +337,11 @@ function toOccurrence(occurrence: {
   status: string;
   completedAt?: Date | null;
   completedByUserId?: string | null;
+  customTitle?: string | null;
+  customType?: string | null;
+  customInstructions?: string | null;
+  customTags?: string | null;
+  hasTaskOverrides?: boolean;
 }): TaskOccurrence {
   return {
     id: occurrence.id,
@@ -354,7 +359,12 @@ function toOccurrence(occurrence: {
     exceptionType: occurrence.exceptionType as TaskOccurrence["exceptionType"],
     status: occurrence.status as TaskOccurrence["status"],
     completedAt: serializeDate(occurrence.completedAt),
-    completedByUserId: occurrence.completedByUserId ?? undefined
+    completedByUserId: occurrence.completedByUserId ?? undefined,
+    customTitle: occurrence.customTitle ?? undefined,
+    customType: occurrence.customType as TaskOccurrence["customType"] | undefined,
+    customInstructions: occurrence.customInstructions ?? undefined,
+    customTags: deserializeStringList(occurrence.customTags),
+    hasTaskOverrides: occurrence.hasTaskOverrides ?? false
   };
 }
 
@@ -1417,6 +1427,97 @@ export function createPrismaStore(prisma: PrismaClient): HouseholdStore {
           plannedEndAt: new Date(update.plannedEndAt),
           assignedUserId: update.assignedUserId,
           exceptionType
+        }
+      });
+
+      return toOccurrence(updated);
+    },
+
+    async updateOccurrenceTaskDetails(householdId, occurrenceId, update) {
+      const existing = await prisma.taskOccurrence.findFirst({
+        where: { id: occurrenceId, householdId }
+      });
+      if (!existing) return undefined;
+
+      const updated = await prisma.taskOccurrence.update({
+        where: { id: occurrenceId },
+        data: {
+          customTitle: update.title,
+          customType: update.type,
+          customInstructions: update.instructions ?? null,
+          customTags: serializeOptionalList(update.tags ?? []),
+          hasTaskOverrides: true
+        }
+      });
+
+      return toOccurrence(updated);
+    },
+
+    async saveOccurrenceTaskToLibrary(householdId, occurrenceId) {
+      const existing = await prisma.taskOccurrence.findFirst({
+        where: { id: occurrenceId, householdId }
+      });
+      if (!existing) return undefined;
+
+      const taskUpdate = await prisma.task.updateMany({
+        where: { id: existing.taskId, householdId },
+        data: { libraryState: "saved" }
+      });
+      if (taskUpdate.count === 0) return undefined;
+
+      const updated = await prisma.taskOccurrence.update({
+        where: { id: occurrenceId },
+        data: { hasTaskOverrides: false }
+      });
+
+      return toOccurrence(updated);
+    },
+
+    async syncOccurrenceDetailsToTask(householdId, occurrenceId) {
+      const existing = await prisma.taskOccurrence.findFirst({
+        where: { id: occurrenceId, householdId }
+      });
+      if (!existing) return undefined;
+
+      const taskUpdate = await prisma.task.updateMany({
+        where: { id: existing.taskId, householdId },
+        data: {
+          ...(existing.customTitle ? { title: existing.customTitle } : {}),
+          ...(existing.customType ? { type: existing.customType } : {}),
+          instructions: existing.customInstructions,
+          tags: existing.customTags ?? "[]"
+        }
+      });
+      if (taskUpdate.count === 0) return undefined;
+
+      const updated = await prisma.taskOccurrence.update({
+        where: { id: occurrenceId },
+        data: {
+          customTitle: null,
+          customType: null,
+          customInstructions: null,
+          customTags: "[]",
+          hasTaskOverrides: false
+        }
+      });
+
+      return toOccurrence(updated);
+    },
+
+    async resetOccurrenceTaskOverrides(householdId, occurrenceId) {
+      const existing = await prisma.taskOccurrence.findFirst({
+        where: { id: occurrenceId, householdId }
+      });
+      if (!existing) return undefined;
+
+      const updated = await prisma.taskOccurrence.update({
+        where: { id: occurrenceId },
+        data: {
+          customTitle: null,
+          customType: null,
+          customInstructions: null,
+          customTags: "[]",
+          hasTaskOverrides: false
         }
       });
 

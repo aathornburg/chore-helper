@@ -826,6 +826,125 @@ describe("household profile flow", () => {
       .expect(200);
   });
 
+  it("keeps custom scheduled task details linked to the saved task", async () => {
+    const app = createTestApp();
+    const created = await request(app).post("/api/households").send({ name: "Home" }).expect(201);
+    const householdId = created.body.id;
+    await createScheduledTask(app, householdId, "Clean bathrooms");
+
+    const occurrences = await request(app)
+      .get(`/api/households/${householdId}/occurrences?startAt=2026-05-24T00:00:00.000Z&endAt=2026-06-01T00:00:00.000Z&startOn=2026-05-24&endOn=2026-06-01`)
+      .expect(200);
+    const occurrenceId = occurrences.body[0].id as string;
+
+    await request(app)
+      .patch(`/api/households/${householdId}/occurrences/${occurrenceId}/task-details`)
+      .send({
+        title: "Clean bathrooms",
+        type: "chore",
+        instructions: "Toilet only today",
+        tags: ["bathroom"]
+      })
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toMatchObject({
+          id: occurrenceId,
+          customInstructions: "Toilet only today",
+          customTags: ["bathroom"],
+          hasTaskOverrides: true
+        });
+      });
+
+    await request(app)
+      .post(`/api/households/${householdId}/occurrences/${occurrenceId}/reset-task-overrides`)
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.hasTaskOverrides).toBe(false);
+        expect(response.body.customInstructions).toBeUndefined();
+      });
+  });
+
+  it("syncs scheduled task details to the saved task", async () => {
+    const app = createTestApp();
+    const created = await request(app).post("/api/households").send({ name: "Home" }).expect(201);
+    const householdId = created.body.id;
+    await createScheduledTask(app, householdId, "Clean bathrooms");
+
+    const occurrences = await request(app)
+      .get(`/api/households/${householdId}/occurrences?startAt=2026-05-24T00:00:00.000Z&endAt=2026-06-01T00:00:00.000Z&startOn=2026-05-24&endOn=2026-06-01`)
+      .expect(200);
+    const occurrenceId = occurrences.body[0].id as string;
+
+    await request(app)
+      .patch(`/api/households/${householdId}/occurrences/${occurrenceId}/task-details`)
+      .send({
+        title: "Clean toilet",
+        type: "chore",
+        instructions: "Toilet only",
+        tags: ["bathroom"]
+      })
+      .expect(200);
+
+    await request(app)
+      .post(`/api/households/${householdId}/occurrences/${occurrenceId}/sync-to-task`)
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.hasTaskOverrides).toBe(false);
+      });
+
+    await request(app)
+      .get(`/api/households/${householdId}/tasks`)
+      .expect(200)
+      .expect((response) => {
+        expect(response.body[0]).toMatchObject({
+          title: "Clean toilet",
+          instructions: "Toilet only",
+          tags: ["bathroom"]
+        });
+      });
+  });
+
+  it("saves a one-time scheduled task to the task library", async () => {
+    const app = createTestApp();
+    const created = await request(app).post("/api/households").send({ name: "Home" }).expect(201);
+    const householdId = created.body.id;
+    const members = await request(app).get(`/api/households/${householdId}/members`).expect(200);
+
+    await request(app)
+      .post(`/api/households/${householdId}/tasks`)
+      .send({
+        task: { title: "Drop off donation", type: "commitment", libraryState: "one_time", source: "manual" },
+        schedules: [{
+          planningMode: "timed",
+          recurrence: { frequency: "one_time", interval: 1 },
+          localStartTime: "11:00",
+          localEndTime: "11:30",
+          startsOn: "2026-05-25",
+          assignment: { mode: "fixed", memberUserIds: [members.body[0].userId] }
+        }]
+      })
+      .expect(201);
+
+    const occurrences = await request(app)
+      .get(`/api/households/${householdId}/occurrences?startAt=2026-05-24T00:00:00.000Z&endAt=2026-06-01T00:00:00.000Z&startOn=2026-05-24&endOn=2026-06-01`)
+      .expect(200);
+    const occurrenceId = occurrences.body[0].id as string;
+
+    await request(app)
+      .post(`/api/households/${householdId}/occurrences/${occurrenceId}/save-to-library`)
+      .expect(200);
+
+    await request(app)
+      .get(`/api/households/${householdId}/tasks`)
+      .expect(200)
+      .expect((response) => {
+        expect(response.body[0]).toMatchObject({
+          title: "Drop off donation",
+          libraryState: "saved"
+        });
+      });
+  });
+
   it("flags existing chores that look under-scoped for their ask", async () => {
     const app = createTestApp();
 

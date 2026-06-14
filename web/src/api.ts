@@ -16,6 +16,7 @@ import type {
   CreateTaskInput,
   TaskDefinitionInput,
   TaskCompletionCheckIn,
+  OccurrenceTaskDetailsInput,
   TaskOccurrence,
   TaskSchedule,
   CompletionCheckInInput,
@@ -492,6 +493,54 @@ export async function updateOccurrence(
   );
 
   if (!response.ok) throw new Error("Failed to update occurrence");
+  return response.json();
+}
+
+export async function updateOccurrenceTaskDetails(
+  householdId: string,
+  occurrenceId: string,
+  update: OccurrenceTaskDetailsInput
+): Promise<TaskOccurrence> {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/households/${householdId}/occurrences/${occurrenceId}/task-details`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(update)
+    }
+  );
+
+  if (!response.ok) throw new Error("Failed to update scheduled task details");
+  return response.json();
+}
+
+export async function saveOccurrenceTaskToLibrary(householdId: string, occurrenceId: string): Promise<TaskOccurrence> {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/households/${householdId}/occurrences/${occurrenceId}/save-to-library`,
+    { method: "POST" }
+  );
+
+  if (!response.ok) throw new Error("Failed to save scheduled task to library");
+  return response.json();
+}
+
+export async function syncOccurrenceDetailsToTask(householdId: string, occurrenceId: string): Promise<TaskOccurrence> {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/households/${householdId}/occurrences/${occurrenceId}/sync-to-task`,
+    { method: "POST" }
+  );
+
+  if (!response.ok) throw new Error("Failed to sync scheduled task details");
+  return response.json();
+}
+
+export async function resetOccurrenceTaskOverrides(householdId: string, occurrenceId: string): Promise<TaskOccurrence> {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/households/${householdId}/occurrences/${occurrenceId}/reset-task-overrides`,
+    { method: "POST" }
+  );
+
+  if (!response.ok) throw new Error("Failed to reset scheduled task details");
   return response.json();
 }
 

@@ -13,6 +13,7 @@ import type {
   TaskLibraryPermission,
   TaskCompletionCheckIn,
   TaskDefinitionInput,
+  OccurrenceTaskDetailsInput,
   TaskOccurrence,
   TaskSchedule,
   CreateTaskInput,
@@ -214,6 +215,14 @@ export type HouseholdStore = {
     occurrenceId: string,
     update: OccurrenceUpdate
   ): StoreResult<TaskOccurrence | undefined>;
+  updateOccurrenceTaskDetails(
+    householdId: string,
+    occurrenceId: string,
+    update: OccurrenceTaskDetailsInput
+  ): StoreResult<TaskOccurrence | undefined>;
+  saveOccurrenceTaskToLibrary(householdId: string, occurrenceId: string): StoreResult<TaskOccurrence | undefined>;
+  syncOccurrenceDetailsToTask(householdId: string, occurrenceId: string): StoreResult<TaskOccurrence | undefined>;
+  resetOccurrenceTaskOverrides(householdId: string, occurrenceId: string): StoreResult<TaskOccurrence | undefined>;
   skipOccurrence(householdId: string, occurrenceId: string): StoreResult<TaskOccurrence | undefined>;
   clearFutureUntouchedOccurrences(householdId: string, scheduleId: string, cutoff: OccurrenceClearFutureCutoff): StoreResult<void>;
   saveRecommendations(
@@ -995,6 +1004,89 @@ export function createInMemoryStore(): HouseholdStore {
               ? "reassigned"
               : occurrence.exceptionType;
       const updated = { ...occurrence, ...update, exceptionType };
+      occurrences.set(occurrence.id, updated);
+      return updated;
+    },
+
+    updateOccurrenceTaskDetails(householdId, occurrenceId, update) {
+      const occurrence = Array.from(occurrences.values()).find(
+        (candidate) => candidate.id === occurrenceId && candidate.householdId === householdId
+      );
+      if (!occurrence) return undefined;
+
+      const updated: TaskOccurrence = {
+        ...occurrence,
+        customTitle: update.title,
+        customType: update.type,
+        customInstructions: update.instructions,
+        customTags: update.tags ?? [],
+        hasTaskOverrides: true
+      };
+      occurrences.set(occurrence.id, updated);
+      return updated;
+    },
+
+    saveOccurrenceTaskToLibrary(householdId, occurrenceId) {
+      const occurrence = Array.from(occurrences.values()).find(
+        (candidate) => candidate.id === occurrenceId && candidate.householdId === householdId
+      );
+      if (!occurrence) return undefined;
+
+      const task = replaceTask(householdId, occurrence.taskId, (existing) => ({
+        ...existing,
+        libraryState: "saved"
+      }));
+      if (!task) return undefined;
+
+      const updated: TaskOccurrence = {
+        ...occurrence,
+        hasTaskOverrides: false
+      };
+      occurrences.set(occurrence.id, updated);
+      return updated;
+    },
+
+    syncOccurrenceDetailsToTask(householdId, occurrenceId) {
+      const occurrence = Array.from(occurrences.values()).find(
+        (candidate) => candidate.id === occurrenceId && candidate.householdId === householdId
+      );
+      if (!occurrence) return undefined;
+
+      const task = replaceTask(householdId, occurrence.taskId, (existing) => ({
+        ...existing,
+        title: occurrence.customTitle ?? existing.title,
+        type: occurrence.customType ?? existing.type,
+        instructions: occurrence.customInstructions,
+        tags: occurrence.customTags ?? existing.tags
+      }));
+      if (!task) return undefined;
+
+      const updated: TaskOccurrence = {
+        ...occurrence,
+        customTitle: undefined,
+        customType: undefined,
+        customInstructions: undefined,
+        customTags: undefined,
+        hasTaskOverrides: false
+      };
+      occurrences.set(occurrence.id, updated);
+      return updated;
+    },
+
+    resetOccurrenceTaskOverrides(householdId, occurrenceId) {
+      const occurrence = Array.from(occurrences.values()).find(
+        (candidate) => candidate.id === occurrenceId && candidate.householdId === householdId
+      );
+      if (!occurrence) return undefined;
+
+      const updated: TaskOccurrence = {
+        ...occurrence,
+        customTitle: undefined,
+        customType: undefined,
+        customInstructions: undefined,
+        customTags: undefined,
+        hasTaskOverrides: false
+      };
       occurrences.set(occurrence.id, updated);
       return updated;
     },
