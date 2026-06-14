@@ -271,6 +271,7 @@ const occurrenceUpdateSchema = z.object({
 
 const recommendationRequestSchema = z.object({
   reviewPrompt: z.string().trim().optional(),
+  selectedTaskIds: z.array(z.string()).optional(),
   selectedChoreIds: z.array(z.string()).optional()
 });
 
@@ -987,8 +988,9 @@ export function createHouseholdRouter(
     if (!parsed.success) return res.status(400).json({ error: "Invalid recommendation payload" });
 
     const chores = await store.listTasks(household.id);
-    const selectedChores = parsed.data.selectedChoreIds
-      ? chores.filter((Task) => parsed.data.selectedChoreIds?.includes(Task.id))
+    const selectedTaskIds = parsed.data.selectedTaskIds ?? parsed.data.selectedChoreIds;
+    const selectedChores = selectedTaskIds
+      ? chores.filter((Task) => selectedTaskIds.includes(Task.id))
       : chores;
 
     try {

@@ -3,15 +3,15 @@ import type {
   AppNotification,
   CalendarImportQueueItem,
   CleanlyCalendarEvent,
-  ChoreOccurrence,
-  CreateScheduledChoreInput,
+  TaskOccurrence,
+  CreateScheduledTaskInput,
   HouseholdAppData,
   HouseholdInvitation,
   HouseholdMemberSummary,
   HouseholdStructure
 } from "@chore-helper/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { completeOccurrence, createScheduledChore, listOccurrences, updateCompletionCheckIn } from "./api";
+import { completeOccurrence, createScheduledTask, listOccurrences, updateCompletionCheckIn } from "./api";
 import App from "./App";
 
 const clerkState = vi.hoisted(() => ({
@@ -66,13 +66,13 @@ async function withMay2026CalendarClock(callback: () => Promise<void>) {
   }
 }
 
-function getChoreEditor() {
+function getTaskEditor() {
   const editor = document.querySelector(".chore-editor-modal");
   expect(editor).not.toBeNull();
   return within(editor as HTMLElement);
 }
 
-function getChoreEditorElement() {
+function getTaskEditorElement() {
   const editor = document.querySelector(".chore-editor-modal");
   expect(editor).not.toBeNull();
   return editor as HTMLElement;
@@ -152,12 +152,12 @@ const household = {
   }
 };
 
-const cleanBathroomsChore = {
+const cleanBathroomsTask = {
   id: "chore-1",
   householdId: "household-1",
   title: "Clean bathrooms",
-  cadence: "weekly",
-  estimatedMinutes: 10,
+  type: "chore" as const,
+  libraryState: "saved" as const,
   source: "manual"
 };
 
@@ -168,7 +168,7 @@ const ownerMember: HouseholdMemberSummary = {
   primaryEmail: "owner@example.com",
   displayName: "Alex Owner",
   role: "owner",
-  choreLibraryPermission: "manage"
+  taskLibraryPermission: "manage"
 };
 
 const secondMember: HouseholdMemberSummary = {
@@ -178,11 +178,11 @@ const secondMember: HouseholdMemberSummary = {
   primaryEmail: "member@example.com",
   displayName: "Morgan Member",
   role: "member",
-  choreLibraryPermission: "view"
+  taskLibraryPermission: "view"
 };
 
 function createHouseholdAppData({
-  chores = [cleanBathroomsChore],
+  chores = [cleanBathroomsTask],
   recommendations = [],
   structure = {
     householdId: "household-1",
@@ -199,21 +199,21 @@ function createHouseholdAppData({
     }]
   }
 }: {
-  chores?: typeof cleanBathroomsChore[];
+  chores?: typeof cleanBathroomsTask[];
   recommendations?: unknown[];
   structure?: HouseholdStructure;
 } = {}): HouseholdAppData {
   return {
     ...household,
     structure,
-    chores: chores.map((chore) => ({ ...chore, recommendations: [] })),
+    tasks: chores.map((task) => ({ ...task, recommendations: [] })),
     recommendations
   } as HouseholdAppData;
 }
 
 function mockRestoredHouseholdFetches({
-  chores = [cleanBathroomsChore],
-  archivedChores = [],
+  chores = [cleanBathroomsTask],
+  archivedTasks = [],
   recommendations = [],
   chatResponses = [],
   calendarPreferencesOk = true,
@@ -221,8 +221,8 @@ function mockRestoredHouseholdFetches({
   membersOk = true,
   members = [ownerMember, secondMember]
 }: {
-  chores?: typeof cleanBathroomsChore[];
-  archivedChores?: typeof cleanBathroomsChore[];
+  chores?: typeof cleanBathroomsTask[];
+  archivedTasks?: typeof cleanBathroomsTask[];
   recommendations?: unknown[];
   chatResponses?: Array<{ ok: boolean; json: () => Promise<unknown> }>;
   calendarPreferencesOk?: boolean;
@@ -230,8 +230,8 @@ function mockRestoredHouseholdFetches({
   membersOk?: boolean;
   members?: HouseholdMemberSummary[];
 } = {}) {
-  let activeChores = [...chores];
-  let inactiveChores = [...archivedChores];
+  let activeTasks = [...chores];
+  let inactiveTasks = [...archivedTasks];
   let householdMembers = [...members];
   const nextChatResponses = [...chatResponses];
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -246,51 +246,51 @@ function mockRestoredHouseholdFetches({
       return { ok: true, json: async () => ({ id: currentUserId, clerkUserId: "test-user-a" }) };
     }
 
-    if (url === "http://localhost:3001/api/households/household-1/chores" && method === "GET") {
-      return { ok: true, json: async () => activeChores };
+    if (url === "http://localhost:3001/api/households/household-1/tasks" && method === "GET") {
+      return { ok: true, json: async () => activeTasks };
     }
 
-    if (url === "http://localhost:3001/api/households/household-1/chores?status=archived" && method === "GET") {
-      return { ok: true, json: async () => inactiveChores };
+    if (url === "http://localhost:3001/api/households/household-1/tasks?status=archived" && method === "GET") {
+      return { ok: true, json: async () => inactiveTasks };
     }
 
-    if (url === "http://localhost:3001/api/households/household-1/chores" && method === "POST") {
+    if (url === "http://localhost:3001/api/households/household-1/tasks" && method === "POST") {
       const body = JSON.parse(String(init?.body));
-      const created = { id: "chore-new", householdId: "household-1", ...body.chore };
-      activeChores = [...activeChores, created];
+      const created = { id: "chore-new", householdId: "household-1", ...body.task };
+      activeTasks = [...activeTasks, created];
       return { ok: true, json: async () => created };
     }
 
-    if (url === "http://localhost:3001/api/households/household-1/chores/chore-1" && method === "PUT") {
+    if (url === "http://localhost:3001/api/households/household-1/tasks/chore-1" && method === "PUT") {
       const body = JSON.parse(String(init?.body));
-      const updated = { ...activeChores.find((chore) => chore.id === "chore-1")!, ...body };
-      activeChores = activeChores.map((chore) => chore.id === "chore-1" ? updated : chore);
+      const updated = { ...activeTasks.find((chore) => chore.id === "chore-1")!, ...body };
+      activeTasks = activeTasks.map((chore) => chore.id === "chore-1" ? updated : chore);
       return { ok: true, json: async () => updated };
     }
 
-    if (url === "http://localhost:3001/api/households/household-1/chores/chore-1/archive" && method === "POST") {
-      const archived = { ...activeChores.find((chore) => chore.id === "chore-1")!, archivedAt: "2026-06-13T12:00:00.000Z" };
-      activeChores = activeChores.filter((chore) => chore.id !== "chore-1");
-      inactiveChores = [archived, ...inactiveChores];
+    if (url === "http://localhost:3001/api/households/household-1/tasks/chore-1/archive" && method === "POST") {
+      const archived = { ...activeTasks.find((chore) => chore.id === "chore-1")!, archivedAt: "2026-06-13T12:00:00.000Z" };
+      activeTasks = activeTasks.filter((chore) => chore.id !== "chore-1");
+      inactiveTasks = [archived, ...inactiveTasks];
       return { ok: true, json: async () => archived };
     }
 
-    if (url === "http://localhost:3001/api/households/household-1/chores/chore-1/restore" && method === "POST") {
-      const restored = { ...inactiveChores.find((chore) => chore.id === "chore-1")!, archivedAt: undefined };
-      inactiveChores = inactiveChores.filter((chore) => chore.id !== "chore-1");
-      activeChores = [restored, ...activeChores];
+    if (url === "http://localhost:3001/api/households/household-1/tasks/chore-1/restore" && method === "POST") {
+      const restored = { ...inactiveTasks.find((chore) => chore.id === "chore-1")!, archivedAt: undefined };
+      inactiveTasks = inactiveTasks.filter((chore) => chore.id !== "chore-1");
+      activeTasks = [restored, ...activeTasks];
       return { ok: true, json: async () => restored };
     }
 
     if (url === "http://localhost:3001/api/households/household-1/members" && method === "GET") {
-      if (!membersOk) return { ok: false, json: async () => ({ error: "Column choreLibraryPermission does not exist." }) };
+      if (!membersOk) return { ok: false, json: async () => ({ error: "Column taskLibraryPermission does not exist." }) };
       return { ok: true, json: async () => householdMembers };
     }
 
-    if (url === "http://localhost:3001/api/households/household-1/members/app-user-2/chore-library-permission" && method === "PATCH") {
+    if (url === "http://localhost:3001/api/households/household-1/members/app-user-2/task-library-permission" && method === "PATCH") {
       const body = JSON.parse(String(init?.body));
       householdMembers = householdMembers.map((member) =>
-        member.userId === "app-user-2" ? { ...member, choreLibraryPermission: body.choreLibraryPermission } : member
+        member.userId === "app-user-2" ? { ...member, taskLibraryPermission: body.taskLibraryPermission } : member
       );
       return { ok: true, json: async () => householdMembers.find((member) => member.userId === "app-user-2") };
     }
@@ -469,7 +469,7 @@ function mockFamilyPageFetches(currentRole: "owner" | "member" = "owner") {
       primaryEmail: "owner@example.com",
       displayName: "Alex Owner",
       role: currentRole,
-      choreLibraryPermission: currentRole === "owner" ? "manage" : "view"
+      taskLibraryPermission: currentRole === "owner" ? "manage" : "view"
     },
     {
       householdId: "household-1",
@@ -478,7 +478,7 @@ function mockFamilyPageFetches(currentRole: "owner" | "member" = "owner") {
       primaryEmail: "member@example.com",
       displayName: "Morgan Member",
       role: currentRole === "owner" ? "member" : "owner",
-      choreLibraryPermission: currentRole === "owner" ? "view" : "manage"
+      taskLibraryPermission: currentRole === "owner" ? "view" : "manage"
     }
   ];
   let invitations: HouseholdInvitation[] = [{
@@ -491,29 +491,29 @@ function mockFamilyPageFetches(currentRole: "owner" | "member" = "owner") {
     expiresAt: "2026-06-01T12:00:00.000Z",
     createdAt: "2026-05-25T12:00:00.000Z"
   }];
-  const occurrences: ChoreOccurrence[] = [{
+  const occurrences: TaskOccurrence[] = [{
     id: "occurrence-family-1",
     householdId: "household-1",
-    choreId: "chore-1",
+    taskId: "chore-1",
     scheduleId: "schedule-1",
     sequence: 1,
     planningMode: "flexible",
     estimatedMinutes: 30,
-    eligibleStartOn: "2026-06-08",
-    eligibleEndOn: "2026-06-08",
+    eligibleStartOn: "2026-06-15",
+    eligibleEndOn: "2026-06-15",
     assignedUserId: "app-user-1",
     exceptionType: "none",
     status: "planned"
   }, {
     id: "occurrence-family-2",
     householdId: "household-1",
-    choreId: "chore-1",
+    taskId: "chore-1",
     scheduleId: "schedule-2",
     sequence: 2,
     planningMode: "flexible",
     estimatedMinutes: 20,
-    eligibleStartOn: "2026-06-10",
-    eligibleEndOn: "2026-06-10",
+    eligibleStartOn: "2026-06-17",
+    eligibleEndOn: "2026-06-17",
     assignedUserId: "app-user-2",
     exceptionType: "none",
     status: "planned"
@@ -579,7 +579,7 @@ function mockFamilyPageFetches(currentRole: "owner" | "member" = "owner") {
 
 function mockMultiHouseholdOptimizeFetches() {
   const secondHousehold = createHouseholdAppData({
-    chores: [{ ...cleanBathroomsChore, id: "chore-2", householdId: "household-2", title: "Sweep entryway" }],
+    chores: [{ ...cleanBathroomsTask, id: "chore-2", householdId: "household-2", title: "Sweep entryway" }],
     structure: {
       householdId: "household-2",
       floors: [{
@@ -611,12 +611,12 @@ function mockMultiHouseholdOptimizeFetches() {
       return { ok: true, json: async () => [createHouseholdAppData(), secondHousehold] };
     }
 
-    if (url === "http://localhost:3001/api/households/household-1/chores" && method === "GET") {
-      return { ok: true, json: async () => [cleanBathroomsChore] };
+    if (url === "http://localhost:3001/api/households/household-1/tasks" && method === "GET") {
+      return { ok: true, json: async () => [cleanBathroomsTask] };
     }
 
-    if (url === "http://localhost:3001/api/households/household-2/chores" && method === "GET") {
-      return { ok: true, json: async () => [{ ...cleanBathroomsChore, id: "chore-2", householdId: "household-2", title: "Sweep entryway" }] };
+    if (url === "http://localhost:3001/api/households/household-2/tasks" && method === "GET") {
+      return { ok: true, json: async () => [{ ...cleanBathroomsTask, id: "chore-2", householdId: "household-2", title: "Sweep entryway" }] };
     }
 
     if (url === "http://localhost:3001/api/households/household-1/recommendations" && method === "GET") {
@@ -644,7 +644,7 @@ function mockCalendarPageFetches(importQueueItems: CalendarImportQueueItem[] = [
   let occurrences = [{
     id: "occurrence-1",
     householdId: "household-1",
-    choreId: "chore-1",
+    taskId: "chore-1",
     scheduleId: "schedule-1",
     sequence: 0,
     planningMode: "timed",
@@ -665,7 +665,7 @@ function mockCalendarPageFetches(importQueueItems: CalendarImportQueueItem[] = [
       primaryEmail: "owner@example.com",
       displayName: "Alex Owner",
       role: "owner",
-      choreLibraryPermission: "manage"
+      taskLibraryPermission: "manage"
     },
     {
       householdId: "household-1",
@@ -674,7 +674,7 @@ function mockCalendarPageFetches(importQueueItems: CalendarImportQueueItem[] = [
       primaryEmail: "member@example.com",
       displayName: "Morgan Member",
       role: "member",
-      choreLibraryPermission: "view"
+      taskLibraryPermission: "view"
     }
   ];
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -811,13 +811,13 @@ function mockCalendarPageFetches(importQueueItems: CalendarImportQueueItem[] = [
     if (url.startsWith("http://localhost:3001/api/households/household-1/occurrences?") && method === "GET") {
       return { ok: true, json: async () => occurrences };
     }
-    if (url === "http://localhost:3001/api/households/household-1/chores/chore-1/schedules" && method === "GET") {
+    if (url === "http://localhost:3001/api/households/household-1/tasks/chore-1/schedules" && method === "GET") {
       return {
         ok: true,
         json: async () => [{
           id: "schedule-1",
           householdId: "household-1",
-          choreId: "chore-1",
+          taskId: "chore-1",
           planningMode: "timed",
           recurrence: { frequency: "one_time", interval: 1 },
           startsOn: "2026-05-25",
@@ -833,7 +833,7 @@ function mockCalendarPageFetches(importQueueItems: CalendarImportQueueItem[] = [
         json: async () => ({
           id: "schedule-1",
           householdId: "household-1",
-          choreId: "chore-1",
+          taskId: "chore-1",
           ...JSON.parse(String(init?.body))
         })
       };
@@ -882,7 +882,7 @@ function mockCalendarWorkspaceFetches({
   frequency?: "daily" | "weekly" | "monthly" | "yearly";
   includeHistory?: boolean;
   importQueueMode?: "off" | "manual" | "auto";
-  occurrences?: ChoreOccurrence[];
+  occurrences?: TaskOccurrence[];
   importCandidates?: Array<{
     id: string;
     sourceExternalCalendarId: string;
@@ -896,10 +896,10 @@ function mockCalendarWorkspaceFetches({
   }>;
 } = {}) {
   let storedCleanlyCalendarEvents = [...cleanlyCalendarEvents];
-  const historyOccurrences: ChoreOccurrence[] = includeHistory ? [{
+  const historyOccurrences: TaskOccurrence[] = includeHistory ? [{
     id: "occurrence-history",
     householdId: "household-1",
-    choreId: "chore-1",
+    taskId: "chore-1",
     scheduleId: "schedule-1",
     sequence: -1,
     planningMode: "flexible",
@@ -912,10 +912,10 @@ function mockCalendarWorkspaceFetches({
     completedAt: "2026-05-27T14:00:00.000Z",
     completedByUserId: "app-user-1"
   }] : [];
-  let occurrences: ChoreOccurrence[] = occurrenceOverrides ?? [{
+  let occurrences: TaskOccurrence[] = occurrenceOverrides ?? [{
     id: "occurrence-flexible",
     householdId: "household-1",
-    choreId: "chore-1",
+    taskId: "chore-1",
     scheduleId: "schedule-1",
     sequence: 0,
     planningMode: "flexible",
@@ -928,7 +928,7 @@ function mockCalendarWorkspaceFetches({
   }, ...historyOccurrences, {
     id: "occurrence-pet-completed",
     householdId: "household-1",
-    choreId: "chore-2",
+    taskId: "chore-2",
     scheduleId: "schedule-2",
     sequence: 0,
     planningMode: "flexible",
@@ -948,7 +948,7 @@ function mockCalendarWorkspaceFetches({
     primaryEmail: "owner@example.com",
     displayName: "Alex Owner",
     role: "owner",
-    choreLibraryPermission: "manage"
+    taskLibraryPermission: "manage"
   }, {
     householdId: "household-1",
     userId: "app-user-2",
@@ -956,7 +956,7 @@ function mockCalendarWorkspaceFetches({
     primaryEmail: "member@example.com",
     displayName: "Taylor Member",
     role: "member",
-    choreLibraryPermission: "view"
+    taskLibraryPermission: "view"
   }];
   return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
@@ -967,8 +967,8 @@ function mockCalendarWorkspaceFetches({
         ok: true,
         json: async () => [createHouseholdAppData({
           chores: [
-            cleanBathroomsChore,
-            { ...cleanBathroomsChore, id: "chore-2", title: "Pet cats" }
+            cleanBathroomsTask,
+            { ...cleanBathroomsTask, id: "chore-2", title: "Pet cats" }
           ]
         })]
       };
@@ -1080,13 +1080,13 @@ function mockCalendarWorkspaceFetches({
     if (url.includes("/occurrences?") && method === "GET") return { ok: true, json: async () => occurrences };
     if (url.includes("/calendar/events?") && method === "GET") return { ok: true, json: async () => storedCleanlyCalendarEvents };
     if (url.endsWith("/api/me/calendar/export") && method === "POST") return { ok: true, json: async () => ({ status: "exported", exported: 0 }) };
-    if (url.endsWith("/api/households/household-1/chores/chore-1/schedules") && method === "GET") {
+    if (url.endsWith("/api/households/household-1/tasks/chore-1/schedules") && method === "GET") {
       return {
         ok: true,
         json: async () => [{
           id: "schedule-1",
           householdId: "household-1",
-          choreId: "chore-1",
+          taskId: "chore-1",
           planningMode: "flexible",
           recurrence: frequency === "weekly"
             ? { frequency, interval: 1, weekDays: [4, 5] }
@@ -1106,18 +1106,18 @@ function mockCalendarWorkspaceFetches({
         json: async () => ({
           id: "schedule-1",
           householdId: "household-1",
-          choreId: "chore-1",
+          taskId: "chore-1",
           ...JSON.parse(String(init?.body))
         })
       };
     }
-    if (url.endsWith("/api/households/household-1/chores") && method === "POST") {
+    if (url.endsWith("/api/households/household-1/tasks") && method === "POST") {
       const body = JSON.parse(String(init?.body));
       const schedule = body.schedules[0];
       occurrences = [...occurrences, {
         id: "occurrence-new",
         householdId: "household-1",
-        choreId: "chore-new",
+        taskId: "chore-new",
         scheduleId: "schedule-new",
         sequence: 0,
         planningMode: schedule.planningMode,
@@ -1131,7 +1131,14 @@ function mockCalendarWorkspaceFetches({
       return {
         ok: true,
         json: async () => ({
-          chore: { id: "chore-new", householdId: "household-1", title: body.chore.title, source: "manual" },
+          task: {
+            id: "chore-new",
+            householdId: "household-1",
+            title: body.task.title,
+            type: body.task.type,
+            libraryState: body.task.libraryState,
+            source: "manual"
+          },
           schedules: []
         })
       };
@@ -1161,14 +1168,16 @@ describe("App", () => {
       const url = input.toString();
       const method = init?.method ?? "GET";
 
-      if (url === "http://localhost:3001/api/households/household-1/chores" && method === "POST") {
+      if (url === "http://localhost:3001/api/households/household-1/tasks" && method === "POST") {
         return {
           ok: true,
           json: async () => ({
-            chore: {
+            task: {
               id: "chore-1",
               householdId: "household-1",
               title: "Clean bathrooms",
+              type: "chore",
+              libraryState: "saved",
               source: "manual"
             },
             schedules: []
@@ -1185,7 +1194,7 @@ describe("App", () => {
           json: async () => ({
             id: "occurrence-1",
             householdId: "household-1",
-            choreId: "chore-1",
+            taskId: "chore-1",
             scheduleId: "schedule-1",
             sequence: 0,
             planningMode: "timed",
@@ -1210,8 +1219,8 @@ describe("App", () => {
       throw new Error(`Unhandled fetch ${method} ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
-    const input: CreateScheduledChoreInput = {
-      chore: { title: "Clean bathrooms", source: "manual" },
+    const input: CreateScheduledTaskInput = {
+      task: { title: "Clean bathrooms", type: "chore", libraryState: "saved", source: "manual" },
       schedules: [{
         planningMode: "timed",
         recurrence: { frequency: "daily", interval: 1 },
@@ -1222,7 +1231,7 @@ describe("App", () => {
       }]
     };
 
-    await createScheduledChore("household-1", input);
+    await createScheduledTask("household-1", input);
     await listOccurrences("household-1", {
       startAt: "2026-05-25T04:00:00.000Z",
       endAt: "2026-05-26T03:59:59.000Z",
@@ -1232,7 +1241,7 @@ describe("App", () => {
     await completeOccurrence("household-1", "occurrence-1");
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:3001/api/households/household-1/chores",
+      "http://localhost:3001/api/households/household-1/tasks",
       expect.objectContaining({
         method: "POST",
         body: expect.stringContaining('"schedules"')
@@ -1310,7 +1319,7 @@ describe("App", () => {
     const links = within(nav).getAllByRole("link");
     expect(links.map((link) => link.textContent)).toEqual(["Optimize", "Today", "Calendar", "My Home", "Family", "Settings"]);
     expect(within(nav).getByRole("link", { name: "Optimize" }).classList.contains("is-primary-nav-action")).toBe(true);
-    expect(screen.queryByRole("link", { name: "Chores" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Tasks" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Setup" })).toBeNull();
   });
 
@@ -1349,7 +1358,7 @@ describe("App", () => {
     const homeOccurrences = [{
       id: "occurrence-clean",
       householdId: "household-1",
-      choreId: "chore-1",
+      taskId: "chore-1",
       scheduleId: "schedule-1",
       sequence: 0,
       planningMode: "flexible",
@@ -1362,7 +1371,7 @@ describe("App", () => {
     }, {
       id: "occurrence-skipped",
       householdId: "household-1",
-      choreId: "chore-1",
+      taskId: "chore-1",
       scheduleId: "schedule-1",
       sequence: 1,
       planningMode: "flexible",
@@ -1376,7 +1385,7 @@ describe("App", () => {
     const cabinOccurrences = [{
       id: "occurrence-mow",
       householdId: "household-2",
-      choreId: "chore-cabin",
+      taskId: "chore-cabin",
       scheduleId: "schedule-cabin",
       sequence: 0,
       planningMode: "flexible",
@@ -1391,7 +1400,7 @@ describe("App", () => {
     }];
     const secondHousehold = {
       ...createHouseholdAppData({
-        chores: [{ ...cleanBathroomsChore, id: "chore-cabin", householdId: "household-2", title: "Mow lawn" }],
+        chores: [{ ...cleanBathroomsTask, id: "chore-cabin", householdId: "household-2", title: "Mow lawn" }],
         structure: { householdId: "household-2", floors: [] }
       }),
       id: "household-2",
@@ -1506,10 +1515,10 @@ describe("App", () => {
 
   it("completes a Today chore and saves post-completion details", async () => {
     await withMay2026CalendarClock(async () => {
-    let occurrences: ChoreOccurrence[] = [{
+    let occurrences: TaskOccurrence[] = [{
       id: "occurrence-clean",
       householdId: "household-1",
-      choreId: "chore-1",
+      taskId: "chore-1",
       scheduleId: "schedule-1",
       sequence: 0,
       planningMode: "flexible",
@@ -1620,7 +1629,7 @@ describe("App", () => {
             {
               ...household,
               structure: { householdId: household.id, floors: [] },
-              chores: [cleanBathroomsChore],
+              chores: [cleanBathroomsTask],
               recommendations: []
             }
           ]
@@ -2333,7 +2342,7 @@ describe("App", () => {
 
       fireEvent.click(await screen.findByRole("button", { name: "View Clean bathrooms" }));
 
-      const dialog = await screen.findByRole("dialog", { name: "Chore details" });
+      const dialog = await screen.findByRole("dialog", { name: "Task details" });
       expect(within(dialog).getByText("Assigned to")).toBeTruthy();
       expect(within(dialog).getByText("Morgan Member")).toBeTruthy();
       expect(within(dialog).getByText("Source")).toBeTruthy();
@@ -2354,6 +2363,8 @@ describe("App", () => {
       startsAt: "2026-06-18T14:00:00.000Z",
       endsAt: "2026-06-18T15:00:00.000Z",
       queueStatus: "pending",
+      taskLinkStatus: "unreviewed",
+      importScope: "single",
       createdAt: "2026-06-01T12:00:00.000Z"
     }]);
     renderAt("/calendar");
@@ -2461,6 +2472,8 @@ describe("App", () => {
       startsAt: "2026-06-18T14:00:00.000Z",
       endsAt: "2026-06-18T15:00:00.000Z",
       queueStatus: "pending",
+      taskLinkStatus: "unreviewed",
+      importScope: "single",
       createdAt: "2026-06-01T12:00:00.000Z"
     }], [{
       id: "notification-1",
@@ -2502,7 +2515,7 @@ describe("App", () => {
     expect(within(pageHeader as HTMLElement).queryByText("Home")).toBeNull();
     expect(within(pageHeader as HTMLElement).queryByText(/open$/)).toBeNull();
     expect(within(pageHeader as HTMLElement).queryByText(/completed$/)).toBeNull();
-    expect(screen.queryByRole("link", { name: "Chores" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Tasks" })).toBeNull();
     expect(screen.getByRole("button", { name: "Add event" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Add chore" })).toBeNull();
     expect(screen.getByRole("button", { name: "Calendar actions" })).toBeTruthy();
@@ -2524,7 +2537,7 @@ describe("App", () => {
     expect(within(filters).getByRole("heading", { name: "Filters" })).toBeTruthy();
     expect(within(workspace).getByLabelText("Planning mode")).toBeTruthy();
     const legend = within(workspace).getByRole("region", { name: "Calendar item types" });
-    expect(within(legend).getByText("Chores")).toBeTruthy();
+    expect(within(legend).getByText("Tasks")).toBeTruthy();
     expect(within(legend).getByText("Commitments")).toBeTruthy();
     expect(within(workspace).queryByRole("button", { name: /View Practice/i })).toBeNull();
   });
@@ -2599,12 +2612,12 @@ describe("App", () => {
     expect(importModal.classList.contains("calendar-sync-modal")).toBe(true);
   });
 
-  it("normalizes the removed Chores route away", async () => {
+  it("normalizes the removed Tasks route away", async () => {
     mockEmptyAppDataFetches();
-    renderAt("/chores");
+    renderAt("/tasks");
 
     await waitFor(() => expect(screen.getByRole("heading", { name: "Today" })).toBeTruthy());
-    expect(screen.queryByRole("heading", { name: "Chores" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Tasks" })).toBeNull();
   });
 
   it("switches between calendar and chronological list occurrences", async () => {
@@ -2613,7 +2626,7 @@ describe("App", () => {
     renderAt("/calendar");
 
     fireEvent.click(await screen.findByRole("tab", { name: "List" }));
-    const agenda = await screen.findByRole("region", { name: "Chore agenda" });
+    const agenda = await screen.findByRole("region", { name: "Task agenda" });
     expect(within(agenda).getByRole("heading", { name: "Upcoming and completed work" })).toBeTruthy();
     const plannedCard = within(agenda).getByRole("button", { name: "View Clean bathrooms" });
     expect(plannedCard.classList.contains("calendar-chore-row")).toBe(true);
@@ -2655,7 +2668,7 @@ describe("App", () => {
       renderAt("/calendar");
 
       fireEvent.click(await screen.findByRole("tab", { name: "List" }));
-      const agenda = await screen.findByRole("region", { name: "Chore agenda" });
+      const agenda = await screen.findByRole("region", { name: "Task agenda" });
       expect(within(agenda).getByRole("button", { name: "View Busy" })).toBeTruthy();
       expect(within(agenda).queryByText("No events match these filters.")).toBeNull();
     });
@@ -2668,7 +2681,7 @@ describe("App", () => {
       renderAt("/calendar");
 
       fireEvent.click(await screen.findByRole("tab", { name: "List" }));
-      const agenda = await screen.findByRole("region", { name: "Chore agenda" });
+      const agenda = await screen.findByRole("region", { name: "Task agenda" });
       expect(within(agenda).getByText("No events match these filters.")).toBeTruthy();
     });
   });
@@ -2681,17 +2694,17 @@ describe("App", () => {
       expect(await screen.findByRole("grid", { name: "May 2026 month calendar" })).toBeTruthy();
       expect(screen.getByText("Sun")).toBeTruthy();
       const friday = screen.getByRole("gridcell", { name: "Friday, May 29" });
-      const monthChore = within(friday).getByRole("button", { name: "View Clean bathrooms" });
-      expect(monthChore.classList.contains("calendar-chore-row")).toBe(true);
-      expect(monthChore.classList.contains("calendar-work-item")).toBe(true);
-      expect(monthChore.classList.contains("is-chore")).toBe(true);
-      expect(monthChore.classList.contains("calendar-month-chore-row")).toBe(false);
-      expect(monthChore.classList.contains("calendar-event")).toBe(false);
-      expect(monthChore.getAttribute("title")).toBe("Clean bathrooms");
-      expect(monthChore.querySelector(".calendar-chore-title")).not.toBeNull();
-      const monthAssigneeToken = within(monthChore).getByRole("img", { name: "Assigned to Alex Owner" });
+      const monthTask = within(friday).getByRole("button", { name: "View Clean bathrooms" });
+      expect(monthTask.classList.contains("calendar-chore-row")).toBe(true);
+      expect(monthTask.classList.contains("calendar-work-item")).toBe(true);
+      expect(monthTask.classList.contains("is-chore")).toBe(true);
+      expect(monthTask.classList.contains("calendar-month-chore-row")).toBe(false);
+      expect(monthTask.classList.contains("calendar-event")).toBe(false);
+      expect(monthTask.getAttribute("title")).toBe("Clean bathrooms");
+      expect(monthTask.querySelector(".calendar-chore-title")).not.toBeNull();
+      const monthAssigneeToken = within(monthTask).getByRole("img", { name: "Assigned to Alex Owner" });
       expect(monthAssigneeToken.closest(".calendar-chore-assignee")).not.toBeNull();
-      expect(monthChore.lastElementChild).toBe(monthAssigneeToken.closest(".calendar-chore-assignee"));
+      expect(monthTask.lastElementChild).toBe(monthAssigneeToken.closest(".calendar-chore-assignee"));
       expect(within(friday).queryByText("Anytime / 60 min")).toBeNull();
       expect(within(friday).queryByText("Alex Owner")).toBeNull();
       expect(screen.queryByText("Assigned member")).toBeNull();
@@ -2726,7 +2739,7 @@ describe("App", () => {
       expect(within(calendarCard).getByText("Home")).toBeTruthy();
 
       fireEvent.click(choreCard);
-      const choreDialog = await screen.findByRole("dialog", { name: "Chore details" });
+      const choreDialog = await screen.findByRole("dialog", { name: "Task details" });
       expect(within(choreDialog).getByText("Household")).toBeTruthy();
       expect(within(choreDialog).getByText("Home")).toBeTruthy();
       fireEvent.click(within(choreDialog).getByRole("button", { name: "Close" }));
@@ -2752,11 +2765,11 @@ describe("App", () => {
 
       const agenda = screen.getByRole("region", { name: "Selected day agenda" });
       expect(within(agenda).getByRole("heading", { name: "Saturday, May 30" })).toBeTruthy();
-      const mobileAgendaChore = within(agenda).getByRole("button", { name: "View Clean bathrooms" });
-      expect(mobileAgendaChore).toBeTruthy();
-      const mobileAssigneeToken = within(mobileAgendaChore).getByRole("img", { name: "Assigned to Alex Owner" });
+      const mobileAgendaTask = within(agenda).getByRole("button", { name: "View Clean bathrooms" });
+      expect(mobileAgendaTask).toBeTruthy();
+      const mobileAssigneeToken = within(mobileAgendaTask).getByRole("img", { name: "Assigned to Alex Owner" });
       expect(mobileAssigneeToken.closest(".calendar-chore-assignee")).not.toBeNull();
-      expect(mobileAgendaChore.lastElementChild).toBe(mobileAssigneeToken.closest(".calendar-chore-assignee"));
+      expect(mobileAgendaTask.lastElementChild).toBe(mobileAssigneeToken.closest(".calendar-chore-assignee"));
       expect(within(agenda).getByRole("button", { name: "View Pet cats" })).toBeTruthy();
 
       fireEvent.click(within(mobileMonth).getByRole("button", { name: /Select Friday, May 29, 1 item/ }));
@@ -2861,7 +2874,7 @@ describe("App", () => {
         occurrences: [{
           id: "occurrence-timed",
           householdId: "household-1",
-          choreId: "chore-1",
+          taskId: "chore-1",
           scheduleId: "schedule-1",
           sequence: 0,
           planningMode: "timed",
@@ -2883,8 +2896,8 @@ describe("App", () => {
 
       const agenda = screen.getByRole("region", { name: "Selected week day agenda" });
       const morningEvent = within(agenda).getByRole("button", { name: "View Morning appointment" });
-      const eveningChore = within(agenda).getByRole("button", { name: "View Clean bathrooms" });
-      expect(morningEvent.compareDocumentPosition(eveningChore) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      const eveningTask = within(agenda).getByRole("button", { name: "View Clean bathrooms" });
+      expect(morningEvent.compareDocumentPosition(eveningTask) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
   });
 
@@ -2895,7 +2908,7 @@ describe("App", () => {
         occurrences: [{
           id: "occurrence-timed",
           householdId: "household-1",
-          choreId: "chore-1",
+          taskId: "chore-1",
           scheduleId: "schedule-1",
           sequence: 0,
           planningMode: "timed",
@@ -2976,7 +2989,7 @@ describe("App", () => {
       const agenda = screen.getByRole("region", { name: "Selected week day agenda" });
       fireEvent.click(within(agenda).getByRole("button", { name: "View Clean bathrooms" }));
 
-      expect(await screen.findByRole("dialog", { name: "Chore details" })).toBeTruthy();
+      expect(await screen.findByRole("dialog", { name: "Task details" })).toBeTruthy();
     });
   });
 
@@ -3030,7 +3043,7 @@ describe("App", () => {
       const agenda = await screen.findByRole("region", { name: "Selected day agenda" });
       fireEvent.click(within(agenda).getByRole("button", { name: "View Clean bathrooms" }));
 
-      const dialog = await screen.findByRole("dialog", { name: "Chore details" });
+      const dialog = await screen.findByRole("dialog", { name: "Task details" });
       expect(within(dialog).getByRole("heading", { name: "Clean bathrooms" })).toBeTruthy();
     });
   });
@@ -3133,12 +3146,12 @@ describe("App", () => {
     expect(screen.getAllByText("8:00 am")).toHaveLength(1);
     expect(screen.getAllByText("5:00 pm")).toHaveLength(1);
     expect(screen.queryByText("08:00")).toBeNull();
-    const weekChore = within(weekGrid).getAllByRole("button", { name: "View Clean bathrooms" })[0];
-    expect(weekChore.classList.contains("calendar-chore-row")).toBe(true);
-    expect(weekChore.classList.contains("calendar-work-item")).toBe(true);
-    expect(weekChore.classList.contains("is-chore")).toBe(true);
-    expect(weekChore.classList.contains("calendar-event")).toBe(false);
-    expect(weekChore.getAttribute("title")).toBe("Clean bathrooms");
+    const weekTask = within(weekGrid).getAllByRole("button", { name: "View Clean bathrooms" })[0];
+    expect(weekTask.classList.contains("calendar-chore-row")).toBe(true);
+    expect(weekTask.classList.contains("calendar-work-item")).toBe(true);
+    expect(weekTask.classList.contains("is-chore")).toBe(true);
+    expect(weekTask.classList.contains("calendar-event")).toBe(false);
+    expect(weekTask.getAttribute("title")).toBe("Clean bathrooms");
     expect(weekGrid.querySelector(".calendar-time-rail-separator")).not.toBeNull();
     expect(weekGrid.querySelectorAll(".calendar-column-hour-separator")).toHaveLength(7);
     expect(weekGrid.querySelectorAll(".calendar-column-hour-separator.has-top-divider")).toHaveLength(7);
@@ -3203,9 +3216,9 @@ describe("App", () => {
     expect(within(completedOnlyDay).queryByText("Done")).toBeNull();
     expect(within(completedOnlyDay).queryByText("No chores due")).toBeNull();
     expect(completedOnlyDay.querySelector(".calendar-completed-drawer")).toBeNull();
-    const completedOnlyChore = within(completedOnlyDay).getByRole("button", { name: "View Clean bathrooms" });
-    expect(completedOnlyChore.classList.contains("calendar-chore-row")).toBe(true);
-    expect(completedOnlyChore.classList.contains("is-completed")).toBe(true);
+    const completedOnlyTask = within(completedOnlyDay).getByRole("button", { name: "View Clean bathrooms" });
+    expect(completedOnlyTask.classList.contains("calendar-chore-row")).toBe(true);
+    expect(completedOnlyTask.classList.contains("is-completed")).toBe(true);
     const today = screen.getByRole("gridcell", { name: "Saturday, May 30" });
     expect(today.closest(".calendar-month-week")).not.toBeNull();
     expect(today.classList.contains("is-all-completed")).toBe(false);
@@ -3225,10 +3238,10 @@ describe("App", () => {
     const completedOnlyColumn = screen.getByRole("columnheader", { name: "Wednesday, May 27" }).closest(".calendar-column");
     expect(completedOnlyColumn ? within(completedOnlyColumn as HTMLElement).queryByText("No chores due") : null).toBeNull();
     expect(completedOnlyColumn?.querySelector(".calendar-completed-drawer")).toBeNull();
-    const completedOnlyWeekChore = completedOnlyColumn
+    const completedOnlyWeekTask = completedOnlyColumn
       ? within(completedOnlyColumn as HTMLElement).getByRole("button", { name: "View Clean bathrooms" })
       : null;
-    expect(completedOnlyWeekChore?.classList.contains("is-completed")).toBe(true);
+    expect(completedOnlyWeekTask?.classList.contains("is-completed")).toBe(true);
     expect(saturdayColumn?.querySelector(".calendar-column-anytime-main")).not.toBeNull();
     expect(saturdayColumn?.querySelector(".calendar-day-completed-footer")).toBeNull();
     expect(saturdayColumn?.querySelector(".calendar-column-hour-separator")?.classList.contains("has-top-divider")).toBe(true);
@@ -3237,7 +3250,7 @@ describe("App", () => {
     expect(saturdayRows[1].classList.contains("is-completed")).toBe(true);
 
     fireEvent.click(screen.getByRole("tab", { name: "List" }));
-    const agenda = await screen.findByRole("region", { name: "Chore agenda" });
+    const agenda = await screen.findByRole("region", { name: "Task agenda" });
     expect(agenda.classList.contains("calendar-agenda")).toBe(true);
     const completedCard = within(agenda).getByRole("button", { name: "View Pet cats" });
     expect(completedCard.classList.contains("calendar-chore-row")).toBe(true);
@@ -3286,7 +3299,7 @@ describe("App", () => {
 
     fireEvent.click(await findPlannedCleanBathroomsButton());
 
-    const dialog = getChoreEditor();
+    const dialog = getTaskEditor();
     expect(dialog.getByRole("heading", { name: "Clean bathrooms" })).toBeTruthy();
     expect(dialog.getByRole("button", { name: "Close dialog" })).toBeTruthy();
     expect(dialog.getByRole("button", { name: "Close" })).toBeTruthy();
@@ -3305,10 +3318,10 @@ describe("App", () => {
     expect(screen.getByLabelText("This was done on time")).toBeTruthy();
     expect(screen.queryByLabelText("Keep this assignee for future work")).toBeNull();
     expect(await screen.findByLabelText("Base future occurrences on this completion date")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Chore details/ }).getAttribute("aria-expanded")).toBe("false");
+    expect(screen.getByRole("button", { name: /Task details/ }).getAttribute("aria-expanded")).toBe("false");
     expect(screen.queryByRole("region", { name: "Upcoming occurrences" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: /Chore details/ }));
-    expect(screen.getByRole("button", { name: /Chore details/ }).getAttribute("aria-expanded")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: /Task details/ }));
+    expect(screen.getByRole("button", { name: /Task details/ }).getAttribute("aria-expanded")).toBe("true");
     expect(Array.from(modalActions?.querySelectorAll("button") ?? []).map((button) => button.textContent)).toEqual([
       "Close",
       "Submit"
@@ -3347,7 +3360,7 @@ describe("App", () => {
 
       fireEvent.click(await findPlannedCleanBathroomsButton());
 
-      const modal = getChoreEditorElement();
+      const modal = getTaskEditorElement();
       expect(modal.classList.contains("is-detail-view")).toBe(true);
       expect(modal.classList.contains("calendar-sync-modal")).toBe(false);
       expect(document.querySelector(".chore-editor-backdrop")?.classList.contains("is-detail-view")).toBe(true);
@@ -3364,7 +3377,7 @@ describe("App", () => {
       const opener = await findPlannedCleanBathroomsButton();
       fireEvent.click(opener);
 
-      const modal = getChoreEditorElement();
+      const modal = getTaskEditorElement();
       await waitFor(() => expect(modal.contains(document.activeElement)).toBe(true));
       expect(document.activeElement).toBe(within(modal).getByRole("button", { name: "Close dialog" }));
 
@@ -3375,13 +3388,13 @@ describe("App", () => {
       expect(document.activeElement).toBe(within(modal).getByRole("button", { name: "Close dialog" }));
 
       fireEvent.keyDown(document, { key: "Escape" });
-      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Chore details" })).toBeNull());
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Task details" })).toBeNull());
       expect(document.activeElement).toBe(opener);
 
       fireEvent.click(opener);
-      await screen.findByRole("dialog", { name: "Chore details" });
+      await screen.findByRole("dialog", { name: "Task details" });
       fireEvent.mouseDown(document.querySelector(".chore-editor-backdrop") as HTMLElement);
-      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Chore details" })).toBeNull());
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Task details" })).toBeNull());
       expect(document.activeElement).toBe(opener);
     });
   });
@@ -3394,10 +3407,10 @@ describe("App", () => {
 
     fireEvent.click(await findPlannedCleanBathroomsButton());
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:3001/api/households/household-1/chores/chore-1/schedules",
+      "http://localhost:3001/api/households/household-1/tasks/chore-1/schedules",
       expect.objectContaining({ headers: expect.any(Object) })
     ));
-    fireEvent.click(getChoreEditor().getByRole("button", { name: "Complete chore" }));
+    fireEvent.click(getTaskEditor().getByRole("button", { name: "Complete chore" }));
 
     expect(screen.getByRole("region", { name: "Completion check-in" })).toBeTruthy();
       expect(screen.queryByLabelText("Base future occurrences on this completion date")).toBeNull();
@@ -3410,7 +3423,7 @@ describe("App", () => {
     renderAt("/calendar");
 
     fireEvent.click(await screen.findByRole("button", { name: "Add event" }));
-    const editor = getChoreEditor();
+    const editor = getTaskEditor();
     expect(editor.getByRole("button", { name: "Close dialog" })).toBeTruthy();
     expect(editor.getByRole("button", { name: "Cancel" })).toBeTruthy();
     expect(editor.getByRole("button", { name: "Add event" })).toBeTruthy();
@@ -3422,7 +3435,7 @@ describe("App", () => {
     expect(screen.getByText("Used for flexible chores. If you add a start time, the end time is calculated from this duration.")).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "Upcoming Occurrences" })).toBeNull();
     expect(screen.queryByRole("button", { name: "History" })).toBeNull();
-    fireEvent.change(screen.getByLabelText("Chore title"), { target: { value: "Clean bathrooms" } });
+    fireEvent.change(screen.getByLabelText("Task title"), { target: { value: "Clean bathrooms" } });
     fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2026-06-06" } });
     fireEvent.change(screen.getByLabelText(/Estimated duration/), { target: { value: "60" } });
     fireEvent.change(screen.getByLabelText("Assignee"), { target: { value: "app-user-2" } });
@@ -3440,28 +3453,28 @@ describe("App", () => {
     fireEvent.click(editor.getByRole("button", { name: "Add event" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:3001/api/households/household-1/chores",
+      "http://localhost:3001/api/households/household-1/tasks",
       expect.objectContaining({
         method: "POST",
         body: expect.stringContaining("\"startsOn\":\"2026-06-06\"")
       })
     ));
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:3001/api/households/household-1/chores",
+      "http://localhost:3001/api/households/household-1/tasks",
       expect.objectContaining({
         method: "POST",
         body: expect.stringContaining("\"memberUserIds\":[\"app-user-2\"]")
       })
     );
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:3001/api/households/household-1/chores",
+      "http://localhost:3001/api/households/household-1/tasks",
       expect.objectContaining({
         method: "POST",
         body: expect.stringContaining("\"frequency\":\"weekly\"")
       })
     );
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:3001/api/households/household-1/chores",
+      "http://localhost:3001/api/households/household-1/tasks",
       expect.objectContaining({
         method: "POST",
         body: expect.stringContaining("\"interval\":5")
@@ -3474,9 +3487,9 @@ describe("App", () => {
     renderAt("/calendar");
 
     fireEvent.click(await screen.findByRole("button", { name: "Add event" }));
-    fireEvent.change(screen.getByLabelText("Chore title"), { target: { value: "Wash windows" } });
+    fireEvent.change(screen.getByLabelText("Task title"), { target: { value: "Wash windows" } });
     fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2026-06-06" } });
-    fireEvent.click(getChoreEditor().getByRole("button", { name: "Add event" }));
+    fireEvent.click(getTaskEditor().getByRole("button", { name: "Add event" }));
 
     expect(await screen.findByRole("button", { name: "View Wash windows" })).toBeTruthy();
   });
@@ -3487,28 +3500,28 @@ describe("App", () => {
     renderAt("/calendar");
 
     fireEvent.click(await screen.findByRole("button", { name: "Add event" }));
-    fireEvent.change(screen.getByLabelText("Chore title"), { target: { value: "Clean kitchen" } });
+    fireEvent.change(screen.getByLabelText("Task title"), { target: { value: "Clean kitchen" } });
     fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2026-06-06" } });
     fireEvent.change(screen.getByLabelText(/Start time/), { target: { value: "10:30" } });
     fireEvent.change(screen.getByLabelText(/Estimated duration/), { target: { value: "45" } });
-    fireEvent.click(getChoreEditor().getByRole("button", { name: "Add event" }));
+    fireEvent.click(getTaskEditor().getByRole("button", { name: "Add event" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:3001/api/households/household-1/chores",
+      "http://localhost:3001/api/households/household-1/tasks",
       expect.objectContaining({
         method: "POST",
         body: expect.stringContaining("\"planningMode\":\"timed\"")
       })
     ));
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:3001/api/households/household-1/chores",
+      "http://localhost:3001/api/households/household-1/tasks",
       expect.objectContaining({
         method: "POST",
         body: expect.stringContaining("\"localStartTime\":\"10:30\"")
       })
     );
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:3001/api/households/household-1/chores",
+      "http://localhost:3001/api/households/household-1/tasks",
       expect.objectContaining({
         method: "POST",
         body: expect.stringContaining("\"localEndTime\":\"11:15\"")
@@ -3522,7 +3535,7 @@ describe("App", () => {
     renderAt("/calendar");
 
     fireEvent.click(await screen.findByRole("button", { name: "Add event" }));
-    fireEvent.change(screen.getByLabelText("Chore title"), { target: { value: "Replace filter" } });
+    fireEvent.change(screen.getByLabelText("Task title"), { target: { value: "Replace filter" } });
     fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2026-06-15" } });
     expect(screen.queryByLabelText("Monthly anchor date")).toBeNull();
 
@@ -3532,24 +3545,24 @@ describe("App", () => {
     expect(screen.getByRole("radio", { name: "On day 15 of the month" })).toBeTruthy();
     expect(screen.getByRole("radio", { name: "On the third Monday" })).toBeTruthy();
     fireEvent.click(screen.getByRole("radio", { name: "On the third Monday" }));
-    fireEvent.click(getChoreEditor().getByRole("button", { name: "Add event" }));
+    fireEvent.click(getTaskEditor().getByRole("button", { name: "Add event" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:3001/api/households/household-1/chores",
+      "http://localhost:3001/api/households/household-1/tasks",
       expect.objectContaining({
         method: "POST",
         body: expect.stringContaining("\"monthlyPattern\":\"weekday_of_month\"")
       })
     ));
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:3001/api/households/household-1/chores",
+      "http://localhost:3001/api/households/household-1/tasks",
       expect.objectContaining({
         method: "POST",
         body: expect.stringContaining("\"monthlyWeek\":3")
       })
     );
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:3001/api/households/household-1/chores",
+      "http://localhost:3001/api/households/household-1/tasks",
       expect.objectContaining({
         method: "POST",
         body: expect.stringContaining("\"monthlyWeekday\":1")
@@ -3563,16 +3576,16 @@ describe("App", () => {
     renderAt("/calendar");
 
     fireEvent.click(await screen.findByRole("button", { name: "Add event" }));
-    fireEvent.change(screen.getByLabelText("Chore title"), { target: { value: "Service HVAC" } });
+    fireEvent.change(screen.getByLabelText("Task title"), { target: { value: "Service HVAC" } });
     fireEvent.click(screen.getByRole("button", { name: "Repeats" }));
     fireEvent.change(screen.getByLabelText("Repeat interval"), { target: { value: "1" } });
     fireEvent.change(screen.getByLabelText("Repeat unit"), { target: { value: "yearly" } });
     expect(screen.queryByText("Days")).toBeNull();
     expect(screen.queryByLabelText("Monthly anchor date")).toBeNull();
-    fireEvent.click(getChoreEditor().getByRole("button", { name: "Add event" }));
+    fireEvent.click(getTaskEditor().getByRole("button", { name: "Add event" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:3001/api/households/household-1/chores",
+      "http://localhost:3001/api/households/household-1/tasks",
       expect.objectContaining({
         method: "POST",
         body: expect.stringContaining("\"frequency\":\"yearly\"")
@@ -3589,10 +3602,10 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "Clean bathrooms" })).toBeTruthy();
     expect(screen.getByRole("region", { name: "Upcoming occurrences" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
-    const dialog = getChoreEditor();
+    const dialog = getTaskEditor();
     expect(dialog.getByRole("heading", { name: "Clean bathrooms" })).toBeTruthy();
     expect(dialog.getByText("Edit chore")).toBeTruthy();
-    const schedulePanel = screen.getByRole("region", { name: "Chore schedule" });
+    const schedulePanel = screen.getByRole("region", { name: "Task schedule" });
     expect(schedulePanel.classList.contains("create-schedule-panel")).toBe(true);
     expect(schedulePanel.querySelector(".aligned-field-grid")).not.toBeNull();
     expect((screen.getByLabelText("Date") as HTMLInputElement).value).toBe("2026-05-28");
@@ -4183,7 +4196,7 @@ describe("App", () => {
 
   it("organizes Settings into sidebar views with General as the default", async () => {
     mockRestoredHouseholdFetches({
-      chores: [cleanBathroomsChore, { ...cleanBathroomsChore, id: "chore-2", title: "Pet cats" }]
+      chores: [cleanBathroomsTask, { ...cleanBathroomsTask, id: "chore-2", title: "Pet cats" }]
     });
     renderAt("/settings");
 
@@ -4198,15 +4211,15 @@ describe("App", () => {
     expect(await screen.findByRole("region", { name: "Calendar sync" })).toBeTruthy();
     expect(screen.queryByRole("region", { name: "General settings" })).toBeNull();
 
-    fireEvent.click(within(sections).getByRole("tab", { name: "Chore library" }));
-    const choreLibrary = await screen.findByRole("region", { name: "Chore library" });
+    fireEvent.click(within(sections).getByRole("tab", { name: "Task library" }));
+    const choreLibrary = await screen.findByRole("region", { name: "Task library" });
     expect(within(choreLibrary).getByText("Clean bathrooms")).toBeTruthy();
     expect(within(choreLibrary).getByText("Pet cats")).toBeTruthy();
   });
 
   it("opens a compact mobile Settings section menu that switches views and closes", async () => {
     mockRestoredHouseholdFetches({
-      chores: [cleanBathroomsChore]
+      chores: [cleanBathroomsTask]
     });
     renderAt("/settings");
 
@@ -4217,9 +4230,9 @@ describe("App", () => {
     const mobileSections = screen.getByRole("menu", { name: "Settings sections" });
     expect(within(mobileSections).getByRole("menuitem", { name: "General Defaults" })).toBeTruthy();
 
-    fireEvent.click(within(mobileSections).getByRole("menuitem", { name: "Chore library Reusable work" }));
-    expect(await screen.findByRole("region", { name: "Chore library" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Settings section: Chore library. Change section" })).toBeTruthy();
+    fireEvent.click(within(mobileSections).getByRole("menuitem", { name: "Task library Reusable work" }));
+    expect(await screen.findByRole("region", { name: "Task library" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Settings section: Task library. Change section" })).toBeTruthy();
     expect(screen.queryByRole("menu", { name: "Settings sections" })).toBeNull();
   });
 
@@ -4235,7 +4248,7 @@ describe("App", () => {
     expect(screen.queryByRole("menu", { name: "Settings sections" })).toBeNull();
   });
 
-  it("lets owners update each member's Chore library permission from Family settings", async () => {
+  it("lets owners update each member's Task library permission from Family settings", async () => {
     const fetchMock = mockRestoredHouseholdFetches();
     renderAt("/settings");
 
@@ -4246,55 +4259,55 @@ describe("App", () => {
 
     await waitFor(() => {
       expect(fetchMock.mock.calls.some(([url, init]) =>
-        url === "http://localhost:3001/api/households/household-1/members/app-user-2/chore-library-permission" &&
+        url === "http://localhost:3001/api/households/household-1/members/app-user-2/task-library-permission" &&
         init?.method === "PATCH"
       )).toBe(true);
     });
   });
 
-  it("shows Chore library CRUD controls to members with manage access", async () => {
+  it("shows Task library CRUD controls to members with manage access", async () => {
     mockRestoredHouseholdFetches({
       currentUserId: "app-user-2",
-      members: [ownerMember, { ...secondMember, choreLibraryPermission: "manage" }]
+      members: [ownerMember, { ...secondMember, taskLibraryPermission: "manage" }]
     });
     renderAt("/settings");
 
     await waitFor(() => expect(screen.getByRole("heading", { name: "Settings" })).toBeTruthy());
-    fireEvent.click(screen.getByRole("tab", { name: "Chore library" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Task library" }));
 
-    const choreLibrary = await screen.findByRole("region", { name: "Chore library" });
+    const choreLibrary = await screen.findByRole("region", { name: "Task library" });
     expect(within(choreLibrary).getByRole("button", { name: "Add chore" })).toBeTruthy();
     expect(within(choreLibrary).getAllByRole("button", { name: "Edit chore" }).length).toBeGreaterThan(0);
     expect(within(choreLibrary).getAllByRole("button", { name: "Archive chore" }).length).toBeGreaterThan(0);
   });
 
-  it("keeps Chore library mutation controls unavailable to view-only members", async () => {
+  it("keeps Task library mutation controls unavailable to view-only members", async () => {
     mockRestoredHouseholdFetches({
       currentUserId: "app-user-2",
-      members: [ownerMember, { ...secondMember, choreLibraryPermission: "view" }]
+      members: [ownerMember, { ...secondMember, taskLibraryPermission: "view" }]
     });
     renderAt("/settings");
 
     await waitFor(() => expect(screen.getByRole("heading", { name: "Settings" })).toBeTruthy());
-    fireEvent.click(screen.getByRole("tab", { name: "Chore library" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Task library" }));
 
-    const choreLibrary = await screen.findByRole("region", { name: "Chore library" });
-    expect(within(choreLibrary).getByText("Your household owner controls who can manage the Chore library.")).toBeTruthy();
+    const choreLibrary = await screen.findByRole("region", { name: "Task library" });
+    expect(within(choreLibrary).getByText("Your household owner controls who can manage the Task library.")).toBeTruthy();
     expect(within(choreLibrary).queryByRole("button", { name: "Add chore" })).toBeNull();
     expect(within(choreLibrary).queryByRole("button", { name: "Archive chore" })).toBeNull();
   });
 
-  it("shows a permission load error instead of assuming Chore library view-only access", async () => {
+  it("shows a permission load error instead of assuming Task library view-only access", async () => {
     mockRestoredHouseholdFetches({ membersOk: false });
     renderAt("/settings");
 
     await waitFor(() => expect(screen.getByRole("heading", { name: "Settings" })).toBeTruthy());
-    fireEvent.click(screen.getByRole("tab", { name: "Chore library" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Task library" }));
 
-    const choreLibrary = await screen.findByRole("region", { name: "Chore library" });
+    const choreLibrary = await screen.findByRole("region", { name: "Task library" });
     expect(within(choreLibrary).getByText(/Could not load household permissions/i)).toBeTruthy();
     expect(within(choreLibrary).getByText(/database migration may still need to run/i)).toBeTruthy();
-    expect(within(choreLibrary).queryByText("Your household owner controls who can manage the Chore library.")).toBeNull();
+    expect(within(choreLibrary).queryByText("Your household owner controls who can manage the Task library.")).toBeNull();
   });
 
   it("does not show a calendar sync settings error just because a disconnected user has no sync preferences", async () => {
@@ -4477,14 +4490,14 @@ describe("App", () => {
       const anytimeRow = dayGrid.querySelector(".calendar-column-anytime-main");
       expect(within(anytimeRow as HTMLElement).queryByRole("button", { name: "View Soccer practice" })).toBeNull();
       const timedSlot = screen.getByLabelText("Friday, May 29 17:00 time slot");
-      const importedChore = within(timedSlot).getByRole("button", { name: "View Soccer practice" });
-      expect(importedChore.classList.contains("is-chore")).toBe(true);
-      const timeSummary = importedChore.querySelector(".calendar-time-summary");
+      const importedTask = within(timedSlot).getByRole("button", { name: "View Soccer practice" });
+      expect(importedTask.classList.contains("is-chore")).toBe(true);
+      const timeSummary = importedTask.querySelector(".calendar-time-summary");
       expect(timeSummary).not.toBeNull();
       expect(timeSummary?.children).toHaveLength(2);
       expect(within(timeSummary as HTMLElement).getByText("5:00 PM")).toBeTruthy();
       expect(within(timeSummary as HTMLElement).getByText("45 min")).toBeTruthy();
-      expect(within(importedChore).queryByText(/5:45 PM/)).toBeNull();
+      expect(within(importedTask).queryByText(/5:45 PM/)).toBeNull();
     });
   });
 
@@ -4795,7 +4808,7 @@ describe("App", () => {
       expect(screen.getByLabelText("Sweep entryway")).toBeTruthy();
     });
     expect(fetchMock.mock.calls.some(([url]) =>
-      url === "http://localhost:3001/api/households/household-2/chores"
+      url === "http://localhost:3001/api/households/household-2/tasks"
     )).toBe(true);
   });
 

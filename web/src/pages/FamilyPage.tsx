@@ -3,7 +3,7 @@ import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   AppUserProfile,
-  ChoreOccurrence,
+  TaskOccurrence,
   HouseholdAppData,
   HouseholdInvitation,
   HouseholdMemberSummary
@@ -34,13 +34,13 @@ type FamilyHouseholdSummary = {
   members: number;
   pendingInvitations: number;
   plannedMinutes: number;
-  plannedChores: number;
+  plannedTasks: number;
 };
 
 type FamilyBoardRow = {
   member: HouseholdMemberSummary;
   minutes: number;
-  occurrencesByDate: Record<string, ChoreOccurrence[]>;
+  occurrencesByDate: Record<string, TaskOccurrence[]>;
 };
 
 const familyWeekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -69,14 +69,14 @@ function buildFamilyOccurrenceRange(startDate: Date, endDate: Date, timeZone: st
   };
 }
 
-function occurrenceDateKey(occurrence: ChoreOccurrence, timeZone: string) {
+function occurrenceDateKey(occurrence: TaskOccurrence, timeZone: string) {
   return occurrence.plannedStartAt
     ? formatInTimeZone(occurrence.plannedStartAt, timeZone, "yyyy-MM-dd")
     : occurrence.eligibleStartOn;
 }
 
-function choreTitle(household: HouseholdAppData, occurrence: ChoreOccurrence) {
-  return household.chores.find((chore) => chore.id === occurrence.choreId)?.title ?? "Scheduled chore";
+function choreTitle(household: HouseholdAppData, occurrence: TaskOccurrence) {
+  return household.tasks.find((chore) => chore.id === occurrence.taskId)?.title ?? "Scheduled chore";
 }
 
 function minutesLabel(minutes: number) {
@@ -102,7 +102,7 @@ export function FamilyPage({ households, isLoading }: FamilyPageProps) {
       members: summaries.reduce((total, summary) => total + summary.members, 0),
       pendingInvitations: summaries.reduce((total, summary) => total + summary.pendingInvitations, 0),
       plannedMinutes: summaries.reduce((total, summary) => total + summary.plannedMinutes, 0),
-      plannedChores: summaries.reduce((total, summary) => total + summary.plannedChores, 0)
+      plannedTasks: summaries.reduce((total, summary) => total + summary.plannedTasks, 0)
     };
   }, [householdSummaries, households]);
 
@@ -130,7 +130,7 @@ export function FamilyPage({ households, isLoading }: FamilyPageProps) {
         currentSummary?.members === summary.members &&
         currentSummary?.pendingInvitations === summary.pendingInvitations &&
         currentSummary?.plannedMinutes === summary.plannedMinutes &&
-        currentSummary?.plannedChores === summary.plannedChores
+        currentSummary?.plannedTasks === summary.plannedTasks
       ) {
         return current;
       }
@@ -184,11 +184,11 @@ export function FamilyPage({ households, isLoading }: FamilyPageProps) {
           </div>
           <div>
             <span>This week</span>
-            <strong>{isLoading ? "-" : familySummary.plannedChores}</strong>
+            <strong>{isLoading ? "-" : familySummary.plannedTasks}</strong>
             <p>Scheduled chores on the family board</p>
           </div>
           <div>
-            <span>Chore load</span>
+            <span>Task load</span>
             <strong>{isLoading ? "-" : minutesLabel(familySummary.plannedMinutes)}</strong>
             <p>Estimated shared chore time</p>
           </div>
@@ -222,7 +222,7 @@ export function FamilyPage({ households, isLoading }: FamilyPageProps) {
 function FamilyHouseholdPanel({ currentUserId, household, onSummaryChange }: FamilyPanelProps) {
   const [members, setMembers] = useState<HouseholdMemberSummary[]>([]);
   const [invitations, setInvitations] = useState<HouseholdInvitation[]>([]);
-  const [occurrences, setOccurrences] = useState<ChoreOccurrence[]>([]);
+  const [occurrences, setOccurrences] = useState<TaskOccurrence[]>([]);
   const [inviteEmail, setInviteEmail] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [busyAction, setBusyAction] = useState<string>();
@@ -237,7 +237,7 @@ function FamilyHouseholdPanel({ currentUserId, household, onSummaryChange }: Fam
   const boardRows = useMemo<FamilyBoardRow[]>(() => {
     return members.map((member) => {
       const memberOccurrences = occurrences.filter((occurrence) => occurrence.assignedUserId === member.userId);
-      const occurrencesByDate = memberOccurrences.reduce<Record<string, ChoreOccurrence[]>>((groups, occurrence) => {
+      const occurrencesByDate = memberOccurrences.reduce<Record<string, TaskOccurrence[]>>((groups, occurrence) => {
         const key = occurrenceDateKey(occurrence, household.timeZone);
         groups[key] = [...(groups[key] ?? []), occurrence];
         return groups;
@@ -278,7 +278,7 @@ function FamilyHouseholdPanel({ currentUserId, household, onSummaryChange }: Fam
       members: members.length,
       pendingInvitations: pendingInvitations.length,
       plannedMinutes,
-      plannedChores: plannedOccurrences.length
+      plannedTasks: plannedOccurrences.length
     });
   }, [household.id, members.length, onSummaryChange, pendingInvitations.length, plannedMinutes, plannedOccurrences.length]);
 
@@ -399,7 +399,7 @@ function FamilyHouseholdPanel({ currentUserId, household, onSummaryChange }: Fam
                 <h3>Week of {format(weekStart, "MMM d")}</h3>
               </div>
               <div className="family-board-key" aria-label="Calendar item key">
-                <span className="family-key-item is-chore">Chores</span>
+                <span className="family-key-item is-chore">Tasks</span>
                 <span className="family-key-item is-commitment">Commitments</span>
               </div>
             </div>

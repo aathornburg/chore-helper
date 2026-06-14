@@ -1,8 +1,8 @@
 import { addDays, addMinutes, addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format, parseISO, startOfMonth, startOfWeek } from "date-fns";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import type { CalendarConnectionSummary, CalendarImportCandidate, CalendarImportPolicy, CalendarImportQueueItem, CalendarPreferences, ChoreOccurrence, ChoreSchedule, CleanlyCalendarEvent, CompletionCheckInInput, ExternalCalendarSummary, HouseholdAppData, HouseholdMemberSummary, ScheduleInput } from "@chore-helper/shared";
-import { completeOccurrence, createScheduledChore, decideCalendarImportQueueItem, exportCleanlyCalendarEvents, getCalendarPreferences, getCurrentUser, getMyCalendarImportPolicy, listCalendarConnections, listCalendarImportCandidates, listCalendarImportPolicies, listCalendarImportQueue, listCleanlyCalendarEvents, listExternalCalendars, listHouseholdMembers, listOccurrences, listSchedules, skipOccurrence, startGoogleCalendarConnection, submitCalendarImportEvents, updateCalendarPreferences, updateOccurrence, updateSchedule as updateScheduleApi } from "../api";
+import type { CalendarConnectionSummary, CalendarImportCandidate, CalendarImportPolicy, CalendarImportQueueItem, CalendarPreferences, TaskOccurrence, TaskSchedule, CleanlyCalendarEvent, CompletionCheckInInput, ExternalCalendarSummary, HouseholdAppData, HouseholdMemberSummary, ScheduleInput } from "@chore-helper/shared";
+import { completeOccurrence, createScheduledTask, decideCalendarImportQueueItem, exportCleanlyCalendarEvents, getCalendarPreferences, getCurrentUser, getMyCalendarImportPolicy, listCalendarConnections, listCalendarImportCandidates, listCalendarImportPolicies, listCalendarImportQueue, listCleanlyCalendarEvents, listExternalCalendars, listHouseholdMembers, listOccurrences, listSchedules, skipOccurrence, startGoogleCalendarConnection, submitCalendarImportEvents, updateCalendarPreferences, updateOccurrence, updateSchedule as updateScheduleApi } from "../api";
 import { CalendarExportPreselectPanel, CalendarExportReviewPanel } from "./calendar/CalendarExportPanel";
 import { DateRangePicker } from "./calendar/DateRangePicker";
 import type { CalendarDateRange, CalendarDateRangePreset } from "./calendar/dateRange";
@@ -21,7 +21,7 @@ type QueueDecisionDraft = {
   proposedType: CalendarImportQueueItem["proposedType"];
 };
 type EditorDraft = {
-  choreId?: string;
+  taskId?: string;
   title: string;
   instructions: string;
   tags: string;
@@ -58,7 +58,7 @@ function capitalize(value: string) {
   return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
 }
 
-function durationInMinutes(occurrence: ChoreOccurrence) {
+function durationInMinutes(occurrence: TaskOccurrence) {
   return occurrence.estimatedMinutes;
 }
 
@@ -94,7 +94,7 @@ function listRange(timeZone: string) {
   };
 }
 
-function displayDates(occurrence: ChoreOccurrence) {
+function displayDates(occurrence: TaskOccurrence) {
   if (occurrence.status === "completed" && occurrence.completedAt) {
     return [parseISO(occurrence.completedAt)];
   }
@@ -163,7 +163,7 @@ function timeSlotLabel(slot: string) {
   return `${displayHour}:${String(minute).padStart(2, "0")} ${period}`;
 }
 
-function orderCompletedLast(occurrencesForDay: ChoreOccurrence[]) {
+function orderCompletedLast(occurrencesForDay: TaskOccurrence[]) {
   const completedOccurrences = occurrencesForDay.filter((occurrence) => occurrence.status === "completed");
   const activeOccurrences = occurrencesForDay.filter((occurrence) => occurrence.status !== "completed");
   return [...activeOccurrences, ...completedOccurrences];
@@ -228,7 +228,7 @@ function tagsFromText(value: string) {
   return value.split(",").map((tag) => tag.trim()).filter(Boolean);
 }
 
-function scheduleToDraft(schedule: ChoreSchedule): ScheduleDraft {
+function scheduleToDraft(schedule: TaskSchedule): ScheduleDraft {
   return {
     ...schedule,
     key: schedule.id
@@ -242,7 +242,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   const [filters, setFilters] = useState<CalendarFilters>({});
   const [members, setMembers] = useState<HouseholdMemberSummary[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>();
-  const [occurrences, setOccurrences] = useState<ChoreOccurrence[]>([]);
+  const [occurrences, setOccurrences] = useState<TaskOccurrence[]>([]);
   const [loadState, setLoadState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [editorMode, setEditorMode] = useState<EditorMode>("closed");
   const [selectedOccurrenceId, setSelectedOccurrenceId] = useState<string>();
@@ -251,7 +251,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   const [scheduleAccordionOpen, setScheduleAccordionOpen] = useState(false);
   const [completionCheckIn, setCompletionCheckIn] = useState<CompletionCheckInDraft>();
   const [draggingId, setDraggingId] = useState<string>();
-  const [createdChoreTitles, setCreatedChoreTitles] = useState(() => new Map<string, string>());
+  const [createdTaskTitles, setCreatedTaskTitles] = useState(() => new Map<string, string>());
   const [importQueueItems, setImportQueueItems] = useState<CalendarImportQueueItem[]>([]);
   const [cleanlyCalendarEvents, setCleanlyCalendarEvents] = useState<CleanlyCalendarEvent[]>([]);
   const [selectedCleanlyCalendarEventId, setSelectedCleanlyCalendarEventId] = useState<string>();
@@ -329,7 +329,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     modalTriggerRef.current = null;
   }
 
-  function closeChoreEditor() {
+  function closeTaskEditor() {
     setEditorMode("closed");
     restoreModalTriggerFocus();
   }
@@ -374,7 +374,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
         if (selectedCleanlyCalendarEvent) {
           closeCleanlyCalendarEventDetail();
         } else {
-          closeChoreEditor();
+          closeTaskEditor();
         }
         return;
       }
@@ -583,11 +583,11 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   }, [calendarScale, focusDate, selectedHousehold?.id, timeZone, workspaceView]);
 
   const choreTitles = useMemo(() => new Map(
-    [...(selectedHousehold?.chores ?? []).map((chore) => [chore.id, chore.title] as const), ...createdChoreTitles]
-  ), [createdChoreTitles, selectedHousehold]);
+    [...(selectedHousehold?.tasks ?? []).map((chore) => [chore.id, chore.title] as const), ...createdTaskTitles]
+  ), [createdTaskTitles, selectedHousehold]);
 
   const occurrenceDateBuckets = useMemo(() => {
-    const groups = new Map<string, ChoreOccurrence[]>();
+    const groups = new Map<string, TaskOccurrence[]>();
     for (const occurrence of visibleOccurrences) {
       for (const date of displayDates(occurrence)) {
         const key = dateKey(date);
@@ -714,8 +714,8 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     );
   }
 
-  function occurrenceTitle(occurrence: ChoreOccurrence) {
-    return choreTitles.get(occurrence.choreId) ?? "Scheduled chore";
+  function occurrenceTitle(occurrence: TaskOccurrence) {
+    return choreTitles.get(occurrence.taskId) ?? "Scheduled chore";
   }
 
   function monthItemsForDate(date: Date) {
@@ -748,7 +748,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     }, 0);
   }
 
-  function assignedMemberLabel(occurrence: ChoreOccurrence) {
+  function assignedMemberLabel(occurrence: TaskOccurrence) {
     return memberDisplayName(occurrence.assignedUserId);
   }
 
@@ -794,7 +794,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     );
   }
 
-  function assigneeIdentity(occurrence: ChoreOccurrence) {
+  function assigneeIdentity(occurrence: TaskOccurrence) {
     const label = `Assigned to ${assignedMemberLabel(occurrence)}`;
     return renderIdentityToken(label, memberInitials(occurrence.assignedUserId));
   }
@@ -860,8 +860,8 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     setEditorMode("create");
   }
 
-  function draftFromOccurrence(occurrence: ChoreOccurrence): EditorDraft {
-    const chore = selectedHousehold?.chores.find((item) => item.id === occurrence.choreId);
+  function draftFromOccurrence(occurrence: TaskOccurrence): EditorDraft {
+    const chore = selectedHousehold?.tasks.find((item) => item.id === occurrence.taskId);
     const scheduleDraft = (occurrence.planningMode === "flexible"
       ? {
           ...createEmptyFlexibleScheduleDraft(),
@@ -882,7 +882,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
           assignment: { mode: "fixed", memberUserIds: [occurrence.assignedUserId] }
         }) as ScheduleDraft;
     return {
-      choreId: occurrence.choreId,
+      taskId: occurrence.taskId,
       title: occurrenceTitle(occurrence),
       instructions: chore?.instructions ?? "",
       tags: chore?.tags?.join(", ") ?? "",
@@ -891,12 +891,12 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     };
   }
 
-  function loadScheduleDetailsForEditor(occurrence: ChoreOccurrence) {
+  function loadScheduleDetailsForEditor(occurrence: TaskOccurrence) {
     if (!selectedHousehold) return;
 
-    void listSchedules(selectedHousehold.id, occurrence.choreId)
+    void listSchedules(selectedHousehold.id, occurrence.taskId)
       .then((loadedSchedules) => {
-        setEditorDraft((current) => current?.choreId === occurrence.choreId ? {
+        setEditorDraft((current) => current?.taskId === occurrence.taskId ? {
           ...current,
           schedules: loadedSchedules.map(scheduleToDraft)
         } : current);
@@ -904,7 +904,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
       .catch(() => setEditorStatus("Could not load schedule details."));
   }
 
-  function openViewEditor(occurrence: ChoreOccurrence, trigger?: HTMLElement) {
+  function openViewEditor(occurrence: TaskOccurrence, trigger?: HTMLElement) {
     modalTriggerRef.current = trigger ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
     setSelectedCleanlyCalendarEventId(undefined);
     setSelectedOccurrenceId(occurrence.id);
@@ -916,7 +916,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     setEditorMode("view");
   }
 
-  function openEditEditor(occurrence: ChoreOccurrence, trigger?: HTMLElement) {
+  function openEditEditor(occurrence: TaskOccurrence, trigger?: HTMLElement) {
     modalTriggerRef.current = trigger ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
     setSelectedCleanlyCalendarEventId(undefined);
     setSelectedOccurrenceId(occurrence.id);
@@ -975,27 +975,29 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
         }
         return schedule;
       });
-      const created = await createScheduledChore(selectedHousehold.id, {
-        chore: {
+      const created = await createScheduledTask(selectedHousehold.id, {
+        task: {
           title: editorDraft.title,
+          type: "chore",
+          libraryState: "saved",
           source: "manual",
           ...(editorDraft.instructions.trim() ? { instructions: editorDraft.instructions.trim() } : {}),
           tags: tagsFromText(editorDraft.tags)
         },
         schedules
       });
-      selectedHousehold.chores.push({ ...created.chore, recommendations: [] });
-      setCreatedChoreTitles((current) => new Map(current).set(created.chore.id, created.chore.title));
+      selectedHousehold.tasks.push({ ...created.task, recommendations: [] });
+      setCreatedTaskTitles((current) => new Map(current).set(created.task.id, created.task.title));
       await reloadOccurrences();
       setEditorMode("closed");
       setEditorDraft(undefined);
-      setEditorStatus("Chore saved.");
+      setEditorStatus("Task saved.");
     } catch {
       setEditorStatus("Could not save chore.");
     }
   }
 
-  async function saveUpdate(occurrence: ChoreOccurrence, localStart: string, minutes: number, assignedUserId: string) {
+  async function saveUpdate(occurrence: TaskOccurrence, localStart: string, minutes: number, assignedUserId: string) {
     if (!selectedHousehold || !occurrence.plannedStartAt) return;
     const plannedStart = fromZonedTime(localStart, timeZone);
     const updated = await updateOccurrence(selectedHousehold.id, occurrence.id, {
@@ -1046,7 +1048,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     setOccurrences((current) => current.map((item) => item.id === updated.id ? updated : item));
   }
 
-  async function handleComplete(occurrence: ChoreOccurrence, checkIn?: CompletionCheckInInput) {
+  async function handleComplete(occurrence: TaskOccurrence, checkIn?: CompletionCheckInInput) {
     if (!selectedHousehold) return;
     const updated = await completeOccurrence(selectedHousehold.id, occurrence.id, checkIn);
     setOccurrences((current) =>
@@ -1146,37 +1148,37 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     setDraggingId(undefined);
   }
 
-  function occurrenceDateLine(occurrence: ChoreOccurrence) {
+  function occurrenceDateLine(occurrence: TaskOccurrence) {
     if (occurrence.planningMode === "flexible") {
       return `Anytime / ${durationInMinutes(occurrence)} min`;
     }
     return `${occurrence.plannedStartAt ? formatInTimeZone(occurrence.plannedStartAt, timeZone, "h:mm a") : "Anytime"} / ${durationInMinutes(occurrence)} min`;
   }
 
-  function occurrenceTimeSummary(occurrence: ChoreOccurrence) {
+  function occurrenceTimeSummary(occurrence: TaskOccurrence) {
     const startLabel = occurrence.planningMode === "flexible" || !occurrence.plannedStartAt
       ? "Anytime"
       : formatInTimeZone(occurrence.plannedStartAt, timeZone, "h:mm a");
     return renderTimeSummary(startLabel, `${durationInMinutes(occurrence)} min`);
   }
 
-  function occurrenceStatusLabel(occurrence: ChoreOccurrence) {
+  function occurrenceStatusLabel(occurrence: TaskOccurrence) {
     return occurrence.status === "completed" ? "Completed" : occurrence.status === "skipped" ? "Skipped" : "Planned";
   }
 
-  function occurrenceCompletionLine(occurrence: ChoreOccurrence) {
+  function occurrenceCompletionLine(occurrence: TaskOccurrence) {
     return occurrence.completedAt
       ? `Completed ${formatInTimeZone(occurrence.completedAt, timeZone, "h:mm a")}`
       : occurrenceStatusLabel(occurrence);
   }
 
-  function isFlexibleOverdue(occurrence: ChoreOccurrence) {
+  function isFlexibleOverdue(occurrence: TaskOccurrence) {
     return occurrence.planningMode === "flexible" &&
       occurrence.status === "planned" &&
       occurrence.eligibleEndOn < format(new Date(), "yyyy-MM-dd");
   }
 
-  function occurrencePrimaryDate(occurrence: ChoreOccurrence) {
+  function occurrencePrimaryDate(occurrence: TaskOccurrence) {
     if (occurrence.status === "completed" && occurrence.completedAt) {
       return formatInTimeZone(occurrence.completedAt, timeZone, "yyyy-MM-dd");
     }
@@ -1189,7 +1191,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     if (!selectedOccurrence) return [];
     return occurrences
       .filter((occurrence) =>
-        occurrence.choreId === selectedOccurrence.choreId &&
+        occurrence.taskId === selectedOccurrence.taskId &&
         occurrence.scheduleId === selectedOccurrence.scheduleId &&
         (status === "upcoming" ? occurrence.status === "planned" : occurrence.status !== "planned")
       )
@@ -1211,10 +1213,10 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     );
   }
 
-  function renderChoreViewDetailSections() {
+  function renderTaskViewDetailSections() {
     if (!selectedOccurrence || !editorDraft) return null;
-    const selectedChore = selectedHousehold?.chores.find((item) => item.id === selectedOccurrence.choreId);
-    const sourceLabel = selectedChore?.source === "google-calendar" ? "Google Calendar" : "Manual chore";
+    const selectedTask = selectedHousehold?.tasks.find((item) => item.id === selectedOccurrence.taskId);
+    const sourceLabel = selectedTask?.source === "google-calendar" ? "Google Calendar" : "Manual chore";
     const upcomingRows = relatedOccurrenceDateRows("upcoming").slice(0, 4);
     const historyRows = relatedOccurrenceDateRows("history").slice(0, 4);
 
@@ -1290,7 +1292,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     });
   }
 
-  function renderOccurrenceCompact(occurrence: ChoreOccurrence, date: Date, density: OccurrenceCardDensity) {
+  function renderOccurrenceCompact(occurrence: TaskOccurrence, date: Date, density: OccurrenceCardDensity) {
     const title = occurrenceTitle(occurrence);
     const assigneeToken = assigneeIdentity(occurrence);
     return (
@@ -1326,7 +1328,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     );
   }
 
-  function renderMonthOccurrence(occurrence: ChoreOccurrence, date: Date) {
+  function renderMonthOccurrence(occurrence: TaskOccurrence, date: Date) {
     const title = occurrenceTitle(occurrence);
     const assigneeToken = assigneeIdentity(occurrence);
     return (
@@ -1352,7 +1354,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     );
   }
 
-  function renderAgendaOccurrence(occurrence: ChoreOccurrence, date: Date) {
+  function renderAgendaOccurrence(occurrence: TaskOccurrence, date: Date) {
     const title = occurrenceTitle(occurrence);
     return (
       <button
@@ -1776,7 +1778,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                           onChange={(event) => updateImportCandidateType(candidate.id, event.target.value as CalendarImportCandidate["proposedType"])}
                         >
                           <option value="commitment">Commitment</option>
-                          <option value="chore">Chore</option>
+                          <option value="chore">Task</option>
                         </select>
                       </li>
                     ))}
@@ -2168,7 +2170,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
               <div className="calendar-queue-filter-row" aria-label="Queue filters">
                 {[
                   { label: "Pending", value: "all" },
-                  { label: "Chores", value: "chore" },
+                  { label: "Tasks", value: "chore" },
                   { label: "Commitments", value: "commitment" },
                   { label: "Full details", value: "full_details" },
                   { label: "Busy only", value: "busy_only" }
@@ -2433,7 +2435,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
               <section className="calendar-work-legend" aria-label="Calendar item types">
                 <span className="calendar-legend-item is-chore">
                   <span aria-hidden="true" />
-                  Chores
+                  Tasks
                 </span>
                 <span className="calendar-legend-item is-commitment">
                   <span aria-hidden="true" />
@@ -2541,7 +2543,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                 ) : null}
 
                 {workspaceView === "list" ? (
-                  <section className="calendar-list-group calendar-agenda" aria-label="Chore agenda">
+                  <section className="calendar-list-group calendar-agenda" aria-label="Task agenda">
                   <div className="agenda-header">
                     <div>
                       <p className="eyebrow">Agenda</p>
@@ -2612,12 +2614,12 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
             <div
               className={`chore-editor-backdrop calendar-modal-backdrop ${editorMode === "view" ? "is-detail-view is-centered-detail-view" : ""}`}
               onMouseDown={(event) => {
-                if (event.currentTarget === event.target) closeChoreEditor();
+                if (event.currentTarget === event.target) closeTaskEditor();
               }}
               role="presentation"
             >
               <form
-                aria-label={editorMode === "create" ? "New chore" : editorMode === "view" ? "Chore details" : "Edit chore"}
+                aria-label={editorMode === "create" ? "New chore" : editorMode === "view" ? "Task details" : "Edit chore"}
                 aria-modal="true"
                 className={`chore-editor-modal calendar-modal-shell ${editorMode === "view" ? "is-detail-view" : ""}`}
                 ref={choreEditorModalRef}
@@ -2637,10 +2639,10 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
               >
                 <div className="panel-heading">
                   <div>
-                    <p className="eyebrow">{editorMode === "create" ? "New chore" : editorMode === "view" ? "Chore details" : "Edit chore"}</p>
-                    <h2>{editorMode === "create" ? "Chore Details" : editorDraft.title}</h2>
+                    <p className="eyebrow">{editorMode === "create" ? "New chore" : editorMode === "view" ? "Task details" : "Edit chore"}</p>
+                    <h2>{editorMode === "create" ? "Task Details" : editorDraft.title}</h2>
                   </div>
-                  <button aria-label="Close dialog" className="icon-button modal-close-button" onClick={closeChoreEditor} type="button" />
+                  <button aria-label="Close dialog" className="icon-button modal-close-button" onClick={closeTaskEditor} type="button" />
                 </div>
                 {editorMode === "view" && selectedOccurrence ? (
                   <section className="chore-view-details">
@@ -2683,20 +2685,20 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                             type="button"
                           >
                             <span>
-                              <strong>Chore details</strong>
+                              <strong>Task details</strong>
                               <span>{`${editorDraft.title} · ${occurrenceDateLine(selectedOccurrence)} · ${assignedMemberLabel(selectedOccurrence)}`}</span>
                             </span>
                             <span>{scheduleAccordionOpen ? "Hide details" : "Show details"}</span>
                           </button>
                           {scheduleAccordionOpen ? (
                             <div className="schedule-accordion-body chore-details-drawer-body">
-                              {renderChoreViewDetailSections()}
+                              {renderTaskViewDetailSections()}
                             </div>
                           ) : null}
                         </section>
                       </>
                     ) : (
-                      renderChoreViewDetailSections()
+                      renderTaskViewDetailSections()
                     )}
                   </section>
                 ) : null}
@@ -2704,7 +2706,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                   <>
                 <div className="field-grid aligned-field-grid">
                   <label className="aligned-field">
-                    Chore title
+                    Task title
                     <input disabled={editorMode === "edit"} value={editorDraft.title} onChange={(event) => setEditorDraft({ ...editorDraft, title: event.target.value })} required />
                     {editorMode === "create" || editorMode === "edit" ? <span className="field-help-placeholder" aria-hidden="true" /> : null}
                   </label>
@@ -2734,7 +2736,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                   ) : null}
                 </label>
                 {editorDraft.schedules[0] ? (
-                  <section className="create-schedule-panel" aria-label="Chore schedule">
+                  <section className="create-schedule-panel" aria-label="Task schedule">
                     <div className="panel-heading">
                       <div>
                         <p className="eyebrow">Schedule</p>
@@ -2953,7 +2955,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                 {editorStatus ? <p role="status">{editorStatus}</p> : null}
                 {editorMode === "view" && selectedOccurrence ? (
                   <div className="form-actions modal-actions">
-                    <button className="section-action" onClick={closeChoreEditor} type="button">Close</button>
+                    <button className="section-action" onClick={closeTaskEditor} type="button">Close</button>
                     <div className="modal-action-group">
                       {completionCheckIn ? (
                         <button onClick={() => void handleComplete(selectedOccurrence, completionCheckIn)} type="button">Submit</button>
@@ -2969,7 +2971,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                   </div>
                 ) : (
                   <div className="form-actions modal-actions">
-                    <button className="section-action" onClick={closeChoreEditor} type="button">Cancel</button>
+                    <button className="section-action" onClick={closeTaskEditor} type="button">Cancel</button>
                     {editorMode === "create" || editorMode === "edit" ? <button type="submit">{editorMode === "create" ? "Add event" : "Save changes"}</button> : null}
                     {editorMode === "edit" && selectedOccurrence ? <button className="section-action" onClick={() => void handleSkip()} type="button">Skip occurrence</button> : null}
                   </div>

@@ -95,9 +95,9 @@ export function CalendarExportPreselectPanel({
                       onExportContentChange(event.target.value as CalendarPreferences["exportContentMode"]);
                     }}
                   >
-                    <option value="chores">Chores</option>
+                    <option value="chores">Tasks</option>
                     <option value="commitments">Commitments</option>
-                    <option value="both">Chores and commitments</option>
+                    <option value="both">Tasks and commitments</option>
                   </select>
                 </label>
                 <DateRangePicker
@@ -132,7 +132,7 @@ export function CalendarExportReviewPanel({
 }: CalendarExportReviewPanelProps) {
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const selectedEvents = eligibleEvents.filter((event) => selectedEventIds.includes(event.id));
-  const selectedChoreCount = selectedEvents.filter((event) => event.type === "chore").length;
+  const selectedTaskCount = selectedEvents.filter((event) => event.type === "chore").length;
   const selectedCommitmentCount = selectedEvents.filter((event) => event.type === "commitment").length;
   const canExport = selectedEventIds.length > 0 && Boolean(preferences?.destinationExternalCalendarId);
   const selectedSummary = `${selectedEventIds.length} selected`;
@@ -142,7 +142,7 @@ export function CalendarExportReviewPanel({
       <div className="calendar-export-summary-bar">
         <span className="calendar-export-required-label">Review required</span>
         <strong>{selectedSummary}</strong>
-        <span>{selectedChoreCount} chores / {selectedCommitmentCount} commitments</span>
+        <span>{selectedTaskCount} chores / {selectedCommitmentCount} commitments</span>
         <span>Review selected events before choosing a destination calendar.</span>
         <button disabled={selectedEventIds.length === 0} onClick={() => setIsReviewOpen((current) => !current)} type="button">Review</button>
       </div>

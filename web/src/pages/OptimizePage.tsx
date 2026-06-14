@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { type Chore, type HouseholdAppData, type HouseholdProfile, type HouseholdStructure, type Recommendation } from "@chore-helper/shared";
+import { type Task, type HouseholdAppData, type HouseholdProfile, type HouseholdStructure, type Recommendation } from "@chore-helper/shared";
 import {
   applyRecommendationDecisions,
   askAssistantQuestion,
   generateRecommendations,
-  listChores,
+  listTasks,
   listRecommendations,
   updateRecommendationDecision
 } from "../api";
@@ -39,18 +39,18 @@ const chatPrompts = [
   "How can I make this plan easier to keep up with?"
 ];
 
-function findRecommendationForChore(chore: Chore, recommendations: Recommendation[]) {
+function findRecommendationForTask(chore: Task, recommendations: Recommendation[]) {
   return recommendations.find(
     (recommendation) =>
-      recommendation.affectedChoreId === chore.id ||
+      recommendation.affectedTaskId === chore.id ||
       recommendation.title.toLowerCase().includes(chore.title.toLowerCase())
   );
 }
 
-function getReviewDefaultSelection(chores: Chore[], recommendations: Recommendation[]) {
+function getReviewDefaultSelection(chores: Task[], recommendations: Recommendation[]) {
   const unreviewedIds = chores
     .filter((chore) => {
-      const recommendation = findRecommendationForChore(chore, recommendations);
+      const recommendation = findRecommendationForTask(chore, recommendations);
       return !recommendation || recommendation.decision !== "applied";
     })
     .map((chore) => chore.id);
@@ -122,10 +122,10 @@ function HouseholdOptimizePanel({
   showHouseholdPicker,
   structure
 }: HouseholdOptimizePanelProps) {
-  const [chores, setChores] = useState<Chore[]>([]);
+  const [chores, setTasks] = useState<Task[]>([]);
   const [existingRecommendations, setExistingRecommendations] = useState<Recommendation[]>([]);
   const [reviewRecommendations, setReviewRecommendations] = useState<Recommendation[]>([]);
-  const [selectedChoreIds, setSelectedChoreIds] = useState<string[]>([]);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
   const [mode, setMode] = useState<OptimizeMode>("recommendations");
   const [reviewStep, setReviewStep] = useState<ReviewStep>("select");
   const [loadState, setLoadState] = useState<ReviewLoadState>("idle");
@@ -134,7 +134,7 @@ function HouseholdOptimizePanel({
   const [chatInput, setChatInput] = useState("");
   const [chatIsSending, setChatIsSending] = useState(false);
 
-  const activeChores = useMemo(
+  const activeTasks = useMemo(
     () => chores.filter((chore) => !chore.archivedAt),
     [chores]
   );
@@ -160,16 +160,16 @@ function HouseholdOptimizePanel({
       setStatus("Loading Optimize workspace...");
 
       try {
-        const [nextChores, nextRecommendations] = await Promise.all([
-          listChores(householdContextId),
+        const [nextTasks, nextRecommendations] = await Promise.all([
+          listTasks(householdContextId),
           listRecommendations(householdContextId)
         ]);
         if (cancelled) return;
 
-        const nextActiveChores = nextChores.filter((chore) => !chore.archivedAt);
-        setChores(nextActiveChores);
+        const nextActiveTasks = nextTasks.filter((chore) => !chore.archivedAt);
+        setTasks(nextActiveTasks);
         setExistingRecommendations(nextRecommendations);
-        setSelectedChoreIds(getReviewDefaultSelection(nextActiveChores, nextRecommendations));
+        setSelectedTaskIds(getReviewDefaultSelection(nextActiveTasks, nextRecommendations));
         setReviewRecommendations([]);
         setMode("recommendations");
         setReviewStep("select");
@@ -193,18 +193,18 @@ function HouseholdOptimizePanel({
   async function refreshReviewData() {
     if (!householdId) return;
 
-    const [nextChores, nextRecommendations] = await Promise.all([
-      listChores(householdId),
+    const [nextTasks, nextRecommendations] = await Promise.all([
+      listTasks(householdId),
       listRecommendations(householdId)
     ]);
-    const nextActiveChores = nextChores.filter((chore) => !chore.archivedAt);
-    setChores(nextActiveChores);
+    const nextActiveTasks = nextTasks.filter((chore) => !chore.archivedAt);
+    setTasks(nextActiveTasks);
     setExistingRecommendations(nextRecommendations);
-    setSelectedChoreIds(getReviewDefaultSelection(nextActiveChores, nextRecommendations));
+    setSelectedTaskIds(getReviewDefaultSelection(nextActiveTasks, nextRecommendations));
   }
 
   async function handleGenerateSelectedReview() {
-    if (!householdId || selectedChoreIds.length === 0) return;
+    if (!householdId || selectedTaskIds.length === 0) return;
 
     setStatus("Reviewing selected chores...");
 
@@ -212,7 +212,7 @@ function HouseholdOptimizePanel({
       const nextRecommendations = await generateRecommendations(
         householdId,
         "Review the selected chores and suggest practical improvements.",
-        selectedChoreIds
+        selectedTaskIds
       );
       setReviewRecommendations(nextRecommendations);
       setReviewStep("decide");
@@ -308,7 +308,7 @@ function HouseholdOptimizePanel({
           ) : null}
           <div className="optimize-command-actions">
             <button
-              disabled={selectedChoreIds.length === 0 || loadState !== "ready"}
+              disabled={selectedTaskIds.length === 0 || loadState !== "ready"}
               onClick={handleGenerateSelectedReview}
               type="button"
             >
@@ -320,11 +320,11 @@ function HouseholdOptimizePanel({
           <div>
             <p className="eyebrow">Checkup snapshot</p>
             <h2>Ready for assistant review</h2>
-            <p>{selectedChoreIds.length} chores are selected. {pendingRecommendations.length} older ideas still need a decision.</p>
+            <p>{selectedTaskIds.length} chores are selected. {pendingRecommendations.length} older ideas still need a decision.</p>
           </div>
           <div className="optimize-checkup-stats">
             <div>
-              <strong>{selectedChoreIds.length}</strong>
+              <strong>{selectedTaskIds.length}</strong>
               <span>Selected</span>
             </div>
             <div>
@@ -406,16 +406,16 @@ function HouseholdOptimizePanel({
                     <span><strong>Apply changes</strong><small>Commit together</small></span>
                   </div>
 
-                  {activeChores.length === 0 ? (
+                  {activeTasks.length === 0 ? (
                     <div className="empty-state">No active chores are ready for review.</div>
                   ) : (
                     <div className="review-checkbox-list">
-                      {activeChores.map((chore) => (
+                      {activeTasks.map((chore) => (
                         <label className="review-checkbox-row" key={chore.id}>
                           <input
-                            checked={selectedChoreIds.includes(chore.id)}
+                            checked={selectedTaskIds.includes(chore.id)}
                             onChange={(event) => {
-                              setSelectedChoreIds((currentIds) =>
+                              setSelectedTaskIds((currentIds) =>
                                 event.target.checked
                                   ? [...currentIds, chore.id]
                                   : currentIds.filter((id) => id !== chore.id)
@@ -431,7 +431,7 @@ function HouseholdOptimizePanel({
 
                   <div className="form-actions">
                     <button
-                      disabled={selectedChoreIds.length === 0}
+                      disabled={selectedTaskIds.length === 0}
                       onClick={handleGenerateSelectedReview}
                       type="button"
                     >

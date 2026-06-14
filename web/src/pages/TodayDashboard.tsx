@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { addDays, addWeeks, format, startOfDay, startOfWeek } from "date-fns";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
-import type { ChoreOccurrence, CompletionCheckInInput, HouseholdAppData, HouseholdMemberSummary } from "@chore-helper/shared";
+import type { TaskOccurrence, CompletionCheckInInput, HouseholdAppData, HouseholdMemberSummary } from "@chore-helper/shared";
 import { completeOccurrence, getCurrentUser, listHouseholdMembers, listOccurrences, updateCompletionCheckIn } from "../api";
 import type { Navigate } from "../types";
 import type { WeekStartDay } from "../types";
@@ -33,21 +33,21 @@ type TodayViewMode = "merged" | "grouped";
 type TodayDataStatus = "idle" | "loading" | "ready" | "error";
 type TodayRailDirection = "previous" | "next";
 type TodayOccurrenceRow = {
-  occurrence: ChoreOccurrence;
+  occurrence: TaskOccurrence;
   household: HouseholdAppData;
   title: string;
   assigneeLabel: string;
 };
 type CompletionCheckInDraft = Required<Pick<CompletionCheckInInput, "completedOnTime" | "durationAccurate" | "rebaseFutureOccurrences">>;
 
-function occurrenceDateKey(occurrence: ChoreOccurrence, timeZone: string) {
+function occurrenceDateKey(occurrence: TaskOccurrence, timeZone: string) {
   return occurrence.plannedStartAt
     ? formatInTimeZone(occurrence.plannedStartAt, timeZone, "yyyy-MM-dd")
     : occurrence.eligibleStartOn;
 }
 
-function choreTitle(household: HouseholdAppData, occurrence: ChoreOccurrence) {
-  return household.chores.find((chore) => chore.id === occurrence.choreId)?.title ?? "Scheduled chore";
+function choreTitle(household: HouseholdAppData, occurrence: TaskOccurrence) {
+  return household.tasks.find((chore) => chore.id === occurrence.taskId)?.title ?? "Scheduled chore";
 }
 
 function assigneeLabel(members: HouseholdMemberSummary[], userId: string) {
@@ -55,11 +55,11 @@ function assigneeLabel(members: HouseholdMemberSummary[], userId: string) {
   return member?.displayName ?? member?.primaryEmail ?? "Unassigned";
 }
 
-function durationLabel(occurrence: ChoreOccurrence) {
+function durationLabel(occurrence: TaskOccurrence) {
   return `${occurrence.estimatedMinutes} min`;
 }
 
-function timeLabel(occurrence: ChoreOccurrence, timeZone: string) {
+function timeLabel(occurrence: TaskOccurrence, timeZone: string) {
   return occurrence.plannedStartAt ? formatInTimeZone(occurrence.plannedStartAt, timeZone, "h:mm a") : "Anytime";
 }
 
@@ -94,7 +94,7 @@ export function TodayDashboard({ households, isLoading, loadError, onNavigate, w
   const [viewMode, setViewMode] = useState<TodayViewMode>("merged");
   const [currentUserId, setCurrentUserId] = useState<string>();
   const [membersByHousehold, setMembersByHousehold] = useState<Record<string, HouseholdMemberSummary[]>>({});
-  const [occurrencesByHousehold, setOccurrencesByHousehold] = useState<Record<string, ChoreOccurrence[]>>({});
+  const [occurrencesByHousehold, setOccurrencesByHousehold] = useState<Record<string, TaskOccurrence[]>>({});
   const [todayDataStatus, setTodayDataStatus] = useState<TodayDataStatus>("idle");
   const [toast, setToast] = useState<{ occurrenceId: string; title: string; row: TodayOccurrenceRow }>();
   const [checkInTarget, setCheckInTarget] = useState<TodayOccurrenceRow>();
@@ -126,7 +126,7 @@ export function TodayDashboard({ households, isLoading, loadError, onNavigate, w
       try {
         const currentUser = await getCurrentUser();
         const nextMembersByHousehold: Record<string, HouseholdMemberSummary[]> = {};
-        const nextOccurrencesByHousehold: Record<string, ChoreOccurrence[]> = {};
+        const nextOccurrencesByHousehold: Record<string, TaskOccurrence[]> = {};
         const rangeStart = stripDates[0] ?? todayStart;
         const rangeEnd = stripDates[stripDates.length - 1] ?? rangeStart;
 
@@ -205,7 +205,7 @@ export function TodayDashboard({ households, isLoading, loadError, onNavigate, w
     return Number.isInteger(hours) ? String(hours) : hours.toFixed(1);
   }
 
-  function renderChoreRow(row: TodayOccurrenceRow, options: { showHousehold?: boolean; compact?: boolean } = {}) {
+  function renderTaskRow(row: TodayOccurrenceRow, options: { showHousehold?: boolean; compact?: boolean } = {}) {
     const isCompleted = row.occurrence.status === "completed";
     const isSkipped = row.occurrence.status === "skipped";
     const canComplete = row.occurrence.status === "planned" && row.occurrence.assignedUserId === currentUserId;
@@ -284,7 +284,7 @@ export function TodayDashboard({ households, isLoading, loadError, onNavigate, w
         </div>
         {rows.length > 0 ? (
           <div className="today-chore-list">
-            {rows.map((row) => renderChoreRow(row, { showHousehold: households.length > 1 }))}
+            {rows.map((row) => renderTaskRow(row, { showHousehold: households.length > 1 }))}
           </div>
         ) : (
           <p className="empty-state">No chores here.</p>
@@ -469,7 +469,7 @@ export function TodayDashboard({ households, isLoading, loadError, onNavigate, w
                 </p>
                 <div className="today-chore-list">
                   {upcomingRows.length > 0 ? (
-                    upcomingRows.slice(0, 5).map((row) => renderChoreRow(row, { showHousehold: households.length > 1, compact: true }))
+                    upcomingRows.slice(0, 5).map((row) => renderTaskRow(row, { showHousehold: households.length > 1, compact: true }))
                   ) : (
                     <p className="empty-state">No chores scheduled in the next week.</p>
                   )}
@@ -483,7 +483,7 @@ export function TodayDashboard({ households, isLoading, loadError, onNavigate, w
                 </div>
                 {households.map((household) => {
                   const profileComplete = isProfileComplete(household);
-                  const reviewReady = profileComplete && household.chores.length > 0;
+                  const reviewReady = profileComplete && household.tasks.length > 0;
                   const dueToday = selectedRows.filter((row) => row.household.id === household.id && row.occurrence.status === "planned").length;
                   return (
                     <article className="today-household-card" key={household.id}>
@@ -499,7 +499,7 @@ export function TodayDashboard({ households, isLoading, loadError, onNavigate, w
                         <button onClick={() => onNavigate("/households")} type="button" aria-label={`Complete ${household.name} profile`}>
                           <ChevronRightIcon />
                         </button>
-                      ) : household.chores.length === 0 ? (
+                      ) : household.tasks.length === 0 ? (
                         <button onClick={() => onNavigate("/calendar")} type="button" aria-label={`Add ${household.name} chores`}>
                           <ChevronRightIcon />
                         </button>

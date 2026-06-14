@@ -39,7 +39,7 @@ export const demoPlanHealth = [
   }
 ];
 
-export const demoChores = [
+export const demoTasks = [
   { title: "Clean bathrooms", cadence: "Weekly", owner: "Shared", signal: "Duration risk" },
   { title: "Vacuum bedrooms", cadence: "Weekly", owner: "Alan", signal: "Pet hair coverage" },
   { title: "Kitchen reset", cadence: "Daily", owner: "Partner", signal: "Healthy cadence" },
