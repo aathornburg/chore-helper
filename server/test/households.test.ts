@@ -48,7 +48,7 @@ function request(app: ReturnType<typeof createApp>, userId = "test-user-a") {
   };
 }
 
-async function createScheduledChore(
+async function createScheduledTask(
   app: ReturnType<typeof createApp>,
   householdId: string,
   title: string,
@@ -59,9 +59,9 @@ async function createScheduledChore(
     .expect(200);
   const assigneeId = members.body[0].userId as string;
   const response = await request(app, userId)
-    .post(`/api/households/${householdId}/chores`)
+    .post(`/api/households/${householdId}/tasks`)
     .send({
-      chore: { title, source: "manual" },
+      task: { title, type: "chore", libraryState: "saved", source: "manual" },
       schedules: [{
         planningMode: "timed",
         recurrence: { frequency: "weekly", interval: 1, weekDays: [1] },
@@ -73,7 +73,7 @@ async function createScheduledChore(
     })
     .expect(201);
 
-  return { ...response, body: response.body.chore };
+  return { ...response, body: response.body.task };
 }
 
 async function joinHouseholdMember(
@@ -126,7 +126,7 @@ class RecordingChatAgentProvider implements AgentProvider {
       {
         id: `chat-context-recommendation-${context.household.id}`,
         householdId: context.household.id,
-        affectedChoreId: firstChore?.id,
+        affectedTaskId: firstChore?.id,
         title: firstChore ? `Review duration for ${firstChore.title}` : "Review household setup",
         rationale: "Deterministic fixture recommendation for assistant chat context tests.",
         confidence: "high",
@@ -256,7 +256,7 @@ describe("household profile flow", () => {
         ]
       })
       .expect(200);
-    const chore = await createScheduledChore(app, householdId, "Clean kitchen");
+    const chore = await createScheduledTask(app, householdId, "Clean kitchen");
     await request(app)
       .post(`/api/households/${householdId}/recommendations`)
       .send({ selectedChoreIds: [chore.body.id] })
@@ -273,12 +273,12 @@ describe("household profile flow", () => {
         householdId,
         floors: [{ id: "floor-main", rooms: [] }]
       },
-      chores: [{
+      tasks: [{
         id: chore.body.id,
         title: "Clean kitchen",
-        recommendations: [{ householdId, affectedChoreId: chore.body.id }]
+        recommendations: [{ householdId, affectedTaskId: chore.body.id }]
       }],
-      recommendations: [{ householdId, affectedChoreId: chore.body.id }]
+      recommendations: [{ householdId, affectedTaskId: chore.body.id }]
     });
   });
 
@@ -296,7 +296,7 @@ describe("household profile flow", () => {
   it("rejects unauthenticated top-level aggregate API requests", async () => {
     const app = createTestApp();
 
-    await supertest(app).get("/api/chores").expect(401);
+    await supertest(app).get("/api/tasks").expect(401);
     await supertest(app).get("/api/recommendations").expect(401);
   });
 
@@ -307,7 +307,7 @@ describe("household profile flow", () => {
       .send({ name: "Home" })
       .expect(201);
 
-    await supertest(app).get(`/api/households/${created.body.id}/chores`).expect(401);
+    await supertest(app).get(`/api/households/${created.body.id}/tasks`).expect(401);
   });
 
   it("returns 404 when an authenticated user accesses another user's household", async () => {
@@ -333,10 +333,124 @@ describe("household profile flow", () => {
       .expect(201);
 
     await request(app, "test-user-b")
-      .get(`/api/households/${created.body.id}/chores`)
+      .get(`/api/households/${created.body.id}/tasks`)
       .expect(404)
       .expect((response) => {
         expect(response.body).toEqual({ error: "Household not found" });
+      });
+  });
+
+  it("returns 404 for the old household chores route after the task rename", async () => {
+    const app = createTestApp();
+    const created = await request(app)
+      .post("/api/households")
+      .send({ name: "Home" })
+      .expect(201);
+
+    await request(app)
+      .get(`/api/households/${created.body.id}/chores`)
+      .expect(404);
+  });
+
+  it("creates saved chore and commitment tasks from the household task route", async () => {
+    const app = createTestApp();
+    const created = await request(app)
+      .post("/api/households")
+      .send({ name: "Home" })
+      .expect(201);
+    const householdId = created.body.id as string;
+
+    await request(app)
+      .post(`/api/households/${householdId}/tasks`)
+      .send({
+        task: {
+          title: "Clean stove",
+          type: "chore",
+          libraryState: "saved",
+          source: "manual",
+          instructions: "Degrease the burners.",
+          tags: ["kitchen"]
+        }
+      })
+      .expect(201)
+      .expect((response) => {
+        expect(response.body).toEqual(expect.objectContaining({
+          householdId,
+          title: "Clean stove",
+          type: "chore",
+          libraryState: "saved",
+          source: "manual",
+          instructions: "Degrease the burners.",
+          tags: ["kitchen"]
+        }));
+      });
+
+    await request(app)
+      .post(`/api/households/${householdId}/tasks`)
+      .send({
+        task: {
+          title: "Soccer practice",
+          type: "commitment",
+          libraryState: "saved",
+          source: "manual",
+          tags: ["family"]
+        }
+      })
+      .expect(201)
+      .expect((response) => {
+        expect(response.body).toEqual(expect.objectContaining({
+          householdId,
+          title: "Soccer practice",
+          type: "commitment",
+          libraryState: "saved",
+          source: "manual",
+          tags: ["family"]
+        }));
+      });
+  });
+
+  it("creates a one-time scheduled task with a task-linked schedule", async () => {
+    const app = createTestApp();
+    const created = await request(app)
+      .post("/api/households")
+      .send({ name: "Home" })
+      .expect(201);
+    const householdId = created.body.id as string;
+    const members = await request(app)
+      .get(`/api/households/${householdId}/members`)
+      .expect(200);
+    const assigneeId = members.body[0].userId as string;
+
+    await request(app)
+      .post(`/api/households/${householdId}/tasks`)
+      .send({
+        task: {
+          title: "One-off repair window",
+          type: "commitment",
+          libraryState: "one_time",
+          source: "manual"
+        },
+        schedules: [{
+          planningMode: "timed",
+          recurrence: { frequency: "one_time", interval: 1 },
+          localStartTime: "10:00",
+          localEndTime: "11:00",
+          startsOn: "2026-06-20",
+          assignment: { mode: "fixed", memberUserIds: [assigneeId] }
+        }]
+      })
+      .expect(201)
+      .expect((response) => {
+        expect(response.body.task).toEqual(expect.objectContaining({
+          title: "One-off repair window",
+          type: "commitment",
+          libraryState: "one_time"
+        }));
+        expect(response.body.schedules).toHaveLength(1);
+        expect(response.body.schedules[0]).toEqual(expect.objectContaining({
+          taskId: response.body.task.id,
+          recurrence: expect.objectContaining({ frequency: "one_time" })
+        }));
       });
   });
 
@@ -608,7 +722,7 @@ describe("household profile flow", () => {
 
     const householdId = created.body.id;
 
-    await createScheduledChore(app, householdId, "Clean bathrooms");
+    await createScheduledTask(app, householdId, "Clean bathrooms");
 
     const recommendations = await request(app)
       .post(`/api/households/${householdId}/recommendations`)
@@ -630,7 +744,7 @@ describe("household profile flow", () => {
     const app = createTestApp();
     const created = await request(app).post("/api/households").send({ name: "Home" }).expect(201);
     const householdId = created.body.id;
-    const chore = await createScheduledChore(app, householdId, "Clean bathrooms");
+    const chore = await createScheduledTask(app, householdId, "Clean bathrooms");
 
     const recommendations = await request(app)
       .post(`/api/households/${householdId}/recommendations`)
@@ -649,14 +763,14 @@ describe("household profile flow", () => {
         expect(response.body).toEqual(
           expect.objectContaining({
             id: recommendation.id,
-            affectedChoreId: chore.body.id,
+            affectedTaskId: chore.body.id,
             decision: "accepted"
           })
         );
       });
 
     await request(app)
-      .get(`/api/households/${householdId}/chores`)
+      .get(`/api/households/${householdId}/tasks`)
       .expect(200)
       .expect((response) => {
         expect(response.body).toEqual([
@@ -672,7 +786,7 @@ describe("household profile flow", () => {
     const app = createTestApp();
     const created = await request(app).post("/api/households").send({ name: "Home" }).expect(201);
     const householdId = created.body.id;
-    const chore = await createScheduledChore(app, householdId, "Clean bathrooms");
+    const chore = await createScheduledTask(app, householdId, "Clean bathrooms");
 
     const recommendations = await request(app)
       .post(`/api/households/${householdId}/recommendations`)
@@ -694,7 +808,7 @@ describe("household profile flow", () => {
       });
 
     await request(app)
-      .get(`/api/households/${householdId}/chores`)
+      .get(`/api/households/${householdId}/tasks`)
       .expect(200)
       .expect((response) => {
         expect(response.body).toEqual([
@@ -782,7 +896,7 @@ describe("household profile flow", () => {
     const app = createTestApp();
     const created = await request(app).post("/api/households").send({ name: "Home" }).expect(201);
     const householdId = created.body.id;
-    const chore = await createScheduledChore(app, householdId, "Clean bathrooms");
+    const chore = await createScheduledTask(app, householdId, "Clean bathrooms");
 
     await request(app)
       .post(`/api/households/${householdId}/recommendations`)
@@ -790,8 +904,8 @@ describe("household profile flow", () => {
       .expect(201);
 
     await request(app)
-      .put(`/api/households/${householdId}/chores/${chore.body.id}`)
-      .send({ title: "Clean main bathroom", source: "manual" })
+      .put(`/api/households/${householdId}/tasks/${chore.body.id}`)
+      .send({ title: "Clean main bathroom", type: "chore", libraryState: "saved", source: "manual" })
       .expect(200)
       .expect((response) => {
         expect(response.body).toEqual(expect.objectContaining({ title: "Clean main bathroom" }));
@@ -805,28 +919,28 @@ describe("household profile flow", () => {
       });
 
     await request(app)
-      .post(`/api/households/${householdId}/chores/${chore.body.id}/archive`)
+      .post(`/api/households/${householdId}/tasks/${chore.body.id}/archive`)
       .expect(200)
       .expect((response) => {
         expect(response.body.archivedAt).toEqual(expect.any(String));
       });
 
     await request(app)
-      .get(`/api/households/${householdId}/chores`)
+      .get(`/api/households/${householdId}/tasks`)
       .expect(200)
       .expect((response) => {
         expect(response.body).toEqual([]);
       });
 
     await request(app)
-      .get(`/api/households/${householdId}/chores?status=archived`)
+      .get(`/api/households/${householdId}/tasks?status=archived`)
       .expect(200)
       .expect((response) => {
         expect(response.body).toEqual([expect.objectContaining({ id: chore.body.id })]);
       });
 
     await request(app)
-      .post(`/api/households/${householdId}/chores/${chore.body.id}/restore`)
+      .post(`/api/households/${householdId}/tasks/${chore.body.id}/restore`)
       .expect(200)
       .expect((response) => {
         expect(response.body.archivedAt).toBeUndefined();
@@ -846,7 +960,7 @@ describe("household profile flow", () => {
         expect(response.body).toEqual(expect.arrayContaining([
           expect.objectContaining({
             primaryEmail: "member@example.com",
-            choreLibraryPermission: "view"
+            taskLibraryPermission: "view"
           })
         ]));
       });
@@ -859,13 +973,13 @@ describe("household profile flow", () => {
     const memberId = await findHouseholdMemberId(app, created.body.id, "member@example.com");
 
     await request(app, "owner@example.com")
-      .patch(`/api/households/${created.body.id}/members/${memberId}/chore-library-permission`)
-      .send({ choreLibraryPermission: "manage" })
+      .patch(`/api/households/${created.body.id}/members/${memberId}/task-library-permission`)
+      .send({ taskLibraryPermission: "manage" })
       .expect(200)
       .expect((response) => {
         expect(response.body).toEqual(expect.objectContaining({
           userId: memberId,
-          choreLibraryPermission: "manage"
+          taskLibraryPermission: "manage"
         }));
       });
   });
@@ -876,32 +990,48 @@ describe("household profile flow", () => {
     await joinHouseholdMember(app, invitationLinks, created.body.id, "member@example.com");
     const memberId = await findHouseholdMemberId(app, created.body.id, "member@example.com");
     await request(app, "owner@example.com")
-      .patch(`/api/households/${created.body.id}/members/${memberId}/chore-library-permission`)
-      .send({ choreLibraryPermission: "manage" })
+      .patch(`/api/households/${created.body.id}/members/${memberId}/task-library-permission`)
+      .send({ taskLibraryPermission: "manage" })
       .expect(200);
 
     const chore = await request(app, "member@example.com")
-      .post(`/api/households/${created.body.id}/chores`)
-      .send({ chore: { title: "Wipe counters", source: "manual", instructions: "Use spray.", tags: ["kitchen"] } })
+      .post(`/api/households/${created.body.id}/tasks`)
+      .send({
+        task: {
+          title: "Wipe counters",
+          type: "chore",
+          libraryState: "saved",
+          source: "manual",
+          instructions: "Use spray.",
+          tags: ["kitchen"]
+        }
+      })
       .expect(201);
 
     await request(app, "member@example.com")
-      .put(`/api/households/${created.body.id}/chores/${chore.body.id}`)
-      .send({ title: "Wipe kitchen counters", source: "manual", instructions: "Use spray.", tags: ["kitchen"] })
+      .put(`/api/households/${created.body.id}/tasks/${chore.body.id}`)
+      .send({
+        title: "Wipe kitchen counters",
+        type: "chore",
+        libraryState: "saved",
+        source: "manual",
+        instructions: "Use spray.",
+        tags: ["kitchen"]
+      })
       .expect(200)
       .expect((response) => {
         expect(response.body.title).toBe("Wipe kitchen counters");
       });
 
     await request(app, "member@example.com")
-      .post(`/api/households/${created.body.id}/chores/${chore.body.id}/archive`)
+      .post(`/api/households/${created.body.id}/tasks/${chore.body.id}/archive`)
       .expect(200)
       .expect((response) => {
         expect(response.body.archivedAt).toEqual(expect.any(String));
       });
 
     await request(app, "member@example.com")
-      .post(`/api/households/${created.body.id}/chores/${chore.body.id}/restore`)
+      .post(`/api/households/${created.body.id}/tasks/${chore.body.id}/restore`)
       .expect(200)
       .expect((response) => {
         expect(response.body.archivedAt).toBeUndefined();
@@ -913,22 +1043,22 @@ describe("household profile flow", () => {
     const created = await request(app, "owner@example.com").post("/api/households").send({ name: "Home" }).expect(201);
     await joinHouseholdMember(app, invitationLinks, created.body.id, "member@example.com");
     const chore = await request(app, "owner@example.com")
-      .post(`/api/households/${created.body.id}/chores`)
-      .send({ chore: { title: "Dust shelves", source: "manual", tags: ["dusting"] } })
+      .post(`/api/households/${created.body.id}/tasks`)
+      .send({ task: { title: "Dust shelves", type: "chore", libraryState: "saved", source: "manual", tags: ["dusting"] } })
       .expect(201);
 
     await request(app, "member@example.com")
-      .post(`/api/households/${created.body.id}/chores`)
-      .send({ chore: { title: "Vacuum stairs", source: "manual" } })
+      .post(`/api/households/${created.body.id}/tasks`)
+      .send({ task: { title: "Vacuum stairs", type: "chore", libraryState: "saved", source: "manual" } })
       .expect(403);
 
     await request(app, "member@example.com")
-      .put(`/api/households/${created.body.id}/chores/${chore.body.id}`)
-      .send({ title: "Dust book shelves", source: "manual", tags: ["dusting"] })
+      .put(`/api/households/${created.body.id}/tasks/${chore.body.id}`)
+      .send({ title: "Dust book shelves", type: "chore", libraryState: "saved", source: "manual", tags: ["dusting"] })
       .expect(403);
 
     await request(app, "member@example.com")
-      .post(`/api/households/${created.body.id}/chores/${chore.body.id}/archive`)
+      .post(`/api/households/${created.body.id}/tasks/${chore.body.id}/archive`)
       .expect(403);
   });
 
@@ -937,11 +1067,11 @@ describe("household profile flow", () => {
     const first = await request(app).post("/api/households").send({ name: "First" }).expect(201);
     const second = await request(app).post("/api/households").send({ name: "Second" }).expect(201);
 
-    const firstChore = await createScheduledChore(app, first.body.id, "Vacuum");
-    const secondChore = await createScheduledChore(app, second.body.id, "Mop");
+    const firstChore = await createScheduledTask(app, first.body.id, "Vacuum");
+    const secondChore = await createScheduledTask(app, second.body.id, "Mop");
 
     await request(app)
-      .get("/api/chores")
+      .get("/api/tasks")
       .expect(200)
       .expect((response) => {
         expect(response.body).toEqual([
@@ -964,11 +1094,11 @@ describe("household profile flow", () => {
     const first = await request(app, "test-user-a").post("/api/households").send({ name: "First" }).expect(201);
     const second = await request(app, "test-user-b").post("/api/households").send({ name: "Second" }).expect(201);
 
-    const firstChore = await createScheduledChore(app, first.body.id, "Vacuum", "test-user-a");
-    await createScheduledChore(app, second.body.id, "Mop", "test-user-b");
+    const firstChore = await createScheduledTask(app, first.body.id, "Vacuum", "test-user-a");
+    await createScheduledTask(app, second.body.id, "Mop", "test-user-b");
 
     await request(app, "test-user-a")
-      .get("/api/chores")
+      .get("/api/tasks")
       .expect(200)
       .expect((response) => {
         expect(response.body).toEqual([
@@ -986,8 +1116,8 @@ describe("household profile flow", () => {
     const first = await request(app, "test-user-a").post("/api/households").send({ name: "First" }).expect(201);
     const second = await request(app, "test-user-b").post("/api/households").send({ name: "Second" }).expect(201);
 
-    await createScheduledChore(app, first.body.id, "Clean bathroom", "test-user-a");
-    await createScheduledChore(app, second.body.id, "Clean bathroom", "test-user-b");
+    await createScheduledTask(app, first.body.id, "Clean bathroom", "test-user-a");
+    await createScheduledTask(app, second.body.id, "Clean bathroom", "test-user-b");
 
     await request(app, "test-user-a")
       .post(`/api/households/${first.body.id}/recommendations`)
@@ -1014,11 +1144,11 @@ describe("household profile flow", () => {
     const app = createTestApp();
     const first = await request(app).post("/api/households").send({ name: "First" }).expect(201);
     const second = await request(app).post("/api/households").send({ name: "Second" }).expect(201);
-    const chore = await createScheduledChore(app, first.body.id, "Vacuum");
+    const chore = await createScheduledTask(app, first.body.id, "Vacuum");
 
     await request(app)
-      .put(`/api/households/${second.body.id}/chores/${chore.body.id}`)
-      .send({ title: "Vacuum", source: "manual" })
+      .put(`/api/households/${second.body.id}/tasks/${chore.body.id}`)
+      .send({ title: "Vacuum", type: "chore", libraryState: "saved", source: "manual" })
       .expect(404);
   });
 
@@ -1060,7 +1190,7 @@ describe("household profile flow", () => {
       })
       .expect(200);
 
-    const chore = await createScheduledChore(app, householdId, "Clean bathrooms");
+    const chore = await createScheduledTask(app, householdId, "Clean bathrooms");
 
     const recommendations = await request(app)
       .post(`/api/households/${householdId}/recommendations`)
@@ -1087,7 +1217,7 @@ describe("household profile flow", () => {
           expect.objectContaining({
             id: recommendations.body[0].id,
             householdId,
-            affectedChoreId: chore.body.id,
+            affectedTaskId: chore.body.id,
             title: "Review duration for Clean bathrooms",
             status: "pending"
           })
