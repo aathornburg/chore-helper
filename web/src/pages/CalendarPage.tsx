@@ -10,6 +10,7 @@ import { createVisibleRange, isDateInRange } from "./calendar/dateRange";
 import type { Navigate } from "../types";
 
 type WorkspaceView = "calendar" | "list";
+type CalendarSection = WorkspaceView | "import-queue" | "import-events" | "export";
 type CalendarScale = "month" | "week" | "day";
 type CalendarFilters = { householdId?: string; assignedUserId?: string; status?: string; planningMode?: string };
 type EditorMode = "closed" | "create" | "view" | "edit";
@@ -40,6 +41,7 @@ type CalendarPageProps = {
 };
 
 const scaleOptions: CalendarScale[] = ["month", "week", "day"];
+const calendarSectionValues: CalendarSection[] = ["calendar", "list", "import-queue", "import-events", "export"];
 const weekdays = [
   { label: "Sun", value: 0 },
   { label: "Mon", value: 1 },
@@ -238,7 +240,11 @@ function scheduleToDraft(schedule: TaskSchedule): ScheduleDraft {
 }
 
 export function CalendarPage({ households, isLoading }: CalendarPageProps) {
-  const [workspaceView, setWorkspaceView] = useState<WorkspaceView>("calendar");
+  const [activeSection, setActiveSection] = useState<CalendarSection>(() => {
+    if (typeof window === "undefined") return "calendar";
+    const section = new URLSearchParams(window.location.search).get("section");
+    return calendarSectionValues.includes(section as CalendarSection) ? section as CalendarSection : "calendar";
+  });
   const [calendarScale, setCalendarScale] = useState<CalendarScale>("month");
   const [focusDate, setFocusDate] = useState(() => new Date());
   const [filters, setFilters] = useState<CalendarFilters>({});
@@ -270,7 +276,6 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   const [calendarSyncStatus, setCalendarSyncStatus] = useState<string>();
   const [syncModal, setSyncModal] = useState<CalendarSyncModal>("closed");
   const [isExportMode, setIsExportMode] = useState(false);
-  const [isCalendarActionsOpen, setIsCalendarActionsOpen] = useState(false);
   const [connections, setConnections] = useState<CalendarConnectionSummary[]>([]);
   const [externalCalendars, setExternalCalendars] = useState<ExternalCalendarSummary[]>([]);
   const [calendarPreferences, setCalendarPreferences] = useState<CalendarPreferences>();
@@ -279,6 +284,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   const [importCandidates, setImportCandidates] = useState<CalendarImportCandidate[]>([]);
   const [selectedImportCandidateIds, setSelectedImportCandidateIds] = useState<string[]>([]);
   const [isImportApplyMenuOpen, setIsImportApplyMenuOpen] = useState(false);
+  const [isCalendarSectionMenuOpen, setIsCalendarSectionMenuOpen] = useState(false);
   const [isImportRangeOpen, setIsImportRangeOpen] = useState(false);
   const [importRangePreset, setImportRangePreset] = useState<CalendarDateRangePreset>("visible");
   const [importRange, setImportRange] = useState<CalendarDateRange>(() => createVisibleRange(format(new Date(), "yyyy-MM-dd"), format(addDays(new Date(), 30), "yyyy-MM-dd")));
@@ -295,10 +301,10 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   const choreEditorModalRef = useRef<HTMLFormElement>(null);
   const cleanlyEventModalRef = useRef<HTMLElement>(null);
   const modalTriggerRef = useRef<HTMLElement | null>(null);
-  const calendarActionsButtonRef = useRef<HTMLButtonElement>(null);
   const mobileMonthAgendaRef = useRef<HTMLElement>(null);
   const mobileWeekAgendaRef = useRef<HTMLElement>(null);
 
+  const workspaceView: WorkspaceView = activeSection === "list" ? "list" : "calendar";
   const selectedHousehold = households.find((household) => household.id === filters.householdId) ?? households[0];
   const timeZone = selectedHousehold?.timeZone ?? "UTC";
   const isOwner = members.some((member) => member.userId === currentUserId && member.role === "owner");
@@ -459,6 +465,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     if (!selectedHousehold || !isOwner) return;
     const params = new URLSearchParams(window.location.search);
     if (params.get("reviewImports") !== "1") return;
+    setActiveSection("import-queue");
     setIsQueueReviewOpen(true);
     params.delete("reviewImports");
     const query = params.toString();
@@ -514,7 +521,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
       isImportRangeOpen ||
       isQueueRangeOpen ||
       isQueueBulkApprovalMenuOpen ||
-      isCalendarActionsOpen ||
+      isCalendarSectionMenuOpen ||
       Boolean(queueApprovalMenuOpenId);
     if (!hasOpenFloatingSurface) return;
 
@@ -525,7 +532,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
         ".calendar-sync-apply-menu",
         ".calendar-sync-range-popover",
         ".calendar-sync-date-trigger",
-        ".calendar-actions-menu",
+        ".calendar-section-mobile-selector",
         ".calendar-queue-approve-split"
       ].join(", "));
       if (clickedInsideFloatingSurface) return;
@@ -534,13 +541,13 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
       setIsImportRangeOpen(false);
       setIsQueueRangeOpen(false);
       setIsQueueBulkApprovalMenuOpen(false);
-      setIsCalendarActionsOpen(false);
+      setIsCalendarSectionMenuOpen(false);
       setQueueApprovalMenuOpenId(undefined);
     }
 
     document.addEventListener("mousedown", handleDocumentMouseDown);
     return () => document.removeEventListener("mousedown", handleDocumentMouseDown);
-  }, [isCalendarActionsOpen, isImportApplyMenuOpen, isImportRangeOpen, isQueueBulkApprovalMenuOpen, isQueueRangeOpen, queueApprovalMenuOpenId]);
+  }, [isCalendarSectionMenuOpen, isImportApplyMenuOpen, isImportRangeOpen, isQueueBulkApprovalMenuOpen, isQueueRangeOpen, queueApprovalMenuOpenId]);
 
   useEffect(() => {
     if (syncModal !== "import") return;
@@ -845,7 +852,6 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   }
 
   function openCreateEditor(trigger?: HTMLElement) {
-    setIsCalendarActionsOpen(false);
     modalTriggerRef.current = trigger ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
     setSelectedCleanlyCalendarEventId(undefined);
     setSelectedOccurrenceId(undefined);
@@ -1480,13 +1486,11 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   }
 
   function openImportModal() {
-    setIsCalendarActionsOpen(false);
     setSyncModal("import");
     setCalendarSyncStatus(undefined);
   }
 
   function startExportMode() {
-    setIsCalendarActionsOpen(false);
     setIsExportMode(true);
     setSyncModal("closed");
     setCalendarSyncStatus(undefined);
@@ -1498,6 +1502,21 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   function exitExportMode() {
     setIsExportMode(false);
     setSelectedExportEventIds([]);
+  }
+
+  function selectCalendarSection(section: CalendarSection) {
+    setActiveSection(section);
+    setIsCalendarSectionMenuOpen(false);
+    setSyncModal("closed");
+
+    if (section === "export") {
+      startExportMode();
+      return;
+    }
+
+    if (isExportMode) {
+      exitExportMode();
+    }
   }
 
   function toggleImportCandidate(candidateId: string) {
@@ -1568,6 +1587,9 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
         setSelectedImportCandidateIds([]);
         if (result.status === "auto_ready") {
           await reloadCleanlyCalendarEvents();
+          setActiveSection("calendar");
+        } else {
+          setActiveSection("import-queue");
         }
         if (isOwner) {
           void listCalendarImportQueue(selectedHousehold.id).then((items) => {
@@ -2311,21 +2333,90 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     );
   }
 
-  function renderWorkspaceTabs() {
+  function calendarSectionLabel(section: CalendarSection) {
+    if (section === "import-queue") {
+      return pendingQueueItems.length > 0 ? `Import queue ${pendingQueueItems.length}` : "Import queue";
+    }
+    if (section === "import-events") return "Import events";
+    return capitalize(section);
+  }
+
+  function calendarSectionSummary(section: CalendarSection) {
+    if (section === "calendar") return "Schedule grid";
+    if (section === "list") return "Agenda";
+    if (section === "import-queue") return pendingQueueItems.length > 0 ? `${pendingQueueItems.length} pending` : "Owner review";
+    if (section === "import-events") return "Bring in Google events";
+    return "Send to Google";
+  }
+
+  function calendarSectionActionLabel(section: CalendarSection) {
+    if (section === "import-queue") return "Import queue";
+    if (section === "import-events") return "Import events";
+    return capitalize(section);
+  }
+
+  function renderCalendarSectionButton(section: CalendarSection) {
+    const label = calendarSectionLabel(section);
     return (
-      <nav className="calendar-workspace-tabs" role="tablist" aria-label="Workspace view">
-        {(["calendar", "list"] as WorkspaceView[]).map((option) => (
-          <button
-            aria-selected={workspaceView === option}
-            key={option}
-            onClick={() => setWorkspaceView(option)}
-            role="tab"
-            type="button"
-          >
-            {capitalize(option)}
-          </button>
-        ))}
-      </nav>
+      <button
+        aria-label={label}
+        aria-selected={activeSection === section}
+        className="settings-sidebar-tab calendar-section-tab"
+        key={section}
+        onClick={() => selectCalendarSection(section)}
+        role="tab"
+        type="button"
+      >
+        <strong>{section === "import-queue" ? "Import queue" : label}</strong>
+        <span>{calendarSectionSummary(section)}</span>
+      </button>
+    );
+  }
+
+  function renderCalendarSections() {
+    return (
+      <aside className="settings-sidebar calendar-section-sidebar" role="tablist" aria-label="Calendar sections">
+        {calendarSectionValues.map(renderCalendarSectionButton)}
+      </aside>
+    );
+  }
+
+  function renderMobileCalendarSections() {
+    const activeLabel = calendarSectionLabel(activeSection);
+    return (
+      <div className="settings-mobile-section-selector calendar-section-mobile-selector">
+        <button
+          aria-controls="calendar-section-menu"
+          aria-expanded={isCalendarSectionMenuOpen}
+          className="settings-mobile-section-trigger"
+          onClick={() => setIsCalendarSectionMenuOpen((isOpen) => !isOpen)}
+          type="button"
+        >
+          <span>
+            <small>Calendar section</small>
+            <strong>{activeLabel}</strong>
+          </span>
+          <b>Change</b>
+        </button>
+        {isCalendarSectionMenuOpen ? (
+          <div className="settings-mobile-section-menu" id="calendar-section-menu" role="menu" aria-label="Calendar sections">
+            {calendarSectionValues.map((section) => (
+              <button
+                aria-current={activeSection === section}
+                aria-label={calendarSectionActionLabel(section)}
+                className="settings-mobile-section-menu-item"
+                key={section}
+                onClick={() => selectCalendarSection(section)}
+                role="menuitem"
+                type="button"
+              >
+                <strong>{calendarSectionLabel(section)}</strong>
+                <span>{calendarSectionSummary(section)}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
     );
   }
 
@@ -2358,67 +2449,120 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
         <div>
           <h1>Calendar</h1>
         </div>
-        {isMobileMonthViewport ? renderWorkspaceTabs() : null}
-        {!isExportMode ? (
-          <div className="calendar-header-actions" aria-label="Calendar header actions">
-            {!isMobileMonthViewport ? (
-              <button onClick={(event) => openCreateEditor(event.currentTarget)} type="button">Schedule task</button>
-            ) : null}
-            <div
-              className="calendar-actions-menu"
-              onKeyDown={(event) => {
-                if (event.key !== "Escape") return;
-                event.preventDefault();
-                setIsCalendarActionsOpen(false);
-                calendarActionsButtonRef.current?.focus();
-              }}
-            >
-              <button
-                ref={calendarActionsButtonRef}
-                aria-label="Calendar actions"
-                aria-controls="calendar-actions-menu"
-                aria-expanded={isCalendarActionsOpen}
-                aria-haspopup="true"
-                className="section-action calendar-actions-menu-trigger"
-                onClick={() => setIsCalendarActionsOpen((isOpen) => !isOpen)}
-                type="button"
-              >
-                {isMobileMonthViewport ? "Actions" : "Calendar actions"}
-              </button>
-              {isCalendarActionsOpen ? (
-                <div className={`calendar-actions-popover ${isMobileMonthViewport ? "is-mobile-positioned is-edge-aligned" : ""}`} id="calendar-actions-menu" role="region" aria-label="Calendar actions menu">
-                  {isMobileMonthViewport ? (
-                    <button onClick={(event) => openCreateEditor(event.currentTarget)} type="button">Schedule task</button>
-                  ) : null}
-                  <button onClick={openImportModal} type="button">Import events</button>
-                  <button onClick={startExportMode} type="button">Export events</button>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
+        {isMobileMonthViewport ? renderMobileCalendarSections() : null}
       </header>
       {calendarSyncStatus && syncModal === "closed" ? <p role="status" className="section-summary">{calendarSyncStatus}</p> : null}
-      {!isExportMode ? renderCalendarImportQueue() : null}
       {renderCalendarSyncModal()}
-      {isExportMode ? (
-        <section className="calendar-export-mode-banner" role="status">
-          <span>Export mode: choose a range, select eligible events, then export to your calendar.</span>
-          <button className="section-action" onClick={exitExportMode} type="button">Exit export mode</button>
-        </section>
-      ) : null}
 
       <section className="calendar-workspace-shell has-external-tabs" aria-label="Calendar workspace">
-        {!isMobileMonthViewport ? (
-            <div className="calendar-workspace-panel-header">
-              {renderWorkspaceTabs()}
-            </div>
-        ) : null}
+        {!isMobileMonthViewport ? renderCalendarSections() : null}
 
             <div className="panel calendar-workspace-panel">
+            {activeSection === "import-queue" ? (
+              renderCalendarImportQueue() ?? (
+                <section className="calendar-import-queue is-empty" role="region" aria-label="Calendar import queue">
+                  <div className="calendar-queue-entry-copy">
+                    <p className="eyebrow">Owner review</p>
+                    <h2>Import queue</h2>
+                    <p>No calendar imports need review.</p>
+                  </div>
+                </section>
+              )
+            ) : null}
+
+            {activeSection === "import-events" ? (
+              <section className="calendar-section-panel" role="region" aria-label="Import events">
+                <div className="panel-heading">
+                  <div>
+                    <p className="eyebrow">Google Calendar</p>
+                    <h2>Import events</h2>
+                  </div>
+                </div>
+                <p className="section-summary">Choose Google Calendar events to bring into Clenella for review or scheduling.</p>
+                <div className="form-actions">
+                  <button type="button" onClick={openImportModal}>Import events</button>
+                </div>
+              </section>
+            ) : null}
+
+            {activeSection === "export" ? (
+              <section className="calendar-section-panel" role="region" aria-label="Export">
+                <div className="panel-heading">
+                  <div>
+                    <p className="eyebrow">Google Calendar</p>
+                    <h2>Export</h2>
+                  </div>
+                  <button className="section-action" onClick={startExportMode} type="button">Reset export selection</button>
+                </div>
+                <div className="calendar-export-layout">
+                  <CalendarExportPreselectPanel
+                    eligibleEvents={eligibleExportEvents}
+                    preferences={calendarPreferences}
+                    range={exportRange}
+                    rangePreset={exportRangePreset}
+                    selectedEventIds={selectedExportEventIds}
+                    visibleRange={visibleRange}
+                    onClearSelection={() => setSelectedExportEventIds([])}
+                    onExportContentChange={(mode) => {
+                      if (!calendarPreferences) return;
+                      saveCalendarPreference({
+                        ...calendarPreferences,
+                        exportContentMode: mode
+                      });
+                      setShouldApplyExportPreselect(true);
+                    }}
+                    onRangeChange={(nextRange) => {
+                      setExportRangePreset("custom");
+                      setExportRange(nextRange);
+                      setShouldApplyExportPreselect(true);
+                    }}
+                    onRangePresetChange={(nextPreset, nextRange) => {
+                      setExportRangePreset(nextPreset);
+                      setExportRange(nextRange);
+                      setShouldApplyExportPreselect(true);
+                    }}
+                  />
+                  <div className="calendar-export-calendar-surface">
+                    {loadState === "error" ? <section className="calendar-empty-state">Could not load scheduled tasks.</section> : null}
+
+                    {loadState === "ready" ? (
+                      <div className="calendar-workspace-content">
+                        {calendarScale === "month" ? (
+                          renderMonthCalendar()
+                        ) : calendarScale === "week" ? (
+                          isMobileMonthViewport
+                            ? renderMobileWeekCalendar()
+                            : renderCalendarColumns(weekDates, `Week of ${format(weekDates[0], "MMM d, yyyy")}`, "title")
+                        ) : (
+                          renderCalendarColumns([focusDate], `${longDateLabel(focusDate)} day calendar`, "summary")
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                  <CalendarExportReviewPanel
+                    eligibleEvents={eligibleExportEvents}
+                    externalCalendars={externalCalendars}
+                    preferences={calendarPreferences}
+                    selectedEventIds={selectedExportEventIds}
+                    onDestinationCalendarChange={(calendarId) => {
+                      if (!calendarPreferences) return;
+                      saveCalendarPreference({
+                        ...calendarPreferences,
+                        destinationExternalCalendarId: calendarId || undefined
+                      });
+                    }}
+                    onExport={handleExportCleanlyEvents}
+                  />
+                </div>
+              </section>
+            ) : null}
+
+            {activeSection === "calendar" || activeSection === "list" ? (
+            <>
             <section className="calendar-control-panel" aria-label="Calendar controls">
               {workspaceView === "calendar" ? (
                 <div className="calendar-command-row">
+                  <button onClick={(event) => openCreateEditor(event.currentTarget)} type="button">Schedule task</button>
                   <section className={`calendar-view-toggle ${isMobileMonthViewport ? "is-mobile-full-width" : ""}`} aria-label="Calendar scale">
                     {scaleOptions.map((option) => (
                       <button aria-pressed={calendarScale === option} key={option} onClick={() => setCalendarScale(option)} type="button">
@@ -2613,6 +2757,8 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
               ) : null}
 
             </div>
+            </>
+            ) : null}
             </div>
           </section>
 

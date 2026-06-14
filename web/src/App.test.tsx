@@ -80,7 +80,27 @@ function getTaskEditorElement() {
 }
 
 async function openCalendarActions() {
-  fireEvent.click(await screen.findByRole("button", { name: "Calendar actions" }));
+  await selectCalendarSection("Import events");
+}
+
+async function openCalendarExportSection() {
+  await selectCalendarSection("Export");
+}
+
+async function openCalendarImportQueueSection() {
+  await selectCalendarSection(/Import queue/);
+}
+
+async function selectCalendarSection(name: string | RegExp) {
+  await screen.findByRole("region", { name: "Calendar workspace" });
+  const tab = screen.queryByRole("tab", { name });
+  if (tab) {
+    fireEvent.click(tab);
+    return;
+  }
+
+  fireEvent.click(screen.getByRole("button", { name: /Calendar section/i }));
+  fireEvent.click(screen.getByRole("menuitem", { name }));
 }
 
 async function findPlannedCleanBathroomsButton() {
@@ -2376,6 +2396,7 @@ describe("App", () => {
     }]);
     renderAt("/calendar");
 
+    await openCalendarImportQueueSection();
     expect(await screen.findByText("Calendar imports need review")).toBeTruthy();
     await waitFor(() => expect(document.querySelector(".calendar-queue-badge")?.textContent).toBe("1"));
     fireEvent.click(screen.getByRole("button", { name: "Review imports" }));
@@ -2525,20 +2546,14 @@ describe("App", () => {
     expect(screen.getByRole("link", { name: "Tasks" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Schedule task" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Add chore" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Calendar actions" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Import events" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Export events" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Calendar actions" }));
-    expect(screen.getByRole("button", { name: "Import events" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Export events" })).toBeTruthy();
     const workspace = screen.getByRole("region", { name: "Calendar workspace" });
     expect(workspace.classList.contains("has-external-tabs")).toBe(true);
-    const tabs = within(workspace).getByRole("tablist", { name: "Workspace view" });
+    const tabs = within(workspace).getByRole("tablist", { name: "Calendar sections" });
     expect(within(tabs).getByRole("tab", { name: "Calendar" })).toBeTruthy();
     expect(within(tabs).getByRole("tab", { name: "List" })).toBeTruthy();
+    expect(within(tabs).getByRole("tab", { name: "Import events" })).toBeTruthy();
+    expect(within(tabs).getByRole("tab", { name: "Export" })).toBeTruthy();
     expect(within(workspace).getByRole("region", { name: "Calendar controls" })).toBeTruthy();
-    const header = document.querySelector(".calendar-workspace-panel-header");
-    expect(header?.querySelector(".calendar-view-toggle")).toBeNull();
     const filters = within(workspace).getByRole("region", { name: "Calendar filters" });
     expect(filters.classList.contains("calendar-filter-card")).toBe(true);
     expect(within(filters).getByRole("heading", { name: "Filters" })).toBeTruthy();
@@ -2547,6 +2562,41 @@ describe("App", () => {
     expect(within(legend).getByText("Tasks")).toBeTruthy();
     expect(within(legend).getByText("Commitments")).toBeTruthy();
     expect(within(workspace).queryByRole("button", { name: /View Practice/i })).toBeNull();
+  });
+
+  it("uses Calendar sections for schedule, list, import queue, import events, and export", async () => {
+    mockCalendarPageFetches();
+    renderAt("/calendar");
+
+    expect(await screen.findByRole("heading", { name: "Calendar" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Calendar" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "List" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: /Import queue/ })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Import events" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Export" })).toBeTruthy();
+  });
+
+  it("shows pending import count in the Calendar section selector", async () => {
+    mockCalendarPageFetches([{
+      id: "queue-1",
+      householdId: "household-1",
+      submittedByUserId: "app-user-2",
+      submittedByName: "Morgan Member",
+      proposedType: "commitment",
+      detailLevel: "busy_only",
+      title: "Dentist appointment",
+      privacyTitle: "Dentist appointment",
+      startsAt: "2026-06-18T14:00:00.000Z",
+      endsAt: "2026-06-18T15:00:00.000Z",
+      queueStatus: "pending",
+      taskLinkStatus: "unreviewed",
+      importScope: "single",
+      createdAt: "2026-06-01T12:00:00.000Z"
+    }]);
+    renderAt("/calendar");
+
+    expect(await screen.findByRole("heading", { name: "Calendar" })).toBeTruthy();
+    expect(await screen.findByRole("tab", { name: /Import queue 1/ })).toBeTruthy();
   });
 
   it("uses Schedule task as the primary Calendar creation action", async () => {
@@ -2568,25 +2618,22 @@ describe("App", () => {
     expect((screen.getByRole("checkbox", { name: "Save to Task library" }) as HTMLInputElement).checked).toBe(true);
   });
 
-  it("uses one compact calendar actions trigger on mobile", async () => {
+  it("uses one compact Calendar section trigger on mobile", async () => {
     setViewportWidth(390);
     vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
     renderAt("/calendar");
 
     expect(await screen.findByRole("heading", { name: "Calendar" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Calendar actions" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Schedule task" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Import events" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Export events" })).toBeNull();
+    expect(screen.getByRole("button", { name: /Calendar section/i })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "Calendar actions" }));
+    fireEvent.click(screen.getByRole("button", { name: /Calendar section/i }));
 
-    expect(screen.getByRole("button", { name: "Schedule task" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Import events" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Export events" })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: /Calendar/ })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: /Import events/ })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: /Export/ })).toBeTruthy();
   });
 
-  it("puts the mobile Calendar/List selector directly after the heading before actions", async () => {
+  it("puts the mobile Calendar section selector directly after the heading", async () => {
     setViewportWidth(390);
     vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
     renderAt("/calendar");
@@ -2596,33 +2643,28 @@ describe("App", () => {
     expect(header).not.toBeNull();
     const headerChildren = Array.from((header as HTMLElement).children);
     expect(headerChildren[0]?.contains(heading)).toBe(true);
-    expect(headerChildren[1]?.classList.contains("calendar-workspace-tabs")).toBe(true);
-    expect(headerChildren[2]?.classList.contains("calendar-header-actions")).toBe(true);
-    expect(within(header as HTMLElement).getByRole("tab", { name: "Calendar" })).toBeTruthy();
-    expect(within(header as HTMLElement).getByRole("tab", { name: "List" })).toBeTruthy();
+    expect(headerChildren[1]?.classList.contains("calendar-section-mobile-selector")).toBe(true);
+    expect(within(header as HTMLElement).getByRole("button", { name: /Calendar section/i })).toBeTruthy();
   });
 
-  it("anchors the mobile calendar actions popover inside the viewport", async () => {
+  it("anchors the mobile Calendar section menu inside the viewport", async () => {
     setViewportWidth(246);
     vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
     renderAt("/calendar");
 
     await screen.findByRole("heading", { name: "Calendar" });
-    fireEvent.click(screen.getByRole("button", { name: "Calendar actions" }));
+    fireEvent.click(screen.getByRole("button", { name: /Calendar section/i }));
 
-    const popover = screen.getByRole("region", { name: "Calendar actions menu" });
-    expect(popover.classList.contains("calendar-actions-popover")).toBe(true);
-    expect(popover.classList.contains("is-mobile-positioned")).toBe(true);
-    expect(popover.classList.contains("is-edge-aligned")).toBe(true);
+    const menu = screen.getByRole("menu", { name: "Calendar sections" });
+    expect(menu.classList.contains("settings-mobile-section-menu")).toBe(true);
   });
 
   it("uses a cohesive centered modal shell for add and import event modals on mobile", async () => {
     setViewportWidth(390);
-    vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
+    vi.stubGlobal("fetch", mockCalendarWorkspaceFetches({ calendarConnected: true }));
     renderAt("/calendar");
 
     await screen.findByRole("heading", { name: "Calendar" });
-    fireEvent.click(screen.getByRole("button", { name: "Calendar actions" }));
     fireEvent.click(screen.getByRole("button", { name: "Schedule task" }));
 
     const addModal = await screen.findByRole("dialog", { name: "Schedule task" });
@@ -2630,7 +2672,8 @@ describe("App", () => {
     expect(document.querySelector(".chore-editor-backdrop")?.classList.contains("calendar-modal-backdrop")).toBe(true);
     fireEvent.click(within(addModal).getByRole("button", { name: "Cancel" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Calendar actions" }));
+    fireEvent.click(screen.getByRole("button", { name: /Calendar section/i }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /Import events/ }));
     fireEvent.click(screen.getByRole("button", { name: "Import events" }));
 
     const importModal = await screen.findByRole("dialog", { name: "Import calendar events" });
@@ -2652,7 +2695,7 @@ describe("App", () => {
     vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
     renderAt("/calendar");
 
-    fireEvent.click(await screen.findByRole("tab", { name: "List" }));
+    await selectCalendarSection("List");
     const agenda = await screen.findByRole("region", { name: "Task agenda" });
     expect(within(agenda).getByRole("heading", { name: "Upcoming and completed work" })).toBeTruthy();
     const plannedCard = within(agenda).getByRole("button", { name: "View Clean bathrooms" });
@@ -2694,7 +2737,7 @@ describe("App", () => {
       }));
       renderAt("/calendar");
 
-      fireEvent.click(await screen.findByRole("tab", { name: "List" }));
+      await selectCalendarSection("List");
       const agenda = await screen.findByRole("region", { name: "Task agenda" });
       expect(within(agenda).getByRole("button", { name: "View Busy" })).toBeTruthy();
       expect(within(agenda).queryByText("No events match these filters.")).toBeNull();
@@ -2707,7 +2750,7 @@ describe("App", () => {
       vi.stubGlobal("fetch", mockCalendarWorkspaceFetches({ occurrences: [] }));
       renderAt("/calendar");
 
-      fireEvent.click(await screen.findByRole("tab", { name: "List" }));
+      await selectCalendarSection("List");
       const agenda = await screen.findByRole("region", { name: "Task agenda" });
       expect(within(agenda).getByText("No events match these filters.")).toBeTruthy();
     });
@@ -3276,7 +3319,7 @@ describe("App", () => {
     expect(saturdayRows.map((row) => row.getAttribute("aria-label"))).toEqual(["View Clean bathrooms", "View Pet cats"]);
     expect(saturdayRows[1].classList.contains("is-completed")).toBe(true);
 
-    fireEvent.click(screen.getByRole("tab", { name: "List" }));
+    await selectCalendarSection("List");
     const agenda = await screen.findByRole("region", { name: "Task agenda" });
     expect(agenda.classList.contains("calendar-agenda")).toBe(true);
     const completedCard = within(agenda).getByRole("button", { name: "View Pet cats" });
@@ -3684,7 +3727,7 @@ describe("App", () => {
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/calendar");
 
-    fireEvent.click(await screen.findByRole("tab", { name: "List" }));
+    await selectCalendarSection("List");
     fireEvent.click(screen.getByRole("button", { name: "View Clean bathrooms" }));
     fireEvent.click(screen.getByRole("button", { name: "Complete chore" }));
     fireEvent.click(await screen.findByLabelText("Base future occurrences on this completion date"));
@@ -4407,40 +4450,28 @@ describe("App", () => {
     renderAt("/calendar");
 
     expect(await screen.findByRole("heading", { name: "Calendar" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Calendar actions" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Import events" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Export events" })).toBeNull();
     expect(screen.queryByRole("region", { name: "Google Calendar setup" })).toBeNull();
 
     await openCalendarActions();
     expect(screen.getByRole("button", { name: "Import events" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Export events" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Import events" }));
     expect(await screen.findByRole("dialog", { name: "Import calendar events" })).toBeTruthy();
     expect(screen.getByText(/Import and export stay independent/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Close dialog" }));
 
-    await openCalendarActions();
-    fireEvent.click(screen.getByRole("button", { name: "Export events" }));
+    await openCalendarExportSection();
     const preselectPanel = await screen.findByRole("region", { name: "Export preselect controls" });
     const reviewPanel = await screen.findByRole("region", { name: "Export review controls" });
-    const calendarGrid = screen.getByRole("grid", { name: /month calendar/i });
     expect(preselectPanel).toBeTruthy();
     expect(reviewPanel).toBeTruthy();
     expect(screen.queryByRole("dialog", { name: "Export events" })).toBeNull();
-    expect(screen.getByText(/Export mode: choose a range, select eligible events, then export to your calendar\./)).toBeTruthy();
     expect(screen.getByText(/Review selected events before choosing a destination calendar/i)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Import events" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Export events" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Schedule task" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Add chore" })).toBeNull();
     expect(screen.queryByRole("region", { name: "Calendar import queue" })).toBeNull();
     expect(
-      preselectPanel.compareDocumentPosition(calendarGrid) &
-        Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
-    expect(
-      calendarGrid.compareDocumentPosition(reviewPanel) &
+      preselectPanel.compareDocumentPosition(reviewPanel) &
         Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
   });
@@ -4695,8 +4726,7 @@ describe("App", () => {
       }));
       renderAt("/calendar");
 
-      await openCalendarActions();
-      fireEvent.click(screen.getByRole("button", { name: "Export events" }));
+      await openCalendarExportSection();
       expect(await screen.findByRole("region", { name: "Export preselect controls" })).toBeTruthy();
       expect(screen.getByRole("region", { name: "Export review controls" })).toBeTruthy();
       expect(screen.getByText("0 selected")).toBeTruthy();
