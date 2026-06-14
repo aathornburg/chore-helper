@@ -1256,6 +1256,10 @@ button:where(:not(.link-button)):hover {
   top: 16px;
 }
 
+.settings-mobile-section-switcher {
+  display: none;
+}
+
 .settings-sidebar-tab {
   align-items: start;
   background: transparent;
@@ -8338,34 +8342,151 @@ button.chore-row-summary[aria-expanded="true"] {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .settings-sidebar {
+  .settings-mobile-section-switcher {
     display: grid;
-    gap: 5px;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    overflow-x: auto;
+    gap: 8px;
+    position: relative;
+  }
+
+  .settings-mobile-section-trigger {
+    align-items: center;
+    background: var(--color-surface-elevated);
+    border: 1px solid var(--color-border);
+    box-shadow: -4px 4px 0 rgba(19, 106, 129, 0.1);
+    color: var(--color-text);
+    display: flex;
+    font: inherit;
+    justify-content: space-between;
+    min-height: 58px;
+    padding: 10px 12px;
+    text-align: left;
+    width: 100%;
+  }
+
+  .settings-mobile-section-trigger:hover,
+  .settings-mobile-section-trigger:focus-visible,
+  .settings-mobile-section-trigger[aria-expanded="true"] {
+    background: var(--color-surface-elevated);
+    border-color: #9fcbd6;
+    color: var(--color-text);
+  }
+
+  .settings-mobile-section-trigger span {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+  }
+
+  .settings-mobile-section-trigger small {
+    color: #9d3324;
+    font-size: 0.68rem;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .settings-mobile-section-trigger strong {
+    color: var(--color-primary-strong);
+    font-size: 1rem;
+  }
+
+  .settings-mobile-section-trigger:hover small,
+  .settings-mobile-section-trigger:focus-visible small,
+  .settings-mobile-section-trigger[aria-expanded="true"] small {
+    color: #9d3324;
+  }
+
+  .settings-mobile-section-trigger:hover strong,
+  .settings-mobile-section-trigger:focus-visible strong,
+  .settings-mobile-section-trigger[aria-expanded="true"] strong {
+    color: var(--color-primary-strong);
+  }
+
+  .settings-mobile-section-trigger b {
+    background: var(--color-primary-muted);
+    border: 1px solid var(--color-border);
+    color: var(--color-primary-strong);
+    flex: 0 0 auto;
+    font-size: 0.78rem;
+    padding: 7px 9px;
+  }
+
+  .settings-mobile-section-trigger:hover b,
+  .settings-mobile-section-trigger:focus-visible b,
+  .settings-mobile-section-trigger[aria-expanded="true"] b {
+    background: var(--color-primary-muted);
+    border-color: #9fcbd6;
+    color: var(--color-primary-strong);
+  }
+
+  .settings-mobile-section-menu {
+    background: rgba(255, 255, 255, 0.97);
+    border: 1px solid var(--color-border);
+    box-shadow: 0 18px 32px rgba(8, 47, 61, 0.14);
+    display: grid;
+    left: 0;
+    max-height: min(318px, 62vh);
+    overflow: auto;
     padding: 6px;
-    position: static;
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    z-index: 12;
   }
 
-  .settings-sidebar-tab {
-    align-content: center;
-    justify-items: center;
-    min-height: 46px;
-    min-width: 86px;
-    padding: 9px 8px;
-    text-align: center;
+  .settings-mobile-section-menu-item {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--color-text);
+    display: grid;
+    font: inherit;
+    gap: 2px;
+    min-height: 52px;
+    padding: 9px 10px 9px 14px;
+    position: relative;
+    text-align: left;
   }
 
-  .settings-sidebar-tab::before {
-    bottom: 0;
-    height: 4px;
-    left: 8px;
-    right: 8px;
-    top: auto;
-    width: auto;
+  .settings-mobile-section-menu-item::before {
+    background: transparent;
+    bottom: 9px;
+    content: "";
+    left: 6px;
+    position: absolute;
+    top: 9px;
+    width: 4px;
   }
 
-  .settings-sidebar-tab span {
+  .settings-mobile-section-menu-item strong {
+    color: inherit;
+    font-size: 0.94rem;
+  }
+
+  .settings-mobile-section-menu-item span {
+    color: #63727a;
+    font-size: 0.78rem;
+    font-weight: 760;
+  }
+
+  .settings-mobile-section-menu-item:hover,
+  .settings-mobile-section-menu-item:focus-visible,
+  .settings-mobile-section-menu-item[aria-current="true"] {
+    background: var(--color-primary-muted);
+    border-color: var(--color-border);
+    color: var(--color-primary-strong);
+  }
+
+  .settings-mobile-section-menu-item:hover span,
+  .settings-mobile-section-menu-item:focus-visible span,
+  .settings-mobile-section-menu-item[aria-current="true"] span {
+    color: #416774;
+  }
+
+  .settings-mobile-section-menu-item[aria-current="true"]::before {
+    background: var(--color-primary);
+  }
+
+  .settings-sidebar {
     display: none;
   }
 

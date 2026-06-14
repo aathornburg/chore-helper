@@ -218,6 +218,7 @@ function mockRestoredHouseholdFetches({
   chatResponses = [],
   calendarPreferencesOk = true,
   currentUserId = "app-user-1",
+  membersOk = true,
   members = [ownerMember, secondMember]
 }: {
   chores?: typeof cleanBathroomsChore[];
@@ -226,6 +227,7 @@ function mockRestoredHouseholdFetches({
   chatResponses?: Array<{ ok: boolean; json: () => Promise<unknown> }>;
   calendarPreferencesOk?: boolean;
   currentUserId?: string;
+  membersOk?: boolean;
   members?: HouseholdMemberSummary[];
 } = {}) {
   let activeChores = [...chores];
@@ -281,6 +283,7 @@ function mockRestoredHouseholdFetches({
     }
 
     if (url === "http://localhost:3001/api/households/household-1/members" && method === "GET") {
+      if (!membersOk) return { ok: false, json: async () => ({ error: "Column choreLibraryPermission does not exist." }) };
       return { ok: true, json: async () => householdMembers };
     }
 
@@ -4201,6 +4204,37 @@ describe("App", () => {
     expect(within(choreLibrary).getByText("Pet cats")).toBeTruthy();
   });
 
+  it("opens a compact mobile Settings section menu that switches views and closes", async () => {
+    mockRestoredHouseholdFetches({
+      chores: [cleanBathroomsChore]
+    });
+    renderAt("/settings");
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Settings" })).toBeTruthy());
+    const sectionButton = screen.getByRole("button", { name: "Settings section: General. Change section" });
+    fireEvent.click(sectionButton);
+
+    const mobileSections = screen.getByRole("menu", { name: "Settings sections" });
+    expect(within(mobileSections).getByRole("menuitem", { name: "General Defaults" })).toBeTruthy();
+
+    fireEvent.click(within(mobileSections).getByRole("menuitem", { name: "Chore library Reusable work" }));
+    expect(await screen.findByRole("region", { name: "Chore library" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Settings section: Chore library. Change section" })).toBeTruthy();
+    expect(screen.queryByRole("menu", { name: "Settings sections" })).toBeNull();
+  });
+
+  it("closes the compact mobile Settings section menu after clicking outside", async () => {
+    mockRestoredHouseholdFetches();
+    renderAt("/settings");
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Settings" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Settings section: General. Change section" }));
+    expect(screen.getByRole("menu", { name: "Settings sections" })).toBeTruthy();
+
+    fireEvent.mouseDown(screen.getByRole("heading", { name: "Calendar preferences" }));
+    expect(screen.queryByRole("menu", { name: "Settings sections" })).toBeNull();
+  });
+
   it("lets owners update each member's Chore library permission from Family settings", async () => {
     const fetchMock = mockRestoredHouseholdFetches();
     renderAt("/settings");
@@ -4248,6 +4282,19 @@ describe("App", () => {
     expect(within(choreLibrary).getByText("Your household owner controls who can manage the Chore library.")).toBeTruthy();
     expect(within(choreLibrary).queryByRole("button", { name: "Add chore" })).toBeNull();
     expect(within(choreLibrary).queryByRole("button", { name: "Archive chore" })).toBeNull();
+  });
+
+  it("shows a permission load error instead of assuming Chore library view-only access", async () => {
+    mockRestoredHouseholdFetches({ membersOk: false });
+    renderAt("/settings");
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Settings" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("tab", { name: "Chore library" }));
+
+    const choreLibrary = await screen.findByRole("region", { name: "Chore library" });
+    expect(within(choreLibrary).getByText(/Could not load household permissions/i)).toBeTruthy();
+    expect(within(choreLibrary).getByText(/database migration may still need to run/i)).toBeTruthy();
+    expect(within(choreLibrary).queryByText("Your household owner controls who can manage the Chore library.")).toBeNull();
   });
 
   it("does not show a calendar sync settings error just because a disconnected user has no sync preferences", async () => {

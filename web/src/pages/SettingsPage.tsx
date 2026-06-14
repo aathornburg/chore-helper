@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   CalendarConnectionSummary,
   CalendarImportPolicy,
@@ -40,6 +40,9 @@ type ChoreFormState = {
   instructions: string;
   tags: string;
 };
+
+const permissionLoadErrorMessage =
+  "Could not load household permissions. Chore library management is unavailable, and a database migration may still need to run.";
 
 const settingsViews: Array<{ id: SettingsView; label: string; summary: string }> = [
   { id: "general", label: "General", summary: "Defaults" },
@@ -131,9 +134,11 @@ function ChoreLibraryModal({
 
 export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }: SettingsPageProps) {
   const selectedHousehold = households[0];
+  const mobileSettingsMenuRef = useRef<HTMLDivElement | null>(null);
   const [activeView, setActiveView] = useState<SettingsView>(() =>
     window.location.hash === "#calendar" ? "connections" : "general"
   );
+  const [isMobileSettingsMenuOpen, setIsMobileSettingsMenuOpen] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string>();
   const [members, setMembers] = useState<HouseholdMemberSummary[]>([]);
   const [connections, setConnections] = useState<CalendarConnectionSummary[]>([]);
@@ -148,6 +153,9 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
   const [archiveCandidate, setArchiveCandidate] = useState<Chore>();
   const [libraryStatusMessage, setLibraryStatusMessage] = useState<string>();
   const [calendarStatus, setCalendarStatus] = useState<string>();
+  const [permissionStatus, setPermissionStatus] = useState<"loading" | "ready" | "error">(
+    selectedHousehold ? "loading" : "ready"
+  );
   const connectedConnection = connections.find((connection) => connection.status === "connected") ?? connections[0];
   const isOwner = useMemo(
     () => members.some((member) => member.userId === currentUserId && member.role === "owner"),
@@ -155,18 +163,32 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
   );
   const currentMember = members.find((member) => member.userId === currentUserId);
   const canManageChoreLibrary = isOwner || currentMember?.choreLibraryPermission === "manage";
+  const activeSettingsView = settingsViews.find((view) => view.id === activeView) ?? settingsViews[0];
 
   useEffect(() => {
-    if (!selectedHousehold) return;
+    if (!selectedHousehold) {
+      setPermissionStatus("ready");
+      return;
+    }
     let cancelled = false;
+    setPermissionStatus("loading");
     void Promise.all([
       getCurrentUser(),
-      listHouseholdMembers(selectedHousehold.id),
-      listCalendarConnections()
-    ]).then(([user, loadedMembers, loadedConnections]) => {
+      listHouseholdMembers(selectedHousehold.id)
+    ]).then(([user, loadedMembers]) => {
       if (cancelled) return;
       setCurrentUserId(user.id);
       setMembers(loadedMembers);
+      setPermissionStatus("ready");
+    }).catch(() => {
+      if (!cancelled) {
+        setMembers([]);
+        setPermissionStatus("error");
+      }
+    });
+
+    void listCalendarConnections().then((loadedConnections) => {
+      if (cancelled) return;
       setConnections(loadedConnections);
       if (!loadedConnections.length) {
         setPreferences(defaultDisconnectedPreferences(selectedHousehold.id));
@@ -186,6 +208,20 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
       cancelled = true;
     };
   }, [selectedHousehold?.id]);
+
+  useEffect(() => {
+    if (!isMobileSettingsMenuOpen) return;
+    function closeMobileSettingsMenuOnOutsideClick(event: MouseEvent) {
+      const target = event.target;
+      if (!(target instanceof Node) || mobileSettingsMenuRef.current?.contains(target)) return;
+      setIsMobileSettingsMenuOpen(false);
+    }
+
+    document.addEventListener("mousedown", closeMobileSettingsMenuOnOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", closeMobileSettingsMenuOnOutsideClick);
+    };
+  }, [isMobileSettingsMenuOpen]);
 
   useEffect(() => {
     if (!selectedHousehold || !isOwner) {
@@ -475,6 +511,19 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
       );
     }
 
+    if (permissionStatus === "error") {
+      return (
+        <section className="settings-view-panel" aria-label="Family settings">
+          <article className="sync-panel">
+            <div className="panel-heading">
+              <h3>Family permissions unavailable</h3>
+            </div>
+            <p className="section-summary" role="status">{permissionLoadErrorMessage}</p>
+          </article>
+        </section>
+      );
+    }
+
     if (!isOwner) {
       return (
         <section className="settings-view-panel" aria-label="Family settings">
@@ -617,7 +666,13 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
                 <button type="button" onClick={() => setEditingChore("new")}>Add chore</button>
               ) : null}
             </div>
-            {!canManageChoreLibrary ? (
+            {permissionStatus === "loading" ? (
+              <p className="section-summary" role="status">Loading household permissions...</p>
+            ) : null}
+            {permissionStatus === "error" ? (
+              <p className="section-summary" role="status">{permissionLoadErrorMessage}</p>
+            ) : null}
+            {permissionStatus === "ready" && !canManageChoreLibrary ? (
               <p className="section-summary">Your household owner controls who can manage the Chore library.</p>
             ) : null}
             {libraryStatusMessage ? <p role="status" className="section-summary">{libraryStatusMessage}</p> : null}
@@ -694,6 +749,11 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
     return renderGeneralSettings();
   }
 
+  function selectSettingsView(view: SettingsView) {
+    setActiveView(view);
+    setIsMobileSettingsMenuOpen(false);
+  }
+
   return (
     <div className="settings-page operational-page">
       <header className="page-command-header">
@@ -705,6 +765,39 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
       </header>
 
       <section className="settings-workspace" aria-label="Settings workspace">
+        <div className="settings-mobile-section-switcher" ref={mobileSettingsMenuRef}>
+          <button
+            aria-expanded={isMobileSettingsMenuOpen}
+            aria-label={`Settings section: ${activeSettingsView.label}. Change section`}
+            className="settings-mobile-section-trigger"
+            onClick={() => setIsMobileSettingsMenuOpen((current) => !current)}
+            type="button"
+          >
+            <span>
+              <small>Settings section</small>
+              <strong>{activeSettingsView.label}</strong>
+            </span>
+            <b>Change</b>
+          </button>
+          {isMobileSettingsMenuOpen ? (
+            <div className="settings-mobile-section-menu" role="menu" aria-label="Settings sections">
+              {settingsViews.map((view) => (
+                <button
+                  aria-current={activeView === view.id ? "true" : undefined}
+                  aria-label={`${view.label} ${view.summary}`}
+                  className="settings-mobile-section-menu-item"
+                  key={view.id}
+                  onClick={() => selectSettingsView(view.id)}
+                  role="menuitem"
+                  type="button"
+                >
+                  <strong>{view.label}</strong>
+                  <span>{view.summary}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
         <nav className="settings-sidebar" role="tablist" aria-label="Settings sections">
           {settingsViews.map((view) => (
             <button
@@ -714,7 +807,7 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
               className="settings-sidebar-tab"
               id={`settings-tab-${view.id}`}
               key={view.id}
-              onClick={() => setActiveView(view.id)}
+              onClick={() => selectSettingsView(view.id)}
               role="tab"
               type="button"
             >
