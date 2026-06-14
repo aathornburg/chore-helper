@@ -1317,9 +1317,9 @@ describe("App", () => {
 
     const nav = await screen.findByRole("navigation", { name: "Primary" });
     const links = within(nav).getAllByRole("link");
-    expect(links.map((link) => link.textContent)).toEqual(["Optimize", "Today", "Calendar", "My Home", "Family", "Settings"]);
+    expect(links.map((link) => link.textContent)).toEqual(["Optimize", "Today", "Calendar", "Tasks", "My Home", "Family", "Settings"]);
     expect(within(nav).getByRole("link", { name: "Optimize" }).classList.contains("is-primary-nav-action")).toBe(true);
-    expect(screen.queryByRole("link", { name: "Tasks" })).toBeNull();
+    expect(within(nav).getByRole("link", { name: "Tasks" })).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Setup" })).toBeNull();
   });
 
@@ -2504,7 +2504,7 @@ describe("App", () => {
     );
   });
 
-  it("uses Calendar as the only chore planning destination", async () => {
+  it("keeps scheduling actions on Calendar while Tasks is a separate destination", async () => {
     vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
     renderAt("/calendar");
 
@@ -2515,7 +2515,7 @@ describe("App", () => {
     expect(within(pageHeader as HTMLElement).queryByText("Home")).toBeNull();
     expect(within(pageHeader as HTMLElement).queryByText(/open$/)).toBeNull();
     expect(within(pageHeader as HTMLElement).queryByText(/completed$/)).toBeNull();
-    expect(screen.queryByRole("link", { name: "Tasks" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Tasks" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Add event" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Add chore" })).toBeNull();
     expect(screen.getByRole("button", { name: "Calendar actions" })).toBeTruthy();
@@ -2612,12 +2612,13 @@ describe("App", () => {
     expect(importModal.classList.contains("calendar-sync-modal")).toBe(true);
   });
 
-  it("normalizes the removed Tasks route away", async () => {
+  it("renders the Tasks route", async () => {
     mockEmptyAppDataFetches();
     renderAt("/tasks");
 
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Today" })).toBeTruthy());
-    expect(screen.queryByRole("heading", { name: "Tasks" })).toBeNull();
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Tasks" })).toBeTruthy());
+    expect(screen.getByRole("tab", { name: "Task library" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Task inbox" })).toBeTruthy();
   });
 
   it("switches between calendar and chronological list occurrences", async () => {
@@ -4210,11 +4211,8 @@ describe("App", () => {
     fireEvent.click(within(sections).getByRole("tab", { name: "Connections" }));
     expect(await screen.findByRole("region", { name: "Calendar sync" })).toBeTruthy();
     expect(screen.queryByRole("region", { name: "General settings" })).toBeNull();
-
-    fireEvent.click(within(sections).getByRole("tab", { name: "Task library" }));
-    const choreLibrary = await screen.findByRole("region", { name: "Task library" });
-    expect(within(choreLibrary).getByText("Clean bathrooms")).toBeTruthy();
-    expect(within(choreLibrary).getByText("Pet cats")).toBeTruthy();
+    expect(within(sections).queryByRole("tab", { name: "Task library" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Task library" })).toBeNull();
   });
 
   it("opens a compact mobile Settings section menu that switches views and closes", async () => {
@@ -4230,9 +4228,9 @@ describe("App", () => {
     const mobileSections = screen.getByRole("menu", { name: "Settings sections" });
     expect(within(mobileSections).getByRole("menuitem", { name: "General Defaults" })).toBeTruthy();
 
-    fireEvent.click(within(mobileSections).getByRole("menuitem", { name: "Task library Reusable work" }));
-    expect(await screen.findByRole("region", { name: "Task library" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Settings section: Task library. Change section" })).toBeTruthy();
+    fireEvent.click(within(mobileSections).getByRole("menuitem", { name: "Connections Calendar sync" }));
+    expect(await screen.findByRole("region", { name: "Calendar sync" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Settings section: Connections. Change section" })).toBeTruthy();
     expect(screen.queryByRole("menu", { name: "Settings sections" })).toBeNull();
   });
 
@@ -4254,7 +4252,7 @@ describe("App", () => {
 
     await waitFor(() => expect(screen.getByRole("heading", { name: "Settings" })).toBeTruthy());
     fireEvent.click(screen.getByRole("tab", { name: "Family" }));
-    const permissionSelect = await screen.findByLabelText("Morgan Member chore library permission");
+    const permissionSelect = await screen.findByLabelText("Morgan Member Task library permission");
     fireEvent.change(permissionSelect, { target: { value: "manage" } });
 
     await waitFor(() => {
@@ -4270,15 +4268,14 @@ describe("App", () => {
       currentUserId: "app-user-2",
       members: [ownerMember, { ...secondMember, taskLibraryPermission: "manage" }]
     });
-    renderAt("/settings");
+    renderAt("/tasks");
 
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Settings" })).toBeTruthy());
-    fireEvent.click(screen.getByRole("tab", { name: "Task library" }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Tasks" })).toBeTruthy());
 
     const choreLibrary = await screen.findByRole("region", { name: "Task library" });
-    expect(within(choreLibrary).getByRole("button", { name: "Add chore" })).toBeTruthy();
-    expect(within(choreLibrary).getAllByRole("button", { name: "Edit chore" }).length).toBeGreaterThan(0);
-    expect(within(choreLibrary).getAllByRole("button", { name: "Archive chore" }).length).toBeGreaterThan(0);
+    expect(within(choreLibrary).getByRole("button", { name: "Add task" })).toBeTruthy();
+    expect(within(choreLibrary).getAllByRole("button", { name: /Edit / }).length).toBeGreaterThan(0);
+    expect(within(choreLibrary).getAllByRole("button", { name: /Archive / }).length).toBeGreaterThan(0);
   });
 
   it("keeps Task library mutation controls unavailable to view-only members", async () => {
@@ -4286,23 +4283,21 @@ describe("App", () => {
       currentUserId: "app-user-2",
       members: [ownerMember, { ...secondMember, taskLibraryPermission: "view" }]
     });
-    renderAt("/settings");
+    renderAt("/tasks");
 
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Settings" })).toBeTruthy());
-    fireEvent.click(screen.getByRole("tab", { name: "Task library" }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Tasks" })).toBeTruthy());
 
     const choreLibrary = await screen.findByRole("region", { name: "Task library" });
     expect(within(choreLibrary).getByText("Your household owner controls who can manage the Task library.")).toBeTruthy();
-    expect(within(choreLibrary).queryByRole("button", { name: "Add chore" })).toBeNull();
-    expect(within(choreLibrary).queryByRole("button", { name: "Archive chore" })).toBeNull();
+    expect(within(choreLibrary).queryByRole("button", { name: "Add task" })).toBeNull();
+    expect(within(choreLibrary).queryByRole("button", { name: /Archive / })).toBeNull();
   });
 
   it("shows a permission load error instead of assuming Task library view-only access", async () => {
     mockRestoredHouseholdFetches({ membersOk: false });
-    renderAt("/settings");
+    renderAt("/tasks");
 
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Settings" })).toBeTruthy());
-    fireEvent.click(screen.getByRole("tab", { name: "Task library" }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Tasks" })).toBeTruthy());
 
     const choreLibrary = await screen.findByRole("region", { name: "Task library" });
     expect(within(choreLibrary).getByText(/Could not load household permissions/i)).toBeTruthy();

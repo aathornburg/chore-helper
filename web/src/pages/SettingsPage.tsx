@@ -3,26 +3,18 @@ import type {
   CalendarConnectionSummary,
   CalendarImportPolicy,
   CalendarPreferences,
-  Task,
-  TaskDefinitionInput,
   TaskLibraryPermission,
   HouseholdAppData,
   HouseholdMemberSummary
 } from "@chore-helper/shared";
 import {
-  archiveTask,
-  createTask,
   disconnectCalendarConnection,
   getCalendarPreferences,
   getCurrentUser,
-  listArchivedTasks,
   listCalendarConnections,
   listCalendarImportPolicies,
-  listTasks,
   listHouseholdMembers,
-  restoreTask,
   startGoogleCalendarConnection,
-  updateTask,
   updateTaskLibraryPermission,
   updateCalendarImportPolicy,
   updateCalendarPreferences
@@ -34,21 +26,14 @@ type SettingsPageProps = {
   onWeekStartDayChange: (weekStartDay: WeekStartDay) => void;
   weekStartDay: WeekStartDay;
 };
-type SettingsView = "general" | "connections" | "family" | "library";
-type TaskFormState = {
-  title: string;
-  instructions: string;
-  tags: string;
-};
-
+type SettingsView = "general" | "connections" | "family";
 const permissionLoadErrorMessage =
   "Could not load household permissions. Task library management is unavailable, and a database migration may still need to run.";
 
 const settingsViews: Array<{ id: SettingsView; label: string; summary: string }> = [
   { id: "general", label: "General", summary: "Defaults" },
   { id: "connections", label: "Connections", summary: "Calendar sync" },
-  { id: "family", label: "Family", summary: "Permissions" },
-  { id: "library", label: "Task library", summary: "Reusable work" }
+  { id: "family", label: "Family", summary: "Permissions" }
 ];
 
 function connectionStatus(connections: CalendarConnectionSummary[]) {
@@ -67,71 +52,6 @@ function defaultDisconnectedPreferences(householdId: string): CalendarPreference
   };
 }
 
-function TaskLibraryModal({
-  chore,
-  onClose,
-  onSave
-}: {
-  chore: Task | "new";
-  onClose: () => void;
-  onSave: (chore: Task | "new", form: TaskFormState) => void;
-}) {
-  const [form, setForm] = useState<TaskFormState>(() => ({
-    title: chore === "new" ? "" : chore.title,
-    instructions: chore === "new" ? "" : chore.instructions ?? "",
-    tags: chore === "new" ? "" : (chore.tags ?? []).join(", ")
-  }));
-  const title = chore === "new" ? "Add chore" : "Edit chore";
-
-  return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
-      <section
-        aria-label={title}
-        aria-modal="true"
-        className="modal-card chore-library-modal"
-        onMouseDown={(event) => event.stopPropagation()}
-        role="dialog"
-      >
-        <div className="modal-header">
-          <div>
-            <p className="eyebrow">Task library</p>
-            <h3>{title}</h3>
-          </div>
-          <button aria-label="Close dialog" className="modal-close-button" type="button" onClick={onClose}>X</button>
-        </div>
-        <div className="sync-preference-grid">
-          <label>
-            Task name
-            <input
-              value={form.title}
-              onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
-            />
-          </label>
-          <label>
-            Tags
-            <input
-              placeholder="kitchen, weekly"
-              value={form.tags}
-              onChange={(event) => setForm((current) => ({ ...current, tags: event.target.value }))}
-            />
-          </label>
-          <label className="settings-modal-wide-field">
-            Instructions
-            <textarea
-              value={form.instructions}
-              onChange={(event) => setForm((current) => ({ ...current, instructions: event.target.value }))}
-            />
-          </label>
-        </div>
-        <div className="modal-actions">
-          <button type="button" onClick={onClose}>Cancel</button>
-          <button type="button" onClick={() => onSave(chore, form)} disabled={!form.title.trim()}>Save chore</button>
-        </div>
-      </section>
-    </div>
-  );
-}
-
 export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }: SettingsPageProps) {
   const selectedHousehold = households[0];
   const mobileSettingsMenuRef = useRef<HTMLDivElement | null>(null);
@@ -144,14 +64,6 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
   const [connections, setConnections] = useState<CalendarConnectionSummary[]>([]);
   const [policies, setPolicies] = useState<CalendarImportPolicy[]>([]);
   const [preferences, setPreferences] = useState<CalendarPreferences>();
-  const [libraryTasks, setLibraryTasks] = useState<Task[]>([]);
-  const [archivedTasks, setArchivedTasks] = useState<Task[]>([]);
-  const [librarySearch, setLibrarySearch] = useState("");
-  const [librarySource, setLibrarySource] = useState<"all" | Task["source"]>("all");
-  const [libraryStatus, setLibraryStatus] = useState<"active" | "archived">("active");
-  const [editingTask, setEditingTask] = useState<Task | "new">();
-  const [archiveCandidate, setArchiveCandidate] = useState<Task>();
-  const [libraryStatusMessage, setLibraryStatusMessage] = useState<string>();
   const [calendarStatus, setCalendarStatus] = useState<string>();
   const [permissionStatus, setPermissionStatus] = useState<"loading" | "ready" | "error">(
     selectedHousehold ? "loading" : "ready"
@@ -161,8 +73,6 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
     () => members.some((member) => member.userId === currentUserId && member.role === "owner"),
     [currentUserId, members]
   );
-  const currentMember = members.find((member) => member.userId === currentUserId);
-  const canManageTaskLibrary = isOwner || currentMember?.taskLibraryPermission === "manage";
   const activeSettingsView = settingsViews.find((view) => view.id === activeView) ?? settingsViews[0];
 
   useEffect(() => {
@@ -241,30 +151,6 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
     };
   }, [isOwner, selectedHousehold?.id]);
 
-  useEffect(() => {
-    if (!selectedHousehold) {
-      setLibraryTasks([]);
-      setArchivedTasks([]);
-      return;
-    }
-    let cancelled = false;
-    void Promise.all([
-      listTasks(selectedHousehold.id),
-      listArchivedTasks(selectedHousehold.id)
-    ])
-      .then(([active, archived]) => {
-        if (cancelled) return;
-        setLibraryTasks(active);
-        setArchivedTasks(archived);
-      })
-      .catch(() => {
-        if (!cancelled) setLibraryStatusMessage("Could not load the Task library.");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedHousehold?.id]);
-
   function savePreference(update: CalendarPreferences) {
     void updateCalendarPreferences(update).then(setPreferences).catch(() => {
       setCalendarStatus("Could not save calendar preferences.");
@@ -287,58 +173,6 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
         setMembers((current) => current.map((item) => item.userId === updated.userId ? updated : item));
       })
       .catch(() => setCalendarStatus("Could not save Task library permission."));
-  }
-
-  function toTaskInput(chore: Task | "new", form: TaskFormState): TaskDefinitionInput {
-    return {
-      title: form.title.trim(),
-      type: chore === "new" ? "chore" : chore.type,
-      libraryState: chore === "new" ? "saved" : chore.libraryState,
-      source: chore === "new" ? "manual" : chore.source,
-      instructions: form.instructions.trim() || undefined,
-      tags: form.tags.split(",").map((tag) => tag.trim()).filter(Boolean)
-    };
-  }
-
-  function saveLibraryTask(chore: Task | "new", form: TaskFormState) {
-    if (!selectedHousehold || !form.title.trim()) return;
-    const input = toTaskInput(chore, form);
-    const request = chore === "new"
-      ? createTask(selectedHousehold.id, input)
-      : updateTask(selectedHousehold.id, chore.id, input);
-
-    void request
-      .then((saved) => {
-        setLibraryTasks((current) => chore === "new"
-          ? [...current, saved]
-          : current.map((item) => item.id === saved.id ? saved : item));
-        setEditingTask(undefined);
-        setLibraryStatusMessage("Task library saved.");
-      })
-      .catch(() => setLibraryStatusMessage("Could not save Task library item."));
-  }
-
-  function archiveLibraryTask(chore: Task) {
-    if (!selectedHousehold) return;
-    void archiveTask(selectedHousehold.id, chore.id)
-      .then((archived) => {
-        setLibraryTasks((current) => current.filter((item) => item.id !== archived.id));
-        setArchivedTasks((current) => [archived, ...current.filter((item) => item.id !== archived.id)]);
-        setArchiveCandidate(undefined);
-        setLibraryStatusMessage("Task archived.");
-      })
-      .catch(() => setLibraryStatusMessage("Could not archive chore."));
-  }
-
-  function restoreLibraryTask(chore: Task) {
-    if (!selectedHousehold) return;
-    void restoreTask(selectedHousehold.id, chore.id)
-      .then((restored) => {
-        setArchivedTasks((current) => current.filter((item) => item.id !== restored.id));
-        setLibraryTasks((current) => [restored, ...current.filter((item) => item.id !== restored.id)]);
-        setLibraryStatusMessage("Task restored.");
-      })
-      .catch(() => setLibraryStatusMessage("Could not restore chore."));
   }
 
   function handleConnectGoogleCalendar() {
@@ -591,7 +425,7 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
                   </select>
                 </label>
                 <label>
-                  <span className="sr-only">{policy.memberName} chore library permission</span>
+                  <span className="sr-only">{policy.memberName} Task library permission</span>
                   <select
                     value={members.find((member) => member.userId === policy.memberId)?.taskLibraryPermission ?? "view"}
                     onChange={(event) => {
@@ -611,143 +445,9 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
     );
   }
 
-  function renderTaskLibrary() {
-    const sourceLabel = (source: Task["source"]) => source === "google-calendar" ? "Imported" : "Manual";
-    const chores = libraryStatus === "active" ? libraryTasks : archivedTasks;
-    const visibleTasks = chores
-      .filter((chore) => librarySource === "all" || chore.source === librarySource)
-      .filter((chore) => {
-        const query = librarySearch.trim().toLowerCase();
-        if (!query) return true;
-        return [
-          chore.title,
-          chore.instructions ?? "",
-          ...(chore.tags ?? [])
-        ].some((value) => value.toLowerCase().includes(query));
-      });
-
-    return (
-      <section className="settings-view-panel" aria-label="Task library">
-        <div className="panel-heading">
-          <div>
-            <p className="eyebrow">Reusable work</p>
-            <h2>Task library</h2>
-          </div>
-          <span>{chores.length} chore{chores.length === 1 ? "" : "s"}</span>
-        </div>
-        {!selectedHousehold ? (
-          <p className="empty-state">Add or join a household before reviewing the Task library.</p>
-        ) : (
-          <>
-            <div className="chore-library-toolbar">
-              <label>
-                <span className="sr-only">Search Task library</span>
-                <input
-                  placeholder="Search chores"
-                  type="search"
-                  value={librarySearch}
-                  onChange={(event) => setLibrarySearch(event.target.value)}
-                />
-              </label>
-              <label>
-                <span className="sr-only">Task source</span>
-                <select value={librarySource} onChange={(event) => setLibrarySource(event.target.value as typeof librarySource)}>
-                  <option value="all">All sources</option>
-                  <option value="manual">Manual</option>
-                  <option value="google-calendar">Imported</option>
-                </select>
-              </label>
-              <label>
-                <span className="sr-only">Task status</span>
-                <select value={libraryStatus} onChange={(event) => setLibraryStatus(event.target.value as typeof libraryStatus)}>
-                  <option value="active">Active</option>
-                  <option value="archived">Archived</option>
-                </select>
-              </label>
-              {canManageTaskLibrary ? (
-                <button type="button" onClick={() => setEditingTask("new")}>Add chore</button>
-              ) : null}
-            </div>
-            {permissionStatus === "loading" ? (
-              <p className="section-summary" role="status">Loading household permissions...</p>
-            ) : null}
-            {permissionStatus === "error" ? (
-              <p className="section-summary" role="status">{permissionLoadErrorMessage}</p>
-            ) : null}
-            {permissionStatus === "ready" && !canManageTaskLibrary ? (
-              <p className="section-summary">Your household owner controls who can manage the Task library.</p>
-            ) : null}
-            {libraryStatusMessage ? <p role="status" className="section-summary">{libraryStatusMessage}</p> : null}
-            {visibleTasks.length === 0 ? (
-              <p className="empty-state">
-                {libraryStatus === "archived" ? "No archived chores match these filters." : "No chores have been added to the Task library yet."}
-              </p>
-            ) : (
-              <div className="chore-library-list">
-                {visibleTasks.map((chore) => (
-                  <article className="chore-library-row" key={chore.id}>
-                    <div>
-                      <strong>{chore.title}</strong>
-                      <span>{chore.instructions ?? "No instructions yet."}</span>
-                    </div>
-                    <span>{sourceLabel(chore.source)}</span>
-                    <span>{Array.isArray(chore.tags) && chore.tags.length > 0 ? chore.tags.join(", ") : "No tags"}</span>
-                    <div className="chore-library-actions">
-                      {canManageTaskLibrary && libraryStatus === "active" ? (
-                        <>
-                          <button aria-label="Edit chore" type="button" onClick={() => setEditingTask(chore)}>Edit</button>
-                          <button aria-label="Archive chore" className="section-action" type="button" onClick={() => setArchiveCandidate(chore)}>Archive</button>
-                        </>
-                      ) : null}
-                      {canManageTaskLibrary && libraryStatus === "archived" ? (
-                        <button aria-label="Restore chore" type="button" onClick={() => restoreLibraryTask(chore)}>Restore</button>
-                      ) : null}
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-        {editingTask ? (
-          <TaskLibraryModal
-            chore={editingTask}
-            onClose={() => setEditingTask(undefined)}
-            onSave={saveLibraryTask}
-          />
-        ) : null}
-        {archiveCandidate ? (
-          <div className="modal-backdrop" role="presentation" onMouseDown={() => setArchiveCandidate(undefined)}>
-            <section
-              aria-label="Archive chore"
-              aria-modal="true"
-              className="modal-card chore-library-modal"
-              onMouseDown={(event) => event.stopPropagation()}
-              role="dialog"
-            >
-              <div className="modal-header">
-                <div>
-                  <p className="eyebrow">Archive chore</p>
-                  <h3>Archive {archiveCandidate.title}?</h3>
-                </div>
-                <button aria-label="Close dialog" className="modal-close-button" type="button" onClick={() => setArchiveCandidate(undefined)}>X</button>
-              </div>
-              <p>Future scheduled work for this chore will stop, but historical activity stays available.</p>
-              <div className="modal-actions">
-                <button type="button" onClick={() => setArchiveCandidate(undefined)}>Cancel</button>
-                <button className="section-action" type="button" onClick={() => archiveLibraryTask(archiveCandidate)}>Archive chore</button>
-              </div>
-            </section>
-          </div>
-        ) : null}
-      </section>
-    );
-  }
-
   function renderActiveView() {
     if (activeView === "connections") return renderConnectionsSettings();
     if (activeView === "family") return renderFamilySettings();
-    if (activeView === "library") return renderTaskLibrary();
     return renderGeneralSettings();
   }
 

@@ -1397,6 +1397,24 @@ button:where(:not(.link-button)):hover {
   font-weight: 760;
 }
 
+.task-type-badge {
+  border: 1px solid #b9d7df;
+  color: #0b556b;
+  justify-self: start;
+  line-height: 1;
+  padding: 7px 10px;
+}
+
+.task-type-badge.is-commitment {
+  background: #fff8e7;
+  border-color: #e7bf67;
+  color: #7a4d13;
+}
+
+.task-type-badge.is-chore {
+  background: #eaf8fb;
+}
+
 .chore-library-actions {
   display: flex;
   flex-wrap: wrap;
