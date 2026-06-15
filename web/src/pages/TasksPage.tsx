@@ -348,7 +348,12 @@ export function TasksPage({ households, isLoading }: TasksPageProps) {
             <p className="eyebrow">Reusable work</p>
             <h2>Task library</h2>
           </div>
-          <span>{tasksForStatus.length} task{tasksForStatus.length === 1 ? "" : "s"}</span>
+          <div className="chore-library-heading-actions">
+            <span>{tasksForStatus.length} task{tasksForStatus.length === 1 ? "" : "s"}</span>
+            {selectedHousehold && canManageTaskLibrary ? (
+              <button className="secondary-action" type="button" onClick={() => setEditingTask("new")}>Add task</button>
+            ) : null}
+          </div>
         </div>
         {!selectedHousehold ? (
           <p className="empty-state">Add or join a household before reviewing the Task library.</p>
@@ -358,38 +363,37 @@ export function TasksPage({ households, isLoading }: TasksPageProps) {
               <label>
                 <span className="sr-only">Search Task library</span>
                 <input
-                  placeholder="Search tasks"
+                  placeholder="Search saved tasks by name, notes, or tag"
                   type="search"
                   value={librarySearch}
                   onChange={(event) => setLibrarySearch(event.target.value)}
                 />
               </label>
-              <label>
-                <span className="sr-only">Task type</span>
-                <select value={libraryType} onChange={(event) => setLibraryType(event.target.value as typeof libraryType)}>
-                  <option value="all">All types</option>
-                  <option value="chore">Chores</option>
-                  <option value="commitment">Commitments</option>
-                </select>
-              </label>
-              <label>
-                <span className="sr-only">Task source</span>
-                <select value={librarySource} onChange={(event) => setLibrarySource(event.target.value as typeof librarySource)}>
-                  <option value="all">All sources</option>
-                  <option value="manual">Manual</option>
-                  <option value="google-calendar">Imported</option>
-                </select>
-              </label>
-              <label>
-                <span className="sr-only">Task status</span>
-                <select value={libraryStatus} onChange={(event) => setLibraryStatus(event.target.value as typeof libraryStatus)}>
-                  <option value="active">Active</option>
-                  <option value="archived">Archived</option>
-                </select>
-              </label>
-              {canManageTaskLibrary ? (
-                <button type="button" onClick={() => setEditingTask("new")}>Add task</button>
-              ) : null}
+              <div className="chore-library-filter-row">
+                <label>
+                  <span className="sr-only">Task type</span>
+                  <select value={libraryType} onChange={(event) => setLibraryType(event.target.value as typeof libraryType)}>
+                    <option value="all">All types</option>
+                    <option value="chore">Chores</option>
+                    <option value="commitment">Commitments</option>
+                  </select>
+                </label>
+                <label>
+                  <span className="sr-only">Task source</span>
+                  <select value={librarySource} onChange={(event) => setLibrarySource(event.target.value as typeof librarySource)}>
+                    <option value="all">All sources</option>
+                    <option value="manual">Manual</option>
+                    <option value="google-calendar">Imported</option>
+                  </select>
+                </label>
+                <label>
+                  <span className="sr-only">Task status</span>
+                  <select value={libraryStatus} onChange={(event) => setLibraryStatus(event.target.value as typeof libraryStatus)}>
+                    <option value="active">Active</option>
+                    <option value="archived">Archived</option>
+                  </select>
+                </label>
+              </div>
             </div>
             {permissionStatus === "loading" ? (
               <p className="section-summary" role="status">Loading household permissions...</p>
@@ -411,23 +415,27 @@ export function TasksPage({ households, isLoading }: TasksPageProps) {
               <div className="chore-library-list">
                 {visibleTasks.map((task) => (
                   <article className={`chore-library-row task-library-row is-${task.type}`} key={task.id}>
-                    <div>
+                    <div className="chore-library-main">
                       <strong>{task.title}</strong>
                       <span>{task.instructions ?? "No instructions yet."}</span>
                     </div>
-                    <span className={`task-type-badge is-${task.type}`}>{taskTypeLabel(task.type)}</span>
-                    <span>{taskSourceLabel(task.source)}</span>
-                    <span>{Array.isArray(task.tags) && task.tags.length > 0 ? task.tags.join(", ") : "No tags"}</span>
-                    <div className="chore-library-actions">
-                      {canManageTaskLibrary && libraryStatus === "active" ? (
-                        <>
-                          <button aria-label={`Edit ${task.title}`} type="button" onClick={() => setEditingTask(task)}>Edit</button>
-                          <button aria-label={`Archive ${task.title}`} className="section-action" type="button" onClick={() => setArchiveCandidate(task)}>Archive</button>
-                        </>
-                      ) : null}
-                      {canManageTaskLibrary && libraryStatus === "archived" ? (
-                        <button aria-label={`Restore ${task.title}`} type="button" onClick={() => restoreLibraryTask(task)}>Restore</button>
-                      ) : null}
+                    <div className="chore-library-row-footer">
+                      <div className="chore-library-meta">
+                        <span className={`task-type-badge is-${task.type}`}>{taskTypeLabel(task.type)}</span>
+                        <span>{taskSourceLabel(task.source)}</span>
+                        <span>{Array.isArray(task.tags) && task.tags.length > 0 ? task.tags.join(", ") : "No tags"}</span>
+                      </div>
+                      <div className="chore-library-actions">
+                        {canManageTaskLibrary && libraryStatus === "active" ? (
+                          <>
+                            <button aria-label={`Edit ${task.title}`} className="secondary-action" type="button" onClick={() => setEditingTask(task)}>Edit</button>
+                            <button aria-label={`Archive ${task.title}`} className="link-button chore-library-link-action" type="button" onClick={() => setArchiveCandidate(task)}>Archive</button>
+                          </>
+                        ) : null}
+                        {canManageTaskLibrary && libraryStatus === "archived" ? (
+                          <button aria-label={`Restore ${task.title}`} className="secondary-action" type="button" onClick={() => restoreLibraryTask(task)}>Restore</button>
+                        ) : null}
+                      </div>
                     </div>
                   </article>
                 ))}
