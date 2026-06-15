@@ -1463,9 +1463,14 @@ button:where(:not(.link-button)):hover {
 
 .chore-library-meta {
   align-items: center;
+  background: #fff;
+  border: 1px solid #d5e8ee;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 4px;
+  max-width: 100%;
+  padding: 5px;
+  width: max-content;
 }
 
 .task-type-badge {
@@ -1488,18 +1493,19 @@ button:where(:not(.link-button)):hover {
 
 .task-source-pill,
 .task-tag-pill {
-  background: #fff;
-  border: 1px solid #d5e8ee;
+  align-items: center;
+  background: transparent;
+  border: 0;
   color: #48606a;
+  display: inline-flex;
   font-size: 0.78rem;
   font-weight: 850;
-  padding: 4px 7px;
+  min-height: 26px;
+  padding: 3px 7px;
 }
 
 .task-source-pill {
-  align-items: center;
   color: var(--color-primary-strong);
-  display: inline-flex;
   gap: 6px;
 }
 
@@ -1516,6 +1522,13 @@ button:where(:not(.link-button)):hover {
   width: 20px;
 }
 
+.chore-library-meta .task-type-badge {
+  align-items: center;
+  display: inline-flex;
+  min-height: 26px;
+  padding: 3px 8px;
+}
+
 .task-library-row-chevron {
   align-items: center;
   color: var(--color-primary-strong);
@@ -1527,6 +1540,11 @@ button:where(:not(.link-button)):hover {
   position: absolute;
   right: 16px;
   width: 24px;
+}
+
+.task-library-row-chevron svg {
+  height: 20px;
+  width: 20px;
 }
 
 .task-library-row-chevron::before {

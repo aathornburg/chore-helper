@@ -14,6 +14,7 @@ import {
   saveTaskInboxItem,
   updateTask
 } from "../api";
+import { ChevronRightIcon } from "../components/AppIcons";
 
 type TasksPageProps = {
   households: HouseholdAppData[];
@@ -524,7 +525,9 @@ export function TasksPage({ households, isLoading }: TasksPageProps) {
                           ))}
                         </div>
                       </div>
-                      <span className="task-library-row-chevron" aria-hidden="true">&gt;</span>
+                      <span className="task-library-row-chevron" aria-hidden="true">
+                        <ChevronRightIcon />
+                      </span>
                     </article>
                   );
                 })}
