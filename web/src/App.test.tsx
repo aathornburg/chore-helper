@@ -4446,6 +4446,24 @@ describe("App", () => {
     });
   });
 
+  it("opens Task library details from the full task row", async () => {
+    mockRestoredHouseholdFetches();
+    renderAt("/tasks");
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Tasks" })).toBeTruthy());
+
+    const taskLibrary = await screen.findByRole("region", { name: "Task library" });
+    const taskRow = within(taskLibrary).getByRole("button", { name: /Open Clean bathrooms details/i });
+
+    fireEvent.click(taskRow);
+
+    const drawer = await screen.findByRole("dialog", { name: "Clean bathrooms details" });
+    expect(within(drawer).getByRole("heading", { name: "Clean bathrooms" })).toBeTruthy();
+    expect(within(drawer).getByText("Chore")).toBeTruthy();
+    expect(within(drawer).getByText("Manual")).toBeTruthy();
+    expect(within(drawer).getByText("No instructions yet.")).toBeTruthy();
+  });
+
   it("shows Task library CRUD controls to members with manage access", async () => {
     mockRestoredHouseholdFetches({
       currentUserId: "app-user-2",
@@ -4457,8 +4475,11 @@ describe("App", () => {
 
     const choreLibrary = await screen.findByRole("region", { name: "Task library" });
     expect(within(choreLibrary).getByRole("button", { name: "Add task" })).toBeTruthy();
-    expect(within(choreLibrary).getAllByRole("button", { name: /Edit / }).length).toBeGreaterThan(0);
-    expect(within(choreLibrary).getAllByRole("button", { name: /Archive / }).length).toBeGreaterThan(0);
+    fireEvent.click(within(choreLibrary).getByRole("button", { name: /Open Clean bathrooms details/i }));
+
+    const drawer = await screen.findByRole("dialog", { name: "Clean bathrooms details" });
+    expect(within(drawer).getByRole("button", { name: "Edit task" })).toBeTruthy();
+    expect(within(drawer).getByRole("button", { name: "Archive task" })).toBeTruthy();
   });
 
   it("keeps Task library mutation controls unavailable to view-only members", async () => {
@@ -4473,7 +4494,29 @@ describe("App", () => {
     const choreLibrary = await screen.findByRole("region", { name: "Task library" });
     expect(within(choreLibrary).getByText("Your household owner controls who can manage the Task library.")).toBeTruthy();
     expect(within(choreLibrary).queryByRole("button", { name: "Add task" })).toBeNull();
-    expect(within(choreLibrary).queryByRole("button", { name: /Archive / })).toBeNull();
+    fireEvent.click(within(choreLibrary).getByRole("button", { name: /Open Clean bathrooms details/i }));
+
+    const drawer = await screen.findByRole("dialog", { name: "Clean bathrooms details" });
+    expect(within(drawer).queryByRole("button", { name: "Edit task" })).toBeNull();
+    expect(within(drawer).queryByRole("button", { name: "Archive task" })).toBeNull();
+  });
+
+  it("archives a Task library item from the details drawer", async () => {
+    mockRestoredHouseholdFetches();
+    renderAt("/tasks");
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Tasks" })).toBeTruthy());
+
+    const taskLibrary = await screen.findByRole("region", { name: "Task library" });
+    fireEvent.click(within(taskLibrary).getByRole("button", { name: /Open Clean bathrooms details/i }));
+
+    const drawer = await screen.findByRole("dialog", { name: "Clean bathrooms details" });
+    fireEvent.click(within(drawer).getByRole("button", { name: "Archive task" }));
+
+    const confirmation = await screen.findByRole("dialog", { name: "Archive task" });
+    fireEvent.click(within(confirmation).getByRole("button", { name: "Archive task" }));
+
+    expect(await screen.findByText("Task archived.")).toBeTruthy();
   });
 
   it("shows a permission load error instead of assuming Task library view-only access", async () => {

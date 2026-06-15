@@ -38,7 +38,7 @@ function taskTypeLabel(type: Task["type"]) {
 }
 
 function taskSourceLabel(source: Task["source"]) {
-  return source === "google-calendar" ? "Imported" : "Manual";
+  return source === "google-calendar" ? "Google Calendar" : "Manual";
 }
 
 function TaskLibraryModal({
@@ -138,6 +138,7 @@ export function TasksPage({ households, isLoading }: TasksPageProps) {
   const [libraryType, setLibraryType] = useState<"all" | Task["type"]>("all");
   const [libraryStatus, setLibraryStatus] = useState<"active" | "archived">("active");
   const [editingTask, setEditingTask] = useState<Task | "new">();
+  const [selectedTask, setSelectedTask] = useState<Task>();
   const [archiveCandidate, setArchiveCandidate] = useState<Task>();
   const [statusMessage, setStatusMessage] = useState<string>();
 
@@ -152,6 +153,10 @@ export function TasksPage({ households, isLoading }: TasksPageProps) {
   function selectTaskSection(section: TasksSection) {
     setActiveSection(section);
     setIsMobileTaskMenuOpen(false);
+  }
+
+  function closeTaskDrawer() {
+    setSelectedTask(undefined);
   }
 
   useEffect(() => {
@@ -276,6 +281,7 @@ export function TasksPage({ households, isLoading }: TasksPageProps) {
       .then((restored) => {
         setArchivedTasks((current) => current.filter((item) => item.id !== restored.id));
         setLibraryTasks((current) => [restored, ...current.filter((item) => item.id !== restored.id)]);
+        setSelectedTask(undefined);
         setStatusMessage("Task restored.");
       })
       .catch(() => setStatusMessage("Could not restore task."));
@@ -339,6 +345,78 @@ export function TasksPage({ households, isLoading }: TasksPageProps) {
         ...(task.tags ?? [])
       ].some((value) => value.toLowerCase().includes(query));
     });
+
+  function renderTaskDrawer() {
+    if (!selectedTask) return null;
+
+    const tags = Array.isArray(selectedTask.tags) && selectedTask.tags.length > 0
+      ? selectedTask.tags
+      : ["Untagged"];
+    const isArchived = Boolean(selectedTask.archivedAt);
+
+    return (
+      <div className="modal-backdrop task-library-drawer-backdrop" role="presentation" onMouseDown={closeTaskDrawer}>
+        <aside
+          aria-label={`${selectedTask.title} details`}
+          aria-modal="true"
+          className={`task-library-drawer is-${selectedTask.type}`}
+          onMouseDown={(event) => event.stopPropagation()}
+          role="dialog"
+        >
+          <div className="task-library-drawer-header">
+            <div>
+              <p className="eyebrow">Task details</p>
+              <h3>{selectedTask.title}</h3>
+            </div>
+            <button aria-label="Close task details" className="modal-close-button" type="button" onClick={closeTaskDrawer}>X</button>
+          </div>
+
+          <div className="task-library-drawer-meta" aria-label="Task metadata">
+            <span className={`task-type-badge is-${selectedTask.type}`}>{taskTypeLabel(selectedTask.type)}</span>
+            <span className="task-source-pill">{taskSourceLabel(selectedTask.source)}</span>
+            {tags.map((tag) => (
+              <span className="task-tag-pill" key={tag}>{tag}</span>
+            ))}
+          </div>
+
+          <section className="task-library-drawer-section">
+            <h4>Instructions</h4>
+            <p>{selectedTask.instructions?.trim() || "No instructions yet."}</p>
+          </section>
+
+          <div className="task-library-drawer-actions">
+            {canManageTaskLibrary && !isArchived ? (
+              <>
+                <button
+                  className="secondary-action"
+                  type="button"
+                  onClick={() => {
+                    setEditingTask(selectedTask);
+                    closeTaskDrawer();
+                  }}
+                >
+                  Edit task
+                </button>
+                <button
+                  className="link-button chore-library-link-action"
+                  type="button"
+                  onClick={() => {
+                    setArchiveCandidate(selectedTask);
+                    closeTaskDrawer();
+                  }}
+                >
+                  Archive task
+                </button>
+              </>
+            ) : null}
+            {canManageTaskLibrary && isArchived ? (
+              <button className="secondary-action" type="button" onClick={() => restoreLibraryTask(selectedTask)}>Restore task</button>
+            ) : null}
+          </div>
+        </aside>
+      </div>
+    );
+  }
 
   function renderTaskLibrary() {
     return (
@@ -413,32 +491,43 @@ export function TasksPage({ households, isLoading }: TasksPageProps) {
               </p>
             ) : (
               <div className="chore-library-list">
-                {visibleTasks.map((task) => (
-                  <article className={`chore-library-row task-library-row is-${task.type}`} key={task.id}>
-                    <div className="chore-library-main">
-                      <strong>{task.title}</strong>
-                      <span>{task.instructions ?? "No instructions yet."}</span>
-                    </div>
-                    <div className="chore-library-row-footer">
-                      <div className="chore-library-meta">
-                        <span className={`task-type-badge is-${task.type}`}>{taskTypeLabel(task.type)}</span>
-                        <span>{taskSourceLabel(task.source)}</span>
-                        <span>{Array.isArray(task.tags) && task.tags.length > 0 ? task.tags.join(", ") : "No tags"}</span>
+                {visibleTasks.map((task) => {
+                  const tags = Array.isArray(task.tags) && task.tags.length > 0 ? task.tags : ["Untagged"];
+                  return (
+                    <article
+                      aria-label={`Open ${task.title} details`}
+                      className={`chore-library-row task-library-row is-${task.type}`}
+                      key={task.id}
+                      onClick={() => setSelectedTask(task)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setSelectedTask(task);
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
+                    >
+                      <div className="chore-library-main">
+                        <strong>{task.title}</strong>
+                        <span>{taskTypeLabel(task.type)}</span>
                       </div>
-                      <div className="chore-library-actions">
-                        {canManageTaskLibrary && libraryStatus === "active" ? (
-                          <>
-                            <button aria-label={`Edit ${task.title}`} className="secondary-action" type="button" onClick={() => setEditingTask(task)}>Edit</button>
-                            <button aria-label={`Archive ${task.title}`} className="link-button chore-library-link-action" type="button" onClick={() => setArchiveCandidate(task)}>Archive</button>
-                          </>
-                        ) : null}
-                        {canManageTaskLibrary && libraryStatus === "archived" ? (
-                          <button aria-label={`Restore ${task.title}`} className="secondary-action" type="button" onClick={() => restoreLibraryTask(task)}>Restore</button>
-                        ) : null}
+                      <div className="chore-library-row-footer">
+                        <div className="chore-library-meta">
+                          <span className="task-source-pill">
+                            <span className="task-source-mark" aria-hidden="true">{task.source === "google-calendar" ? "G" : "M"}</span>
+                            {taskSourceLabel(task.source)}
+                          </span>
+                          <span className={`task-type-badge is-${task.type}`}>{taskTypeLabel(task.type)}</span>
+                          {tags.map((tag) => (
+                            <span className="task-tag-pill" key={tag}>{tag}</span>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  </article>
-                ))}
+                      <span className="task-library-row-chevron" aria-hidden="true">&gt;</span>
+                    </article>
+                  );
+                })}
               </div>
             )}
           </>
@@ -578,6 +667,7 @@ export function TasksPage({ households, isLoading }: TasksPageProps) {
           onSave={saveLibraryTask}
         />
       ) : null}
+      {renderTaskDrawer()}
       {archiveCandidate ? (
         <div className="modal-backdrop" role="presentation" onMouseDown={() => setArchiveCandidate(undefined)}>
           <section
