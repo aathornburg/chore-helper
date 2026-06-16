@@ -843,8 +843,8 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
   function renderTimeSummary(startLabel: string, durationLabel?: string) {
     return (
       <span className="calendar-time-summary">
-        <span>{startLabel}</span>
-        {durationLabel ? <span>{durationLabel}</span> : null}
+        <span className="calendar-time-summary-start">{startLabel}</span>
+        {durationLabel ? <span className="calendar-time-summary-duration">{durationLabel}</span> : null}
       </span>
     );
   }

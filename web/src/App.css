@@ -3269,6 +3269,12 @@ button.calendar-event:hover {
   min-width: 0;
 }
 
+.calendar-time-summary-start,
+.calendar-time-summary-duration {
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+
 .calendar-identity-token {
   align-items: center;
   background: #d9eef3;

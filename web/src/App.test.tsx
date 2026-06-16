@@ -4747,6 +4747,8 @@ describe("App", () => {
       const timeSummary = importedTask.querySelector(".calendar-time-summary");
       expect(timeSummary).not.toBeNull();
       expect(timeSummary?.children).toHaveLength(2);
+      expect(timeSummary?.querySelector(".calendar-time-summary-start")?.textContent).toBe("5:00 PM");
+      expect(timeSummary?.querySelector(".calendar-time-summary-duration")?.textContent).toBe("45 min");
       expect(within(timeSummary as HTMLElement).getByText("5:00 PM")).toBeTruthy();
       expect(within(timeSummary as HTMLElement).getByText("45 min")).toBeTruthy();
       expect(within(importedTask).queryByText(/5:45 PM/)).toBeNull();
