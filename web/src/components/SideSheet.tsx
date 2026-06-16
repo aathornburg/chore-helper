@@ -25,7 +25,7 @@ export const SideSheet = forwardRef<HTMLElement, SideSheetProps>(function SideSh
 }, ref) {
   return (
     <div
-      className={`app-side-sheet-backdrop is-detail-view is-${tone}`}
+      className={`chore-editor-backdrop app-side-sheet-backdrop is-detail-view is-${tone}`}
       onMouseDown={(event) => {
         if (event.currentTarget === event.target) onClose();
       }}

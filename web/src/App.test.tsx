@@ -4458,6 +4458,7 @@ describe("App", () => {
     fireEvent.click(taskRow);
 
     const drawer = await screen.findByRole("dialog", { name: "Clean bathrooms details" });
+    expect(document.querySelector(".app-side-sheet-backdrop")?.classList.contains("chore-editor-backdrop")).toBe(true);
     expect(drawer.classList.contains("app-side-sheet")).toBe(true);
     expect(within(drawer).getByRole("heading", { name: "Clean bathrooms" })).toBeTruthy();
     expect(within(drawer).getByText("Chore")).toBeTruthy();
