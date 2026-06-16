@@ -3,7 +3,7 @@ import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { CalendarConnectionSummary, CalendarImportCandidate, CalendarImportPolicy, CalendarImportQueueItem, CalendarPreferences, Task, TaskOccurrence, TaskSchedule, CleanlyCalendarEvent, CompletionCheckInInput, ExternalCalendarSummary, HouseholdAppData, HouseholdMemberSummary, ScheduleInput } from "@chore-helper/shared";
 import { completeOccurrence, createScheduledTask, decideCalendarImportQueueItem, exportCleanlyCalendarEvents, getCalendarPreferences, getCurrentUser, getMyCalendarImportPolicy, listCalendarConnections, listCalendarImportCandidates, listCalendarImportPolicies, listCalendarImportQueue, listCleanlyCalendarEvents, listExternalCalendars, listHouseholdMembers, listOccurrences, listSchedules, resetOccurrenceTaskOverrides, saveOccurrenceTaskToLibrary, skipOccurrence, startGoogleCalendarConnection, submitCalendarImportEvents, syncOccurrenceDetailsToTask, updateCalendarPreferences, updateOccurrence, updateOccurrenceTaskDetails, updateSchedule as updateScheduleApi } from "../api";
-import { CalendarExportPreselectPanel, CalendarExportReviewPanel } from "./calendar/CalendarExportPanel";
+import { CalendarExportQuickSelectPanel, CalendarExportReviewPanel } from "./calendar/CalendarExportPanel";
 import { DateRangePicker } from "./calendar/DateRangePicker";
 import type { CalendarDateRange, CalendarDateRangePreset } from "./calendar/dateRange";
 import { createVisibleRange, isDateInRange } from "./calendar/dateRange";
@@ -2651,36 +2651,36 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                     <p className="eyebrow">Google Calendar</p>
                     <h2>Export</h2>
                   </div>
-                  <button className="section-action" onClick={startExportMode} type="button">Reset export selection</button>
+                  <div className="calendar-export-header-actions">
+                    <CalendarExportQuickSelectPanel
+                      eligibleEvents={eligibleExportEvents}
+                      preferences={calendarPreferences}
+                      range={exportRange}
+                      rangePreset={exportRangePreset}
+                      visibleRange={visibleRange}
+                      onExportContentChange={(mode) => {
+                        if (!calendarPreferences) return;
+                        saveCalendarPreference({
+                          ...calendarPreferences,
+                          exportContentMode: mode
+                        });
+                        setShouldApplyExportPreselect(true);
+                      }}
+                      onRangeChange={(nextRange) => {
+                        setExportRangePreset("custom");
+                        setExportRange(nextRange);
+                        setShouldApplyExportPreselect(true);
+                      }}
+                      onRangePresetChange={(nextPreset, nextRange) => {
+                        setExportRangePreset(nextPreset);
+                        setExportRange(nextRange);
+                        setShouldApplyExportPreselect(true);
+                      }}
+                    />
+                    <button className="section-action" onClick={startExportMode} type="button">Reset selection</button>
+                  </div>
                 </div>
                 <div className="calendar-export-layout">
-                  <CalendarExportPreselectPanel
-                    eligibleEvents={eligibleExportEvents}
-                    preferences={calendarPreferences}
-                    range={exportRange}
-                    rangePreset={exportRangePreset}
-                    selectedEventIds={selectedExportEventIds}
-                    visibleRange={visibleRange}
-                    onClearSelection={() => setSelectedExportEventIds([])}
-                    onExportContentChange={(mode) => {
-                      if (!calendarPreferences) return;
-                      saveCalendarPreference({
-                        ...calendarPreferences,
-                        exportContentMode: mode
-                      });
-                      setShouldApplyExportPreselect(true);
-                    }}
-                    onRangeChange={(nextRange) => {
-                      setExportRangePreset("custom");
-                      setExportRange(nextRange);
-                      setShouldApplyExportPreselect(true);
-                    }}
-                    onRangePresetChange={(nextPreset, nextRange) => {
-                      setExportRangePreset(nextPreset);
-                      setExportRange(nextRange);
-                      setShouldApplyExportPreselect(true);
-                    }}
-                  />
                   <div className="calendar-export-calendar-surface">
                     {loadState === "error" ? <section className="calendar-empty-state">Could not load scheduled tasks.</section> : null}
 
@@ -2805,14 +2805,12 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
 
             <div className={isExportMode ? "calendar-export-layout" : "calendar-export-layout is-standard"}>
               {isExportMode ? (
-                <CalendarExportPreselectPanel
+                <CalendarExportQuickSelectPanel
                   eligibleEvents={eligibleExportEvents}
                   preferences={calendarPreferences}
                   range={exportRange}
                   rangePreset={exportRangePreset}
-                  selectedEventIds={selectedExportEventIds}
                   visibleRange={visibleRange}
-                  onClearSelection={() => setSelectedExportEventIds([])}
                   onExportContentChange={(mode) => {
                     if (!calendarPreferences) return;
                     saveCalendarPreference({

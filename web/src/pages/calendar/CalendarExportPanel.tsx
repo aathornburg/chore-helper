@@ -3,14 +3,12 @@ import { useState } from "react";
 import { DateRangePicker } from "./DateRangePicker";
 import type { CalendarDateRange, CalendarDateRangePreset } from "./dateRange";
 
-type CalendarExportPreselectPanelProps = {
+type CalendarExportQuickSelectPanelProps = {
   eligibleEvents: CleanlyCalendarEvent[];
   preferences?: CalendarPreferences;
   range: CalendarDateRange;
   rangePreset: CalendarDateRangePreset;
-  selectedEventIds: string[];
   visibleRange: CalendarDateRange;
-  onClearSelection: () => void;
   onExportContentChange: (mode: CalendarPreferences["exportContentMode"]) => void;
   onRangeChange: (range: CalendarDateRange) => void;
   onRangePresetChange: (preset: CalendarDateRangePreset, range: CalendarDateRange) => void;
@@ -30,9 +28,9 @@ function pluralize(count: number, singular: string, plural = `${singular}s`) {
 }
 
 function exportContentLabel(mode: CalendarPreferences["exportContentMode"]) {
-  if (mode === "chores") return "chores";
+  if (mode === "chores") return "tasks";
   if (mode === "commitments") return "commitments";
-  return "chores and commitments";
+  return "tasks and commitments";
 }
 
 function rangePresetLabel(preset: CalendarDateRangePreset) {
@@ -43,48 +41,40 @@ function rangePresetLabel(preset: CalendarDateRangePreset) {
   return "the visible range";
 }
 
-export function CalendarExportPreselectPanel({
+export function CalendarExportQuickSelectPanel({
   eligibleEvents,
   preferences,
   range,
   rangePreset,
-  selectedEventIds,
   visibleRange,
-  onClearSelection,
   onExportContentChange,
   onRangeChange,
   onRangePresetChange
-}: CalendarExportPreselectPanelProps) {
+}: CalendarExportQuickSelectPanelProps) {
   const [isPreselectOpen, setIsPreselectOpen] = useState(false);
-  const selectedSummary = `${selectedEventIds.length} selected`;
   const preselectSummary = preferences
-    ? `Select options: ${exportContentLabel(preferences.exportContentMode)} from ${rangePresetLabel(rangePreset)}`
-    : "Select options";
+    ? `${exportContentLabel(preferences.exportContentMode)} from ${rangePresetLabel(rangePreset)}`
+    : "Choose a batch of events";
 
   return (
-    <aside className="calendar-export-panel calendar-export-preselect-panel" role="region" aria-label="Export preselect controls">
+    <aside className="calendar-export-panel calendar-export-preselect-panel" role="region" aria-label="Export quick select controls">
       {preferences ? (
-        <div className="calendar-export-preselect-bar">
-          <strong>Preselect:</strong>
-          <span>{selectedEventIds.length > 0 ? `${selectedSummary}. Click the calendar to fine-tune.` : "Nothing selected yet. Click events or use selection options."}</span>
-          <span className="calendar-export-preselect-actions">
-            <button className="link-button" disabled={selectedEventIds.length === 0} onClick={onClearSelection} type="button">Clear</button>
-            <button
-              aria-controls="calendar-export-preselect-popover"
-              aria-expanded={isPreselectOpen}
-              className="section-action calendar-export-summary-trigger"
-              onClick={() => setIsPreselectOpen((current) => !current)}
-              type="button"
-            >
-              {preselectSummary}
-            </button>
-          </span>
+        <div className="calendar-export-quick-select">
+          <button
+            aria-controls="calendar-export-preselect-popover"
+            aria-expanded={isPreselectOpen}
+            className="section-action calendar-export-summary-trigger"
+            onClick={() => setIsPreselectOpen((current) => !current)}
+            type="button"
+          >
+            Quick select
+          </button>
           {isPreselectOpen ? (
-            <section className="calendar-export-popover calendar-export-preselect-popover" id="calendar-export-preselect-popover" aria-label="Preselect options">
+            <section className="calendar-export-popover calendar-export-preselect-popover" id="calendar-export-preselect-popover" aria-label="Quick select options">
               <div>
-                <p className="eyebrow">Preselect events</p>
-                <h3>Choose what Clenella selects</h3>
-                <p>Changing these options preselects matching events automatically. Click calendar items afterward to fine-tune.</p>
+                <p className="eyebrow">Quick select</p>
+                <h3>Select matching events</h3>
+                <p>Currently set to {preselectSummary}. Change these options to select matching events automatically.</p>
               </div>
               <div className="calendar-export-popover-grid">
                 <label>
@@ -136,15 +126,26 @@ export function CalendarExportReviewPanel({
   const selectedCommitmentCount = selectedEvents.filter((event) => event.type === "commitment").length;
   const canExport = selectedEventIds.length > 0 && Boolean(preferences?.destinationExternalCalendarId);
   const selectedSummary = `${selectedEventIds.length} selected`;
+  const taskSummary = pluralize(selectedTaskCount, "task");
+  const commitmentSummary = pluralize(selectedCommitmentCount, "commitment");
 
   return (
     <aside className="calendar-export-panel calendar-export-review-panel" role="region" aria-label="Export review controls">
       <div className="calendar-export-summary-bar">
-        <span className="calendar-export-required-label">Review required</span>
-        <strong>{selectedSummary}</strong>
-        <span>{selectedTaskCount} chores / {selectedCommitmentCount} commitments</span>
-        <span>Review selected events before choosing a destination calendar.</span>
-        <button disabled={selectedEventIds.length === 0} onClick={() => setIsReviewOpen((current) => !current)} type="button">Review</button>
+        <span className="calendar-export-selection-count">
+          <strong>{selectedSummary}</strong>
+        </span>
+        <span className="calendar-export-type-count">
+          <strong>Tasks</strong>
+          <span>{taskSummary}</span>
+        </span>
+        <span className="calendar-export-type-count">
+          <strong>Commitments</strong>
+          <span>{commitmentSummary}</span>
+        </span>
+        <button className="calendar-export-review-button" disabled={selectedEventIds.length === 0} onClick={() => setIsReviewOpen((current) => !current)} type="button">
+          Review <span>{selectedEventIds.length}</span>
+        </button>
       </div>
 
       {isReviewOpen ? (

@@ -4619,18 +4619,19 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Close dialog" }));
 
     await openCalendarExportSection();
-    const preselectPanel = await screen.findByRole("region", { name: "Export preselect controls" });
+    const quickSelectPanel = await screen.findByRole("region", { name: "Export quick select controls" });
     const reviewPanel = await screen.findByRole("region", { name: "Export review controls" });
-    expect(preselectPanel).toBeTruthy();
+    expect(quickSelectPanel).toBeTruthy();
     expect(reviewPanel).toBeTruthy();
     expect(screen.queryByRole("dialog", { name: "Export events" })).toBeNull();
-    expect(screen.getByText(/Review selected events before choosing a destination calendar/i)).toBeTruthy();
+    expect(within(quickSelectPanel).getByRole("button", { name: "Quick select" })).toBeTruthy();
+    expect(within(reviewPanel).getByRole("button", { name: "Review 0" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Import events" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Schedule task" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Add chore" })).toBeNull();
     expect(screen.queryByRole("region", { name: "Calendar import queue" })).toBeNull();
     expect(
-      preselectPanel.compareDocumentPosition(reviewPanel) &
+      quickSelectPanel.compareDocumentPosition(reviewPanel) &
         Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
   });
@@ -4855,7 +4856,7 @@ describe("App", () => {
     });
   });
 
-  it("summarizes selected export events by chores and commitments", async () => {
+  it("summarizes selected export events by tasks and commitments", async () => {
     await withMay2026CalendarClock(async () => {
       vi.stubGlobal("fetch", mockCalendarWorkspaceFetches({
         calendarConnected: true,
@@ -4890,23 +4891,26 @@ describe("App", () => {
       renderAt("/calendar");
 
       await openCalendarExportSection();
-      expect(await screen.findByRole("region", { name: "Export preselect controls" })).toBeTruthy();
-      expect(screen.getByRole("region", { name: "Export review controls" })).toBeTruthy();
-      expect(screen.getByText("0 selected")).toBeTruthy();
-      expect(screen.getByText("0 chores / 0 commitments")).toBeTruthy();
+      expect(await screen.findByRole("button", { name: "Quick select" })).toBeTruthy();
+      const exportReviewControls = screen.getByRole("region", { name: "Export review controls" });
+      expect(screen.queryByText("Preselect:")).toBeNull();
+      expect(within(exportReviewControls).getByText("Tasks")).toBeTruthy();
+      expect(within(exportReviewControls).getByText("0 tasks")).toBeTruthy();
+      expect(within(exportReviewControls).getByText("Commitments")).toBeTruthy();
+      expect(within(exportReviewControls).getByText("0 commitments")).toBeTruthy();
       expect(screen.queryByLabelText("To calendar")).toBeNull();
 
-      fireEvent.click(screen.getByRole("button", { name: /Select options:/ }));
-      expect(screen.getByRole("region", { name: "Preselect options" })).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "Quick select" }));
+      expect(screen.getByRole("region", { name: "Quick select options" })).toBeTruthy();
       expect(screen.queryByRole("button", { name: "Select matching events" })).toBeNull();
       fireEvent.click(screen.getByRole("button", { name: "Visible range" }));
 
       await waitFor(() => expect(screen.getByText("2 selected")).toBeTruthy());
-      expect(screen.getByText("1 chores / 1 commitments")).toBeTruthy();
-      expect(screen.getByText(/Review selected events before choosing a destination calendar/i)).toBeTruthy();
-      expect(screen.getByRole("button", { name: "Review" })).toBeTruthy();
+      expect(within(exportReviewControls).getByText("1 task")).toBeTruthy();
+      expect(within(exportReviewControls).getByText("1 commitment")).toBeTruthy();
+      expect(within(exportReviewControls).getByRole("button", { name: "Review 2" })).toBeTruthy();
 
-      fireEvent.click(screen.getByRole("button", { name: "Review" }));
+      fireEvent.click(within(exportReviewControls).getByRole("button", { name: "Review 2" }));
 
       const reviewDialog = screen.getByRole("dialog", { name: "Review export" });
       expect(reviewDialog).toBeTruthy();
@@ -4918,7 +4922,8 @@ describe("App", () => {
       fireEvent.click(screen.getByRole("button", { name: "Deselect Clean bathrooms" }));
 
       expect(screen.getByText("1 selected")).toBeTruthy();
-      expect(screen.getByText("0 chores / 1 commitments")).toBeTruthy();
+      expect(within(exportReviewControls).getByText("0 tasks")).toBeTruthy();
+      expect(within(exportReviewControls).getByText("1 commitment")).toBeTruthy();
     });
   });
 
