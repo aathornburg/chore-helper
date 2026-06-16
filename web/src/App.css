@@ -3913,6 +3913,73 @@ button.calendar-event:hover {
   max-width: 720px;
 }
 
+.app-side-sheet-backdrop {
+  align-items: stretch;
+  justify-items: end;
+  overflow: hidden;
+  padding: 0;
+  place-items: stretch end;
+}
+
+.app-side-sheet {
+  align-content: start;
+  border-left: 1px solid var(--color-border);
+  border-radius: 0;
+  box-shadow: -18px 0 42px rgba(9, 52, 68, 0.18);
+  display: grid;
+  gap: 18px;
+  max-height: 100vh;
+  max-width: min(460px, calc(100vw - 28px));
+  min-height: 100vh;
+  overflow: auto;
+  padding: 24px;
+  position: relative;
+  width: 460px;
+}
+
+.app-side-sheet.is-chore {
+  border-top: 5px solid var(--color-primary);
+}
+
+.app-side-sheet.is-commitment {
+  border-top: 5px solid #d7a947;
+}
+
+.app-side-sheet-header {
+  align-items: start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding-right: 42px;
+}
+
+.app-side-sheet-header h2 {
+  color: #102f3b;
+  font-size: 1.65rem;
+  line-height: 1.08;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.app-side-sheet-body {
+  display: grid;
+  gap: 16px;
+}
+
+.app-side-sheet-footer {
+  align-items: center;
+  border-top: 1px solid #d8e9ee;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 16px;
+}
+
+.app-side-sheet .modal-close-button {
+  right: 18px;
+  top: 18px;
+}
+
 .icon-button {
   align-items: center;
   background: transparent;
@@ -8875,12 +8942,15 @@ button.chore-row-summary[aria-expanded="true"] {
     justify-self: stretch;
   }
 
+  .app-side-sheet-backdrop,
   .task-library-drawer-backdrop {
     align-items: center;
     justify-items: center;
     padding: 16px;
+    place-items: center;
   }
 
+  .app-side-sheet,
   .task-library-drawer {
     border: 1px solid var(--color-border);
     box-shadow: var(--shadow-section-offset);

@@ -2923,7 +2923,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
 
           {editorMode !== "closed" && editorDraft ? (
             <div
-              className={`chore-editor-backdrop calendar-modal-backdrop ${editorMode === "view" ? "is-detail-view is-centered-detail-view" : ""}`}
+              className={`chore-editor-backdrop calendar-modal-backdrop ${editorMode === "view" ? "app-side-sheet-backdrop is-detail-view" : ""}`}
               onMouseDown={(event) => {
                 if (event.currentTarget === event.target) closeTaskEditor();
               }}
@@ -2932,7 +2932,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
               <form
                 aria-label={editorMode === "create" ? "Schedule task" : editorMode === "view" ? "Scheduled task details" : "Edit scheduled task"}
                 aria-modal="true"
-                className={`chore-editor-modal calendar-modal-shell ${editorMode === "view" ? "is-detail-view" : ""}`}
+                className={`chore-editor-modal calendar-modal-shell ${editorMode === "view" ? "app-side-sheet is-detail-view" : ""}`}
                 ref={choreEditorModalRef}
                 role="dialog"
                 onSubmit={(event) => {
@@ -3334,7 +3334,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
           ) : null}
           {selectedCleanlyCalendarEvent ? (
             <div
-              className="chore-editor-backdrop calendar-modal-backdrop is-detail-view is-centered-detail-view"
+              className="chore-editor-backdrop calendar-modal-backdrop app-side-sheet-backdrop is-detail-view"
               onMouseDown={(event) => {
                 if (event.currentTarget === event.target) closeCleanlyCalendarEventDetail();
               }}
@@ -3343,7 +3343,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
               <section
                 aria-label="Calendar event details"
                 aria-modal="true"
-                className="chore-editor-modal calendar-modal-shell calendar-event-detail-modal is-detail-view"
+                className="chore-editor-modal calendar-modal-shell calendar-event-detail-modal app-side-sheet is-detail-view"
                 ref={cleanlyEventModalRef}
                 role="dialog"
                 tabIndex={-1}

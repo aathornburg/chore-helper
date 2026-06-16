@@ -3483,7 +3483,7 @@ describe("App", () => {
     });
   });
 
-  it("uses the compact inset chore detail modal on mobile", async () => {
+  it("uses a side sheet for scheduled task details on mobile", async () => {
     await withMay2026CalendarClock(async () => {
       setViewportWidth(390);
       vi.stubGlobal("fetch", mockCalendarWorkspaceFetches());
@@ -3492,10 +3492,10 @@ describe("App", () => {
       fireEvent.click(await findPlannedCleanBathroomsButton());
 
       const modal = getTaskEditorElement();
+      expect(modal.classList.contains("app-side-sheet")).toBe(true);
       expect(modal.classList.contains("is-detail-view")).toBe(true);
       expect(modal.classList.contains("calendar-sync-modal")).toBe(false);
-      expect(document.querySelector(".chore-editor-backdrop")?.classList.contains("is-detail-view")).toBe(true);
-      expect(document.querySelector(".chore-editor-backdrop")?.classList.contains("is-centered-detail-view")).toBe(true);
+      expect(document.querySelector(".app-side-sheet-backdrop")?.classList.contains("is-detail-view")).toBe(true);
       expect(modal.querySelector(".chore-detail-meta-grid")).not.toBeNull();
     });
   });
@@ -4458,6 +4458,7 @@ describe("App", () => {
     fireEvent.click(taskRow);
 
     const drawer = await screen.findByRole("dialog", { name: "Clean bathrooms details" });
+    expect(drawer.classList.contains("app-side-sheet")).toBe(true);
     expect(within(drawer).getByRole("heading", { name: "Clean bathrooms" })).toBeTruthy();
     expect(within(drawer).getByText("Chore")).toBeTruthy();
     expect(within(drawer).getByText("Manual")).toBeTruthy();
@@ -4783,7 +4784,7 @@ describe("App", () => {
     });
   });
 
-  it("uses the compact inset calendar event detail modal on mobile", async () => {
+  it("uses a side sheet for calendar event details on mobile", async () => {
     await withMay2026CalendarClock(async () => {
       setViewportWidth(390);
       vi.stubGlobal("fetch", mockCalendarWorkspaceFetches({
@@ -4812,10 +4813,10 @@ describe("App", () => {
       fireEvent.click(await within(agenda).findByRole("button", { name: "View Soccer practice" }));
 
       const dialog = await screen.findByRole("dialog", { name: "Calendar event details" });
+      expect(dialog.classList.contains("app-side-sheet")).toBe(true);
       expect(dialog.classList.contains("calendar-event-detail-modal")).toBe(true);
       expect(dialog.classList.contains("is-detail-view")).toBe(true);
-      expect(document.querySelector(".chore-editor-backdrop")?.classList.contains("is-detail-view")).toBe(true);
-      expect(document.querySelector(".chore-editor-backdrop")?.classList.contains("is-centered-detail-view")).toBe(true);
+      expect(document.querySelector(".app-side-sheet-backdrop")?.classList.contains("is-detail-view")).toBe(true);
     });
   });
 

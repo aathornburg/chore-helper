@@ -15,6 +15,7 @@ import {
   updateTask
 } from "../api";
 import { CalendarIcon, ChevronRightIcon, PencilIcon } from "../components/AppIcons";
+import { SideSheet } from "../components/SideSheet";
 
 type TasksPageProps = {
   households: HouseholdAppData[];
@@ -360,36 +361,15 @@ export function TasksPage({ households, isLoading }: TasksPageProps) {
     const isArchived = Boolean(selectedTask.archivedAt);
 
     return (
-      <div className="modal-backdrop task-library-drawer-backdrop" role="presentation" onMouseDown={closeTaskDrawer}>
-        <aside
-          aria-label={`${selectedTask.title} details`}
-          aria-modal="true"
-          className={`task-library-drawer is-${selectedTask.type}`}
-          onMouseDown={(event) => event.stopPropagation()}
-          role="dialog"
-        >
-          <div className="task-library-drawer-header">
-            <div>
-              <p className="eyebrow">Task details</p>
-              <h3>{selectedTask.title}</h3>
-            </div>
-            <button aria-label="Close task details" className="modal-close-button" type="button" onClick={closeTaskDrawer}>X</button>
-          </div>
-
-          <div className="task-library-drawer-meta" aria-label="Task metadata">
-            <span className={`task-type-badge is-${selectedTask.type}`}>{taskTypeLabel(selectedTask.type)}</span>
-            <span className="task-source-pill"><TaskSourceIcon source={selectedTask.source} />{taskSourceLabel(selectedTask.source)}</span>
-            {tags.map((tag) => (
-              <span className="task-tag-pill" key={tag}>{tag}</span>
-            ))}
-          </div>
-
-          <section className="task-library-drawer-section">
-            <h4>Instructions</h4>
-            <p>{selectedTask.instructions?.trim() || "No instructions yet."}</p>
-          </section>
-
-          <div className="task-library-drawer-actions">
+      <SideSheet
+        ariaLabel={`${selectedTask.title} details`}
+        className="task-library-drawer"
+        eyebrow="Task details"
+        onClose={closeTaskDrawer}
+        title={selectedTask.title}
+        tone={selectedTask.type}
+        footer={(
+          <>
             {canManageTaskLibrary && !isArchived ? (
               <>
                 <button
@@ -417,9 +397,22 @@ export function TasksPage({ households, isLoading }: TasksPageProps) {
             {canManageTaskLibrary && isArchived ? (
               <button className="secondary-action" type="button" onClick={() => restoreLibraryTask(selectedTask)}>Restore task</button>
             ) : null}
+          </>
+        )}
+      >
+          <div className="task-library-drawer-meta" aria-label="Task metadata">
+            <span className={`task-type-badge is-${selectedTask.type}`}>{taskTypeLabel(selectedTask.type)}</span>
+            <span className="task-source-pill"><TaskSourceIcon source={selectedTask.source} />{taskSourceLabel(selectedTask.source)}</span>
+            {tags.map((tag) => (
+              <span className="task-tag-pill" key={tag}>{tag}</span>
+            ))}
           </div>
-        </aside>
-      </div>
+
+          <section className="task-library-drawer-section">
+            <h4>Instructions</h4>
+            <p>{selectedTask.instructions?.trim() || "No instructions yet."}</p>
+          </section>
+      </SideSheet>
     );
   }
 
