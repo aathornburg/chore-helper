@@ -14,7 +14,7 @@ import {
   saveTaskInboxItem,
   updateTask
 } from "../api";
-import { ChevronRightIcon } from "../components/AppIcons";
+import { CalendarIcon, ChevronRightIcon, PencilIcon } from "../components/AppIcons";
 
 type TasksPageProps = {
   households: HouseholdAppData[];
@@ -40,6 +40,10 @@ function taskTypeLabel(type: Task["type"]) {
 
 function taskSourceLabel(source: Task["source"]) {
   return source === "google-calendar" ? "Google Calendar" : "Manual";
+}
+
+function TaskSourceIcon({ source }: { source: Task["source"] }) {
+  return source === "google-calendar" ? <CalendarIcon /> : <PencilIcon />;
 }
 
 function TaskLibraryModal({
@@ -374,7 +378,7 @@ export function TasksPage({ households, isLoading }: TasksPageProps) {
 
           <div className="task-library-drawer-meta" aria-label="Task metadata">
             <span className={`task-type-badge is-${selectedTask.type}`}>{taskTypeLabel(selectedTask.type)}</span>
-            <span className="task-source-pill">{taskSourceLabel(selectedTask.source)}</span>
+            <span className="task-source-pill"><TaskSourceIcon source={selectedTask.source} />{taskSourceLabel(selectedTask.source)}</span>
             {tags.map((tag) => (
               <span className="task-tag-pill" key={tag}>{tag}</span>
             ))}
@@ -516,7 +520,7 @@ export function TasksPage({ households, isLoading }: TasksPageProps) {
                       <div className="chore-library-row-footer">
                         <div className="chore-library-meta">
                           <span className="task-source-pill">
-                            <span className="task-source-mark" aria-hidden="true">{task.source === "google-calendar" ? "G" : "M"}</span>
+                            <TaskSourceIcon source={task.source} />
                             {taskSourceLabel(task.source)}
                           </span>
                           <span className={`task-type-badge is-${task.type}`}>{taskTypeLabel(task.type)}</span>

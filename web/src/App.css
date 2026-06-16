@@ -1463,14 +1463,10 @@ button:where(:not(.link-button)):hover {
 
 .chore-library-meta {
   align-items: center;
-  background: #fff;
-  border: 1px solid #d5e8ee;
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 8px;
   max-width: 100%;
-  padding: 5px;
-  width: max-content;
 }
 
 .task-type-badge {
@@ -1491,22 +1487,31 @@ button:where(:not(.link-button)):hover {
   background: #eaf8fb;
 }
 
-.task-source-pill,
-.task-tag-pill {
+.chore-library-row .task-source-pill,
+.task-library-drawer .task-source-pill,
+.chore-library-row .task-tag-pill,
+.task-library-drawer .task-tag-pill {
   align-items: center;
-  background: transparent;
-  border: 0;
+  background: #fff;
+  border: 1px solid #d5e8ee;
   color: #48606a;
   display: inline-flex;
   font-size: 0.78rem;
   font-weight: 850;
   min-height: 26px;
-  padding: 3px 7px;
+  padding: 4px 8px;
 }
 
-.task-source-pill {
+.chore-library-row .task-source-pill,
+.task-library-drawer .task-source-pill {
   color: var(--color-primary-strong);
   gap: 6px;
+}
+
+.task-source-pill svg {
+  flex: 0 0 auto;
+  height: 14px;
+  width: 14px;
 }
 
 .task-source-mark {
@@ -1532,13 +1537,15 @@ button:where(:not(.link-button)):hover {
 .task-library-row-chevron {
   align-items: center;
   color: var(--color-primary-strong);
-  display: inline-grid;
+  display: inline-flex;
   font-size: 1.28rem;
   font-weight: 900;
-  inset-block: 0;
-  justify-items: center;
+  height: 40px;
+  justify-content: center;
   position: absolute;
   right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
   width: 24px;
 }
 
