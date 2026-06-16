@@ -1540,16 +1540,16 @@ button:where(:not(.link-button)):hover {
   display: inline-flex;
   font-size: 1.28rem;
   font-weight: 900;
-  height: 40px;
+  bottom: 0;
   justify-content: center;
   position: absolute;
   right: 16px;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 0;
   width: 24px;
 }
 
 .task-library-row-chevron svg {
+  display: block;
   height: 20px;
   width: 20px;
 }
@@ -1557,10 +1557,10 @@ button:where(:not(.link-button)):hover {
 .task-library-row-chevron::before {
   background: linear-gradient(180deg, rgba(19, 106, 129, 0), rgba(19, 106, 129, 0.18), rgba(19, 106, 129, 0));
   content: "";
-  height: calc(100% - 20px);
+  height: calc(100% - 24px);
   left: -12px;
   position: absolute;
-  top: 10px;
+  top: 12px;
   width: 1px;
 }
 
