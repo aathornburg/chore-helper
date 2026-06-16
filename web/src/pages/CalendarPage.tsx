@@ -2722,13 +2722,6 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
               {workspaceView === "calendar" ? (
                 <div className="calendar-command-row">
                   <button onClick={(event) => openCreateEditor(event.currentTarget)} type="button">Schedule task</button>
-                  <section className={`calendar-view-toggle ${isMobileMonthViewport ? "is-mobile-full-width" : ""}`} aria-label="Calendar scale">
-                    {scaleOptions.map((option) => (
-                      <button aria-pressed={calendarScale === option} key={option} onClick={() => setCalendarScale(option)} type="button">
-                        {capitalize(option)}
-                      </button>
-                    ))}
-                  </section>
                   <div className="calendar-period-controls">
                     <button aria-label={`Previous ${periodUnit}`} className="section-action calendar-period-button" onClick={() => moveFocusDate(-1)} type="button">
                       <ChevronIcon direction="previous" />
@@ -2738,6 +2731,13 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                       <ChevronIcon direction="next" />
                     </button>
                   </div>
+                  <section className={`calendar-view-toggle ${isMobileMonthViewport ? "is-mobile-full-width" : ""}`} aria-label="Calendar scale">
+                    {scaleOptions.map((option) => (
+                      <button aria-pressed={calendarScale === option} key={option} onClick={() => setCalendarScale(option)} type="button">
+                        {capitalize(option)}
+                      </button>
+                    ))}
+                  </section>
                 </div>
               ) : null}
 
@@ -3360,20 +3360,20 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                     type="button"
                   />
                 </div>
-                <div className="chore-detail-meta-grid">
+                <div className="calendar-event-detail-summary">
+                  <span>When</span>
+                  <strong className="calendar-event-detail-time">
+                    {formatInTimeZone(selectedCleanlyCalendarEvent.startsAt, timeZone, "EEE, MMM d")} at {formatInTimeZone(selectedCleanlyCalendarEvent.startsAt, timeZone, "h:mm a")} - {formatInTimeZone(selectedCleanlyCalendarEvent.endsAt, timeZone, "h:mm a")}
+                  </strong>
+                  <div className="calendar-event-detail-chip-row" aria-label="Event summary">
+                    <span className="calendar-event-detail-chip">{eventDurationLabel(selectedCleanlyCalendarEvent)}</span>
+                    <span className="calendar-event-detail-chip">{selectedCleanlyCalendarEvent.type === "commitment" ? "Commitment" : "Task"}</span>
+                  </div>
+                </div>
+                <div className="calendar-event-detail-meta-list">
                   <div>
                     <span>Household</span>
                     <strong>{householdLabel(selectedCleanlyCalendarEvent.householdId)}</strong>
-                  </div>
-                  <div>
-                    <span>When</span>
-                    <strong>
-                      {formatInTimeZone(selectedCleanlyCalendarEvent.startsAt, timeZone, "MMM d, h:mm a")} - {formatInTimeZone(selectedCleanlyCalendarEvent.endsAt, timeZone, "h:mm a")}
-                    </strong>
-                  </div>
-                  <div>
-                    <span>Duration</span>
-                    <strong>{eventDurationLabel(selectedCleanlyCalendarEvent)}</strong>
                   </div>
                   <div>
                     <span>Source</span>

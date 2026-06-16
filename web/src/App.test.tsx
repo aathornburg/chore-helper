@@ -4777,6 +4777,8 @@ describe("App", () => {
       fireEvent.click(await screen.findByRole("button", { name: "View Soccer practice" }));
 
       const dialog = await screen.findByRole("dialog", { name: "Calendar event details" });
+      expect(dialog.querySelector(".calendar-event-detail-summary")).not.toBeNull();
+      expect(dialog.querySelector(".calendar-event-detail-meta-list")).not.toBeNull();
       expect(within(dialog).getByText("Imported by")).toBeTruthy();
       expect(within(dialog).getByText("Alex Owner")).toBeTruthy();
       expect(within(dialog).getByText("Source")).toBeTruthy();

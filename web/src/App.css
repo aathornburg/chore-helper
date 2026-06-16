@@ -2743,8 +2743,23 @@ button:where(:not(.link-button)):hover {
   align-items: center;
   display: grid;
   gap: 14px;
-  grid-template-columns: auto auto;
+  grid-template-columns: minmax(150px, auto) minmax(240px, 1fr) auto;
   justify-content: space-between;
+}
+
+.calendar-command-row > button {
+  justify-self: start;
+  min-width: 150px;
+  padding-inline: 20px;
+  width: auto;
+}
+
+.calendar-command-row .calendar-period-controls {
+  justify-self: center;
+}
+
+.calendar-command-row .calendar-view-toggle {
+  justify-self: end;
 }
 
 .calendar-work-legend {
@@ -3030,7 +3045,15 @@ button:where(:not(.link-button)):hover {
 .calendar-day-active-events {
   align-content: start;
   display: grid;
+  gap: 7px;
   min-height: 0;
+}
+
+.calendar-day-active-events .calendar-work-item,
+.calendar-day-active-events .calendar-chore-row {
+  margin-bottom: 0;
+  min-height: 46px;
+  padding: 8px 9px;
 }
 
 .calendar-event {
@@ -3144,12 +3167,12 @@ button.calendar-event:hover {
   display: grid;
   font-size: 0.9rem;
   font-weight: 500;
-  gap: 6px;
+  gap: 8px;
   grid-template-columns: minmax(0, 1fr) auto;
   line-height: 1.25;
-  margin-bottom: 6px;
-  min-height: 0;
-  padding: 7px 8px;
+  margin-bottom: 8px;
+  min-height: 48px;
+  padding: 9px 10px;
   text-align: left;
   width: 100%;
 }
@@ -3204,12 +3227,13 @@ button.calendar-event:hover {
 
 .calendar-chore-main {
   display: grid;
-  gap: 3px;
+  gap: 4px;
   min-width: 0;
 }
 
 .calendar-chore-title {
   display: -webkit-box;
+  line-height: 1.25;
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -3237,7 +3261,7 @@ button.calendar-event:hover {
 
 .calendar-time-summary {
   display: grid;
-  gap: 1px;
+  gap: 2px;
   min-width: 0;
 }
 
@@ -3749,6 +3773,7 @@ button.calendar-event:hover {
 .calendar-column-anytime-main {
   align-content: start;
   display: grid;
+  gap: 8px;
   min-height: 0;
 }
 
@@ -3769,6 +3794,19 @@ button.calendar-event:hover {
   grid-template-columns: 62px 1fr;
   min-height: 0;
   padding: 9px 10px;
+}
+
+.calendar-column-slots .calendar-time-slot > div {
+  align-content: start;
+  display: grid;
+  gap: 8px;
+}
+
+.calendar-column-slots .calendar-work-item,
+.calendar-column-slots .calendar-chore-row,
+.calendar-column-anytime-main .calendar-work-item,
+.calendar-column-anytime-main .calendar-chore-row {
+  margin-bottom: 0;
 }
 
 .calendar-column-grid.has-time-rail .calendar-column-slots {
@@ -3911,6 +3949,84 @@ button.calendar-event:hover {
 
 .calendar-modal-shell.calendar-event-detail-modal {
   max-width: 720px;
+}
+
+.calendar-event-detail-modal {
+  gap: 18px;
+}
+
+.calendar-event-detail-modal .panel-heading {
+  border-bottom: 1px solid #d8e9ee;
+  padding-bottom: 16px;
+  padding-right: 42px;
+}
+
+.calendar-event-detail-summary {
+  background: linear-gradient(180deg, #f7fbfc, #eef8fa);
+  border: 1px solid #c8e1e7;
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+}
+
+.calendar-event-detail-summary > span,
+.calendar-event-detail-meta-list span {
+  color: #7a6657;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.calendar-event-detail-time {
+  color: #102f3b;
+  font-size: 1.08rem;
+  line-height: 1.28;
+}
+
+.calendar-event-detail-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.calendar-event-detail-chip {
+  background: var(--color-surface-elevated);
+  border: 1px solid #c8e1e7;
+  color: #365f6c;
+  font-size: 0.82rem;
+  font-weight: 850;
+  padding: 5px 8px;
+}
+
+.calendar-event-detail-meta-list {
+  border: 1px solid #d8e9ee;
+  display: grid;
+}
+
+.calendar-event-detail-meta-list div {
+  align-items: baseline;
+  border-bottom: 1px solid #d8e9ee;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 112px minmax(0, 1fr);
+  padding: 12px 14px;
+}
+
+.calendar-event-detail-meta-list div:last-child {
+  border-bottom: 0;
+}
+
+.calendar-event-detail-meta-list strong {
+  color: #24352e;
+  font-size: 0.95rem;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+
+.calendar-event-detail-modal .modal-actions {
+  justify-content: start;
 }
 
 .app-side-sheet-backdrop {
@@ -8388,6 +8504,27 @@ button.chore-row-summary[aria-expanded="true"] {
   .week-strip,
   .chore-table article,
   .recommendation {
+    grid-template-columns: 1fr;
+  }
+
+  .calendar-command-row {
+    align-items: stretch;
+    justify-content: stretch;
+  }
+
+  .calendar-command-row > button,
+  .calendar-command-row .calendar-view-toggle {
+    justify-self: stretch;
+    width: 100%;
+  }
+
+  .calendar-command-row .calendar-period-controls {
+    justify-content: center;
+    justify-self: stretch;
+  }
+
+  .calendar-event-detail-meta-list div {
+    gap: 4px;
     grid-template-columns: 1fr;
   }
 
