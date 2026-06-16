@@ -62,7 +62,7 @@ export function createApp(dependencies: AppDependencies = {}) {
   }
   app.use(express.json({ limit: process.env.JSON_BODY_LIMIT ?? "256kb" }));
   app.get("/api/health", (_req, res) => res.json({ ok: true }));
-  app.get("/api/chores", async (req, res) => {
+  app.get("/api/tasks", async (req, res) => {
     const user = await resolveCurrentUser(req, res, store, authMode);
     if (!user) return;
 
@@ -70,10 +70,10 @@ export function createApp(dependencies: AppDependencies = {}) {
     const archivedOnly = req.query.status === "archived";
     const households = await store.listHouseholdsForUser(user.id);
     const householdNames = new Map(households.map((household) => [household.id, household.name]));
-    const chores = (
+    const tasks = (
       await Promise.all(
         households.map((household) =>
-          store.listChores(household.id, {
+          store.listTasks(household.id, {
             includeArchived,
             archivedOnly
           })
@@ -82,9 +82,9 @@ export function createApp(dependencies: AppDependencies = {}) {
     ).flat();
 
     return res.status(200).json(
-      chores.map((chore) => ({
-        ...chore,
-        householdName: householdNames.get(chore.householdId)
+      tasks.map((task) => ({
+        ...task,
+        householdName: householdNames.get(task.householdId)
       }))
     );
   });

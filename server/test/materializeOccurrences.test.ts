@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type { FlexibleChoreSchedule, TimedChoreSchedule } from "@chore-helper/shared";
+import type { FlexibleTaskSchedule, TimedTaskSchedule } from "@chore-helper/shared";
 import { materializeOccurrences } from "../src/scheduling/materializeOccurrences.js";
 
-function timedSchedule(update: Partial<TimedChoreSchedule> = {}): TimedChoreSchedule {
+function timedSchedule(update: Partial<TimedTaskSchedule> = {}): TimedTaskSchedule {
   return {
     id: "timed-schedule",
     householdId: "household-1",
-    choreId: "chore-1",
+    taskId: "task-1",
     planningMode: "timed",
     recurrence: { frequency: "daily", interval: 1 },
     localStartTime: "07:00",
@@ -17,11 +17,11 @@ function timedSchedule(update: Partial<TimedChoreSchedule> = {}): TimedChoreSche
   };
 }
 
-function flexibleSchedule(update: Partial<FlexibleChoreSchedule> = {}): FlexibleChoreSchedule {
+function flexibleSchedule(update: Partial<FlexibleTaskSchedule> = {}): FlexibleTaskSchedule {
   return {
     id: "flexible-schedule",
     householdId: "household-1",
-    choreId: "chore-1",
+    taskId: "task-1",
     planningMode: "flexible",
     recurrence: { frequency: "weekly", interval: 1, weekDays: [6, 0] },
     flexibleWindowRule: "once_within_selected_days",
@@ -127,7 +127,7 @@ describe("materializeOccurrences", () => {
           monthlyWeekday: 3
         },
         startsOn: "2026-06-17"
-      } as Partial<TimedChoreSchedule>),
+      } as Partial<TimedTaskSchedule>),
       householdTimeZone: "America/New_York",
       rangeStart: "2026-06-01",
       rangeEnd: "2026-08-31"
@@ -145,7 +145,7 @@ describe("materializeOccurrences", () => {
       schedule: timedSchedule({
         recurrence: { frequency: "yearly", interval: 2 },
         startsOn: "2026-09-15"
-      } as Partial<TimedChoreSchedule>),
+      } as Partial<TimedTaskSchedule>),
       householdTimeZone: "America/New_York",
       rangeStart: "2026-01-01",
       rangeEnd: "2031-12-31"

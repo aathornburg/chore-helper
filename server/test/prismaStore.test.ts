@@ -38,8 +38,8 @@ it("scopes household structure ids by their parent records in the Prisma schema"
   expect(schema).toContain("@@index([householdId, planningMode, plannedStartAt])");
   expect(schema).toContain("@@index([householdId, planningMode, eligibleEndOn, eligibleStartOn])");
   expect(schema).toContain("@@index([scheduleId, sequence])");
-  expect(schema).toContain("model ChoreCompletionCheckIn");
-  expect(schema).toContain("completionCheckIn ChoreCompletionCheckIn?");
+  expect(schema).toContain("model TaskCompletionCheckIn");
+  expect(schema).toContain("completionCheckIn TaskCompletionCheckIn?");
   expect(schema).toContain("@@unique([householdId, occurrenceId])");
   expect(schema).not.toContain("@@unique([scheduleId, sequence])");
   expect(schema).not.toContain("  cadence");
@@ -52,8 +52,8 @@ async function clearDatabase() {
   await prisma!.householdRoom.deleteMany();
   await prisma!.householdFloor.deleteMany();
   await prisma!.recommendation.deleteMany();
-  await prisma!.choreCompletionCheckIn.deleteMany();
-  await prisma!.chore.deleteMany();
+  await prisma!.taskCompletionCheckIn.deleteMany();
+  await prisma!.task.deleteMany();
   await prisma!.householdProfile.deleteMany();
   await prisma!.household.deleteMany();
   await prisma!.user.deleteMany();
@@ -71,7 +71,7 @@ describe.skipIf(!safeConnectionString || !prisma)(
       await prisma!.$disconnect();
     });
 
-    it("persists definition-only chores with their schedules across store instances", async () => {
+    it("persists definition-only tasks with their schedules across store instances", async () => {
       const firstStore = createPrismaStore(prisma!);
       const owner = await firstStore.upsertUserByClerkId("owner");
       const household = await firstStore.createHouseholdForUser("Home", owner.id);
@@ -85,10 +85,12 @@ describe.skipIf(!safeConnectionString || !prisma)(
           notes: "Persistent setup"
         }
       });
-      const created = await firstStore.createChoreWithSchedules({
+      const created = await firstStore.createTaskWithSchedules({
         householdId: household.id,
-        chore: {
+        task: {
           title: "Clean bathrooms",
+          type: "chore",
+          libraryState: "saved",
           source: "manual",
           instructions: "Sink, toilet, mirror, floor.",
           tags: ["bathroom"]
@@ -116,7 +118,7 @@ describe.skipIf(!safeConnectionString || !prisma)(
           notes: "Persistent setup"
         }
       });
-      expect(await secondStore.listChores(household.id)).toEqual([
+      expect(await secondStore.listTasks(household.id)).toEqual([
         expect.objectContaining({
           householdId: household.id,
           title: "Clean bathrooms",
@@ -125,9 +127,9 @@ describe.skipIf(!safeConnectionString || !prisma)(
           source: "manual"
         })
       ]);
-      expect(created.chore).not.toHaveProperty("cadence");
-      expect(created.chore).not.toHaveProperty("estimatedMinutes");
-      expect(await secondStore.listSchedules(household.id, created.chore.id)).toEqual([
+      expect(created.task).not.toHaveProperty("cadence");
+      expect(created.task).not.toHaveProperty("estimatedMinutes");
+      expect(await secondStore.listSchedules(household.id, created.task.id)).toEqual([
         expect.objectContaining({
           planningMode: "flexible",
           flexibleWindowRule: "once_within_selected_days",
@@ -226,13 +228,13 @@ describe.skipIf(!safeConnectionString || !prisma)(
       ]);
     });
 
-    it("archives, restores, updates chores, and marks recommendations stale", async () => {
+    it("archives, restores, updates tasks, and marks recommendations stale", async () => {
       const store = createPrismaStore(prisma!);
       const owner = await store.upsertUserByClerkId("owner");
       const household = await store.createHouseholdForUser("Home", owner.id);
-      const scheduled = await store.createChoreWithSchedules({
+      const scheduled = await store.createTaskWithSchedules({
         householdId: household.id,
-        chore: { title: "Clean bathrooms", source: "manual" },
+        task: { title: "Clean bathrooms", type: "chore", libraryState: "saved", source: "manual" },
         schedules: [{
           planningMode: "timed",
           recurrence: { frequency: "weekly", interval: 1, weekDays: [1] },
@@ -242,7 +244,7 @@ describe.skipIf(!safeConnectionString || !prisma)(
           assignment: { mode: "fixed", memberUserIds: [owner.id] }
         }]
       });
-      const chore = scheduled.chore;
+      const Task = scheduled.task;
 
       await store.saveRecommendations(household.id, [
         {
@@ -255,14 +257,16 @@ describe.skipIf(!safeConnectionString || !prisma)(
         }
       ]);
 
-      const updated = await store.updateChore(household.id, chore.id, {
+      const updated = await store.updateTask(household.id, Task.id, {
         title: "Clean main bathroom",
+        type: "chore",
+        libraryState: "saved",
         source: "manual"
       });
 
       expect(updated).toEqual(
         expect.objectContaining({
-          id: chore.id,
+          id: Task.id,
           title: "Clean main bathroom"
         })
       );
@@ -270,17 +274,17 @@ describe.skipIf(!safeConnectionString || !prisma)(
         expect.objectContaining({ staleAt: expect.any(String) })
       ]);
 
-      const archived = await store.archiveChore(household.id, chore.id);
+      const archived = await store.archiveTask(household.id, Task.id);
       expect(archived?.archivedAt).toEqual(expect.any(String));
-      expect(await store.listChores(household.id)).toEqual([]);
-      expect(await store.listChores(household.id, { includeArchived: true })).toEqual([
-        expect.objectContaining({ id: chore.id, archivedAt: expect.any(String) })
+      expect(await store.listTasks(household.id)).toEqual([]);
+      expect(await store.listTasks(household.id, { includeArchived: true })).toEqual([
+        expect.objectContaining({ id: Task.id, archivedAt: expect.any(String) })
       ]);
 
-      const restored = await store.restoreChore(household.id, chore.id);
+      const restored = await store.restoreTask(household.id, Task.id);
       expect(restored?.archivedAt).toBeUndefined();
-      expect(await store.listChores(household.id)).toEqual([
-        expect.objectContaining({ id: chore.id, archivedAt: undefined })
+      expect(await store.listTasks(household.id)).toEqual([
+        expect.objectContaining({ id: Task.id, archivedAt: undefined })
       ]);
     });
 
@@ -354,9 +358,9 @@ describe.skipIf(!safeConnectionString || !prisma)(
       const firstStore = createPrismaStore(prisma!);
       const owner = await firstStore.upsertUserByClerkId("owner");
       const household = await firstStore.createHouseholdForUser("Home", owner.id);
-      const scheduled = await firstStore.createChoreWithSchedules({
+      const scheduled = await firstStore.createTaskWithSchedules({
         householdId: household.id,
-        chore: { title: "Clean bathrooms", source: "manual" },
+        task: { title: "Clean bathrooms", type: "chore", libraryState: "saved", source: "manual" },
         schedules: [{
           planningMode: "timed",
           recurrence: { frequency: "daily", interval: 1 },
@@ -380,7 +384,7 @@ describe.skipIf(!safeConnectionString || !prisma)(
       );
 
       const secondStore = createPrismaStore(prisma!);
-      expect(await secondStore.listSchedules(household.id, scheduled.chore.id)).toEqual([
+      expect(await secondStore.listSchedules(household.id, scheduled.task.id)).toEqual([
         expect.objectContaining({ id: schedule.id, planningMode: "timed", localEndTime: "09:30" })
       ]);
       expect(await secondStore.listOccurrences(household.id, {
@@ -395,9 +399,9 @@ describe.skipIf(!safeConnectionString || !prisma)(
       const firstStore = createPrismaStore(prisma!);
       const owner = await firstStore.upsertUserByClerkId("owner");
       const household = await firstStore.createHouseholdForUser("Home", owner.id);
-      const scheduled = await firstStore.createChoreWithSchedules({
+      const scheduled = await firstStore.createTaskWithSchedules({
         householdId: household.id,
-        chore: { title: "Clean bathrooms", source: "manual" },
+        task: { title: "Clean bathrooms", type: "chore", libraryState: "saved", source: "manual" },
         schedules: [{
           planningMode: "flexible",
           recurrence: { frequency: "weekly", interval: 1, weekDays: [6, 0] },
@@ -456,9 +460,9 @@ describe.skipIf(!safeConnectionString || !prisma)(
       const firstStore = createPrismaStore(prisma!);
       const owner = await firstStore.upsertUserByClerkId("owner");
       const household = await firstStore.createHouseholdForUser("Home", owner.id);
-      const scheduled = await firstStore.createChoreWithSchedules({
+      const scheduled = await firstStore.createTaskWithSchedules({
         householdId: household.id,
-        chore: { title: "Clean bathrooms", source: "manual" },
+        task: { title: "Clean bathrooms", type: "chore", libraryState: "saved", source: "manual" },
         schedules: [{
           planningMode: "flexible",
           recurrence: { frequency: "weekly", interval: 1, weekDays: [6, 0] },
@@ -531,9 +535,9 @@ describe.skipIf(!safeConnectionString || !prisma)(
         expiresAt: new Date(Date.now() + 60_000).toISOString()
       })).id, member.id, new Date().toISOString());
 
-      const scheduled = await firstStore.createChoreWithSchedules({
+      const scheduled = await firstStore.createTaskWithSchedules({
         householdId: household.id,
-        chore: { title: "Mixed occurrence coverage", source: "manual" },
+        task: { title: "Mixed occurrence coverage", type: "chore", libraryState: "saved", source: "manual" },
         schedules: [
           {
             planningMode: "flexible",
@@ -677,9 +681,9 @@ describe.skipIf(!safeConnectionString || !prisma)(
         expiresAt: new Date(Date.now() + 60_000).toISOString()
       })).id, member.id, new Date().toISOString());
 
-      const scheduled = await firstStore.createChoreWithSchedules({
+      const scheduled = await firstStore.createTaskWithSchedules({
         householdId: household.id,
-        chore: { title: "Mode change cleanup", source: "manual" },
+        task: { title: "Mode change cleanup", type: "chore", libraryState: "saved", source: "manual" },
         schedules: [{
           planningMode: "flexible",
           recurrence: { frequency: "daily", interval: 1 },
@@ -782,9 +786,9 @@ describe.skipIf(!safeConnectionString || !prisma)(
         expiresAt: new Date(Date.now() + 60_000).toISOString()
       })).id, member.id, new Date().toISOString());
 
-      const scheduled = await firstStore.createChoreWithSchedules({
+      const scheduled = await firstStore.createTaskWithSchedules({
         householdId: household.id,
-        chore: { title: "Regenerated future persistence", source: "manual" },
+        task: { title: "Regenerated future persistence", type: "chore", libraryState: "saved", source: "manual" },
         schedules: [{
           planningMode: "flexible",
           recurrence: { frequency: "weekly", interval: 1, weekDays: [1, 2] },
@@ -871,14 +875,14 @@ describe.skipIf(!safeConnectionString || !prisma)(
       ]);
     });
 
-    it("does not persist a chore when nested schedule persistence fails", async () => {
+    it("does not persist a Task when nested schedule persistence fails", async () => {
       const store = createPrismaStore(prisma!);
       const owner = await store.upsertUserByClerkId("owner");
       const household = await store.createHouseholdForUser("Home", owner.id);
 
-      await expect(store.createChoreWithSchedules({
+      await expect(store.createTaskWithSchedules({
         householdId: household.id,
-        chore: { title: "Invalid atomic chore", source: "manual" },
+        task: { title: "Invalid atomic Task", type: "chore", libraryState: "saved", source: "manual" },
         schedules: [{
           planningMode: "timed",
           recurrence: { frequency: "one_time", interval: 1 },
@@ -889,7 +893,9 @@ describe.skipIf(!safeConnectionString || !prisma)(
         }]
       })).rejects.toThrow();
 
-      expect(await store.listChores(household.id)).toEqual([]);
+      expect(await store.listTasks(household.id)).toEqual([]);
     });
   }
 );
+
+

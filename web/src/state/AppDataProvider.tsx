@@ -22,7 +22,7 @@ function createEmptyHouseholdData(
   return {
     ...household,
     structure: { householdId: household.id, floors: [] },
-    chores: [],
+    tasks: [],
     recommendations: []
   };
 }

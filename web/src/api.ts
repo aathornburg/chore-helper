@@ -8,15 +8,19 @@ import type {
   CalendarPreferences,
   CalendarImportCandidate,
   CleanlyCalendarEvent,
-  Chore,
-  ChoreLibraryPermission,
-  CreateChoreInput,
-  ChoreDefinitionInput,
-  ChoreCompletionCheckIn,
-  ChoreOccurrence,
-  ChoreSchedule,
+  ImportScope,
+  Task,
+  TaskInboxItem,
+  TaskInboxItemKind,
+  TaskLibraryPermission,
+  CreateTaskInput,
+  TaskDefinitionInput,
+  TaskCompletionCheckIn,
+  OccurrenceTaskDetailsInput,
+  TaskOccurrence,
+  TaskSchedule,
   CompletionCheckInInput,
-  CreateScheduledChoreInput,
+  CreateScheduledTaskInput,
   Household,
   HouseholdAppData,
   HouseholdInvitation,
@@ -25,7 +29,7 @@ import type {
   HouseholdStructure,
   Recommendation,
   ScheduleInput,
-  ScheduledChore,
+  ScheduledTask,
   ExternalCalendarSummary
 } from "@chore-helper/shared";
 
@@ -217,112 +221,166 @@ export async function saveHouseholdStructure(
   return response.json();
 }
 
-export async function createScheduledChore(
+export async function createScheduledTask(
   householdId: string,
-  input: CreateScheduledChoreInput
-): Promise<ScheduledChore> {
-  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/chores`, {
+  input: CreateScheduledTaskInput
+): Promise<ScheduledTask> {
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/tasks`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input)
   });
 
-  if (!response.ok) throw new Error("Failed to create scheduled chore");
+  if (!response.ok) throw new Error("Failed to create scheduled task");
   return response.json();
 }
 
-export async function createChore(householdId: string, chore: CreateChoreInput): Promise<Chore> {
-  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/chores`, {
+export async function createTask(householdId: string, task: CreateTaskInput): Promise<Task> {
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/tasks`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chore })
+    body: JSON.stringify({ task })
   });
 
-  if (!response.ok) throw new Error("Failed to create chore");
+  if (!response.ok) throw new Error("Failed to create task");
   return response.json();
 }
 
-export async function listAllChores(options: { includeArchived?: boolean; status?: "archived" } = {}): Promise<Chore[]> {
+export async function listAllTasks(options: { includeArchived?: boolean; status?: "archived" } = {}): Promise<Task[]> {
   const params = new URLSearchParams();
   if (options.includeArchived) params.set("includeArchived", "true");
   if (options.status) params.set("status", options.status);
   const queryString = params.toString();
-  const response = await apiFetch(`${API_BASE_URL}/api/chores${queryString ? `?${queryString}` : ""}`);
+  const response = await apiFetch(`${API_BASE_URL}/api/tasks${queryString ? `?${queryString}` : ""}`);
 
-  if (!response.ok) throw new Error("Failed to fetch chores");
+  if (!response.ok) throw new Error("Failed to fetch tasks");
   return response.json();
 }
 
-export async function listChores(householdId: string): Promise<Chore[]> {
-  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/chores`);
+export async function listTasks(householdId: string): Promise<Task[]> {
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/tasks`);
 
-  if (!response.ok) throw new Error("Failed to fetch chores");
+  if (!response.ok) throw new Error("Failed to fetch tasks");
   return response.json();
 }
 
-export async function updateChore(
+export async function updateTask(
   householdId: string,
-  choreId: string,
-  chore: ChoreDefinitionInput
-): Promise<Chore> {
-  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/chores/${choreId}`, {
+  taskId: string,
+  task: TaskDefinitionInput
+): Promise<Task> {
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/tasks/${taskId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(chore)
+    body: JSON.stringify(task)
   });
 
-  if (!response.ok) throw new Error("Failed to update chore");
+  if (!response.ok) throw new Error("Failed to update task");
   return response.json();
 }
 
-export async function archiveChore(householdId: string, choreId: string): Promise<Chore> {
+export async function archiveTask(householdId: string, taskId: string): Promise<Task> {
   const response = await apiFetch(
-    `${API_BASE_URL}/api/households/${householdId}/chores/${choreId}/archive`,
+    `${API_BASE_URL}/api/households/${householdId}/tasks/${taskId}/archive`,
     { method: "POST" }
   );
 
-  if (!response.ok) throw new Error("Failed to archive chore");
+  if (!response.ok) throw new Error("Failed to archive task");
   return response.json();
 }
 
-export async function restoreChore(householdId: string, choreId: string): Promise<Chore> {
+export async function restoreTask(householdId: string, taskId: string): Promise<Task> {
   const response = await apiFetch(
-    `${API_BASE_URL}/api/households/${householdId}/chores/${choreId}/restore`,
+    `${API_BASE_URL}/api/households/${householdId}/tasks/${taskId}/restore`,
     { method: "POST" }
   );
 
-  if (!response.ok) throw new Error("Failed to restore chore");
+  if (!response.ok) throw new Error("Failed to restore task");
   return response.json();
 }
 
-export async function listArchivedChores(householdId: string): Promise<Chore[]> {
-  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/chores?status=archived`);
+export async function listArchivedTasks(householdId: string): Promise<Task[]> {
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/tasks?status=archived`);
 
-  if (!response.ok) throw new Error("Failed to fetch archived chores");
+  if (!response.ok) throw new Error("Failed to fetch archived tasks");
   return response.json();
 }
 
-export async function updateChoreLibraryPermission(
+export async function listTaskInbox(householdId: string): Promise<{ items: TaskInboxItem[] }> {
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/task-inbox`);
+
+  if (!response.ok) throw new Error("Failed to fetch Task inbox");
+  return response.json();
+}
+
+export async function linkTaskInboxItem(
+  householdId: string,
+  kind: TaskInboxItemKind,
+  itemId: string,
+  taskId: string,
+  scope: ImportScope
+): Promise<CalendarImportQueueItem | Task> {
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/task-inbox/${kind}/${itemId}/link`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ taskId, scope })
+  });
+
+  if (!response.ok) throw new Error("Failed to link Task inbox item");
+  return response.json();
+}
+
+export async function saveTaskInboxItem(
+  householdId: string,
+  kind: TaskInboxItemKind,
+  itemId: string,
+  task: TaskDefinitionInput,
+  scope: ImportScope
+): Promise<CalendarImportQueueItem | Task> {
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/task-inbox/${kind}/${itemId}/save`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ task, scope })
+  });
+
+  if (!response.ok) throw new Error("Failed to save Task inbox item");
+  return response.json();
+}
+
+export async function keepTaskInboxItemOneTime(
+  householdId: string,
+  kind: TaskInboxItemKind,
+  itemId: string
+): Promise<CalendarImportQueueItem | Task> {
+  const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/task-inbox/${kind}/${itemId}/keep-one-time`, {
+    method: "POST"
+  });
+
+  if (!response.ok) throw new Error("Failed to keep Task inbox item one-time");
+  return response.json();
+}
+
+export async function updateTaskLibraryPermission(
   householdId: string,
   memberId: string,
-  choreLibraryPermission: ChoreLibraryPermission
+  taskLibraryPermission: TaskLibraryPermission
 ): Promise<HouseholdMemberSummary> {
   const response = await apiFetch(
-    `${API_BASE_URL}/api/households/${householdId}/members/${memberId}/chore-library-permission`,
+    `${API_BASE_URL}/api/households/${householdId}/members/${memberId}/task-library-permission`,
     {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ choreLibraryPermission })
+      body: JSON.stringify({ taskLibraryPermission })
     }
   );
 
-  if (!response.ok) throw new Error("Failed to update chore library permission");
+  if (!response.ok) throw new Error("Failed to update task library permission");
   return response.json();
 }
 
-export async function listSchedules(householdId: string, choreId: string): Promise<ChoreSchedule[]> {
+export async function listSchedules(householdId: string, taskId: string): Promise<TaskSchedule[]> {
   const response = await apiFetch(
-    `${API_BASE_URL}/api/households/${householdId}/chores/${choreId}/schedules`
+    `${API_BASE_URL}/api/households/${householdId}/tasks/${taskId}/schedules`
   );
 
   if (!response.ok) throw new Error("Failed to fetch schedules");
@@ -331,11 +389,11 @@ export async function listSchedules(householdId: string, choreId: string): Promi
 
 export async function createSchedule(
   householdId: string,
-  choreId: string,
+  taskId: string,
   schedule: ScheduleInput
-): Promise<ChoreSchedule> {
+): Promise<TaskSchedule> {
   const response = await apiFetch(
-    `${API_BASE_URL}/api/households/${householdId}/chores/${choreId}/schedules`,
+    `${API_BASE_URL}/api/households/${householdId}/tasks/${taskId}/schedules`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -351,7 +409,7 @@ export async function updateSchedule(
   householdId: string,
   scheduleId: string,
   schedule: ScheduleInput
-): Promise<ChoreSchedule> {
+): Promise<TaskSchedule> {
   const response = await apiFetch(
     `${API_BASE_URL}/api/households/${householdId}/schedules/${scheduleId}`,
     {
@@ -368,7 +426,7 @@ export async function updateSchedule(
 export async function listOccurrences(
   householdId: string,
   range: { startAt: string; endAt: string; startOn: string; endOn: string; assignedUserId?: string }
-): Promise<ChoreOccurrence[]> {
+): Promise<TaskOccurrence[]> {
   const params = new URLSearchParams({
     startAt: range.startAt,
     endAt: range.endAt,
@@ -388,7 +446,7 @@ export async function completeOccurrence(
   householdId: string,
   occurrenceId: string,
   checkIn?: CompletionCheckInInput
-): Promise<ChoreOccurrence> {
+): Promise<TaskOccurrence> {
   const response = await apiFetch(
     `${API_BASE_URL}/api/households/${householdId}/occurrences/${occurrenceId}/complete`,
     {
@@ -406,7 +464,7 @@ export async function updateCompletionCheckIn(
   householdId: string,
   occurrenceId: string,
   checkIn: CompletionCheckInInput
-): Promise<ChoreCompletionCheckIn> {
+): Promise<TaskCompletionCheckIn> {
   const response = await apiFetch(
     `${API_BASE_URL}/api/households/${householdId}/occurrences/${occurrenceId}/check-in`,
     {
@@ -424,7 +482,7 @@ export async function updateOccurrence(
   householdId: string,
   occurrenceId: string,
   update: { plannedStartAt: string; plannedEndAt: string; assignedUserId: string }
-): Promise<ChoreOccurrence> {
+): Promise<TaskOccurrence> {
   const response = await apiFetch(
     `${API_BASE_URL}/api/households/${householdId}/occurrences/${occurrenceId}`,
     {
@@ -438,7 +496,55 @@ export async function updateOccurrence(
   return response.json();
 }
 
-export async function skipOccurrence(householdId: string, occurrenceId: string): Promise<ChoreOccurrence> {
+export async function updateOccurrenceTaskDetails(
+  householdId: string,
+  occurrenceId: string,
+  update: OccurrenceTaskDetailsInput
+): Promise<TaskOccurrence> {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/households/${householdId}/occurrences/${occurrenceId}/task-details`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(update)
+    }
+  );
+
+  if (!response.ok) throw new Error("Failed to update scheduled task details");
+  return response.json();
+}
+
+export async function saveOccurrenceTaskToLibrary(householdId: string, occurrenceId: string): Promise<TaskOccurrence> {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/households/${householdId}/occurrences/${occurrenceId}/save-to-library`,
+    { method: "POST" }
+  );
+
+  if (!response.ok) throw new Error("Failed to save scheduled task to library");
+  return response.json();
+}
+
+export async function syncOccurrenceDetailsToTask(householdId: string, occurrenceId: string): Promise<TaskOccurrence> {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/households/${householdId}/occurrences/${occurrenceId}/sync-to-task`,
+    { method: "POST" }
+  );
+
+  if (!response.ok) throw new Error("Failed to sync scheduled task details");
+  return response.json();
+}
+
+export async function resetOccurrenceTaskOverrides(householdId: string, occurrenceId: string): Promise<TaskOccurrence> {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/households/${householdId}/occurrences/${occurrenceId}/reset-task-overrides`,
+    { method: "POST" }
+  );
+
+  if (!response.ok) throw new Error("Failed to reset scheduled task details");
+  return response.json();
+}
+
+export async function skipOccurrence(householdId: string, occurrenceId: string): Promise<TaskOccurrence> {
   const response = await apiFetch(
     `${API_BASE_URL}/api/households/${householdId}/occurrences/${occurrenceId}/skip`,
     { method: "POST" }
@@ -451,12 +557,12 @@ export async function skipOccurrence(householdId: string, occurrenceId: string):
 export async function generateRecommendations(
   householdId: string,
   reviewPrompt?: string,
-  selectedChoreIds?: string[]
+  selectedTaskIds?: string[]
 ): Promise<Recommendation[]> {
   const response = await apiFetch(`${API_BASE_URL}/api/households/${householdId}/recommendations`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ reviewPrompt, selectedChoreIds })
+    body: JSON.stringify({ reviewPrompt, selectedTaskIds })
   });
 
   if (!response.ok) throw new Error("Failed to generate recommendations");

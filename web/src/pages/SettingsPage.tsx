@@ -1,29 +1,21 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   CalendarConnectionSummary,
   CalendarImportPolicy,
   CalendarPreferences,
-  Chore,
-  ChoreDefinitionInput,
-  ChoreLibraryPermission,
+  TaskLibraryPermission,
   HouseholdAppData,
   HouseholdMemberSummary
 } from "@chore-helper/shared";
 import {
-  archiveChore,
-  createChore,
   disconnectCalendarConnection,
   getCalendarPreferences,
   getCurrentUser,
-  listArchivedChores,
   listCalendarConnections,
   listCalendarImportPolicies,
-  listChores,
   listHouseholdMembers,
-  restoreChore,
   startGoogleCalendarConnection,
-  updateChore,
-  updateChoreLibraryPermission,
+  updateTaskLibraryPermission,
   updateCalendarImportPolicy,
   updateCalendarPreferences
 } from "../api";
@@ -34,18 +26,14 @@ type SettingsPageProps = {
   onWeekStartDayChange: (weekStartDay: WeekStartDay) => void;
   weekStartDay: WeekStartDay;
 };
-type SettingsView = "general" | "connections" | "family" | "library";
-type ChoreFormState = {
-  title: string;
-  instructions: string;
-  tags: string;
-};
+type SettingsView = "general" | "connections" | "family";
+const permissionLoadErrorMessage =
+  "Could not load household permissions. Task library management is unavailable, and a database migration may still need to run.";
 
 const settingsViews: Array<{ id: SettingsView; label: string; summary: string }> = [
   { id: "general", label: "General", summary: "Defaults" },
   { id: "connections", label: "Connections", summary: "Calendar sync" },
-  { id: "family", label: "Family", summary: "Permissions" },
-  { id: "library", label: "Chore library", summary: "Reusable work" }
+  { id: "family", label: "Family", summary: "Permissions" }
 ];
 
 function connectionStatus(connections: CalendarConnectionSummary[]) {
@@ -64,109 +52,53 @@ function defaultDisconnectedPreferences(householdId: string): CalendarPreference
   };
 }
 
-function ChoreLibraryModal({
-  chore,
-  onClose,
-  onSave
-}: {
-  chore: Chore | "new";
-  onClose: () => void;
-  onSave: (chore: Chore | "new", form: ChoreFormState) => void;
-}) {
-  const [form, setForm] = useState<ChoreFormState>(() => ({
-    title: chore === "new" ? "" : chore.title,
-    instructions: chore === "new" ? "" : chore.instructions ?? "",
-    tags: chore === "new" ? "" : (chore.tags ?? []).join(", ")
-  }));
-  const title = chore === "new" ? "Add chore" : "Edit chore";
-
-  return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
-      <section
-        aria-label={title}
-        aria-modal="true"
-        className="modal-card chore-library-modal"
-        onMouseDown={(event) => event.stopPropagation()}
-        role="dialog"
-      >
-        <div className="modal-header">
-          <div>
-            <p className="eyebrow">Chore library</p>
-            <h3>{title}</h3>
-          </div>
-          <button aria-label="Close dialog" className="modal-close-button" type="button" onClick={onClose}>X</button>
-        </div>
-        <div className="sync-preference-grid">
-          <label>
-            Chore name
-            <input
-              value={form.title}
-              onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
-            />
-          </label>
-          <label>
-            Tags
-            <input
-              placeholder="kitchen, weekly"
-              value={form.tags}
-              onChange={(event) => setForm((current) => ({ ...current, tags: event.target.value }))}
-            />
-          </label>
-          <label className="settings-modal-wide-field">
-            Instructions
-            <textarea
-              value={form.instructions}
-              onChange={(event) => setForm((current) => ({ ...current, instructions: event.target.value }))}
-            />
-          </label>
-        </div>
-        <div className="modal-actions">
-          <button type="button" onClick={onClose}>Cancel</button>
-          <button type="button" onClick={() => onSave(chore, form)} disabled={!form.title.trim()}>Save chore</button>
-        </div>
-      </section>
-    </div>
-  );
-}
-
 export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }: SettingsPageProps) {
   const selectedHousehold = households[0];
+  const mobileSettingsMenuRef = useRef<HTMLDivElement | null>(null);
   const [activeView, setActiveView] = useState<SettingsView>(() =>
     window.location.hash === "#calendar" ? "connections" : "general"
   );
+  const [isMobileSettingsMenuOpen, setIsMobileSettingsMenuOpen] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string>();
   const [members, setMembers] = useState<HouseholdMemberSummary[]>([]);
   const [connections, setConnections] = useState<CalendarConnectionSummary[]>([]);
   const [policies, setPolicies] = useState<CalendarImportPolicy[]>([]);
   const [preferences, setPreferences] = useState<CalendarPreferences>();
-  const [libraryChores, setLibraryChores] = useState<Chore[]>([]);
-  const [archivedChores, setArchivedChores] = useState<Chore[]>([]);
-  const [librarySearch, setLibrarySearch] = useState("");
-  const [librarySource, setLibrarySource] = useState<"all" | Chore["source"]>("all");
-  const [libraryStatus, setLibraryStatus] = useState<"active" | "archived">("active");
-  const [editingChore, setEditingChore] = useState<Chore | "new">();
-  const [archiveCandidate, setArchiveCandidate] = useState<Chore>();
-  const [libraryStatusMessage, setLibraryStatusMessage] = useState<string>();
   const [calendarStatus, setCalendarStatus] = useState<string>();
+  const [permissionStatus, setPermissionStatus] = useState<"loading" | "ready" | "error">(
+    selectedHousehold ? "loading" : "ready"
+  );
   const connectedConnection = connections.find((connection) => connection.status === "connected") ?? connections[0];
   const isOwner = useMemo(
     () => members.some((member) => member.userId === currentUserId && member.role === "owner"),
     [currentUserId, members]
   );
-  const currentMember = members.find((member) => member.userId === currentUserId);
-  const canManageChoreLibrary = isOwner || currentMember?.choreLibraryPermission === "manage";
+  const activeSettingsView = settingsViews.find((view) => view.id === activeView) ?? settingsViews[0];
 
   useEffect(() => {
-    if (!selectedHousehold) return;
+    if (!selectedHousehold) {
+      setPermissionStatus("ready");
+      return;
+    }
     let cancelled = false;
+    setPermissionStatus("loading");
     void Promise.all([
       getCurrentUser(),
-      listHouseholdMembers(selectedHousehold.id),
-      listCalendarConnections()
-    ]).then(([user, loadedMembers, loadedConnections]) => {
+      listHouseholdMembers(selectedHousehold.id)
+    ]).then(([user, loadedMembers]) => {
       if (cancelled) return;
       setCurrentUserId(user.id);
       setMembers(loadedMembers);
+      setPermissionStatus("ready");
+    }).catch(() => {
+      if (!cancelled) {
+        setMembers([]);
+        setPermissionStatus("error");
+      }
+    });
+
+    void listCalendarConnections().then((loadedConnections) => {
+      if (cancelled) return;
       setConnections(loadedConnections);
       if (!loadedConnections.length) {
         setPreferences(defaultDisconnectedPreferences(selectedHousehold.id));
@@ -188,6 +120,20 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
   }, [selectedHousehold?.id]);
 
   useEffect(() => {
+    if (!isMobileSettingsMenuOpen) return;
+    function closeMobileSettingsMenuOnOutsideClick(event: MouseEvent) {
+      const target = event.target;
+      if (!(target instanceof Node) || mobileSettingsMenuRef.current?.contains(target)) return;
+      setIsMobileSettingsMenuOpen(false);
+    }
+
+    document.addEventListener("mousedown", closeMobileSettingsMenuOnOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", closeMobileSettingsMenuOnOutsideClick);
+    };
+  }, [isMobileSettingsMenuOpen]);
+
+  useEffect(() => {
     if (!selectedHousehold || !isOwner) {
       setPolicies([]);
       return;
@@ -205,30 +151,6 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
     };
   }, [isOwner, selectedHousehold?.id]);
 
-  useEffect(() => {
-    if (!selectedHousehold) {
-      setLibraryChores([]);
-      setArchivedChores([]);
-      return;
-    }
-    let cancelled = false;
-    void Promise.all([
-      listChores(selectedHousehold.id),
-      listArchivedChores(selectedHousehold.id)
-    ])
-      .then(([active, archived]) => {
-        if (cancelled) return;
-        setLibraryChores(active);
-        setArchivedChores(archived);
-      })
-      .catch(() => {
-        if (!cancelled) setLibraryStatusMessage("Could not load the Chore library.");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedHousehold?.id]);
-
   function savePreference(update: CalendarPreferences) {
     void updateCalendarPreferences(update).then(setPreferences).catch(() => {
       setCalendarStatus("Could not save calendar preferences.");
@@ -244,63 +166,13 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
       .catch(() => setCalendarStatus("Could not save family import controls."));
   }
 
-  function saveChoreLibraryPermission(member: HouseholdMemberSummary, choreLibraryPermission: ChoreLibraryPermission) {
+  function saveTaskLibraryPermission(member: HouseholdMemberSummary, taskLibraryPermission: TaskLibraryPermission) {
     if (!selectedHousehold) return;
-    void updateChoreLibraryPermission(selectedHousehold.id, member.userId, choreLibraryPermission)
+    void updateTaskLibraryPermission(selectedHousehold.id, member.userId, taskLibraryPermission)
       .then((updated) => {
         setMembers((current) => current.map((item) => item.userId === updated.userId ? updated : item));
       })
-      .catch(() => setCalendarStatus("Could not save Chore library permission."));
-  }
-
-  function toChoreInput(chore: Chore | "new", form: ChoreFormState): ChoreDefinitionInput {
-    return {
-      title: form.title.trim(),
-      source: chore === "new" ? "manual" : chore.source,
-      instructions: form.instructions.trim() || undefined,
-      tags: form.tags.split(",").map((tag) => tag.trim()).filter(Boolean)
-    };
-  }
-
-  function saveLibraryChore(chore: Chore | "new", form: ChoreFormState) {
-    if (!selectedHousehold || !form.title.trim()) return;
-    const input = toChoreInput(chore, form);
-    const request = chore === "new"
-      ? createChore(selectedHousehold.id, input)
-      : updateChore(selectedHousehold.id, chore.id, input);
-
-    void request
-      .then((saved) => {
-        setLibraryChores((current) => chore === "new"
-          ? [...current, saved]
-          : current.map((item) => item.id === saved.id ? saved : item));
-        setEditingChore(undefined);
-        setLibraryStatusMessage("Chore library saved.");
-      })
-      .catch(() => setLibraryStatusMessage("Could not save Chore library item."));
-  }
-
-  function archiveLibraryChore(chore: Chore) {
-    if (!selectedHousehold) return;
-    void archiveChore(selectedHousehold.id, chore.id)
-      .then((archived) => {
-        setLibraryChores((current) => current.filter((item) => item.id !== archived.id));
-        setArchivedChores((current) => [archived, ...current.filter((item) => item.id !== archived.id)]);
-        setArchiveCandidate(undefined);
-        setLibraryStatusMessage("Chore archived.");
-      })
-      .catch(() => setLibraryStatusMessage("Could not archive chore."));
-  }
-
-  function restoreLibraryChore(chore: Chore) {
-    if (!selectedHousehold) return;
-    void restoreChore(selectedHousehold.id, chore.id)
-      .then((restored) => {
-        setArchivedChores((current) => current.filter((item) => item.id !== restored.id));
-        setLibraryChores((current) => [restored, ...current.filter((item) => item.id !== restored.id)]);
-        setLibraryStatusMessage("Chore restored.");
-      })
-      .catch(() => setLibraryStatusMessage("Could not restore chore."));
+      .catch(() => setCalendarStatus("Could not save Task library permission."));
   }
 
   function handleConnectGoogleCalendar() {
@@ -450,7 +322,7 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
                           exportContentMode: event.target.value as CalendarPreferences["exportContentMode"]
                         })}
                       >
-                        <option value="chores">Chores</option>
+                        <option value="chores">Tasks</option>
                         <option value="commitments">Commitments</option>
                         <option value="both">Both</option>
                       </select>
@@ -475,6 +347,19 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
       );
     }
 
+    if (permissionStatus === "error") {
+      return (
+        <section className="settings-view-panel" aria-label="Family settings">
+          <article className="sync-panel">
+            <div className="panel-heading">
+              <h3>Family permissions unavailable</h3>
+            </div>
+            <p className="section-summary" role="status">{permissionLoadErrorMessage}</p>
+          </article>
+        </section>
+      );
+    }
+
     if (!isOwner) {
       return (
         <section className="settings-view-panel" aria-label="Family settings">
@@ -482,7 +367,7 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
             <div className="panel-heading">
               <h3>Your household policy</h3>
             </div>
-            <p>Your household owner controls whether shared events are auto-added and who can manage the shared Chore library.</p>
+            <p>Your household owner controls whether shared events are auto-added and who can manage the shared Task library.</p>
           </article>
         </section>
       );
@@ -497,13 +382,13 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
               <h3>Family permissions</h3>
             </div>
           </div>
-          <p>Control how each member can send calendar events into Clenella and manage the shared Chore library.</p>
+          <p>Control how each member can send calendar events into Clenella and manage the shared Task library.</p>
           <div className="sync-policy-table">
             <div className="sync-policy-header" aria-hidden="true">
               <span>Member</span>
               <span>Import mode</span>
               <span>Content</span>
-              <span>Chore library</span>
+              <span>Task library</span>
             </div>
             {policies.map((policy) => (
               <div className="sync-policy-row" key={policy.memberId}>
@@ -534,18 +419,18 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
                       importContentMode: event.target.value as CalendarImportPolicy["importContentMode"]
                     })}
                   >
-                    <option value="chores">Chores</option>
+                    <option value="chores">Tasks</option>
                     <option value="commitments">Commitments</option>
                     <option value="both">Both</option>
                   </select>
                 </label>
                 <label>
-                  <span className="sr-only">{policy.memberName} chore library permission</span>
+                  <span className="sr-only">{policy.memberName} Task library permission</span>
                   <select
-                    value={members.find((member) => member.userId === policy.memberId)?.choreLibraryPermission ?? "view"}
+                    value={members.find((member) => member.userId === policy.memberId)?.taskLibraryPermission ?? "view"}
                     onChange={(event) => {
                       const member = members.find((item) => item.userId === policy.memberId);
-                      if (member) saveChoreLibraryPermission(member, event.target.value as ChoreLibraryPermission);
+                      if (member) saveTaskLibraryPermission(member, event.target.value as TaskLibraryPermission);
                     }}
                   >
                     <option value="view">View only</option>
@@ -560,138 +445,15 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
     );
   }
 
-  function renderChoreLibrary() {
-    const sourceLabel = (source: Chore["source"]) => source === "google-calendar" ? "Imported" : "Manual";
-    const chores = libraryStatus === "active" ? libraryChores : archivedChores;
-    const visibleChores = chores
-      .filter((chore) => librarySource === "all" || chore.source === librarySource)
-      .filter((chore) => {
-        const query = librarySearch.trim().toLowerCase();
-        if (!query) return true;
-        return [
-          chore.title,
-          chore.instructions ?? "",
-          ...(chore.tags ?? [])
-        ].some((value) => value.toLowerCase().includes(query));
-      });
-
-    return (
-      <section className="settings-view-panel" aria-label="Chore library">
-        <div className="panel-heading">
-          <div>
-            <p className="eyebrow">Reusable work</p>
-            <h2>Chore library</h2>
-          </div>
-          <span>{chores.length} chore{chores.length === 1 ? "" : "s"}</span>
-        </div>
-        {!selectedHousehold ? (
-          <p className="empty-state">Add or join a household before reviewing the Chore library.</p>
-        ) : (
-          <>
-            <div className="chore-library-toolbar">
-              <label>
-                <span className="sr-only">Search Chore library</span>
-                <input
-                  placeholder="Search chores"
-                  type="search"
-                  value={librarySearch}
-                  onChange={(event) => setLibrarySearch(event.target.value)}
-                />
-              </label>
-              <label>
-                <span className="sr-only">Chore source</span>
-                <select value={librarySource} onChange={(event) => setLibrarySource(event.target.value as typeof librarySource)}>
-                  <option value="all">All sources</option>
-                  <option value="manual">Manual</option>
-                  <option value="google-calendar">Imported</option>
-                </select>
-              </label>
-              <label>
-                <span className="sr-only">Chore status</span>
-                <select value={libraryStatus} onChange={(event) => setLibraryStatus(event.target.value as typeof libraryStatus)}>
-                  <option value="active">Active</option>
-                  <option value="archived">Archived</option>
-                </select>
-              </label>
-              {canManageChoreLibrary ? (
-                <button type="button" onClick={() => setEditingChore("new")}>Add chore</button>
-              ) : null}
-            </div>
-            {!canManageChoreLibrary ? (
-              <p className="section-summary">Your household owner controls who can manage the Chore library.</p>
-            ) : null}
-            {libraryStatusMessage ? <p role="status" className="section-summary">{libraryStatusMessage}</p> : null}
-            {visibleChores.length === 0 ? (
-              <p className="empty-state">
-                {libraryStatus === "archived" ? "No archived chores match these filters." : "No chores have been added to the Chore library yet."}
-              </p>
-            ) : (
-              <div className="chore-library-list">
-                {visibleChores.map((chore) => (
-                  <article className="chore-library-row" key={chore.id}>
-                    <div>
-                      <strong>{chore.title}</strong>
-                      <span>{chore.instructions ?? "No instructions yet."}</span>
-                    </div>
-                    <span>{sourceLabel(chore.source)}</span>
-                    <span>{Array.isArray(chore.tags) && chore.tags.length > 0 ? chore.tags.join(", ") : "No tags"}</span>
-                    <div className="chore-library-actions">
-                      {canManageChoreLibrary && libraryStatus === "active" ? (
-                        <>
-                          <button aria-label="Edit chore" type="button" onClick={() => setEditingChore(chore)}>Edit</button>
-                          <button aria-label="Archive chore" className="section-action" type="button" onClick={() => setArchiveCandidate(chore)}>Archive</button>
-                        </>
-                      ) : null}
-                      {canManageChoreLibrary && libraryStatus === "archived" ? (
-                        <button aria-label="Restore chore" type="button" onClick={() => restoreLibraryChore(chore)}>Restore</button>
-                      ) : null}
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-        {editingChore ? (
-          <ChoreLibraryModal
-            chore={editingChore}
-            onClose={() => setEditingChore(undefined)}
-            onSave={saveLibraryChore}
-          />
-        ) : null}
-        {archiveCandidate ? (
-          <div className="modal-backdrop" role="presentation" onMouseDown={() => setArchiveCandidate(undefined)}>
-            <section
-              aria-label="Archive chore"
-              aria-modal="true"
-              className="modal-card chore-library-modal"
-              onMouseDown={(event) => event.stopPropagation()}
-              role="dialog"
-            >
-              <div className="modal-header">
-                <div>
-                  <p className="eyebrow">Archive chore</p>
-                  <h3>Archive {archiveCandidate.title}?</h3>
-                </div>
-                <button aria-label="Close dialog" className="modal-close-button" type="button" onClick={() => setArchiveCandidate(undefined)}>X</button>
-              </div>
-              <p>Future scheduled work for this chore will stop, but historical activity stays available.</p>
-              <div className="modal-actions">
-                <button type="button" onClick={() => setArchiveCandidate(undefined)}>Cancel</button>
-                <button className="section-action" type="button" onClick={() => archiveLibraryChore(archiveCandidate)}>Archive chore</button>
-              </div>
-            </section>
-          </div>
-        ) : null}
-      </section>
-    );
-  }
-
   function renderActiveView() {
     if (activeView === "connections") return renderConnectionsSettings();
     if (activeView === "family") return renderFamilySettings();
-    if (activeView === "library") return renderChoreLibrary();
     return renderGeneralSettings();
+  }
+
+  function selectSettingsView(view: SettingsView) {
+    setActiveView(view);
+    setIsMobileSettingsMenuOpen(false);
   }
 
   return (
@@ -705,6 +467,39 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
       </header>
 
       <section className="settings-workspace" aria-label="Settings workspace">
+        <div className="settings-mobile-section-switcher" ref={mobileSettingsMenuRef}>
+          <button
+            aria-expanded={isMobileSettingsMenuOpen}
+            aria-label={`Settings section: ${activeSettingsView.label}. Change section`}
+            className="settings-mobile-section-trigger"
+            onClick={() => setIsMobileSettingsMenuOpen((current) => !current)}
+            type="button"
+          >
+            <span>
+              <small>Settings section</small>
+              <strong>{activeSettingsView.label}</strong>
+            </span>
+            <b>Change</b>
+          </button>
+          {isMobileSettingsMenuOpen ? (
+            <div className="settings-mobile-section-menu" role="menu" aria-label="Settings sections">
+              {settingsViews.map((view) => (
+                <button
+                  aria-current={activeView === view.id ? "true" : undefined}
+                  aria-label={`${view.label} ${view.summary}`}
+                  className="settings-mobile-section-menu-item"
+                  key={view.id}
+                  onClick={() => selectSettingsView(view.id)}
+                  role="menuitem"
+                  type="button"
+                >
+                  <strong>{view.label}</strong>
+                  <span>{view.summary}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
         <nav className="settings-sidebar" role="tablist" aria-label="Settings sections">
           {settingsViews.map((view) => (
             <button
@@ -714,7 +509,7 @@ export function SettingsPage({ households, onWeekStartDayChange, weekStartDay }:
               className="settings-sidebar-tab"
               id={`settings-tab-${view.id}`}
               key={view.id}
-              onClick={() => setActiveView(view.id)}
+              onClick={() => selectSettingsView(view.id)}
               role="tab"
               type="button"
             >

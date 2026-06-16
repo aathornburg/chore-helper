@@ -9,7 +9,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import { Router } from "express";
 import type { Request, Response } from "express";
 import { z } from "zod";
-import type { Chore, ChoreSchedule, Recommendation } from "@chore-helper/shared";
+import type { ImportScope, Task, TaskInboxItemKind, TaskSchedule, Recommendation } from "@chore-helper/shared";
 import type { AgentProvider } from "../agent/AgentProvider.js";
 import type { AuthMode } from "../auth/currentUser.js";
 import { resolveCurrentUser } from "../auth/currentUser.js";
@@ -118,12 +118,16 @@ const householdStructureSchema = z.object({
   });
 });
 
-const choreSchema = z.object({
+const taskSchema = z.object({
   title: z.string().trim().min(1),
+  type: z.enum(["chore", "commitment"]),
+  libraryState: z.enum(["saved", "one_time", "inbox"]),
   source: z.enum(["manual", "google-calendar"]),
   instructions: z.string().trim().optional(),
   tags: z.array(z.string().trim().min(1)).optional()
 });
+const taskInboxKindSchema = z.enum(["task", "import_queue"]);
+const importScopeSchema = z.enum(["single", "series", "future_matching"]);
 
 const recurrenceSchema = z.object({
   frequency: z.enum(["one_time", "daily", "weekly", "monthly", "yearly"]),
@@ -203,12 +207,12 @@ const scheduleSchema = z.discriminatedUnion("planningMode", [
   }
 });
 
-const createScheduledChoreSchema = z.object({
-  chore: choreSchema,
+const createScheduledTaskSchema = z.object({
+  task: taskSchema,
   schedules: z.array(scheduleSchema).min(1)
 });
 
-const choreLibraryPermissions = ["view", "manage"] as const;
+const taskLibraryPermissions = ["view", "manage"] as const;
 
 function isOneOf<T extends string>(value: unknown, options: readonly T[]): value is T {
   return typeof value === "string" && options.includes(value as T);
@@ -267,9 +271,16 @@ const occurrenceUpdateSchema = z.object({
   }
 });
 
+const occurrenceTaskDetailSchema = z.object({
+  title: z.string().trim().min(1),
+  type: z.enum(["chore", "commitment"]),
+  instructions: z.string().trim().optional(),
+  tags: z.array(z.string().trim().min(1)).optional()
+});
+
 const recommendationRequestSchema = z.object({
   reviewPrompt: z.string().trim().optional(),
-  selectedChoreIds: z.array(z.string()).optional()
+  selectedTaskIds: z.array(z.string()).optional()
 });
 
 const recommendationDecisionSchema = z.object({
@@ -288,10 +299,10 @@ const memberRoleSchema = z.object({
   role: z.enum(["owner", "member"])
 });
 
-function attachReviewMetadata(recommendation: Recommendation, selectedChores: Chore[]) {
+function attachReviewMetadata(recommendation: Recommendation, selectedChores: Task[]) {
   const matchedChore =
-    selectedChores.find((chore) =>
-      recommendation.title.toLowerCase().includes(chore.title.toLowerCase())
+    selectedChores.find((Task) =>
+      recommendation.title.toLowerCase().includes(Task.title.toLowerCase())
     ) ?? (selectedChores.length === 1 ? selectedChores[0] : undefined);
 
   if (!matchedChore) {
@@ -303,7 +314,7 @@ function attachReviewMetadata(recommendation: Recommendation, selectedChores: Ch
 
   return {
     ...recommendation,
-    affectedChoreId: recommendation.affectedChoreId ?? matchedChore.id,
+    affectedTaskId: recommendation.affectedTaskId ?? matchedChore.id,
     decision: recommendation.decision ?? "pending"
   };
 }
@@ -352,7 +363,7 @@ export function createHouseholdRouter(
     return access;
   }
 
-  async function requireChoreLibraryManage(req: Request, res: Response) {
+  async function requireTaskLibraryManage(req: Request, res: Response) {
     const access = await requireHouseholdAccess(req, res);
     if (!access) return undefined;
 
@@ -361,8 +372,8 @@ export function createHouseholdRouter(
 
     const members = await store.listHouseholdMembers(access.household.id);
     const currentMember = members.find((member) => member.userId === access.user.id);
-    if (currentMember?.choreLibraryPermission !== "manage") {
-      res.status(403).json({ error: "You do not have permission to manage the chore library." });
+    if (currentMember?.taskLibraryPermission !== "manage") {
+      res.status(403).json({ error: "You do not have permission to manage the task library." });
       return undefined;
     }
 
@@ -376,7 +387,7 @@ export function createHouseholdRouter(
     return memberships.every(Boolean);
   }
 
-  async function materializeInitialScheduleOccurrences(schedule: ChoreSchedule, householdTimeZone: string) {
+  async function materializeInitialScheduleOccurrences(schedule: TaskSchedule, householdTimeZone: string) {
     const rangeStart = schedule.startsOn;
     const rangeEnd = format(addDays(parseISO(rangeStart), 89), "yyyy-MM-dd");
     await store.materializeScheduleOccurrences(
@@ -386,7 +397,7 @@ export function createHouseholdRouter(
     );
   }
 
-  function rebaseScheduleFromCompletion(schedule: ChoreSchedule, completedOn: string): ChoreSchedule {
+  function rebaseScheduleFromCompletion(schedule: TaskSchedule, completedOn: string): TaskSchedule {
     const completedDate = parseISO(completedOn);
     const recurrence = schedule.recurrence.frequency === "weekly"
       ? { ...schedule.recurrence, weekDays: [getDay(completedDate)] }
@@ -434,15 +445,15 @@ export function createHouseholdRouter(
         const recommendations = (await store.listRecommendations(household.id)).filter(
           (recommendation) => !recommendation.staleAt
         );
-        const chores = await store.listChores(household.id);
+        const chores = await store.listTasks(household.id);
 
         return {
           ...household,
           structure: await store.getHouseholdStructure(household.id),
-          chores: chores.map((chore) => ({
-            ...chore,
+          tasks: chores.map((task) => ({
+            ...task,
             recommendations: recommendations.filter(
-              (recommendation) => recommendation.affectedChoreId === chore.id
+              (recommendation) => recommendation.affectedTaskId === task.id
             )
           })),
           recommendations
@@ -555,16 +566,16 @@ export function createHouseholdRouter(
     return res.status(200).json(result.membership);
   });
 
-  router.patch("/:householdId/members/:userId/chore-library-permission", async (req, res) => {
+  router.patch("/:householdId/members/:userId/task-library-permission", async (req, res) => {
     const access = await requireHouseholdOwner(req, res);
     if (!access) return;
 
-    if (!isOneOf(req.body.choreLibraryPermission, choreLibraryPermissions)) {
-      return res.status(400).json({ error: "Invalid chore library permission" });
+    if (!isOneOf(req.body.taskLibraryPermission, taskLibraryPermissions)) {
+      return res.status(400).json({ error: "Invalid task library permission" });
     }
 
-    const updated = await store.updateChoreLibraryPermission(access.household.id, req.params.userId, {
-      choreLibraryPermission: req.body.choreLibraryPermission
+    const updated = await store.updateTaskLibraryPermission(access.household.id, req.params.userId, {
+      taskLibraryPermission: req.body.taskLibraryPermission
     });
     if (!updated) return res.status(404).json({ error: "Household member not found" });
 
@@ -642,39 +653,111 @@ export function createHouseholdRouter(
     return res.status(200).json(invitation);
   });
 
-  router.post("/:householdId/chores", async (req, res) => {
-    const access = await requireChoreLibraryManage(req, res);
+  router.get("/:householdId/task-inbox", async (req, res) => {
+    const access = await requireHouseholdAccess(req, res);
+    if (!access) return;
+
+    return res.status(200).json(await store.listTaskInboxItems(access.household.id));
+  });
+
+  router.post("/:householdId/task-inbox/:kind/:itemId/link", async (req, res) => {
+    const access = await requireTaskLibraryManage(req, res);
+    if (!access) return;
+
+    const kind = taskInboxKindSchema.safeParse(req.params.kind);
+    if (!kind.success) return res.status(400).json({ error: "Invalid task inbox item kind" });
+    const parsed = z.object({
+      taskId: z.string().min(1),
+      scope: importScopeSchema.default("single")
+    }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+    const updated = await store.linkTaskInboxItem(
+      access.household.id,
+      kind.data as TaskInboxItemKind,
+      req.params.itemId,
+      parsed.data.taskId,
+      parsed.data.scope as ImportScope
+    );
+    return updated
+      ? res.status(200).json(updated)
+      : res.status(404).json({ error: "Task inbox item not found" });
+  });
+
+  router.post("/:householdId/task-inbox/:kind/:itemId/save", async (req, res) => {
+    const access = await requireTaskLibraryManage(req, res);
+    if (!access) return;
+
+    const kind = taskInboxKindSchema.safeParse(req.params.kind);
+    if (!kind.success) return res.status(400).json({ error: "Invalid task inbox item kind" });
+    const parsed = z.object({
+      task: taskSchema,
+      scope: importScopeSchema.default("single")
+    }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+    const updated = await store.saveTaskInboxItem(
+      access.household.id,
+      kind.data as TaskInboxItemKind,
+      req.params.itemId,
+      parsed.data.task,
+      parsed.data.scope as ImportScope
+    );
+    return updated
+      ? res.status(200).json(updated)
+      : res.status(404).json({ error: "Task inbox item not found" });
+  });
+
+  router.post("/:householdId/task-inbox/:kind/:itemId/keep-one-time", async (req, res) => {
+    const access = await requireTaskLibraryManage(req, res);
+    if (!access) return;
+
+    const kind = taskInboxKindSchema.safeParse(req.params.kind);
+    if (!kind.success) return res.status(400).json({ error: "Invalid task inbox item kind" });
+
+    const updated = await store.keepTaskInboxItemOneTime(
+      access.household.id,
+      kind.data as TaskInboxItemKind,
+      req.params.itemId
+    );
+    return updated
+      ? res.status(200).json(updated)
+      : res.status(404).json({ error: "Task inbox item not found" });
+  });
+
+  router.post("/:householdId/tasks", async (req, res) => {
+    const access = await requireTaskLibraryManage(req, res);
     if (!access) return;
 
     if (!Array.isArray(req.body.schedules)) {
-      const parsedChore = choreSchema.safeParse(req.body.chore);
-      if (!parsedChore.success) return res.status(400).json({ error: "Invalid chore payload" });
+      const parsedTask = taskSchema.safeParse(req.body.task);
+      if (!parsedTask.success) return res.status(400).json({ error: "Invalid task payload" });
 
-      const chore = await store.createChore(access.household.id, parsedChore.data);
-      return res.status(201).json(chore);
+      const task = await store.createTask(access.household.id, parsedTask.data);
+      return res.status(201).json(task);
     }
 
-    const parsed = createScheduledChoreSchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: "Invalid chore payload" });
+    const parsed = createScheduledTaskSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid task payload" });
     const memberUserIds = parsed.data.schedules.flatMap((schedule) => schedule.assignment.memberUserIds);
     if (!await hasValidScheduleAssignees(access.household.id, memberUserIds)) {
       return res.status(400).json({ error: "Schedule assignee must be a household member" });
     }
 
-    const scheduledChore = await store.createChoreWithSchedules({
+    const scheduledTask = await store.createTaskWithSchedules({
       householdId: access.household.id,
       ...parsed.data
     });
     await Promise.all(
-      scheduledChore.schedules.map((schedule) =>
+      scheduledTask.schedules.map((schedule) =>
         materializeInitialScheduleOccurrences(schedule, access.household.timeZone)
       )
     );
 
-    return res.status(201).json(scheduledChore);
+    return res.status(201).json(scheduledTask);
   });
   
-  router.get("/:householdId/chores", async (req, res) => {
+  router.get("/:householdId/tasks", async (req, res) => {
     const access = await requireHouseholdAccess(req, res);
     if (!access) return;
 
@@ -682,17 +765,17 @@ export function createHouseholdRouter(
     const includeArchived = req.query.includeArchived === "true";
     const archivedOnly = status === "archived";
 
-    return res.status(200).json(await store.listChores(access.household.id, {
+    return res.status(200).json(await store.listTasks(access.household.id, {
       includeArchived,
       archivedOnly
     }));
   });
 
-  router.get("/:householdId/chores/:choreId/schedules", async (req, res) => {
+  router.get("/:householdId/tasks/:taskId/schedules", async (req, res) => {
     const access = await requireHouseholdAccess(req, res);
     if (!access) return;
 
-    return res.status(200).json(await store.listSchedules(access.household.id, req.params.choreId));
+    return res.status(200).json(await store.listSchedules(access.household.id, req.params.taskId));
   });
 
   router.get("/:householdId/occurrences", async (req, res) => {
@@ -721,6 +804,53 @@ export function createHouseholdRouter(
       parsed.data
     );
     if (!occurrence) return res.status(404).json({ error: "Occurrence not found" });
+
+    return res.status(200).json(occurrence);
+  });
+
+  router.patch("/:householdId/occurrences/:occurrenceId/task-details", async (req, res) => {
+    const access = await requireHouseholdAccess(req, res);
+    if (!access) return;
+
+    const parsed = occurrenceTaskDetailSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid scheduled task details payload" });
+
+    const occurrence = await store.updateOccurrenceTaskDetails(
+      access.household.id,
+      req.params.occurrenceId,
+      parsed.data
+    );
+    if (!occurrence) return res.status(404).json({ error: "Scheduled task not found" });
+
+    return res.status(200).json(occurrence);
+  });
+
+  router.post("/:householdId/occurrences/:occurrenceId/save-to-library", async (req, res) => {
+    const access = await requireTaskLibraryManage(req, res);
+    if (!access) return;
+
+    const occurrence = await store.saveOccurrenceTaskToLibrary(access.household.id, req.params.occurrenceId);
+    if (!occurrence) return res.status(404).json({ error: "Scheduled task not found" });
+
+    return res.status(200).json(occurrence);
+  });
+
+  router.post("/:householdId/occurrences/:occurrenceId/sync-to-task", async (req, res) => {
+    const access = await requireTaskLibraryManage(req, res);
+    if (!access) return;
+
+    const occurrence = await store.syncOccurrenceDetailsToTask(access.household.id, req.params.occurrenceId);
+    if (!occurrence) return res.status(404).json({ error: "Scheduled task not found" });
+
+    return res.status(200).json(occurrence);
+  });
+
+  router.post("/:householdId/occurrences/:occurrenceId/reset-task-overrides", async (req, res) => {
+    const access = await requireHouseholdAccess(req, res);
+    if (!access) return;
+
+    const occurrence = await store.resetOccurrenceTaskOverrides(access.household.id, req.params.occurrenceId);
+    if (!occurrence) return res.status(404).json({ error: "Scheduled task not found" });
 
     return res.status(200).json(occurrence);
   });
@@ -766,7 +896,7 @@ export function createHouseholdRouter(
     });
 
     if (checkIn.rebaseFutureOccurrences) {
-      const schedules = await store.listSchedules(access.household.id, completed.choreId);
+      const schedules = await store.listSchedules(access.household.id, completed.taskId);
       const schedule = schedules.find((candidate) => candidate.id === completed.scheduleId);
       if (schedule && schedule.recurrence.frequency !== "one_time") {
         const completedOn = formatInTimeZone(completed.completedAt!, access.household.timeZone, "yyyy-MM-dd");
@@ -820,24 +950,24 @@ export function createHouseholdRouter(
     return res.status(200).json(saved);
   });
 
-  router.post("/:householdId/chores/:choreId/schedules", async (req, res) => {
+  router.post("/:householdId/tasks/:taskId/schedules", async (req, res) => {
     const access = await requireHouseholdOwner(req, res);
     if (!access) return;
 
     const parsed = scheduleSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid schedule payload" });
 
-    const chore = (await store.listChores(access.household.id)).find(
-      (candidate) => candidate.id === req.params.choreId
+    const task = (await store.listTasks(access.household.id)).find(
+      (candidate) => candidate.id === req.params.taskId
     );
-    if (!chore) return res.status(404).json({ error: "Chore not found" });
+    if (!task) return res.status(404).json({ error: "Task not found" });
     if (!await hasValidScheduleAssignees(access.household.id, parsed.data.assignment.memberUserIds)) {
       return res.status(400).json({ error: "Schedule assignee must be a household member" });
     }
 
     const schedule = await store.createSchedule({
       householdId: access.household.id,
-      choreId: chore.id,
+      taskId: task.id,
       ...parsed.data
     });
     await materializeInitialScheduleOccurrences(schedule, access.household.timeZone);
@@ -881,37 +1011,37 @@ export function createHouseholdRouter(
     return res.status(200).json(schedule);
   });
 
-  router.put("/:householdId/chores/:choreId", async (req, res) => {
-    const access = await requireChoreLibraryManage(req, res);
+  router.put("/:householdId/tasks/:taskId", async (req, res) => {
+    const access = await requireTaskLibraryManage(req, res);
     if (!access) return;
 
-    const parsed = choreSchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: "Invalid chore payload" });
+    const parsed = taskSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid task payload" });
 
-    const chore = await store.updateChore(access.household.id, req.params.choreId, parsed.data);
-    if (!chore) return res.status(404).json({ error: "Chore not found" });
+    const task = await store.updateTask(access.household.id, req.params.taskId, parsed.data);
+    if (!task) return res.status(404).json({ error: "Task not found" });
 
-    return res.status(200).json(chore);
+    return res.status(200).json(task);
   });
 
-  router.post("/:householdId/chores/:choreId/archive", async (req, res) => {
-    const access = await requireChoreLibraryManage(req, res);
+  router.post("/:householdId/tasks/:taskId/archive", async (req, res) => {
+    const access = await requireTaskLibraryManage(req, res);
     if (!access) return;
 
-    const chore = await store.archiveChore(access.household.id, req.params.choreId);
-    if (!chore) return res.status(404).json({ error: "Chore not found" });
+    const task = await store.archiveTask(access.household.id, req.params.taskId);
+    if (!task) return res.status(404).json({ error: "Task not found" });
 
-    return res.status(200).json(chore);
+    return res.status(200).json(task);
   });
 
-  router.post("/:householdId/chores/:choreId/restore", async (req, res) => {
-    const access = await requireChoreLibraryManage(req, res);
+  router.post("/:householdId/tasks/:taskId/restore", async (req, res) => {
+    const access = await requireTaskLibraryManage(req, res);
     if (!access) return;
 
-    const chore = await store.restoreChore(access.household.id, req.params.choreId);
-    if (!chore) return res.status(404).json({ error: "Chore not found" });
+    const task = await store.restoreTask(access.household.id, req.params.taskId);
+    if (!task) return res.status(404).json({ error: "Task not found" });
 
-    return res.status(200).json(chore);
+    return res.status(200).json(task);
   });
 
   router.get("/:householdId/recommendations", async (req, res) => {
@@ -932,8 +1062,8 @@ export function createHouseholdRouter(
     const parsed = assistantChatRequestSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid assistant chat payload" });
 
-    const chores = await store.listChores(household.id);
-    const activeChores = chores.filter((chore) => !chore.archivedAt);
+    const tasks = await store.listTasks(household.id);
+    const activeChores = tasks.filter((task) => task.type === "chore" && !task.archivedAt);
     const activeRecommendations = (await store.listRecommendations(household.id)).filter(
       (recommendation) => !recommendation.staleAt
     );
@@ -984,10 +1114,12 @@ export function createHouseholdRouter(
     const parsed = recommendationRequestSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid recommendation payload" });
 
-    const chores = await store.listChores(household.id);
-    const selectedChores = parsed.data.selectedChoreIds
-      ? chores.filter((chore) => parsed.data.selectedChoreIds?.includes(chore.id))
-      : chores;
+    const chores = await store.listTasks(household.id);
+    const activeChores = chores.filter((task) => task.type === "chore" && !task.archivedAt);
+    const selectedTaskIds = parsed.data.selectedTaskIds;
+    const selectedChores = selectedTaskIds
+      ? activeChores.filter((task) => selectedTaskIds.includes(task.id))
+      : activeChores;
 
     try {
       const recommendations = await agentProvider.recommendSetupImprovements({
@@ -1007,3 +1139,5 @@ export function createHouseholdRouter(
 
   return router;
 }
+
+

@@ -38,6 +38,22 @@ Apply pending migrations in Render:
 npm run db:deploy -w server
 ```
 
+## Task/Schedule Domain Rename Release
+
+This release contains Prisma migrations that rename chore tables/columns to task tables/columns and add task inbox/import-link fields. Do not use `prisma db push` in production for this release.
+
+Deployment order:
+
+1. Deploy code and committed migration files.
+2. In Render Shell, run `npm run db:deploy -w server`.
+3. Restart the web service if Render does not restart it automatically.
+
+Preferred automation:
+
+- Add Render Pre-Deploy Command: `npm run db:deploy -w server`
+- Keep Build Command separate from database migration.
+- Keep `DATABASE_URL` pointed at the production database for the service running the pre-deploy command.
+
 ## Important Notes
 
 - Use `db:deploy` in production, not `db:migrate`.

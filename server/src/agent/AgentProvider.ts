@@ -4,17 +4,17 @@
   satisfy, allowing the controller layer to remain decoupled from the
   actual recommendation engine.
 */
-import type { Chore, Household, Recommendation } from "@chore-helper/shared";
+import type { Household, Recommendation, Task } from "@chore-helper/shared";
 
 export type AgentRecommendationContext = {
   household: Household;
-  chores: Chore[];
+  chores: Task[];
   reviewPrompt?: string;
 };
 
 export type AgentChatContext = {
   household: Household;
-  chores: Chore[];
+  chores: Task[];
   recommendations: Recommendation[];
   message: string;
 };

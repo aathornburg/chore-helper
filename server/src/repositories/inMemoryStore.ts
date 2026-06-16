@@ -6,13 +6,17 @@ import type {
   CalendarImportQueueItem,
   CalendarPreferences,
   CleanlyCalendarEvent,
-  Chore,
-  ChoreLibraryPermission,
-  ChoreCompletionCheckIn,
-  ChoreDefinitionInput,
-  ChoreOccurrence,
-  ChoreSchedule,
-  CreateChoreInput,
+  ImportScope,
+  Task,
+  TaskInboxItem,
+  TaskInboxItemKind,
+  TaskLibraryPermission,
+  TaskCompletionCheckIn,
+  TaskDefinitionInput,
+  OccurrenceTaskDetailsInput,
+  TaskOccurrence,
+  TaskSchedule,
+  CreateTaskInput,
   Household,
   HouseholdFloor,
   HouseholdInvitation,
@@ -23,20 +27,24 @@ import type {
   Recommendation,
   RecommendationDecision,
   ScheduleInput,
-  ScheduledChore,
+  ScheduledTask,
   ExternalCalendarSummary
 } from "@chore-helper/shared";
 
 export type StoreResult<T> = T | Promise<T>;
 
-export type ChoreListOptions = {
+export type CalendarImportQueueCreateInput =
+  Omit<CalendarImportQueueItem, "id" | "createdAt" | "queueStatus" | "taskLinkStatus" | "importScope"> &
+  Partial<Pick<CalendarImportQueueItem, "taskLinkStatus" | "importScope">>;
+
+export type TaskListOptions = {
   includeArchived?: boolean;
   archivedOnly?: boolean;
 };
 
-export type ChoreUpdate = ChoreDefinitionInput;
-export type ChoreScheduleUpdate = ScheduleInput;
-export type OccurrenceUpdate = Required<Pick<ChoreOccurrence, "plannedStartAt" | "plannedEndAt" | "assignedUserId">>;
+export type TaskUpdate = TaskDefinitionInput;
+export type TaskScheduleUpdate = ScheduleInput;
+export type OccurrenceUpdate = Required<Pick<TaskOccurrence, "plannedStartAt" | "plannedEndAt" | "assignedUserId">>;
 
 export type OccurrenceRange = {
   startAt: string;
@@ -48,11 +56,11 @@ export type OccurrenceRange = {
 export type OccurrenceClearFutureCutoff =
   { fromAt: string; fromOn: string };
 
-export type CompletionCheckInCreate = Omit<ChoreCompletionCheckIn, "id" | "createdAt" | "updatedAt">;
+export type CompletionCheckInCreate = Omit<TaskCompletionCheckIn, "id" | "createdAt" | "updatedAt">;
 
-export type NewScheduledChore = {
+export type NewScheduledTask = {
   householdId: string;
-  chore: ChoreDefinitionInput;
+  task: TaskDefinitionInput;
   schedules: ScheduleInput[];
 };
 
@@ -98,7 +106,7 @@ export type HouseholdMembership = {
   householdId: string;
   userId: string;
   role: "owner" | "member";
-  choreLibraryPermission: ChoreLibraryPermission;
+  taskLibraryPermission: TaskLibraryPermission;
 };
 
 export type HouseholdMemberMutationResult =
@@ -106,8 +114,8 @@ export type HouseholdMemberMutationResult =
   | { outcome: "not_found" }
   | { outcome: "last_owner" };
 
-export type ChoreLibraryPermissionUpdate = {
-  choreLibraryPermission: ChoreLibraryPermission;
+export type TaskLibraryPermissionUpdate = {
+  taskLibraryPermission: TaskLibraryPermission;
 };
 
 export type NewHouseholdInvitation = {
@@ -136,10 +144,10 @@ export type HouseholdStore = {
     userId: string,
     role: HouseholdMembership["role"]
   ): StoreResult<HouseholdMemberMutationResult>;
-  updateChoreLibraryPermission(
+  updateTaskLibraryPermission(
     householdId: string,
     userId: string,
-    update: ChoreLibraryPermissionUpdate
+    update: TaskLibraryPermissionUpdate
   ): StoreResult<HouseholdMemberSummary | undefined>;
   removeMember(householdId: string, userId: string): StoreResult<HouseholdMemberMutationResult>;
   createInvitation(invitation: NewHouseholdInvitation): StoreResult<HouseholdInvitation>;
@@ -166,48 +174,56 @@ export type HouseholdStore = {
     householdId: string,
     floors: HouseholdFloor[]
   ): StoreResult<HouseholdStructure | undefined>;
-  createChore(householdId: string, chore: CreateChoreInput): StoreResult<Chore>;
-  createChoreWithSchedules(input: NewScheduledChore): StoreResult<ScheduledChore>;
-  updateChore(householdId: string, choreId: string, chore: ChoreUpdate): StoreResult<Chore | undefined>;
-  archiveChore(householdId: string, choreId: string): StoreResult<Chore | undefined>;
-  restoreChore(householdId: string, choreId: string): StoreResult<Chore | undefined>;
-  listChores(householdId: string, options?: ChoreListOptions): StoreResult<Chore[]>;
-  listAllChores(options?: ChoreListOptions): StoreResult<Chore[]>;
-  createSchedule(schedule: ScheduleInput & { householdId: string; choreId: string }): StoreResult<ChoreSchedule>;
-  listSchedules(householdId: string, choreId?: string): StoreResult<ChoreSchedule[]>;
+  createTask(householdId: string, task: CreateTaskInput): StoreResult<Task>;
+  createTaskWithSchedules(input: NewScheduledTask): StoreResult<ScheduledTask>;
+  updateTask(householdId: string, taskId: string, task: TaskUpdate): StoreResult<Task | undefined>;
+  archiveTask(householdId: string, taskId: string): StoreResult<Task | undefined>;
+  restoreTask(householdId: string, taskId: string): StoreResult<Task | undefined>;
+  listTasks(householdId: string, options?: TaskListOptions): StoreResult<Task[]>;
+  listAllTasks(options?: TaskListOptions): StoreResult<Task[]>;
+  createSchedule(schedule: ScheduleInput & { householdId: string; taskId: string }): StoreResult<TaskSchedule>;
+  listSchedules(householdId: string, taskId?: string): StoreResult<TaskSchedule[]>;
   updateSchedule(
     householdId: string,
     scheduleId: string,
-    update: ChoreScheduleUpdate
-  ): StoreResult<ChoreSchedule | undefined>;
-  archiveSchedule(householdId: string, scheduleId: string): StoreResult<ChoreSchedule | undefined>;
+    update: TaskScheduleUpdate
+  ): StoreResult<TaskSchedule | undefined>;
+  archiveSchedule(householdId: string, scheduleId: string): StoreResult<TaskSchedule | undefined>;
   materializeScheduleOccurrences(
     householdId: string,
     scheduleId: string,
-    occurrences: ChoreOccurrence[]
-  ): StoreResult<ChoreOccurrence[]>;
+    occurrences: TaskOccurrence[]
+  ): StoreResult<TaskOccurrence[]>;
   listOccurrences(
     householdId: string,
     range: OccurrenceRange
-  ): StoreResult<ChoreOccurrence[]>;
-  getOccurrence(householdId: string, occurrenceId: string): StoreResult<ChoreOccurrence | undefined>;
+  ): StoreResult<TaskOccurrence[]>;
+  getOccurrence(householdId: string, occurrenceId: string): StoreResult<TaskOccurrence | undefined>;
   completeOccurrence(
     householdId: string,
     occurrenceId: string,
     completedByUserId: string,
     completedAt: string
-  ): StoreResult<ChoreOccurrence | undefined>;
-  recordCompletionCheckIn(input: CompletionCheckInCreate): StoreResult<ChoreCompletionCheckIn>;
+  ): StoreResult<TaskOccurrence | undefined>;
+  recordCompletionCheckIn(input: CompletionCheckInCreate): StoreResult<TaskCompletionCheckIn>;
   getCompletionCheckInForOccurrence(
     householdId: string,
     occurrenceId: string
-  ): StoreResult<ChoreCompletionCheckIn | undefined>;
+  ): StoreResult<TaskCompletionCheckIn | undefined>;
   updateOccurrenceException(
     householdId: string,
     occurrenceId: string,
     update: OccurrenceUpdate
-  ): StoreResult<ChoreOccurrence | undefined>;
-  skipOccurrence(householdId: string, occurrenceId: string): StoreResult<ChoreOccurrence | undefined>;
+  ): StoreResult<TaskOccurrence | undefined>;
+  updateOccurrenceTaskDetails(
+    householdId: string,
+    occurrenceId: string,
+    update: OccurrenceTaskDetailsInput
+  ): StoreResult<TaskOccurrence | undefined>;
+  saveOccurrenceTaskToLibrary(householdId: string, occurrenceId: string): StoreResult<TaskOccurrence | undefined>;
+  syncOccurrenceDetailsToTask(householdId: string, occurrenceId: string): StoreResult<TaskOccurrence | undefined>;
+  resetOccurrenceTaskOverrides(householdId: string, occurrenceId: string): StoreResult<TaskOccurrence | undefined>;
+  skipOccurrence(householdId: string, occurrenceId: string): StoreResult<TaskOccurrence | undefined>;
   clearFutureUntouchedOccurrences(householdId: string, scheduleId: string, cutoff: OccurrenceClearFutureCutoff): StoreResult<void>;
   saveRecommendations(
     householdId: string,
@@ -248,7 +264,27 @@ export type HouseholdStore = {
   getCalendarPreferences(userId: string, householdId: string): StoreResult<CalendarPreferences>;
   updateCalendarPreferences(userId: string, householdId: string, update: CalendarPreferences): StoreResult<CalendarPreferences>;
   listCalendarImportQueue(householdId: string): StoreResult<CalendarImportQueueItem[]>;
-  createCalendarImportQueueItem(input: Omit<CalendarImportQueueItem, "id" | "createdAt" | "queueStatus">): StoreResult<CalendarImportQueueItem>;
+  createCalendarImportQueueItem(input: CalendarImportQueueCreateInput): StoreResult<CalendarImportQueueItem>;
+  listTaskInboxItems(householdId: string): StoreResult<{ items: TaskInboxItem[] }>;
+  linkTaskInboxItem(
+    householdId: string,
+    kind: TaskInboxItemKind,
+    itemId: string,
+    taskId: string,
+    scope: ImportScope
+  ): StoreResult<CalendarImportQueueItem | Task | undefined>;
+  saveTaskInboxItem(
+    householdId: string,
+    kind: TaskInboxItemKind,
+    itemId: string,
+    task: TaskDefinitionInput,
+    scope: ImportScope
+  ): StoreResult<CalendarImportQueueItem | Task | undefined>;
+  keepTaskInboxItemOneTime(
+    householdId: string,
+    kind: TaskInboxItemKind,
+    itemId: string
+  ): StoreResult<CalendarImportQueueItem | Task | undefined>;
   upsertCalendarImportQueueReviewNotifications(householdId: string): StoreResult<AppNotification[]>;
   listNotificationsForUser(userId: string): StoreResult<AppNotification[]>;
   markNotificationsRead(userId: string, notificationIds: string[]): StoreResult<AppNotification[]>;
@@ -295,7 +331,7 @@ function compareOptionalPlannedStart(first?: string, second?: string) {
   return 0;
 }
 
-function compareOccurrences(first: ChoreOccurrence, second: ChoreOccurrence) {
+function compareOccurrences(first: TaskOccurrence, second: TaskOccurrence) {
   return first.eligibleStartOn.localeCompare(second.eligibleStartOn) ||
     compareOptionalPlannedStart(first.plannedStartAt, second.plannedStartAt) ||
     first.sequence - second.sequence ||
@@ -308,10 +344,10 @@ export function createInMemoryStore(): HouseholdStore {
   const households = new Map<string, Household>();
   const householdFloors = new Map<string, HouseholdFloor[]>();
   const invitations = new Map<string, StoredHouseholdInvitation>();
-  const chores = new Map<string, Chore[]>();
-  const schedules = new Map<string, ChoreSchedule>();
-  const occurrences = new Map<string, ChoreOccurrence>();
-  const completionCheckIns = new Map<string, ChoreCompletionCheckIn>();
+  const tasks = new Map<string, Task[]>();
+  const schedules = new Map<string, TaskSchedule>();
+  const occurrences = new Map<string, TaskOccurrence>();
+  const completionCheckIns = new Map<string, TaskCompletionCheckIn>();
   const recommendations = new Map<string, Recommendation[]>();
   const calendarImportPolicies = new Map<string, CalendarImportPolicy>();
   const calendarPreferences = new Map<string, CalendarPreferences>();
@@ -394,18 +430,87 @@ export function createInMemoryStore(): HouseholdStore {
     );
   }
 
-  function replaceChore(householdId: string, choreId: string, update: (chore: Chore) => Chore) {
-    const householdChores = chores.get(householdId) ?? [];
-    const existing = householdChores.find((chore) => chore.id === choreId);
+  function replaceTask(householdId: string, taskId: string, update: (task: Task) => Task) {
+    const householdTasks = tasks.get(householdId) ?? [];
+    const existing = householdTasks.find((task) => task.id === taskId);
     if (!existing) return undefined;
 
     const updated = update(existing);
-    chores.set(
+    tasks.set(
       householdId,
-      householdChores.map((chore) => (chore.id === choreId ? updated : chore))
+      householdTasks.map((task) => (task.id === taskId ? updated : task))
     );
     markStale(householdId);
     return updated;
+  }
+
+  function normalizeTaskTitle(title: string) {
+    return title.trim().toLocaleLowerCase().replace(/\s+/g, " ");
+  }
+
+  function findSuggestedTask(householdId: string, title: string) {
+    const normalizedTitle = normalizeTaskTitle(title);
+    return (tasks.get(householdId) ?? []).find((task) =>
+      task.libraryState === "saved" &&
+      !task.archivedAt &&
+      normalizeTaskTitle(task.title) === normalizedTitle
+    );
+  }
+
+  function inboxStatusFromLinkStatus(status: CalendarImportQueueItem["taskLinkStatus"]): TaskInboxItem["status"] {
+    if (status === "linked") return "linked";
+    if (status === "saved") return "saved";
+    if (status === "one_time") return "kept_one_time";
+    return "needs_review";
+  }
+
+  function toPendingImportInboxItem(item: CalendarImportQueueItem): TaskInboxItem {
+    const suggestedTask = findSuggestedTask(item.householdId, item.title);
+    return {
+      id: item.id,
+      kind: "import_queue",
+      householdId: item.householdId,
+      status: inboxStatusFromLinkStatus(item.taskLinkStatus),
+      title: item.title,
+      proposedType: item.proposedType,
+      source: "google-calendar",
+      importQueueItemId: item.id,
+      badge: suggestedTask ? "Suggested link" : "Pending import",
+      startsAt: item.startsAt,
+      endsAt: item.endsAt,
+      ...(suggestedTask ? {
+        suggestedTaskId: suggestedTask.id,
+        suggestedReason: "Matched by title"
+      } : {})
+    };
+  }
+
+  function toOneTimeTaskInboxItem(task: Task): TaskInboxItem {
+    const suggestedTask = findSuggestedTask(task.householdId, task.title);
+    const schedule = Array.from(schedules.values()).find((candidate) =>
+      candidate.householdId === task.householdId &&
+      candidate.taskId === task.id &&
+      !candidate.archivedAt
+    );
+    return {
+      id: task.id,
+      kind: "task",
+      householdId: task.householdId,
+      status: "needs_review",
+      title: task.title,
+      proposedType: task.type,
+      source: task.source,
+      taskId: task.id,
+      badge: suggestedTask ? "Suggested link" : "Scheduled",
+      ...(schedule?.planningMode === "timed" ? {
+        startsAt: `${schedule.startsOn}T${schedule.localStartTime}:00`,
+        endsAt: `${schedule.startsOn}T${schedule.localEndTime}:00`
+      } : {}),
+      ...(suggestedTask ? {
+        suggestedTaskId: suggestedTask.id,
+        suggestedReason: "Matched by title"
+      } : {})
+    };
   }
 
   return {
@@ -444,7 +549,7 @@ export function createInMemoryStore(): HouseholdStore {
           return [{
             ...membership,
             clerkUserId: user.clerkUserId,
-            choreLibraryPermission: membership.role === "owner" ? "manage" : membership.choreLibraryPermission,
+            taskLibraryPermission: membership.role === "owner" ? "manage" : membership.taskLibraryPermission,
             ...(user.primaryEmail ? { primaryEmail: user.primaryEmail } : {}),
             ...(user.displayName ? { displayName: user.displayName } : {})
           } satisfies HouseholdMemberSummary];
@@ -468,12 +573,12 @@ export function createInMemoryStore(): HouseholdStore {
       return { outcome: "updated", membership: updated };
     },
 
-    updateChoreLibraryPermission(householdId, userId, update) {
+    updateTaskLibraryPermission(householdId, userId, update) {
       const key = `${householdId}:${userId}`;
       const membership = memberships.get(key);
       if (!membership) return undefined;
 
-      const updated = { ...membership, choreLibraryPermission: update.choreLibraryPermission };
+      const updated = { ...membership, taskLibraryPermission: update.taskLibraryPermission };
       memberships.set(key, updated);
       const user = users.get(userId);
       if (!user) return undefined;
@@ -481,7 +586,7 @@ export function createInMemoryStore(): HouseholdStore {
       return {
         ...updated,
         clerkUserId: user.clerkUserId,
-        choreLibraryPermission: updated.role === "owner" ? "manage" : updated.choreLibraryPermission,
+        taskLibraryPermission: updated.role === "owner" ? "manage" : updated.taskLibraryPermission,
         ...(user.primaryEmail ? { primaryEmail: user.primaryEmail } : {}),
         ...(user.displayName ? { displayName: user.displayName } : {})
       };
@@ -565,7 +670,7 @@ export function createInMemoryStore(): HouseholdStore {
         householdId: updated.householdId,
         userId,
         role: "member",
-        choreLibraryPermission: "view"
+        taskLibraryPermission: "view"
       });
       const { tokenDigest: _tokenDigest, ...publicInvitation } = updated;
       return publicInvitation;
@@ -585,7 +690,7 @@ export function createInMemoryStore(): HouseholdStore {
         householdId: household.id,
         userId,
         role: "owner",
-        choreLibraryPermission: "manage"
+        taskLibraryPermission: "manage"
       });
       return household;
     },
@@ -601,7 +706,7 @@ export function createInMemoryStore(): HouseholdStore {
 
       households.delete(householdId);
       householdFloors.delete(householdId);
-      chores.delete(householdId);
+      tasks.delete(householdId);
       recommendations.delete(householdId);
 
       for (const [key, membership] of memberships.entries()) {
@@ -700,72 +805,72 @@ export function createInMemoryStore(): HouseholdStore {
       };
     },
 
-    createChore(householdId, chore) {
-      const createdChore: Chore = { ...chore, householdId, id: crypto.randomUUID() };
-      chores.set(householdId, [...(chores.get(householdId) ?? []), createdChore]);
+    createTask(householdId, task) {
+      const createdTask: Task = { ...task, householdId, id: crypto.randomUUID() };
+      tasks.set(householdId, [...(tasks.get(householdId) ?? []), createdTask]);
       markStale(householdId);
-      return createdChore;
+      return createdTask;
     },
 
-    createChoreWithSchedules({ householdId, chore, schedules: inputs }) {
-      const createdChore: Chore = { ...chore, householdId, id: crypto.randomUUID() };
-      const createdSchedules: ChoreSchedule[] = inputs.map((schedule) => ({
+    createTaskWithSchedules({ householdId, task, schedules: inputs }) {
+      const createdTask: Task = { ...task, householdId, id: crypto.randomUUID() };
+      const createdSchedules: TaskSchedule[] = inputs.map((schedule) => ({
         ...schedule,
         householdId,
-        choreId: createdChore.id,
+        taskId: createdTask.id,
         id: crypto.randomUUID()
       }));
-      chores.set(householdId, [...(chores.get(householdId) ?? []), createdChore]);
+      tasks.set(householdId, [...(tasks.get(householdId) ?? []), createdTask]);
       createdSchedules.forEach((schedule) => schedules.set(schedule.id, schedule));
       markStale(householdId);
-      return { chore: createdChore, schedules: createdSchedules };
+      return { task: createdTask, schedules: createdSchedules };
     },
 
-    updateChore(householdId, choreId, chore) {
-      return replaceChore(householdId, choreId, (existing) => ({
+    updateTask(householdId, taskId, task) {
+      return replaceTask(householdId, taskId, (existing) => ({
         ...existing,
-        ...chore
+        ...task
       }));
     },
 
-    archiveChore(householdId, choreId) {
-      const archived = replaceChore(householdId, choreId, (existing) => ({
+    archiveTask(householdId, taskId) {
+      const archived = replaceTask(householdId, taskId, (existing) => ({
         ...existing,
         archivedAt: new Date().toISOString()
       }));
       if (!archived?.archivedAt) return archived;
       for (const [scheduleId, schedule] of schedules.entries()) {
-        if (schedule.householdId === householdId && schedule.choreId === choreId && !schedule.archivedAt) {
+        if (schedule.householdId === householdId && schedule.taskId === taskId && !schedule.archivedAt) {
           schedules.set(scheduleId, { ...schedule, archivedAt: archived.archivedAt });
         }
       }
       return archived;
     },
 
-    restoreChore(householdId, choreId) {
-      return replaceChore(householdId, choreId, (existing) => {
+    restoreTask(householdId, taskId) {
+      return replaceTask(householdId, taskId, (existing) => {
         const { archivedAt: _archivedAt, ...restored } = existing;
         return restored;
       });
     },
 
-    listChores(householdId, options = {}) {
-      const householdChores = chores.get(householdId) ?? [];
-      if (options.archivedOnly) return householdChores.filter((chore) => chore.archivedAt);
-      if (options.includeArchived) return householdChores;
-      return householdChores.filter((chore) => !chore.archivedAt);
+    listTasks(householdId, options = {}) {
+      const householdTasks = tasks.get(householdId) ?? [];
+      if (options.archivedOnly) return householdTasks.filter((task) => task.archivedAt);
+      if (options.includeArchived) return householdTasks;
+      return householdTasks.filter((task) => !task.archivedAt);
     },
 
-    listAllChores(options = {}) {
-      const allChores = Array.from(chores.values())
+    listAllTasks(options = {}) {
+      const allTasks = Array.from(tasks.values())
         .flat()
-        .map((chore) => ({
-          ...chore,
-          householdName: households.get(chore.householdId)?.name
+        .map((task) => ({
+          ...task,
+          householdName: households.get(task.householdId)?.name
         }));
-      if (options.archivedOnly) return allChores.filter((chore) => chore.archivedAt);
-      if (options.includeArchived) return allChores;
-      return allChores.filter((chore) => !chore.archivedAt);
+      if (options.archivedOnly) return allTasks.filter((task) => task.archivedAt);
+      if (options.includeArchived) return allTasks;
+      return allTasks.filter((task) => !task.archivedAt);
     },
 
     createSchedule(schedule) {
@@ -774,11 +879,11 @@ export function createInMemoryStore(): HouseholdStore {
       return created;
     },
 
-    listSchedules(householdId, choreId) {
+    listSchedules(householdId, taskId) {
       return Array.from(schedules.values()).filter(
         (schedule) =>
           schedule.householdId === householdId &&
-          (!choreId || schedule.choreId === choreId) &&
+          (!taskId || schedule.taskId === taskId) &&
           !schedule.archivedAt
       );
     },
@@ -857,7 +962,7 @@ export function createInMemoryStore(): HouseholdStore {
       );
       if (!occurrence) return undefined;
 
-      const updated: ChoreOccurrence = {
+      const updated: TaskOccurrence = {
         ...occurrence,
         status: "completed",
         completedAt,
@@ -870,7 +975,7 @@ export function createInMemoryStore(): HouseholdStore {
     recordCompletionCheckIn(input) {
       const existing = completionCheckIns.get(`${input.householdId}:${input.occurrenceId}`);
       const now = new Date().toISOString();
-      const checkIn: ChoreCompletionCheckIn = {
+      const checkIn: TaskCompletionCheckIn = {
         id: existing?.id ?? crypto.randomUUID(),
         ...input,
         createdAt: existing?.createdAt ?? now,
@@ -890,7 +995,7 @@ export function createInMemoryStore(): HouseholdStore {
       );
       if (!occurrence) return undefined;
 
-      const exceptionType: ChoreOccurrence["exceptionType"] =
+      const exceptionType: TaskOccurrence["exceptionType"] =
         update.plannedStartAt !== occurrence.plannedStartAt
           ? "rescheduled"
           : update.plannedEndAt !== occurrence.plannedEndAt
@@ -903,13 +1008,96 @@ export function createInMemoryStore(): HouseholdStore {
       return updated;
     },
 
+    updateOccurrenceTaskDetails(householdId, occurrenceId, update) {
+      const occurrence = Array.from(occurrences.values()).find(
+        (candidate) => candidate.id === occurrenceId && candidate.householdId === householdId
+      );
+      if (!occurrence) return undefined;
+
+      const updated: TaskOccurrence = {
+        ...occurrence,
+        customTitle: update.title,
+        customType: update.type,
+        customInstructions: update.instructions,
+        customTags: update.tags ?? [],
+        hasTaskOverrides: true
+      };
+      occurrences.set(occurrence.id, updated);
+      return updated;
+    },
+
+    saveOccurrenceTaskToLibrary(householdId, occurrenceId) {
+      const occurrence = Array.from(occurrences.values()).find(
+        (candidate) => candidate.id === occurrenceId && candidate.householdId === householdId
+      );
+      if (!occurrence) return undefined;
+
+      const task = replaceTask(householdId, occurrence.taskId, (existing) => ({
+        ...existing,
+        libraryState: "saved"
+      }));
+      if (!task) return undefined;
+
+      const updated: TaskOccurrence = {
+        ...occurrence,
+        hasTaskOverrides: false
+      };
+      occurrences.set(occurrence.id, updated);
+      return updated;
+    },
+
+    syncOccurrenceDetailsToTask(householdId, occurrenceId) {
+      const occurrence = Array.from(occurrences.values()).find(
+        (candidate) => candidate.id === occurrenceId && candidate.householdId === householdId
+      );
+      if (!occurrence) return undefined;
+
+      const task = replaceTask(householdId, occurrence.taskId, (existing) => ({
+        ...existing,
+        title: occurrence.customTitle ?? existing.title,
+        type: occurrence.customType ?? existing.type,
+        instructions: occurrence.customInstructions,
+        tags: occurrence.customTags ?? existing.tags
+      }));
+      if (!task) return undefined;
+
+      const updated: TaskOccurrence = {
+        ...occurrence,
+        customTitle: undefined,
+        customType: undefined,
+        customInstructions: undefined,
+        customTags: undefined,
+        hasTaskOverrides: false
+      };
+      occurrences.set(occurrence.id, updated);
+      return updated;
+    },
+
+    resetOccurrenceTaskOverrides(householdId, occurrenceId) {
+      const occurrence = Array.from(occurrences.values()).find(
+        (candidate) => candidate.id === occurrenceId && candidate.householdId === householdId
+      );
+      if (!occurrence) return undefined;
+
+      const updated: TaskOccurrence = {
+        ...occurrence,
+        customTitle: undefined,
+        customType: undefined,
+        customInstructions: undefined,
+        customTags: undefined,
+        hasTaskOverrides: false
+      };
+      occurrences.set(occurrence.id, updated);
+      return updated;
+    },
+
     skipOccurrence(householdId, occurrenceId) {
       const occurrence = Array.from(occurrences.values()).find(
         (candidate) => candidate.id === occurrenceId && candidate.householdId === householdId
       );
       if (!occurrence) return undefined;
 
-      const updated: ChoreOccurrence = { ...occurrence, exceptionType: "skipped", status: "skipped" };
+      const updated: TaskOccurrence = { ...occurrence, exceptionType: "skipped", status: "skipped" };
       occurrences.set(occurrence.id, updated);
       return updated;
     },
@@ -1113,10 +1301,115 @@ export function createInMemoryStore(): HouseholdStore {
         ...input,
         id: crypto.randomUUID(),
         queueStatus: "pending",
+        taskLinkStatus: input.taskLinkStatus ?? "unreviewed",
+        importScope: input.importScope ?? "single",
         createdAt: new Date().toISOString()
       };
       calendarImportQueueItems.set(item.id, item);
       return item;
+    },
+
+    listTaskInboxItems(householdId) {
+      const pendingImports = Array.from(calendarImportQueueItems.values())
+        .filter((item) => item.householdId === householdId && item.queueStatus === "pending")
+        .map(toPendingImportInboxItem);
+      const oneTimeTasks = (tasks.get(householdId) ?? [])
+        .filter((task) => task.libraryState === "one_time" && !task.archivedAt)
+        .map(toOneTimeTaskInboxItem);
+
+      return {
+        items: [...pendingImports, ...oneTimeTasks]
+      };
+    },
+
+    linkTaskInboxItem(householdId, kind, itemId, taskId, scope) {
+      const linkedTask = (tasks.get(householdId) ?? []).find((task) =>
+        task.id === taskId &&
+        task.householdId === householdId &&
+        task.libraryState === "saved" &&
+        !task.archivedAt
+      );
+      if (!linkedTask) return undefined;
+
+      if (kind === "import_queue") {
+        const item = calendarImportQueueItems.get(itemId);
+        if (!item || item.householdId !== householdId || item.queueStatus !== "pending") return undefined;
+        const updated: CalendarImportQueueItem = {
+          ...item,
+          linkedTaskId: linkedTask.id,
+          taskLinkStatus: "linked",
+          taskMatchReason: "Linked from Task inbox",
+          importScope: scope
+        };
+        calendarImportQueueItems.set(item.id, updated);
+        return updated;
+      }
+
+      if (kind === "task") {
+        return replaceTask(householdId, itemId, (task) => ({
+          ...task,
+          libraryState: "one_time"
+        }));
+      }
+
+      return undefined;
+    },
+
+    saveTaskInboxItem(householdId, kind, itemId, task, scope) {
+      if (kind === "import_queue") {
+        const item = calendarImportQueueItems.get(itemId);
+        if (!item || item.householdId !== householdId || item.queueStatus !== "pending") return undefined;
+        const createdTask: Task = {
+          ...task,
+          householdId,
+          id: crypto.randomUUID(),
+          libraryState: "saved"
+        };
+        tasks.set(householdId, [...(tasks.get(householdId) ?? []), createdTask]);
+        const updated: CalendarImportQueueItem = {
+          ...item,
+          linkedTaskId: createdTask.id,
+          taskLinkStatus: "saved",
+          taskMatchReason: "Saved from Task inbox",
+          importScope: scope
+        };
+        calendarImportQueueItems.set(item.id, updated);
+        markStale(householdId);
+        return updated;
+      }
+
+      if (kind === "task") {
+        return replaceTask(householdId, itemId, (existing) => ({
+          ...existing,
+          ...task,
+          libraryState: "saved"
+        }));
+      }
+
+      return undefined;
+    },
+
+    keepTaskInboxItemOneTime(householdId, kind, itemId) {
+      if (kind === "import_queue") {
+        const item = calendarImportQueueItems.get(itemId);
+        if (!item || item.householdId !== householdId || item.queueStatus !== "pending") return undefined;
+        const updated: CalendarImportQueueItem = {
+          ...item,
+          taskLinkStatus: "one_time",
+          taskMatchReason: "Kept one-time from Task inbox"
+        };
+        calendarImportQueueItems.set(item.id, updated);
+        return updated;
+      }
+
+      if (kind === "task") {
+        return replaceTask(householdId, itemId, (task) => ({
+          ...task,
+          libraryState: "one_time"
+        }));
+      }
+
+      return undefined;
     },
 
     async upsertCalendarImportQueueReviewNotifications(householdId) {
@@ -1202,6 +1495,10 @@ export function createInMemoryStore(): HouseholdStore {
       const updated: CalendarImportQueueItem = {
         ...item,
         proposedType: input.proposedType ?? item.proposedType,
+        linkedTaskId: input.linkedTaskId ?? item.linkedTaskId,
+        taskLinkStatus: input.taskLinkStatus ?? item.taskLinkStatus,
+        taskMatchReason: input.taskMatchReason ?? item.taskMatchReason,
+        importScope: input.importScope ?? item.importScope,
         queueStatus: input.decision === "approve" ? "approved" : "rejected",
         ...(input.decision === "approve" ? { createdCleanlyEventId: cleanlyEventId } : {})
       };
@@ -1249,3 +1546,7 @@ export function createInMemoryStore(): HouseholdStore {
     }
   };
 }
+
+
+
+

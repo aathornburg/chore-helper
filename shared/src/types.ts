@@ -73,7 +73,14 @@ export type AppUserProfile = {
   displayName?: string;
 };
 
-export type ChoreLibraryPermission = "view" | "manage";
+export type TaskLibraryPermission = "view" | "manage";
+export type TaskType = "chore" | "commitment";
+export type TaskSource = "manual" | "google-calendar";
+export type TaskLibraryState = "saved" | "one_time" | "inbox";
+export type TaskInboxStatus = "needs_review" | "saved" | "linked" | "kept_one_time" | "dismissed";
+export type TaskInboxItemKind = "task" | "import_queue";
+export type TaskLinkStatus = "unreviewed" | "linked" | "saved" | "one_time";
+export type ImportScope = "single" | "series" | "future_matching";
 
 export type HouseholdMemberSummary = {
   householdId: string;
@@ -82,7 +89,7 @@ export type HouseholdMemberSummary = {
   primaryEmail?: string;
   displayName?: string;
   role: "owner" | "member";
-  choreLibraryPermission: ChoreLibraryPermission;
+  taskLibraryPermission: TaskLibraryPermission;
 };
 
 export type HouseholdInvitationStatus = "pending" | "accepted" | "cancelled" | "expired";
@@ -103,7 +110,7 @@ export type HouseholdInvitation = {
 
 export type RecurrenceFrequency = "one_time" | "daily" | "weekly" | "monthly" | "yearly";
 
-export type ChoreScheduleRecurrence = {
+export type TaskScheduleRecurrence = {
   frequency: RecurrenceFrequency;
   interval: number;
   weekDays?: number[];
@@ -113,7 +120,7 @@ export type ChoreScheduleRecurrence = {
   monthlyWeekday?: number;
 };
 
-export type ChoreScheduleAssignment = {
+export type TaskScheduleAssignment = {
   mode: "fixed" | "rotation";
   memberUserIds: string[];
 };
@@ -121,38 +128,38 @@ export type ChoreScheduleAssignment = {
 export type SchedulePlanningMode = "timed" | "flexible";
 export type FlexibleWindowRule = "once_within_selected_days" | "each_selected_day";
 
-export type ChoreScheduleBase = {
+export type TaskScheduleBase = {
   id: string;
   householdId: string;
-  choreId: string;
+  taskId: string;
   planningMode: SchedulePlanningMode;
-  recurrence: ChoreScheduleRecurrence;
+  recurrence: TaskScheduleRecurrence;
   startsOn: string;
   endsOn?: string;
-  assignment: ChoreScheduleAssignment;
+  assignment: TaskScheduleAssignment;
   archivedAt?: string;
 };
 
-export type TimedChoreSchedule = ChoreScheduleBase & {
+export type TimedTaskSchedule = TaskScheduleBase & {
   planningMode: "timed";
   localStartTime: string;
   localEndTime: string;
 };
 
-export type FlexibleChoreSchedule = ChoreScheduleBase & {
+export type FlexibleTaskSchedule = TaskScheduleBase & {
   planningMode: "flexible";
   estimatedMinutes: number;
   flexibleWindowRule: FlexibleWindowRule;
 };
 
-export type ChoreSchedule = TimedChoreSchedule | FlexibleChoreSchedule;
+export type TaskSchedule = TimedTaskSchedule | FlexibleTaskSchedule;
 
 export type OccurrenceExceptionType = "none" | "rescheduled" | "resized" | "reassigned" | "skipped";
 
-export type ChoreOccurrence = {
+export type TaskOccurrence = {
   id: string;
   householdId: string;
-  choreId: string;
+  taskId: string;
   scheduleId: string;
   sequence: number;
   planningMode: SchedulePlanningMode;
@@ -166,31 +173,45 @@ export type ChoreOccurrence = {
   status: "planned" | "completed" | "skipped";
   completedAt?: string;
   completedByUserId?: string;
+  customTitle?: string;
+  customType?: TaskType;
+  customInstructions?: string;
+  customTags?: string[];
+  hasTaskOverrides?: boolean;
 };
 
-export type Chore = {
+export type Task = {
   id: string;
   householdId: string;
   householdName?: string;
   title: string;
-  source: "manual" | "google-calendar";
+  type: TaskType;
+  libraryState: TaskLibraryState;
+  source: TaskSource;
   instructions?: string;
   tags?: string[];
   archivedAt?: string;
 };
 
-export type ChoreDefinitionInput = Omit<Chore, "id" | "householdId" | "householdName" | "archivedAt">;
-export type CreateChoreInput = ChoreDefinitionInput;
+export type TaskDefinitionInput = Omit<Task, "id" | "householdId" | "householdName" | "archivedAt">;
+export type CreateTaskInput = TaskDefinitionInput;
 export type ScheduleInput =
-  | Omit<TimedChoreSchedule, "id" | "householdId" | "choreId" | "archivedAt">
-  | Omit<FlexibleChoreSchedule, "id" | "householdId" | "choreId" | "archivedAt">;
-export type CreateScheduledChoreInput = {
-  chore: ChoreDefinitionInput;
+  | Omit<TimedTaskSchedule, "id" | "householdId" | "taskId" | "archivedAt">
+  | Omit<FlexibleTaskSchedule, "id" | "householdId" | "taskId" | "archivedAt">;
+export type CreateScheduledTaskInput = {
+  task: TaskDefinitionInput;
   schedules: ScheduleInput[];
 };
-export type ScheduledChore = {
-  chore: Chore;
-  schedules: ChoreSchedule[];
+export type ScheduledTask = {
+  task: Task;
+  schedules: TaskSchedule[];
+};
+
+export type OccurrenceTaskDetailsInput = {
+  title: string;
+  type: TaskType;
+  instructions?: string;
+  tags?: string[];
 };
 
 export type CompletionCheckInInput = {
@@ -200,7 +221,7 @@ export type CompletionCheckInInput = {
   rebaseFutureOccurrences?: boolean;
 };
 
-export type ChoreCompletionCheckIn = {
+export type TaskCompletionCheckIn = {
   id: string;
   householdId: string;
   occurrenceId: string;
@@ -214,7 +235,7 @@ export type ChoreCompletionCheckIn = {
   updatedAt: string;
 };
 
-export type ChoreReviewState = "unreviewed" | "recommendation-pending" | "reviewed";
+export type TaskReviewState = "unreviewed" | "recommendation-pending" | "reviewed";
 
 export type RecommendationConfidence = "low" | "medium" | "high";
 export type RecommendationDecision = "pending" | "accepted" | "declined" | "applied";
@@ -222,7 +243,7 @@ export type RecommendationDecision = "pending" | "accepted" | "declined" | "appl
 export type Recommendation = {
   id: string;
   householdId: string;
-  affectedChoreId?: string;
+  affectedTaskId?: string;
   title: string;
   rationale: string;
   confidence: RecommendationConfidence;
@@ -233,13 +254,13 @@ export type Recommendation = {
   staleAt?: string;
 };
 
-export type ChoreAppData = Chore & {
+export type TaskAppData = Task & {
   recommendations: Recommendation[];
 };
 
 export type HouseholdAppData = Household & {
   structure: HouseholdStructure;
-  chores: ChoreAppData[];
+  tasks: TaskAppData[];
   recommendations: Recommendation[];
 };
 
@@ -249,7 +270,7 @@ export type CalendarSyncMode = "off" | "manual" | "auto";
 export type CalendarExportMode = "off" | "review" | "auto";
 export type CalendarContentMode = "chores" | "commitments" | "both";
 export type CalendarDetailLevel = "busy_only" | "full_details";
-export type CleanlyCalendarEventType = "chore" | "commitment";
+export type CleanlyCalendarEventType = TaskType;
 export type CalendarQueueStatus = "pending" | "approved" | "rejected" | "auto_added" | "needs_member";
 export type CalendarExportQueueStatus = "pending" | "approved" | "rejected" | "exported";
 export type AppNotificationType = "calendar_import_queue_review";
@@ -309,13 +330,55 @@ export type CalendarImportQueueItem = {
   endsAt: string;
   queueStatus: CalendarQueueStatus;
   createdCleanlyEventId?: string;
+  linkedTaskId?: string;
+  taskLinkStatus: TaskLinkStatus;
+  taskMatchReason?: string;
+  importScope: ImportScope;
   createdAt: string;
 };
 
 export type CalendarImportQueueDecisionInput = {
   decision: "approve" | "reject";
   proposedType?: CleanlyCalendarEventType;
+  linkedTaskId?: string;
+  taskLinkStatus?: TaskLinkStatus;
+  taskMatchReason?: string;
+  importScope?: ImportScope;
 };
+
+export type TaskInboxImportQueueItem = {
+  id: string;
+  kind: "import_queue";
+  householdId: string;
+  status: TaskInboxStatus;
+  title: string;
+  proposedType: TaskType;
+  source: TaskSource;
+  importQueueItemId: string;
+  badge: "Pending import" | "Suggested link";
+  startsAt: string;
+  endsAt: string;
+  suggestedTaskId?: string;
+  suggestedReason?: string;
+};
+
+export type TaskInboxScheduledTaskItem = {
+  id: string;
+  kind: "task";
+  householdId: string;
+  status: TaskInboxStatus;
+  title: string;
+  proposedType: TaskType;
+  source: TaskSource;
+  taskId: string;
+  badge: "Scheduled" | "Suggested link" | "Kept one-time";
+  startsAt?: string;
+  endsAt?: string;
+  suggestedTaskId?: string;
+  suggestedReason?: string;
+};
+
+export type TaskInboxItem = TaskInboxImportQueueItem | TaskInboxScheduledTaskItem;
 
 export type AppNotification = {
   id: string;

@@ -9,6 +9,7 @@ import { CalendarPage } from "./pages/CalendarPage";
 import { FamilyPage } from "./pages/FamilyPage";
 import { LandingPage } from "./pages/LandingPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { TasksPage } from "./pages/TasksPage";
 import { TodayDashboard } from "./pages/TodayDashboard";
 import { normalizePath } from "./routes";
 import { AppDataProvider } from "./state/AppDataProvider";
@@ -126,6 +127,9 @@ function AppRoutes() {
       {path === "/calendar" ? (
         <CalendarPage households={households} isLoading={isLoading} onNavigate={navigate} />
       ) : null}
+      {path === "/tasks" ? (
+        <TasksPage households={households} isLoading={isLoading} />
+      ) : null}
       {path === "/households" ? (
         <HouseholdsPage households={households} isLoading={isLoading} onAddHousehold={addHousehold} onReload={reloadHouseholds} />
       ) : null}
@@ -161,6 +165,7 @@ function AppShell({
     { label: "Optimize", path: "/optimize", emphasis: true },
     { label: "Today", path: "/today" },
     { label: "Calendar", path: "/calendar" },
+    { label: "Tasks", path: "/tasks" },
     { label: "My Home", path: "/households" },
     { label: "Family", path: "/family" },
     { label: "Settings", path: "/settings" }

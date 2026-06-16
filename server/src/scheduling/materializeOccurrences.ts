@@ -8,16 +8,16 @@ import {
   parseISO
 } from "date-fns";
 import { fromZonedTime } from "date-fns-tz";
-import type { ChoreOccurrence, ChoreSchedule, FlexibleChoreSchedule, TimedChoreSchedule } from "@chore-helper/shared";
+import type { FlexibleTaskSchedule, TaskOccurrence, TaskSchedule, TimedTaskSchedule } from "@chore-helper/shared";
 
 export type MaterializeInput = {
-  schedule: ChoreSchedule;
+  schedule: TaskSchedule;
   householdTimeZone: string;
   rangeStart: string;
   rangeEnd: string;
 };
 
-function isScheduledDate(schedule: ChoreSchedule, date: Date, startDate: Date) {
+function isScheduledDate(schedule: TaskSchedule, date: Date, startDate: Date) {
   const recurrence = schedule.recurrence;
 
   if (recurrence.frequency === "one_time") {
@@ -63,19 +63,19 @@ function isScheduledDate(schedule: ChoreSchedule, date: Date, startDate: Date) {
   );
 }
 
-function assigneeFor(schedule: ChoreSchedule, sequence: number) {
+function assigneeFor(schedule: TaskSchedule, sequence: number) {
   return schedule.assignment.mode === "fixed"
     ? schedule.assignment.memberUserIds[0]
     : schedule.assignment.memberUserIds[sequence % schedule.assignment.memberUserIds.length];
 }
 
-function timedDurationMinutes(schedule: TimedChoreSchedule) {
+function timedDurationMinutes(schedule: TimedTaskSchedule) {
   const [startHour, startMinute] = schedule.localStartTime.split(":").map(Number);
   const [endHour, endMinute] = schedule.localEndTime.split(":").map(Number);
   return (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
 }
 
-function recurrenceIdentity(schedule: ChoreSchedule) {
+function recurrenceIdentity(schedule: TaskSchedule) {
   const recurrence = schedule.recurrence;
   return [
     schedule.planningMode,
@@ -90,7 +90,7 @@ function recurrenceIdentity(schedule: ChoreSchedule) {
   ].join(":");
 }
 
-function timedOccurrenceId(schedule: TimedChoreSchedule, localDate: string) {
+function timedOccurrenceId(schedule: TimedTaskSchedule, localDate: string) {
   return [
     schedule.id,
     recurrenceIdentity(schedule),
@@ -98,7 +98,7 @@ function timedOccurrenceId(schedule: TimedChoreSchedule, localDate: string) {
   ].join(":");
 }
 
-function flexibleOccurrenceId(schedule: FlexibleChoreSchedule, eligibleStartOn: string, eligibleEndOn: string) {
+function flexibleOccurrenceId(schedule: FlexibleTaskSchedule, eligibleStartOn: string, eligibleEndOn: string) {
   return [
     schedule.id,
     recurrenceIdentity(schedule),
@@ -108,11 +108,11 @@ function flexibleOccurrenceId(schedule: FlexibleChoreSchedule, eligibleStartOn: 
 }
 
 function createTimedOccurrence(
-  schedule: TimedChoreSchedule,
+  schedule: TimedTaskSchedule,
   localDate: string,
   sequence: number,
   householdTimeZone: string
-): ChoreOccurrence {
+): TaskOccurrence {
   const plannedStart = fromZonedTime(
     `${localDate}T${schedule.localStartTime}:00`,
     householdTimeZone
@@ -126,7 +126,7 @@ function createTimedOccurrence(
   return {
     id: timedOccurrenceId(schedule, localDate),
     householdId: schedule.householdId,
-    choreId: schedule.choreId,
+    taskId: schedule.taskId,
     scheduleId: schedule.id,
     sequence,
     planningMode: "timed",
@@ -142,15 +142,15 @@ function createTimedOccurrence(
 }
 
 function createFlexibleOccurrence(
-  schedule: FlexibleChoreSchedule,
+  schedule: FlexibleTaskSchedule,
   eligibleStartOn: string,
   eligibleEndOn: string,
   sequence: number
-): ChoreOccurrence {
+): TaskOccurrence {
   return {
     id: flexibleOccurrenceId(schedule, eligibleStartOn, eligibleEndOn),
     householdId: schedule.householdId,
-    choreId: schedule.choreId,
+    taskId: schedule.taskId,
     scheduleId: schedule.id,
     sequence,
     planningMode: "flexible",
@@ -163,7 +163,7 @@ function createFlexibleOccurrence(
   };
 }
 
-function flexibleWindows(schedule: FlexibleChoreSchedule, eligibleDates: string[]) {
+function flexibleWindows(schedule: FlexibleTaskSchedule, eligibleDates: string[]) {
   if (schedule.flexibleWindowRule === "each_selected_day") {
     return eligibleDates.map((date) => ({ startOn: date, endOn: date }));
   }
@@ -188,7 +188,7 @@ export function materializeOccurrences({
   householdTimeZone,
   rangeStart,
   rangeEnd
-}: MaterializeInput): ChoreOccurrence[] {
+}: MaterializeInput): TaskOccurrence[] {
   const lastDate = schedule.endsOn && schedule.endsOn < rangeEnd ? schedule.endsOn : rangeEnd;
   if (lastDate < schedule.startsOn || rangeEnd < rangeStart) return [];
 
@@ -208,7 +208,7 @@ export function materializeOccurrences({
       );
   }
 
-  const occurrences: ChoreOccurrence[] = [];
+  const occurrences: TaskOccurrence[] = [];
   let sequence = 0;
 
   for (const localDate of eligibleDates) {
