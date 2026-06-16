@@ -2616,7 +2616,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
       <section className="calendar-workspace-shell has-external-tabs" aria-label="Calendar workspace">
         {!isMobileMonthViewport ? renderCalendarSections() : null}
 
-            <div className="panel calendar-workspace-panel">
+            <div className={`panel calendar-workspace-panel ${activeSection === "export" || isExportMode ? "is-export-view" : ""}`.trim()}>
             {activeSection === "import-queue" ? (
               renderCalendarImportQueue() ?? (
                 <section className="calendar-import-queue is-empty" role="region" aria-label="Calendar import queue">

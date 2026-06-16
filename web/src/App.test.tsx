@@ -4623,6 +4623,7 @@ describe("App", () => {
     const reviewPanel = await screen.findByRole("region", { name: "Export review controls" });
     expect(quickSelectPanel).toBeTruthy();
     expect(reviewPanel).toBeTruthy();
+    expect(reviewPanel.closest(".calendar-workspace-panel")?.classList.contains("is-export-view")).toBe(true);
     expect(screen.queryByRole("dialog", { name: "Export events" })).toBeNull();
     expect(within(quickSelectPanel).getByRole("button", { name: "Quick select" })).toBeTruthy();
     expect(within(reviewPanel).getByRole("button", { name: "Review 0" })).toBeTruthy();

@@ -2691,6 +2691,10 @@ button:where(:not(.link-button)):hover {
   padding: 16px;
 }
 
+.calendar-workspace-panel.is-export-view {
+  overflow: visible;
+}
+
 .calendar-workspace-panel-header {
   align-items: center;
   background: transparent;
