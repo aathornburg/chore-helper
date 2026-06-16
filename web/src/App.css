@@ -4997,6 +4997,71 @@ button.calendar-event:hover {
   width: min(540px, 48%);
 }
 
+.calendar-export-review-sheet {
+  max-width: 480px;
+}
+
+.calendar-export-review-sheet-summary {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.calendar-export-review-sheet-summary span {
+  background: #f6fbfc;
+  border: 1px solid var(--color-border);
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px;
+}
+
+.calendar-export-review-sheet-summary strong {
+  color: var(--color-primary-strong);
+  font-size: 1rem;
+}
+
+.calendar-export-review-sheet-summary small {
+  color: #536173;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.calendar-export-review-sheet .calendar-export-selected-list {
+  border-color: #c8e1e7;
+}
+
+.calendar-export-review-sheet .calendar-export-selected-list li {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding: 12px;
+}
+
+.calendar-export-review-sheet .calendar-export-selected-list strong {
+  color: #24352e;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.calendar-export-review-sheet .app-side-sheet-footer {
+  align-items: end;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.calendar-export-review-sheet .app-side-sheet-footer label {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  max-width: none;
+  min-width: 0;
+}
+
+.calendar-export-review-sheet .app-side-sheet-footer select {
+  width: 100%;
+}
+
 .calendar-export-review-heading {
   align-items: start;
   display: flex;
@@ -9185,7 +9250,12 @@ button.chore-row-summary[aria-expanded="true"] {
 
   .calendar-export-summary-bar,
   .calendar-export-popover-grid,
-  .calendar-export-review-actions {
+  .calendar-export-review-actions,
+  .calendar-export-review-sheet .app-side-sheet-footer {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .calendar-export-review-sheet-summary {
     grid-template-columns: minmax(0, 1fr);
   }
 

@@ -1,5 +1,6 @@
 import type { CalendarPreferences, CleanlyCalendarEvent, ExternalCalendarSummary } from "@chore-helper/shared";
 import { useState } from "react";
+import { SideSheet } from "../../components/SideSheet";
 import { DateRangePicker } from "./DateRangePicker";
 import type { CalendarDateRange, CalendarDateRangePreset } from "./dateRange";
 
@@ -39,6 +40,10 @@ function rangePresetLabel(preset: CalendarDateRangePreset) {
   if (preset === "this_month") return "this month";
   if (preset === "custom") return "custom dates";
   return "the visible range";
+}
+
+function eventTypeLabel(type: CleanlyCalendarEvent["type"]) {
+  return type === "commitment" ? "Commitment" : "Task";
 }
 
 export function CalendarExportQuickSelectPanel({
@@ -149,41 +154,57 @@ export function CalendarExportReviewPanel({
       </div>
 
       {isReviewOpen ? (
-        <section className="calendar-export-popover calendar-export-review-popover" role="dialog" aria-label="Review export">
-          <div className="calendar-export-review-heading">
-            <div>
-              <p className="eyebrow">Review export</p>
-              <h3>Selected events</h3>
-            </div>
-            <button className="link-button" onClick={() => setIsReviewOpen(false)} type="button">Close</button>
+        <SideSheet
+          ariaLabel="Review export"
+          className="calendar-export-review-sheet"
+          eyebrow="Review export"
+          footer={(
+            <>
+              <label>
+                To calendar
+                <select
+                  value={preferences?.destinationExternalCalendarId ?? ""}
+                  onChange={(event) => onDestinationCalendarChange(event.target.value)}
+                >
+                  <option value="">Choose destination calendar</option>
+                  {externalCalendars.map((calendar) => (
+                    <option key={calendar.id} value={calendar.id}>{calendar.name}</option>
+                  ))}
+                </select>
+              </label>
+              <button disabled={!canExport} onClick={onExport} type="button">
+                Export {pluralize(selectedEventIds.length, "selected event")}
+              </button>
+            </>
+          )}
+          onClose={() => setIsReviewOpen(false)}
+          title="Selected events"
+        >
+          <div className="calendar-export-review-sheet-summary">
+            <span>
+              <strong>{selectedSummary}</strong>
+              <small>Total</small>
+            </span>
+            <span>
+              <strong>{taskSummary}</strong>
+              <small>Tasks</small>
+            </span>
+            <span>
+              <strong>{commitmentSummary}</strong>
+              <small>Commitments</small>
+            </span>
           </div>
+
           <ul className="calendar-export-selected-list">
             {selectedEvents.map((event) => (
               <li key={event.id}>
                 <span aria-hidden="true" />
                 <strong>{event.privacyTitle}</strong>
-                <small>{event.type}</small>
+                <small>{eventTypeLabel(event.type)}</small>
               </li>
             ))}
           </ul>
-          <div className="calendar-export-review-actions">
-            <label>
-              To calendar
-              <select
-                value={preferences?.destinationExternalCalendarId ?? ""}
-                onChange={(event) => onDestinationCalendarChange(event.target.value)}
-              >
-                <option value="">Choose destination calendar</option>
-                {externalCalendars.map((calendar) => (
-                  <option key={calendar.id} value={calendar.id}>{calendar.name}</option>
-                ))}
-              </select>
-            </label>
-            <button disabled={!canExport} onClick={onExport} type="button">
-              Export {pluralize(selectedEventIds.length, "selected event")}
-            </button>
-          </div>
-        </section>
+        </SideSheet>
       ) : null}
     </aside>
   );

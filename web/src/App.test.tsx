@@ -4915,6 +4915,12 @@ describe("App", () => {
 
       const reviewDialog = screen.getByRole("dialog", { name: "Review export" });
       expect(reviewDialog).toBeTruthy();
+      expect(reviewDialog.classList.contains("app-side-sheet")).toBe(true);
+      expect(reviewDialog.classList.contains("calendar-export-review-sheet")).toBe(true);
+      expect(document.querySelector(".app-side-sheet-backdrop")?.classList.contains("is-detail-view")).toBe(true);
+      expect(within(reviewDialog).getByText("2 selected")).toBeTruthy();
+      expect(within(reviewDialog).getByText("1 task")).toBeTruthy();
+      expect(within(reviewDialog).getByText("1 commitment")).toBeTruthy();
       expect(within(reviewDialog).getByText("Clean bathrooms")).toBeTruthy();
       expect(within(reviewDialog).getByText("Soccer practice")).toBeTruthy();
       expect(within(reviewDialog).getByLabelText("To calendar")).toBeTruthy();
@@ -4922,9 +4928,11 @@ describe("App", () => {
 
       fireEvent.click(screen.getByRole("button", { name: "Deselect Clean bathrooms" }));
 
-      expect(screen.getByText("1 selected")).toBeTruthy();
-      expect(within(exportReviewControls).getByText("0 tasks")).toBeTruthy();
-      expect(within(exportReviewControls).getByText("1 commitment")).toBeTruthy();
+      const exportSummaryBar = exportReviewControls.querySelector(".calendar-export-summary-bar");
+      expect(exportSummaryBar).toBeTruthy();
+      expect(within(exportSummaryBar as HTMLElement).getByText("1 selected")).toBeTruthy();
+      expect(within(exportSummaryBar as HTMLElement).getByText("0 tasks")).toBeTruthy();
+      expect(within(exportSummaryBar as HTMLElement).getByText("1 commitment")).toBeTruthy();
     });
   });
 
