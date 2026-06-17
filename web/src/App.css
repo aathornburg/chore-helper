@@ -2633,6 +2633,7 @@ button:where(:not(.link-button)):hover {
 
 .calendar-cleanly-event.is-export-selectable {
   cursor: pointer;
+  padding-right: 30px;
   position: relative;
 }
 
@@ -2643,18 +2644,22 @@ button:where(:not(.link-button)):hover {
   box-shadow: inset 0 0 0 2px rgba(21, 105, 126, 0.16);
 }
 
-.calendar-cleanly-event.is-selected-for-export::after {
+.calendar-export-selected-check {
   align-items: center;
   background: var(--color-primary);
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(16, 47, 59, 0.18);
   color: #fff;
-  content: "Selected";
   display: inline-flex;
-  font-size: 0.66rem;
-  font-weight: 850;
+  font-size: 0.76rem;
+  font-weight: 950;
+  height: 20px;
   justify-content: center;
-  letter-spacing: 0.02em;
-  padding: 2px 5px;
-  text-transform: uppercase;
+  line-height: 1;
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  width: 20px;
 }
 
 .calendar-cleanly-event.is-export-muted {
@@ -4041,14 +4046,17 @@ button.calendar-event:hover {
 
 .app-side-sheet-backdrop {
   align-items: stretch;
+  background: rgba(17, 31, 35, 0.44);
   justify-items: end;
   overflow: hidden;
   padding: 0;
   place-items: stretch end;
+  z-index: 200;
 }
 
 .app-side-sheet {
   align-content: start;
+  background: var(--color-surface-elevated);
   border-left: 1px solid var(--color-border);
   border-radius: 0;
   box-shadow: -18px 0 42px rgba(9, 52, 68, 0.18);
@@ -4436,6 +4444,54 @@ button.calendar-event:hover {
   font-weight: 750;
   margin-bottom: 8px;
   width: 100%;
+}
+
+.task-source-selector {
+  align-items: end;
+  background: #f6fbfc;
+  border: 1px solid var(--color-border);
+  display: grid;
+  gap: 10px 14px;
+  grid-template-columns: auto auto minmax(220px, 1fr);
+  padding: 12px 14px;
+}
+
+.task-source-selector legend {
+  margin-bottom: 0;
+}
+
+.task-source-selector .checkbox-field {
+  min-height: 42px;
+}
+
+.task-source-selector-field {
+  max-width: 360px;
+}
+
+.selected-task-summary {
+  align-items: center;
+  background: #f9fcfd;
+  border: 1px solid var(--color-border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  justify-content: space-between;
+  padding: 12px 14px;
+}
+
+.selected-task-summary div {
+  display: grid;
+  gap: 2px;
+}
+
+.selected-task-summary strong {
+  color: #24352e;
+}
+
+.selected-task-summary span {
+  color: #536173;
+  font-size: 0.82rem;
+  font-weight: 800;
 }
 
 .create-schedule-panel,
@@ -4999,6 +5055,7 @@ button.calendar-event:hover {
 
 .calendar-export-review-sheet {
   max-width: 480px;
+  width: min(440px, calc(100vw - 28px));
 }
 
 .calendar-export-review-sheet-summary {
@@ -5011,9 +5068,9 @@ button.calendar-event:hover {
   background: #f6fbfc;
   border: 1px solid var(--color-border);
   display: grid;
-  gap: 4px;
+  gap: 3px;
   min-width: 0;
-  padding: 12px;
+  padding: 10px;
 }
 
 .calendar-export-review-sheet-summary strong {
@@ -5045,12 +5102,16 @@ button.calendar-event:hover {
 }
 
 .calendar-export-review-sheet .app-side-sheet-footer {
-  align-items: end;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: block;
 }
 
-.calendar-export-review-sheet .app-side-sheet-footer label {
+.calendar-export-review-sheet-footer {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+}
+
+.calendar-export-review-sheet-footer label {
   display: grid;
   gap: 6px;
   margin: 0;
@@ -5058,7 +5119,8 @@ button.calendar-event:hover {
   min-width: 0;
 }
 
-.calendar-export-review-sheet .app-side-sheet-footer select {
+.calendar-export-review-sheet-footer button,
+.calendar-export-review-sheet-footer select {
   width: 100%;
 }
 

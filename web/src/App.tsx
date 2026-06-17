@@ -128,7 +128,7 @@ function AppRoutes() {
         <CalendarPage households={households} isLoading={isLoading} onNavigate={navigate} />
       ) : null}
       {path === "/tasks" ? (
-        <TasksPage households={households} isLoading={isLoading} />
+        <TasksPage households={households} isLoading={isLoading} onNavigate={navigate} />
       ) : null}
       {path === "/households" ? (
         <HouseholdsPage households={households} isLoading={isLoading} onAddHousehold={addHousehold} onReload={reloadHouseholds} />

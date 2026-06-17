@@ -16,10 +16,12 @@ import {
 } from "../api";
 import { CalendarIcon, ChevronRightIcon, PencilIcon } from "../components/AppIcons";
 import { SideSheet } from "../components/SideSheet";
+import type { Navigate } from "../types";
 
 type TasksPageProps = {
   households: HouseholdAppData[];
   isLoading: boolean;
+  onNavigate: Navigate;
 };
 
 type TasksSection = "library" | "inbox";
@@ -123,7 +125,7 @@ function TaskLibraryModal({
   );
 }
 
-export function TasksPage({ households, isLoading }: TasksPageProps) {
+export function TasksPage({ households, isLoading, onNavigate }: TasksPageProps) {
   const selectedHousehold = households[0];
   const mobileTaskMenuRef = useRef<HTMLDivElement | null>(null);
   const [activeSection, setActiveSection] = useState<TasksSection>("library");
@@ -370,6 +372,14 @@ export function TasksPage({ households, isLoading }: TasksPageProps) {
         tone={selectedTask.type}
         footer={(
           <>
+            {!isArchived ? (
+              <button
+                type="button"
+                onClick={() => onNavigate(`/calendar?scheduleTaskId=${encodeURIComponent(selectedTask.id)}`)}
+              >
+                Schedule task
+              </button>
+            ) : null}
             {canManageTaskLibrary && !isArchived ? (
               <>
                 <button

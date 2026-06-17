@@ -2,7 +2,7 @@ import { addDays, addMinutes, addMonths, addWeeks, eachDayOfInterval, endOfMonth
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { CalendarConnectionSummary, CalendarImportCandidate, CalendarImportPolicy, CalendarImportQueueItem, CalendarPreferences, Task, TaskOccurrence, TaskSchedule, CleanlyCalendarEvent, CompletionCheckInInput, ExternalCalendarSummary, HouseholdAppData, HouseholdMemberSummary, ScheduleInput } from "@chore-helper/shared";
-import { completeOccurrence, createScheduledTask, decideCalendarImportQueueItem, exportCleanlyCalendarEvents, getCalendarPreferences, getCurrentUser, getMyCalendarImportPolicy, listCalendarConnections, listCalendarImportCandidates, listCalendarImportPolicies, listCalendarImportQueue, listCleanlyCalendarEvents, listExternalCalendars, listHouseholdMembers, listOccurrences, listSchedules, resetOccurrenceTaskOverrides, saveOccurrenceTaskToLibrary, skipOccurrence, startGoogleCalendarConnection, submitCalendarImportEvents, syncOccurrenceDetailsToTask, updateCalendarPreferences, updateOccurrence, updateOccurrenceTaskDetails, updateSchedule as updateScheduleApi } from "../api";
+import { completeOccurrence, createSchedule, createScheduledTask, decideCalendarImportQueueItem, exportCleanlyCalendarEvents, getCalendarPreferences, getCurrentUser, getMyCalendarImportPolicy, listCalendarConnections, listCalendarImportCandidates, listCalendarImportPolicies, listCalendarImportQueue, listCleanlyCalendarEvents, listExternalCalendars, listHouseholdMembers, listOccurrences, listSchedules, resetOccurrenceTaskOverrides, saveOccurrenceTaskToLibrary, skipOccurrence, startGoogleCalendarConnection, submitCalendarImportEvents, syncOccurrenceDetailsToTask, updateCalendarPreferences, updateOccurrence, updateOccurrenceTaskDetails, updateSchedule as updateScheduleApi } from "../api";
 import { CalendarExportQuickSelectPanel, CalendarExportReviewPanel } from "./calendar/CalendarExportPanel";
 import { DateRangePicker } from "./calendar/DateRangePicker";
 import type { CalendarDateRange, CalendarDateRangePreset } from "./calendar/dateRange";
@@ -25,6 +25,7 @@ type QueueDecisionDraft = {
 };
 type EditorDraft = {
   taskId?: string;
+  taskSourceMode: "new" | "existing";
   title: string;
   type: Task["type"];
   saveToLibrary: boolean;
@@ -860,7 +861,23 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     };
   }
 
-  function openCreateEditor(trigger?: HTMLElement) {
+  function taskDraftFields(task: Task) {
+    return {
+      taskId: task.id,
+      taskSourceMode: "existing" as const,
+      title: task.title,
+      type: task.type,
+      saveToLibrary: task.libraryState !== "one_time",
+      instructions: task.instructions ?? "",
+      tags: (task.tags ?? []).join(", ")
+    };
+  }
+
+  function savedTasksForScheduling() {
+    return selectedHousehold?.tasks.filter((task) => task.libraryState === "saved" && !task.archivedAt) ?? [];
+  }
+
+  function openCreateEditor(trigger?: HTMLElement, task?: Task) {
     modalTriggerRef.current = trigger ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
     setSelectedCleanlyCalendarEventId(undefined);
     setSelectedOccurrenceId(undefined);
@@ -869,16 +886,66 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
     setCompletionCheckIn(undefined);
     setTaskDetailScope("occurrence");
     setEditorDraft({
-      title: "",
-      type: "chore",
-      saveToLibrary: true,
-      instructions: "",
-      tags: "",
+      ...(task ? taskDraftFields(task) : {
+        taskSourceMode: "new" as const,
+        title: "",
+        type: "chore" as const,
+        saveToLibrary: true,
+        instructions: "",
+        tags: ""
+      }),
       startTime: "",
       schedules: [seedDraftAssignees(createDefaultOneTimeScheduleDraft())]
     });
     setEditorMode("create");
   }
+
+  function switchCreateTaskSourceMode(mode: EditorDraft["taskSourceMode"]) {
+    if (mode === "existing") {
+      const firstTask = savedTasksForScheduling()[0];
+      if (!firstTask) return;
+      setEditorDraft((current) => current ? {
+        ...current,
+        ...taskDraftFields(firstTask)
+      } : current);
+      return;
+    }
+
+    setEditorDraft((current) => current ? {
+      ...current,
+      taskId: undefined,
+      taskSourceMode: "new",
+      title: "",
+      type: "chore",
+      saveToLibrary: true,
+      instructions: "",
+      tags: ""
+    } : current);
+  }
+
+  function selectExistingTaskForDraft(taskId: string) {
+    const task = savedTasksForScheduling().find((item) => item.id === taskId);
+    if (!task) return;
+    setEditorDraft((current) => current ? {
+      ...current,
+      ...taskDraftFields(task)
+    } : current);
+  }
+
+  useEffect(() => {
+    if (!selectedHousehold || editorMode !== "closed" || members.length === 0) return;
+    const taskId = new URLSearchParams(window.location.search).get("scheduleTaskId");
+    if (!taskId) return;
+
+    const task = selectedHousehold.tasks.find((item) => item.id === taskId && item.libraryState === "saved" && !item.archivedAt);
+    window.history.replaceState({}, "", "/calendar");
+    if (!task) {
+      setCalendarSyncStatus("Could not find that saved task.");
+      return;
+    }
+
+    openCreateEditor(undefined, task);
+  }, [editorMode, members.length, selectedHousehold?.id]);
 
   function draftFromOccurrence(occurrence: TaskOccurrence): EditorDraft {
     const chore = selectedHousehold?.tasks.find((item) => item.id === occurrence.taskId);
@@ -903,6 +970,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
         }) as ScheduleDraft;
     return {
       taskId: occurrence.taskId,
+      taskSourceMode: "existing",
       title: occurrenceTitle(occurrence),
       type: occurrence.customType ?? chore?.type ?? "chore",
       saveToLibrary: chore?.libraryState !== "one_time",
@@ -999,6 +1067,19 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
         }
         return schedule;
       });
+      if (editorDraft.taskSourceMode === "existing") {
+        if (!editorDraft.taskId) {
+          setEditorStatus("Choose a saved task.");
+          return;
+        }
+        await Promise.all(schedules.map((schedule) => createSchedule(selectedHousehold.id, editorDraft.taskId!, schedule)));
+        await reloadOccurrences();
+        setEditorMode("closed");
+        setEditorDraft(undefined);
+        setEditorStatus("Task scheduled.");
+        return;
+      }
+
       const created = await createScheduledTask(selectedHousehold.id, {
         task: {
           title: editorDraft.title,
@@ -1568,6 +1649,7 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
         type="button"
       >
         {content}
+        {isSelectedForExport ? <span className="calendar-export-selected-check" aria-hidden="true">✓</span> : null}
       </button>
     ) : (
       <button
@@ -3013,47 +3095,100 @@ export function CalendarPage({ households, isLoading }: CalendarPageProps) {
                 ) : null}
                 {editorMode !== "view" ? (
                   <>
-                <div className="field-grid aligned-field-grid">
-                  <label className="aligned-field">
-                    Task title
-                    <input value={editorDraft.title} onChange={(event) => setEditorDraft({ ...editorDraft, title: event.target.value })} required />
-                    {editorMode === "create" || editorMode === "edit" ? <span className="field-help-placeholder" aria-hidden="true" /> : null}
-                  </label>
-                  <label className="aligned-field">
-                    Task type
-                    <select
-                      value={editorDraft.type}
-                      onChange={(event) => setEditorDraft({ ...editorDraft, type: event.target.value as Task["type"] })}
-                    >
-                      <option value="chore">Chore</option>
-                      <option value="commitment">Commitment</option>
-                    </select>
-                    {editorMode === "create" || editorMode === "edit" ? <span className="field-help-placeholder" aria-hidden="true" /> : null}
-                  </label>
-                  <label className="aligned-field">
-                    Tags
-                    <input
-                      aria-describedby={editorMode === "create" ? "chore-tags-help" : undefined}
-                      value={editorDraft.tags}
-                      onChange={(event) => setEditorDraft({ ...editorDraft, tags: event.target.value })}
-                    />
-                    {editorMode === "create" ? (
-                      <span className="field-help" id="chore-tags-help">Optional labels like bathroom, outdoor, or deep clean. Tags help group tasks and give optimization more context.</span>
-                    ) : null}
-                  </label>
-                </div>
-                <label>
-                  Instructions
-                  <textarea
-                    aria-describedby={editorMode === "create" ? "chore-instructions-help" : undefined}
-                    value={editorDraft.instructions}
-                    onChange={(event) => setEditorDraft({ ...editorDraft, instructions: event.target.value })}
-                  />
-                  {editorMode === "create" ? (
-                    <span className="field-help" id="chore-instructions-help">Add steps, scope, or preferences. This helps future optimization understand what the task includes.</span>
-                  ) : null}
-                </label>
                 {editorMode === "create" ? (
+                  <fieldset className="schedule-assignees task-source-selector">
+                    <legend>Task source</legend>
+                    <label className="checkbox-field">
+                      <input
+                        checked={editorDraft.taskSourceMode === "new"}
+                        name="task-source-mode"
+                        onChange={() => switchCreateTaskSourceMode("new")}
+                        type="radio"
+                      />
+                      New task
+                    </label>
+                    <label className="checkbox-field">
+                      <input
+                        checked={editorDraft.taskSourceMode === "existing"}
+                        disabled={savedTasksForScheduling().length === 0}
+                        name="task-source-mode"
+                        onChange={() => switchCreateTaskSourceMode("existing")}
+                        type="radio"
+                      />
+                      Existing task
+                    </label>
+                    {editorDraft.taskSourceMode === "existing" ? (
+                      <label className="aligned-field task-source-selector-field">
+                        Saved task
+                        <select
+                          value={editorDraft.taskId ?? ""}
+                          onChange={(event) => selectExistingTaskForDraft(event.target.value)}
+                        >
+                          {savedTasksForScheduling().map((task) => (
+                            <option key={task.id} value={task.id}>{task.title}</option>
+                          ))}
+                        </select>
+                      </label>
+                    ) : null}
+                  </fieldset>
+                ) : null}
+                {editorMode === "create" && editorDraft.taskSourceMode === "existing" ? (
+                  <section className="selected-task-summary" aria-label="Selected task summary">
+                    <div>
+                      <strong>{editorDraft.title}</strong>
+                      <span>{editorDraft.type === "commitment" ? "Commitment" : "Chore"}</span>
+                    </div>
+                    {editorDraft.tags.trim() ? <span>{editorDraft.tags}</span> : null}
+                  </section>
+                ) : (
+                  <>
+                    <div className="field-grid aligned-field-grid">
+                      <label className="aligned-field">
+                        Task title
+                        <input
+                          value={editorDraft.title}
+                          onChange={(event) => setEditorDraft({ ...editorDraft, title: event.target.value })}
+                          required
+                        />
+                        {editorMode === "create" || editorMode === "edit" ? <span className="field-help-placeholder" aria-hidden="true" /> : null}
+                      </label>
+                      <label className="aligned-field">
+                        Task type
+                        <select
+                          value={editorDraft.type}
+                          onChange={(event) => setEditorDraft({ ...editorDraft, type: event.target.value as Task["type"] })}
+                        >
+                          <option value="chore">Chore</option>
+                          <option value="commitment">Commitment</option>
+                        </select>
+                        {editorMode === "create" || editorMode === "edit" ? <span className="field-help-placeholder" aria-hidden="true" /> : null}
+                      </label>
+                      <label className="aligned-field">
+                        Tags
+                        <input
+                          aria-describedby={editorMode === "create" ? "chore-tags-help" : undefined}
+                          value={editorDraft.tags}
+                          onChange={(event) => setEditorDraft({ ...editorDraft, tags: event.target.value })}
+                        />
+                        {editorMode === "create" ? (
+                          <span className="field-help" id="chore-tags-help">Optional labels like bathroom, outdoor, or deep clean. Tags help group tasks and give optimization more context.</span>
+                        ) : null}
+                      </label>
+                    </div>
+                    <label>
+                      Instructions
+                      <textarea
+                        aria-describedby={editorMode === "create" ? "chore-instructions-help" : undefined}
+                        value={editorDraft.instructions}
+                        onChange={(event) => setEditorDraft({ ...editorDraft, instructions: event.target.value })}
+                      />
+                      {editorMode === "create" ? (
+                        <span className="field-help" id="chore-instructions-help">Add steps, scope, or preferences. This helps future optimization understand what the task includes.</span>
+                      ) : null}
+                    </label>
+                  </>
+                )}
+                {editorMode === "create" && editorDraft.taskSourceMode === "new" ? (
                   <label className="checkbox-field save-to-library-field">
                     <input
                       checked={editorDraft.saveToLibrary}

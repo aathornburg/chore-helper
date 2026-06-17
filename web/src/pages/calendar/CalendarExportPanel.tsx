@@ -159,7 +159,7 @@ export function CalendarExportReviewPanel({
           className="calendar-export-review-sheet"
           eyebrow="Review export"
           footer={(
-            <>
+            <div className="calendar-export-review-sheet-footer">
               <label>
                 To calendar
                 <select
@@ -175,7 +175,7 @@ export function CalendarExportReviewPanel({
               <button disabled={!canExport} onClick={onExport} type="button">
                 Export {pluralize(selectedEventIds.length, "selected event")}
               </button>
-            </>
+            </div>
           )}
           onClose={() => setIsReviewOpen(false)}
           title="Selected events"

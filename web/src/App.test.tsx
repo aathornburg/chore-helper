@@ -1130,6 +1130,32 @@ function mockCalendarWorkspaceFetches({
         }]
       };
     }
+    if (url.endsWith("/api/households/household-1/tasks/chore-1/schedules") && method === "POST") {
+      const schedule = JSON.parse(String(init?.body));
+      occurrences = [...occurrences, {
+        id: "occurrence-existing-new",
+        householdId: "household-1",
+        taskId: "chore-1",
+        scheduleId: "schedule-existing-new",
+        sequence: 0,
+        planningMode: schedule.planningMode,
+        estimatedMinutes: schedule.estimatedMinutes ?? 60,
+        eligibleStartOn: schedule.startsOn,
+        eligibleEndOn: schedule.startsOn,
+        assignedUserId: schedule.assignment.memberUserIds[0],
+        exceptionType: "none",
+        status: "planned"
+      }];
+      return {
+        ok: true,
+        json: async () => ({
+          id: "schedule-existing-new",
+          householdId: "household-1",
+          taskId: "chore-1",
+          ...schedule
+        })
+      };
+    }
     if (url.endsWith("/api/households/household-1/schedules/schedule-1") && method === "PUT") {
       return {
         ok: true,
@@ -2676,6 +2702,52 @@ describe("App", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Schedule task" }));
 
     expect((screen.getByRole("checkbox", { name: "Save to Task library" }) as HTMLInputElement).checked).toBe(true);
+  });
+
+  it("lets Calendar Schedule task choose an existing saved task", async () => {
+    const fetchMock = mockCalendarWorkspaceFetches();
+    vi.stubGlobal("fetch", fetchMock);
+    renderAt("/calendar");
+
+    fireEvent.click(await screen.findByRole("button", { name: "Schedule task" }));
+
+    const addModal = await screen.findByRole("dialog", { name: "Schedule task" });
+    fireEvent.click(within(addModal).getByRole("radio", { name: "Existing task" }));
+
+    const taskSelect = within(addModal).getByLabelText("Saved task") as HTMLSelectElement;
+    expect(taskSelect.value).toBe("chore-1");
+    expect(within(addModal).queryByLabelText("Task title")).toBeNull();
+    expect(within(addModal).queryByLabelText("Task type")).toBeNull();
+    expect(within(addModal).queryByLabelText("Tags")).toBeNull();
+    const selectedTaskSummary = within(addModal).getByRole("region", { name: "Selected task summary" });
+    expect(selectedTaskSummary).toBeTruthy();
+    expect(within(selectedTaskSummary).getByText("Clean bathrooms")).toBeTruthy();
+    expect(within(addModal).queryByRole("checkbox", { name: "Save to Task library" })).toBeNull();
+
+    fireEvent.click(within(addModal).getByRole("button", { name: "Schedule task" }));
+
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.some(([url, init]) =>
+        String(url).endsWith("/api/households/household-1/tasks/chore-1/schedules") &&
+        init?.method === "POST"
+      )).toBe(true);
+    });
+    expect(fetchMock.mock.calls.some(([url, init]) =>
+      String(url).endsWith("/api/households/household-1/tasks") &&
+      init?.method === "POST"
+    )).toBe(false);
+  });
+
+  it("opens the schedule modal prefilled from a Task library schedule link", async () => {
+    const fetchMock = mockCalendarWorkspaceFetches();
+    vi.stubGlobal("fetch", fetchMock);
+    renderAt("/calendar?scheduleTaskId=chore-1");
+
+    const addModal = await screen.findByRole("dialog", { name: "Schedule task" });
+    expect((within(addModal).getByRole("radio", { name: "Existing task" }) as HTMLInputElement).checked).toBe(true);
+    expect((within(addModal).getByLabelText("Saved task") as HTMLSelectElement).value).toBe("chore-1");
+    expect(within(addModal).queryByLabelText("Task title")).toBeNull();
+    expect(within(addModal).getByRole("region", { name: "Selected task summary" })).toBeTruthy();
   });
 
   it("uses one compact Calendar section trigger on mobile", async () => {
@@ -4464,6 +4536,7 @@ describe("App", () => {
     expect(within(drawer).getByText("Chore")).toBeTruthy();
     expect(within(drawer).getByText("Manual")).toBeTruthy();
     expect(within(drawer).getByText("No instructions yet.")).toBeTruthy();
+    expect(within(drawer).getByRole("button", { name: "Schedule task" })).toBeTruthy();
   });
 
   it("shows Task library CRUD controls to members with manage access", async () => {
@@ -4910,6 +4983,9 @@ describe("App", () => {
       expect(within(exportReviewControls).getByText("1 task")).toBeTruthy();
       expect(within(exportReviewControls).getByText("1 commitment")).toBeTruthy();
       expect(within(exportReviewControls).getByRole("button", { name: "Review 2" })).toBeTruthy();
+      const selectedTaskButton = screen.getByRole("button", { name: "Deselect Clean bathrooms" });
+      expect(selectedTaskButton.querySelector(".calendar-export-selected-check")).toBeTruthy();
+      expect(within(selectedTaskButton).queryByText(/selected/i)).toBeNull();
 
       fireEvent.click(within(exportReviewControls).getByRole("button", { name: "Review 2" }));
 
@@ -4924,6 +5000,7 @@ describe("App", () => {
       expect(within(reviewDialog).getByText("Clean bathrooms")).toBeTruthy();
       expect(within(reviewDialog).getByText("Soccer practice")).toBeTruthy();
       expect(within(reviewDialog).getByLabelText("To calendar")).toBeTruthy();
+      expect(reviewDialog.querySelector(".calendar-export-review-sheet-footer")).toBeTruthy();
       expect(within(reviewDialog).getByRole("button", { name: "Export 2 selected events" })).toBeTruthy();
 
       fireEvent.click(screen.getByRole("button", { name: "Deselect Clean bathrooms" }));
